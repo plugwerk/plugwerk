@@ -23,18 +23,18 @@ jobs:
           PERSONAL_ACCESS_TOKEN: ${{ secrets.CLA_TOKEN }}
         with:
           path-to-signatures: signatures/cla.json
-          path-to-document: https://github.com/criew/opaa/blob/main/CLA.md
+          path-to-document: https://github.com/devtank42gmbh/plugwerk/blob/main/CLA.md
           branch: cla-signatures
-          allowlist: criew,*[bot]
+          allowlist: devtank42gmbh,*[bot]
           create-file-commit-message: "chore: initialize CLA signatures file"
           signed-commit-message: "chore: add $contributorName to CLA signatories"
           custom-notsigned-prcomment: |
             Thank you for your contribution! :tada:
 
             Before we can merge this PR, you need to sign the **Contributor License Agreement (CLA)**.
-            This is required to allow OPAA to offer commercial licensing alongside its open-source license.
+            This is required to allow PlugWerk to offer commercial licensing alongside its open-source license.
 
-            Please read [CLA.md](https://github.com/criew/opaa/blob/main/CLA.md) — it is short and written in plain language.
+            Please read [CLA.md](https://github.com/devtank42gmbh/plugwerk/blob/main/CLA.md) — it is short and written in plain language.
 
             Then post the following comment **in this PR**:
 

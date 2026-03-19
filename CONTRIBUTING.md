@@ -1,12 +1,12 @@
-# Contributing to OPAA
+# Contributing to PlugWerk
 
-Thank you for your interest in contributing to OPAA! This project welcomes contributions from both humans and AI coding agents.
+Thank you for your interest in contributing to PlugWerk! This project welcomes contributions from both humans and AI coding agents.
 
 ## Contributor License Agreement (CLA)
 
 **Before your first Pull Request can be merged, you must sign the CLA.**
 
-OPAA uses a dual-licensing model: the core is open source, and commercial licenses are offered for organizations that cannot comply with the open-source license. The CLA grants the project the right to sublicense your contributions under both open-source and commercial terms — this is what makes dual licensing legally possible.
+PlugWerk uses a dual-licensing model: the core is open source, and commercial licenses are offered for organizations that cannot comply with the open-source license. The CLA grants the project the right to sublicense your contributions under both open-source and commercial terms — this is what makes dual licensing legally possible.
 
 **How to sign:** Read [CLA.md](./CLA.md) (it's short), then post this comment on your first PR:
 
