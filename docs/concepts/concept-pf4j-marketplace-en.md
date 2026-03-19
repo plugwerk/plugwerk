@@ -482,7 +482,7 @@ devtank42 operates the PlugWerk server as a managed service.
 
 | Tier | Scope | Price |
 |------|-------|-------|
-| **Community** | Open Source (Apache 2.0), self-hosted, 1 namespace, unlimited plugins, community support | Free |
+| **Community** | Open Source (AGPL-3.0), self-hosted, 1 namespace, unlimited plugins, community support | Free |
 | **Professional** | Self-hosted, multi-namespace, RBAC, review workflow, code signing, email support | Subscription (per server) |
 | **Enterprise** | Self-hosted or managed, vulnerability scanning, SSO/OIDC, SLA, dedicated support | Subscription (by arrangement) |
 | **SaaS** | Managed service, pay-per-namespace or flat rate, all features included | Monthly (per namespace + download volume) |
