@@ -1,0 +1,68 @@
+spring:
+  application:
+    name: plugwerk-server
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    url: ${PLUGWERK_DB_URL:jdbc:postgresql://localhost:5432/plugwerk}
+    username: ${PLUGWERK_DB_USERNAME:plugwerk}
+    password: ${PLUGWERK_DB_PASSWORD:plugwerk}
+
+  jpa:
+    show-sql: true
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  datasource:
+    url: ${PLUGWERK_DB_URL:jdbc:postgresql://localhost:5432/plugwerk_test}
+    username: ${PLUGWERK_DB_USERNAME:plugwerk}
+    password: ${PLUGWERK_DB_PASSWORD:plugwerk}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: ${PLUGWERK_DB_URL}
+    username: ${PLUGWERK_DB_USERNAME}
+    password: ${PLUGWERK_DB_PASSWORD}
+
+  jpa:
+    show-sql: false

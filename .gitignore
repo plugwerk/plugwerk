@@ -1,9 +1,3 @@
-# Java
-*.class
-*.jar
-*.war
-*.ear
-
 # Gradle
 .gradle/
 build/
@@ -15,11 +9,13 @@ build/
 *.ipr
 *.iws
 .vscode/
-.settings/
-.project
-.classpath
-*.swp
-*~
+
+# Kotlin
+*.class
+
+# Node
+node_modules/
+dist/
 
 # OS
 .DS_Store
@@ -27,15 +23,7 @@ Thumbs.db
 
 # Environment
 .env
-.env.*
-!.env.example
+.env.local
 
-# Logs
-*.log
-
-# Node (Web UI)
-node_modules/
-dist/
-
-# Docker
+# Docker override (local dev customizations)
 docker-compose.override.yml

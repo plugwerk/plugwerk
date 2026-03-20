@@ -1,0 +1,70 @@
+openapi: 3.1.0
+info:
+  title: Plugwerk API
+  description: Plugin marketplace for the Java/PF4J ecosystem
+  version: 0.1.0
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.html
+
+servers:
+  - url: /api/v1
+    description: Base path for all API endpoints
+
+paths:
+  /namespaces/{ns}/plugins:
+    get:
+      tags:
+        - Catalog
+      summary: List plugins
+      operationId: listPlugins
+      parameters:
+        - $ref: '#/components/parameters/NamespaceSlug'
+      responses:
+        '200':
+          description: Plugin list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PluginDto'
+
+components:
+  parameters:
+    NamespaceSlug:
+      name: ns
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Namespace slug
+
+  schemas:
+    PluginDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        pluginId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        author:
+          type: string
+        status:
+          type: string
+      required:
+        - id
+        - pluginId
+        - name
+        - status
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
