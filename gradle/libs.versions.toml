@@ -18,6 +18,7 @@ swagger-annotations = "2.2.45"
 jakarta-validation = "3.1.1"
 jakarta-annotation = "3.0.0"
 semver4j = "6.0.0"
+spotless = "7.0.4"
 
 [libraries]
 # Kotlin
@@ -82,3 +83,4 @@ kotlin-jpa = { id = "org.jetbrains.kotlin.plugin.jpa", version.ref = "kotlin" }
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
 openapi-generator = { id = "org.openapi.generator", version.ref = "openapi-generator" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

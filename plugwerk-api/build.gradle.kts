@@ -34,7 +34,7 @@ openApiGenerate {
             "serializationLibrary" to "jackson",
             "enumPropertyNaming" to "UPPERCASE",
             "reactive" to "false",
-        )
+        ),
     )
 }
 

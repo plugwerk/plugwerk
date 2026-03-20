@@ -19,7 +19,4 @@ data class PlugwerkDescriptor(
     val pluginDependencies: List<PluginDependency> = emptyList(),
 )
 
-data class PluginDependency(
-    val id: String,
-    val version: String,
-)
+data class PluginDependency(val id: String, val version: String)

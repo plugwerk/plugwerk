@@ -14,6 +14,5 @@ data class PlugwerkConfig(
     val readTimeoutMs: Long = 30_000,
     val cacheDirectory: Path? = null,
 ) {
-    override fun toString(): String =
-        "PlugwerkConfig(serverUrl=$serverUrl, namespace=$namespace, apiKey=<masked>)"
+    override fun toString(): String = "PlugwerkConfig(serverUrl=$serverUrl, namespace=$namespace, apiKey=<masked>)"
 }
