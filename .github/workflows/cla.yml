@@ -25,7 +25,7 @@ jobs:
           path-to-signatures: signatures/cla.json
           path-to-document: https://github.com/devtank42gmbh/plugwerk/blob/main/CLA.md
           branch: cla-signatures
-          allowlist: devtank42gmbh,*[bot]
+          allowlist: bigpuritz,devtank42,*[bot]
           create-file-commit-message: "chore: initialize CLA signatures file"
           signed-commit-message: "chore: add $contributorName to CLA signatories"
           custom-notsigned-prcomment: |
