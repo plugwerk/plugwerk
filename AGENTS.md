@@ -36,6 +36,34 @@ All project communication is in **English**: code, documentation, issues, PR des
   - Bugs: `bug_report.md`
   - Features: `feature_request.md`
 
+## License Header (MANDATORY)
+
+Every Kotlin source file (`src/**/*.kt`) **must** begin with the AGPL-3.0 license header. This is enforced automatically by Spotless — running `./gradlew spotlessApply` adds the header to any file missing it.
+
+```kotlin
+/*
+ * Plugwerk — Plugin Marketplace for the PF4J Ecosystem
+ * Copyright (C) 2025 devtank42 GmbH
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+```
+
+- **Never omit** the header from new files — `spotlessCheck` in CI will fail without it.
+- Do **not** modify the header text — the exact wording is controlled in the root `build.gradle.kts` `licenseHeader` block.
+- Generated files under `build/generated/` are excluded from this rule (not in `src/`).
+
 ## Issue Management
 
 Every GitHub Issue must have (see [ADR-0002](docs/adrs/0002-issue-management-guidelines.md)):
