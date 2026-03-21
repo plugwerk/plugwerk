@@ -22,14 +22,16 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 /**
  * Central configuration properties for the Plugwerk server, bound to the `plugwerk` prefix.
  *
- * All application-specific settings are grouped here. Each logical sub-section is represented
- * by a nested data class so consumers can depend on only the slice they need.
+ * All Plugwerk-specific settings are grouped here. Each logical sub-section is represented
+ * by a nested data class so that consumers can depend on only the slice they need.
+ * Registered via `@EnableConfigurationProperties` on [PlugwerkApplication].
  *
- * Registered via [@EnableConfigurationProperties][org.springframework.boot.context.properties.EnableConfigurationProperties]
- * on [PlugwerkApplication].
+ * Configuration is supplied through `application.yml` and can be overridden per environment
+ * using environment variables (see each property for the corresponding variable name).
  *
- * @property storage Artifact storage configuration (type selection and backend-specific settings).
- * @property server Server-level settings (e.g. the externally reachable base URL).
+ * @property storage Artifact storage configuration — selects the backend and provides
+ *   backend-specific settings. See [StorageProperties].
+ * @property server Server-level settings shared across services. See [ServerProperties].
  */
 @ConfigurationProperties(prefix = "plugwerk")
 data class PlugwerkProperties(
@@ -39,15 +41,51 @@ data class PlugwerkProperties(
     /**
      * Artifact storage configuration (`plugwerk.storage.*`).
      *
-     * @property type Storage backend type. Supported values: `fs` (filesystem, default).
-     *   Future values: `s3`.
-     * @property fs Filesystem-specific settings, used when [type] is `fs`.
+     * Controls which storage backend is used for plugin artefact files (JARs/ZIPs) and
+     * provides the backend-specific settings. The active backend is selected by [type];
+     * only the matching sub-section (e.g. [fs]) is used.
+     *
+     * @property type Selects the active storage backend.
+     *   Supported values:
+     *   - `fs` — local filesystem (default). Suitable for single-node deployments.
+     *   - `s3` — S3-compatible object storage (planned, Phase 2). For multi-node or
+     *     cloud deployments using AWS S3, MinIO, etc.
+     *
+     *   Environment variable: `PLUGWERK_STORAGE_TYPE`
+     *
+     *   ```yaml
+     *   # Local dev / single-node:
+     *   plugwerk.storage.type: fs
+     *
+     *   # Future: S3-compatible:
+     *   plugwerk.storage.type: s3
+     *   ```
+     *
+     * @property fs Settings for the filesystem backend. Only relevant when [type] is `fs`.
      */
     data class StorageProperties(val type: String = "fs", val fs: FsProperties = FsProperties()) {
         /**
          * Filesystem storage settings (`plugwerk.storage.fs.*`).
          *
-         * @property root Absolute path to the directory where plugin artefacts are stored.
+         * Used when `plugwerk.storage.type=fs`. The directory is created automatically
+         * on first use if it does not exist.
+         *
+         * @property root Absolute path to the root directory where plugin artefact files
+         *   are stored. All artefact keys are resolved relative to this directory.
+         *   Path traversal outside this root is rejected at runtime.
+         *
+         *   Environment variable: `PLUGWERK_STORAGE_ROOT`
+         *
+         *   ```yaml
+         *   # Linux service installation:
+         *   plugwerk.storage.fs.root: /var/plugwerk/artifacts
+         *
+         *   # Shared NFS mount (multi-read-node setup):
+         *   plugwerk.storage.fs.root: /mnt/nfs/plugwerk/artifacts
+         *
+         *   # Local development (project-relative):
+         *   plugwerk.storage.fs.root: /tmp/plugwerk-dev
+         *   ```
          */
         data class FsProperties(val root: String = "/var/plugwerk/artifacts")
     }
@@ -55,8 +93,31 @@ data class PlugwerkProperties(
     /**
      * Server-level settings (`plugwerk.server.*`).
      *
-     * @property baseUrl Externally reachable base URL of this server instance
-     *   (e.g. `https://plugins.example.com`). Used to build absolute download URLs.
+     * Contains settings that describe how this server instance is reachable from the outside.
+     * These values are used when the server needs to construct absolute URLs in responses
+     * (e.g. download links in `plugins.json`) that external clients will follow.
+     *
+     * @property baseUrl The externally reachable base URL of this server instance, without
+     *   a trailing slash. This is the URL that pf4j clients and browsers use to reach the
+     *   server — which is often different from the local listen address when the server
+     *   runs behind a reverse proxy (nginx, AWS ALB, etc.) that handles TLS termination
+     *   or path rewriting.
+     *
+     *   Used by [io.plugwerk.server.service.Pf4jCompatibilityService] to build absolute
+     *   artefact download URLs embedded in `plugins.json`.
+     *
+     *   Environment variable: `PLUGWERK_BASE_URL`
+     *
+     *   ```yaml
+     *   # Local development (no proxy):
+     *   plugwerk.server.base-url: http://localhost:8080
+     *
+     *   # Production (behind TLS-terminating reverse proxy):
+     *   plugwerk.server.base-url: https://plugins.example.com
+     *
+     *   # Production with a context path:
+     *   plugwerk.server.base-url: https://example.com/plugwerk
+     *   ```
      */
     data class ServerProperties(val baseUrl: String = "http://localhost:8080")
 }

@@ -1,41 +1,119 @@
+# =============================================================================
+# Plugwerk Server — Application Configuration
+# =============================================================================
+# All Plugwerk-specific properties are grouped under the `plugwerk:` prefix and
+# mapped to PlugwerkProperties (io.plugwerk.server.PlugwerkProperties).
+#
+# Environment variables are used for all deployment-sensitive values so that
+# the same image/JAR can run in dev, staging, and production without code
+# changes. Each property documents its environment variable and default value.
+# =============================================================================
+
 spring:
   application:
+    # Logical name of this service. Used in log output, Spring Boot Admin,
+    # and distributed tracing (e.g. as the service name in Zipkin/OTLP spans).
     name: plugwerk-server
 
   jpa:
+    # Disable the Open-Session-in-View anti-pattern. All database access must
+    # happen within an explicit @Transactional boundary in the service layer.
     open-in-view: false
     hibernate:
+      # Schema management is handled exclusively by Liquibase. Hibernate only
+      # validates that the entity model matches the current schema on startup.
+      # Never use create, create-drop, or update in any environment.
       ddl-auto: validate
 
   liquibase:
+    # Path to the Liquibase master changelog inside the classpath.
+    # The master file includes all individual migration files in order.
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
   jackson:
     serialization:
+      # Serialize java.time types as ISO-8601 strings (e.g. "2026-03-21T10:00:00Z")
+      # instead of Unix epoch milliseconds. Required for API compatibility.
       write-dates-as-timestamps: false
     deserialization:
+      # Accept JSON payloads that contain unknown fields without throwing an error.
+      # Allows clients to send forward-compatible payloads.
       fail-on-unknown-properties: false
 
+# =============================================================================
+# Plugwerk-specific properties (plugwerk.*)
+# All values are overridable via environment variables.
+# =============================================================================
 plugwerk:
   storage:
+    # Storage backend type. Determines which ArtifactStorageService implementation
+    # is activated. Currently supported values:
+    #   fs  — local filesystem (default, suitable for single-node deployments)
+    # Planned future values:
+    #   s3  — S3-compatible object storage (AWS S3, MinIO) for multi-node setups
+    # Environment variable: PLUGWERK_STORAGE_TYPE
+    # Example (production with S3): PLUGWERK_STORAGE_TYPE=s3
     type: ${PLUGWERK_STORAGE_TYPE:fs}
     fs:
+      # Absolute path to the root directory where plugin artefact files are stored
+      # when the filesystem backend (type=fs) is active. The directory is created
+      # automatically on first use if it does not exist.
+      # Environment variable: PLUGWERK_STORAGE_ROOT
+      # Examples:
+      #   /var/plugwerk/artifacts       (Linux service)
+      #   /mnt/nfs/plugwerk/artifacts   (shared NFS mount)
+      #   C:/plugwerk/artifacts         (Windows dev)
       root: ${PLUGWERK_STORAGE_ROOT:/var/plugwerk/artifacts}
   server:
+    # Externally reachable base URL of this Plugwerk server instance.
+    # Used to build absolute download URLs in API responses and in the
+    # pf4j-update compatible plugins.json endpoint. Must match the URL that
+    # external pf4j clients (and browsers) use to reach the server.
+    #
+    # This is intentionally separate from Spring Boot's server.port because
+    # in production the server typically runs behind a reverse proxy (nginx,
+    # AWS ALB, etc.) and the external URL differs from the local listen address.
+    #
+    # Environment variable: PLUGWERK_BASE_URL
+    # Examples:
+    #   http://localhost:8080               (local development)
+    #   https://plugins.example.com         (production, behind TLS proxy)
+    #   https://plugins.example.com/market  (production with context path)
     base-url: ${PLUGWERK_BASE_URL:http://localhost:8080}
 
+# =============================================================================
+# Embedded server settings (Spring Boot server.*)
+# =============================================================================
 server:
+  # HTTP port the embedded Tomcat listens on.
+  # In production this is typically 8080 behind a reverse proxy that handles
+  # TLS termination and exposes port 443 externally.
   port: 8080
 
+# =============================================================================
+# Spring Boot Actuator (management.*)
+# =============================================================================
 management:
   endpoints:
     web:
       exposure:
+        # Expose only the endpoints needed for operations and monitoring.
+        # health  — liveness/readiness probe (used by Docker/Kubernetes)
+        # info    — version and build metadata
+        # prometheus — metrics scrape endpoint for Prometheus
         include: health,info,prometheus
   endpoint:
     health:
+      # Show full health details only to authenticated users (e.g. ops team).
+      # Unauthenticated callers receive a simple UP/DOWN status without
+      # internal details (database status, disk space, etc.).
       show-details: when-authorized
 
+# =============================================================================
+# Profile: dev
+# Local development against a locally running PostgreSQL instance.
+# Start the database with: docker compose up -d postgres
+# =============================================================================
 ---
 spring:
   config:
@@ -43,13 +121,23 @@ spring:
       on-profile: dev
 
   datasource:
+    # JDBC URL for the local development database.
+    # Environment variable: PLUGWERK_DB_URL
     url: ${PLUGWERK_DB_URL:jdbc:postgresql://localhost:5432/plugwerk}
+    # Environment variable: PLUGWERK_DB_USERNAME
     username: ${PLUGWERK_DB_USERNAME:plugwerk}
+    # Environment variable: PLUGWERK_DB_PASSWORD
     password: ${PLUGWERK_DB_PASSWORD:plugwerk}
 
   jpa:
+    # Log all SQL statements in dev to aid debugging. Never enable in production.
     show-sql: true
 
+# =============================================================================
+# Profile: test
+# Used by integration tests (Testcontainers overrides the datasource URL at
+# runtime; these values are fallbacks for manual test runs against a local DB).
+# =============================================================================
 ---
 spring:
   config:
@@ -61,6 +149,12 @@ spring:
     username: ${PLUGWERK_DB_USERNAME:plugwerk}
     password: ${PLUGWERK_DB_PASSWORD:plugwerk}
 
+# =============================================================================
+# Profile: prod
+# All sensitive values must be supplied via environment variables.
+# No defaults are provided — missing variables cause a startup failure,
+# which is the desired fail-fast behaviour for production deployments.
+# =============================================================================
 ---
 spring:
   config:
@@ -68,8 +162,11 @@ spring:
       on-profile: prod
 
   datasource:
+    # Required. Example: jdbc:postgresql://db.internal:5432/plugwerk
     url: ${PLUGWERK_DB_URL}
+    # Required.
     username: ${PLUGWERK_DB_USERNAME}
+    # Required.
     password: ${PLUGWERK_DB_PASSWORD}
 
   jpa:

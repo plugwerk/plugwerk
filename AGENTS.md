@@ -74,6 +74,20 @@ Every GitHub Issue must have (see [ADR-0002](docs/adrs/0002-issue-management-gui
 - **Labels** applied
 - **Relationships** (parent/child) if applicable
 
+## Configuration Property Documentation (MANDATORY)
+
+Every configuration property — whether in `application.yml` or bound via `@ConfigurationProperties` — **must** be documented in both places:
+
+1. **`application.yml`** — inline YAML comment (`#`) directly above or beside the property explaining:
+   - What the property controls and why it exists
+   - The environment variable that overrides it (`PLUGWERK_*`)
+   - At least one concrete example value
+   - Any constraints or warnings (e.g. "never set to `create` in production")
+
+2. **`PlugwerkProperties.kt`** (or the relevant `@ConfigurationProperties` class) — KDoc on the corresponding field explaining the same, plus code examples in a ```` ```yaml ``` ```` block.
+
+Undocumented properties are non-compliant and must not be merged.
+
 ## Pull Request Requirements (MANDATORY)
 
 Every pull request **must** be created with:
