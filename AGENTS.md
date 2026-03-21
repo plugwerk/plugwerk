@@ -24,6 +24,8 @@ Use **"Plugwerk"** (not "PlugWerk") everywhere. Base package: `io.plugwerk`.
 
 All project communication is in **English**: code, documentation, issues, PR descriptions, reviews, ADRs.
 
+This includes **source code comments and KDoc** — inline comments, KDoc (`/** … */`), and `TODO`/`FIXME` notes must all be written in English. German is never acceptable in source files.
+
 ## Git Workflow
 
 - **Never commit directly to `main`** – always use a feature branch
@@ -36,6 +38,34 @@ All project communication is in **English**: code, documentation, issues, PR des
   - Bugs: `bug_report.md`
   - Features: `feature_request.md`
 
+## License Header (MANDATORY)
+
+Every Kotlin source file (`src/**/*.kt`) **must** begin with the AGPL-3.0 license header. This is enforced automatically by Spotless — running `./gradlew spotlessApply` adds the header to any file missing it.
+
+```kotlin
+/*
+ * Plugwerk — Plugin Marketplace for the PF4J Ecosystem
+ * Copyright (C) 2026 devtank42 GmbH
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+```
+
+- **Never omit** the header from new files — `spotlessCheck` in CI will fail without it.
+- Do **not** modify the header text — the exact wording is controlled in the root `build.gradle.kts` `licenseHeader` block.
+- Generated files under `build/generated/` are excluded from this rule (not in `src/`).
+
 ## Issue Management
 
 Every GitHub Issue must have (see [ADR-0002](docs/adrs/0002-issue-management-guidelines.md)):
@@ -43,6 +73,28 @@ Every GitHub Issue must have (see [ADR-0002](docs/adrs/0002-issue-management-gui
 - **Milestone** assigned
 - **Labels** applied
 - **Relationships** (parent/child) if applicable
+
+## Configuration Property Documentation (MANDATORY)
+
+Every configuration property — whether in `application.yml` or bound via `@ConfigurationProperties` — **must** be documented in both places:
+
+1. **`application.yml`** — inline YAML comment (`#`) directly above or beside the property explaining:
+   - What the property controls and why it exists
+   - The environment variable that overrides it (`PLUGWERK_*`)
+   - At least one concrete example value
+   - Any constraints or warnings (e.g. "never set to `create` in production")
+
+2. **`PlugwerkProperties.kt`** (or the relevant `@ConfigurationProperties` class) — KDoc on the corresponding field explaining the same, plus code examples in a ```` ```yaml ``` ```` block.
+
+Undocumented properties are non-compliant and must not be merged.
+
+## Pull Request Requirements (MANDATORY)
+
+Every pull request **must** be created with:
+- **Labels** — at minimum one label matching the change type (e.g. `enhancement`, `bug`, `chore`)
+- **Milestone** — the milestone of the issue(s) being closed (e.g. `Phase 1 — MVP`)
+
+PRs without labels or milestone are non-compliant. Set them via `gh pr edit <number> --add-label "<label>" --milestone "<milestone>"` or through the GitHub UI before requesting review.
 
 ## Documentation
 

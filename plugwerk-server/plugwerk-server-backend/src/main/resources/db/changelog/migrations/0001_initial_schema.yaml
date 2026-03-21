@@ -154,6 +154,11 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
+                  name: artifact_key
+                  type: varchar(1024)
+                  constraints:
+                    nullable: false
+              - column:
                   name: requires_system_version
                   type: varchar(255)
               - column:

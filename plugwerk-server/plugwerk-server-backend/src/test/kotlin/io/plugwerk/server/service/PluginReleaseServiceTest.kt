@@ -1,0 +1,191 @@
+/*
+ * Plugwerk — Plugin Marketplace for the PF4J Ecosystem
+ * Copyright (C) 2026 devtank42 GmbH
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+package io.plugwerk.server.service
+
+import io.plugwerk.common.model.ReleaseStatus
+import io.plugwerk.descriptor.DescriptorResolver
+import io.plugwerk.descriptor.PlugwerkDescriptor
+import io.plugwerk.server.domain.NamespaceEntity
+import io.plugwerk.server.domain.PluginEntity
+import io.plugwerk.server.domain.PluginReleaseEntity
+import io.plugwerk.server.repository.NamespaceRepository
+import io.plugwerk.server.repository.PluginReleaseRepository
+import io.plugwerk.server.repository.PluginRepository
+import io.plugwerk.server.service.storage.ArtifactStorageService
+import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
+import org.mockito.Mock
+import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
+import tools.jackson.databind.ObjectMapper
+import java.io.ByteArrayInputStream
+import java.util.Optional
+import kotlin.test.assertFailsWith
+
+@ExtendWith(MockitoExtension::class)
+class PluginReleaseServiceTest {
+
+    @Mock lateinit var releaseRepository: PluginReleaseRepository
+
+    @Mock lateinit var pluginRepository: PluginRepository
+
+    @Mock lateinit var namespaceRepository: NamespaceRepository
+
+    @Mock lateinit var storageService: ArtifactStorageService
+
+    @Mock lateinit var descriptorResolver: DescriptorResolver
+
+    lateinit var releaseService: PluginReleaseService
+
+    private val namespace = NamespaceEntity(slug = "acme", ownerOrg = "ACME Corp")
+    private val plugin = PluginEntity(namespace = namespace, pluginId = "my-plugin", name = "My Plugin")
+
+    @BeforeEach
+    fun setUp() {
+        releaseService = PluginReleaseService(
+            releaseRepository,
+            pluginRepository,
+            namespaceRepository,
+            storageService,
+            descriptorResolver,
+            ObjectMapper(),
+        )
+    }
+
+    @Test
+    fun `upload creates release from descriptor and stores artifact`() {
+        val jarBytes = "fake-jar-content".toByteArray()
+        val descriptor = PlugwerkDescriptor(id = "my-plugin", version = "1.0.0", name = "My Plugin")
+
+        whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.existsByPluginAndVersion(plugin, "1.0.0")).thenReturn(false)
+        whenever(
+            storageService.store(any<String>(), any<java.io.InputStream>(), any<Long>()),
+        ).thenReturn("acme/my-plugin/1.0.0")
+        val savedRelease = PluginReleaseEntity(
+            plugin = plugin,
+            version = "1.0.0",
+            artifactSha256 = "sha",
+            artifactKey = "acme/my-plugin/1.0.0",
+        )
+        whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenReturn(savedRelease)
+
+        val result = releaseService.upload("acme", ByteArrayInputStream(jarBytes), jarBytes.size.toLong())
+
+        assertThat(result.version).isEqualTo("1.0.0")
+        verify(storageService).store(eq("acme/my-plugin/1.0.0"), any<java.io.InputStream>(), any<Long>())
+        verify(releaseRepository).save(any<PluginReleaseEntity>())
+    }
+
+    @Test
+    fun `upload throws ReleaseAlreadyExistsException when version exists`() {
+        val jarBytes = "fake-jar-content".toByteArray()
+        val descriptor = PlugwerkDescriptor(id = "my-plugin", version = "1.0.0", name = "My Plugin")
+
+        whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.existsByPluginAndVersion(plugin, "1.0.0")).thenReturn(true)
+
+        assertFailsWith<ReleaseAlreadyExistsException> {
+            releaseService.upload("acme", ByteArrayInputStream(jarBytes), jarBytes.size.toLong())
+        }
+    }
+
+    @Test
+    fun `upload auto-creates plugin when it does not exist`() {
+        val jarBytes = "fake-jar-content".toByteArray()
+        val descriptor = PlugwerkDescriptor(id = "new-plugin", version = "1.0.0", name = "New Plugin")
+        val newPlugin = PluginEntity(namespace = namespace, pluginId = "new-plugin", name = "New Plugin")
+
+        whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "new-plugin")).thenReturn(Optional.empty())
+        whenever(pluginRepository.save(any<PluginEntity>())).thenReturn(newPlugin)
+        whenever(releaseRepository.existsByPluginAndVersion(newPlugin, "1.0.0")).thenReturn(false)
+        whenever(
+            storageService.store(any<String>(), any<java.io.InputStream>(), any<Long>()),
+        ).thenReturn("acme/new-plugin/1.0.0")
+        val savedRelease = PluginReleaseEntity(
+            plugin = newPlugin,
+            version = "1.0.0",
+            artifactSha256 = "sha",
+            artifactKey = "acme/new-plugin/1.0.0",
+        )
+        whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenReturn(savedRelease)
+
+        val result = releaseService.upload("acme", ByteArrayInputStream(jarBytes), jarBytes.size.toLong())
+
+        assertThat(result.version).isEqualTo("1.0.0")
+        verify(pluginRepository).save(any<PluginEntity>())
+    }
+
+    @Test
+    fun `findByVersion throws ReleaseNotFoundException when release missing`() {
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.findByPluginAndVersion(plugin, "9.9.9")).thenReturn(Optional.empty())
+
+        assertFailsWith<ReleaseNotFoundException> {
+            releaseService.findByVersion("acme", "my-plugin", "9.9.9")
+        }
+    }
+
+    @Test
+    fun `updateStatus changes release status`() {
+        val release = PluginReleaseEntity(
+            plugin = plugin,
+            version = "1.0.0",
+            artifactSha256 = "sha",
+            artifactKey = "acme/my-plugin/1.0.0",
+        )
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.findByPluginAndVersion(plugin, "1.0.0")).thenReturn(Optional.of(release))
+        whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenReturn(release)
+
+        releaseService.updateStatus("acme", "my-plugin", "1.0.0", ReleaseStatus.PUBLISHED)
+
+        assertThat(release.status).isEqualTo(ReleaseStatus.PUBLISHED)
+    }
+
+    @Test
+    fun `delete removes artifact and release entity`() {
+        val release = PluginReleaseEntity(
+            plugin = plugin,
+            version = "1.0.0",
+            artifactSha256 = "sha",
+            artifactKey = "acme/my-plugin/1.0.0",
+        )
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.findByPluginAndVersion(plugin, "1.0.0")).thenReturn(Optional.of(release))
+
+        releaseService.delete("acme", "my-plugin", "1.0.0")
+
+        verify(storageService).delete("acme/my-plugin/1.0.0")
+        verify(releaseRepository).delete(release)
+    }
+}

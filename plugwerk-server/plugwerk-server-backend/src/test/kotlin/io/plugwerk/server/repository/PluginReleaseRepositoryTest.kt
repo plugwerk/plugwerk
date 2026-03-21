@@ -1,3 +1,20 @@
+/*
+ * Plugwerk — Plugin Marketplace for the PF4J Ecosystem
+ * Copyright (C) 2026 devtank42 GmbH
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 package io.plugwerk.server.repository
 
 import io.plugwerk.common.model.ReleaseStatus
@@ -35,7 +52,12 @@ open class PluginReleaseRepositoryTest : AbstractRepositoryTest() {
     fun `findByPluginAndVersion returns release when it exists`() {
         val release =
             releaseRepository.save(
-                PluginReleaseEntity(plugin = plugin, version = "1.0.0", artifactSha256 = "abc123"),
+                PluginReleaseEntity(
+                    plugin = plugin,
+                    version = "1.0.0",
+                    artifactSha256 = "abc123",
+                    artifactKey = "release-ns/my-plugin/1.0.0",
+                ),
             )
 
         val found = releaseRepository.findByPluginAndVersion(plugin, "1.0.0")
@@ -53,9 +75,30 @@ open class PluginReleaseRepositoryTest : AbstractRepositoryTest() {
 
     @Test
     fun `findAllByPluginOrderByCreatedAtDesc returns releases newest first`() {
-        releaseRepository.save(PluginReleaseEntity(plugin = plugin, version = "1.0.0", artifactSha256 = "sha1"))
-        releaseRepository.save(PluginReleaseEntity(plugin = plugin, version = "1.1.0", artifactSha256 = "sha2"))
-        releaseRepository.save(PluginReleaseEntity(plugin = plugin, version = "2.0.0", artifactSha256 = "sha3"))
+        releaseRepository.save(
+            PluginReleaseEntity(
+                plugin = plugin,
+                version = "1.0.0",
+                artifactSha256 = "sha1",
+                artifactKey = "release-ns/my-plugin/1.0.0",
+            ),
+        )
+        releaseRepository.save(
+            PluginReleaseEntity(
+                plugin = plugin,
+                version = "1.1.0",
+                artifactSha256 = "sha2",
+                artifactKey = "release-ns/my-plugin/1.1.0",
+            ),
+        )
+        releaseRepository.save(
+            PluginReleaseEntity(
+                plugin = plugin,
+                version = "2.0.0",
+                artifactSha256 = "sha3",
+                artifactKey = "release-ns/my-plugin/2.0.0",
+            ),
+        )
 
         val releases = releaseRepository.findAllByPluginOrderByCreatedAtDesc(plugin)
 
@@ -71,6 +114,7 @@ open class PluginReleaseRepositoryTest : AbstractRepositoryTest() {
                 plugin = plugin,
                 version = "1.0.0",
                 artifactSha256 = "sha1",
+                artifactKey = "release-ns/my-plugin/1.0.0",
                 status = ReleaseStatus.PUBLISHED,
             ),
         )
@@ -79,6 +123,7 @@ open class PluginReleaseRepositoryTest : AbstractRepositoryTest() {
                 plugin = plugin,
                 version = "2.0.0",
                 artifactSha256 = "sha2",
+                artifactKey = "release-ns/my-plugin/2.0.0",
                 status = ReleaseStatus.DRAFT,
             ),
         )
@@ -87,6 +132,7 @@ open class PluginReleaseRepositoryTest : AbstractRepositoryTest() {
                 plugin = plugin,
                 version = "3.0.0",
                 artifactSha256 = "sha3",
+                artifactKey = "release-ns/my-plugin/3.0.0",
                 status = ReleaseStatus.YANKED,
             ),
         )
@@ -109,6 +155,7 @@ open class PluginReleaseRepositoryTest : AbstractRepositoryTest() {
                     plugin = plugin,
                     version = "1.0.0",
                     artifactSha256 = "sha1",
+                    artifactKey = "release-ns/my-plugin/1.0.0",
                     pluginDependencies = deps,
                 ),
             )
@@ -120,19 +167,38 @@ open class PluginReleaseRepositoryTest : AbstractRepositoryTest() {
 
     @Test
     fun `save fails on duplicate version for same plugin`() {
-        releaseRepository.save(PluginReleaseEntity(plugin = plugin, version = "1.0.0", artifactSha256 = "sha1"))
+        releaseRepository.save(
+            PluginReleaseEntity(
+                plugin = plugin,
+                version = "1.0.0",
+                artifactSha256 = "sha1",
+                artifactKey = "release-ns/my-plugin/1.0.0",
+            ),
+        )
         releaseRepository.flush()
 
         assertFailsWith<DataIntegrityViolationException> {
             releaseRepository.saveAndFlush(
-                PluginReleaseEntity(plugin = plugin, version = "1.0.0", artifactSha256 = "sha2"),
+                PluginReleaseEntity(
+                    plugin = plugin,
+                    version = "1.0.0",
+                    artifactSha256 = "sha2",
+                    artifactKey = "release-ns/my-plugin/1.0.0-dup",
+                ),
             )
         }
     }
 
     @Test
     fun `existsByPluginAndVersion returns correct boolean`() {
-        releaseRepository.save(PluginReleaseEntity(plugin = plugin, version = "1.0.0", artifactSha256 = "sha1"))
+        releaseRepository.save(
+            PluginReleaseEntity(
+                plugin = plugin,
+                version = "1.0.0",
+                artifactSha256 = "sha1",
+                artifactKey = "release-ns/my-plugin/1.0.0",
+            ),
+        )
 
         assertThat(releaseRepository.existsByPluginAndVersion(plugin, "1.0.0")).isTrue()
         assertThat(releaseRepository.existsByPluginAndVersion(plugin, "2.0.0")).isFalse()
