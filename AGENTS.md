@@ -24,6 +24,8 @@ Use **"Plugwerk"** (not "PlugWerk") everywhere. Base package: `io.plugwerk`.
 
 All project communication is in **English**: code, documentation, issues, PR descriptions, reviews, ADRs.
 
+This includes **source code comments and KDoc** — inline comments, KDoc (`/** … */`), and `TODO`/`FIXME` notes must all be written in English. German is never acceptable in source files.
+
 ## Git Workflow
 
 - **Never commit directly to `main`** – always use a feature branch
