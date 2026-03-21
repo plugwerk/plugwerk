@@ -17,6 +17,7 @@
  */
 package io.plugwerk.server.service.storage
 
+import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.service.ArtifactStorageException
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Service
@@ -28,9 +29,9 @@ import kotlin.io.path.exists
 
 @Service
 @ConditionalOnProperty(prefix = "plugwerk.storage", name = ["type"], havingValue = "fs", matchIfMissing = true)
-class FilesystemArtifactStorageService(properties: StorageProperties) : ArtifactStorageService {
+class FilesystemArtifactStorageService(properties: PlugwerkProperties) : ArtifactStorageService {
 
-    private val root: Path = Path.of(properties.fs.root)
+    private val root: Path = Path.of(properties.storage.fs.root)
 
     override fun store(key: String, content: InputStream, contentLength: Long): String {
         val target = resolveKey(key)

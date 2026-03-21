@@ -74,6 +74,14 @@ Every GitHub Issue must have (see [ADR-0002](docs/adrs/0002-issue-management-gui
 - **Labels** applied
 - **Relationships** (parent/child) if applicable
 
+## Pull Request Requirements (MANDATORY)
+
+Every pull request **must** be created with:
+- **Labels** — at minimum one label matching the change type (e.g. `enhancement`, `bug`, `chore`)
+- **Milestone** — the milestone of the issue(s) being closed (e.g. `Phase 1 — MVP`)
+
+PRs without labels or milestone are non-compliant. Set them via `gh pr edit <number> --add-label "<label>" --milestone "<milestone>"` or through the GitHub UI before requesting review.
+
 ## Documentation
 
 - Architecture Decision Records: `docs/adrs/` — use `docs/adrs/TEMPLATE.md` for new ADRs

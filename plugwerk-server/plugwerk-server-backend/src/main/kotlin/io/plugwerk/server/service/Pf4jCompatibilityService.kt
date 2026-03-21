@@ -22,10 +22,10 @@ import io.plugwerk.api.model.Pf4jPluginsJson
 import io.plugwerk.api.model.Pf4jReleaseInfo
 import io.plugwerk.common.model.PluginStatus
 import io.plugwerk.common.model.ReleaseStatus
+import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.net.URI
@@ -36,7 +36,7 @@ class Pf4jCompatibilityService(
     private val namespaceRepository: NamespaceRepository,
     private val pluginRepository: PluginRepository,
     private val releaseRepository: PluginReleaseRepository,
-    @Value("\${plugwerk.server.base-url}") private val baseUrl: String,
+    private val properties: PlugwerkProperties,
 ) {
 
     fun buildPluginsJson(namespaceSlug: String): Pf4jPluginsJson {
@@ -50,7 +50,7 @@ class Pf4jCompatibilityService(
                         Pf4jReleaseInfo(
                             version = release.version,
                             url = URI(
-                                "$baseUrl/api/v1/namespaces/$namespaceSlug/plugins/${plugin.pluginId}/releases/${release.version}/download",
+                                "${properties.server.baseUrl}/api/v1/namespaces/$namespaceSlug/plugins/${plugin.pluginId}/releases/${release.version}/download",
                             ),
                             date = release.createdAt.toLocalDate(),
                             requires = release.requiresSystemVersion,

@@ -19,6 +19,7 @@ package io.plugwerk.server.service
 
 import io.plugwerk.common.model.PluginStatus
 import io.plugwerk.common.model.ReleaseStatus
+import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.PluginEntity
 import io.plugwerk.server.domain.PluginReleaseEntity
@@ -56,7 +57,7 @@ class Pf4jCompatibilityServiceTest {
             namespaceRepository,
             pluginRepository,
             releaseRepository,
-            baseUrl = "http://localhost:8080",
+            PlugwerkProperties(server = PlugwerkProperties.ServerProperties(baseUrl = "http://localhost:8080")),
         )
     }
 
