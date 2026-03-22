@@ -38,7 +38,7 @@ export function PaginationBar({ namespace }: PaginationBarProps) {
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography variant="caption" color="text.disabled">Show:</Typography>
+        <Typography variant="caption" color="text.primary">Show:</Typography>
         <FilterSelect
           value={filters.size}
           onChange={handleSizeChange}
@@ -60,7 +60,7 @@ export function PaginationBar({ namespace }: PaginationBarProps) {
         aria-label="Pagination"
       />
 
-      <Typography variant="caption" color="text.disabled">
+      <Typography variant="caption" color="text.primary">
         Showing {start}–{end} of {totalElements}
       </Typography>
     </Box>
