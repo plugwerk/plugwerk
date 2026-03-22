@@ -28,6 +28,8 @@ This includes **source code comments and KDoc** — inline comments, KDoc (`/** 
 
 ## Git Workflow
 
+- **Run `./gradlew spotlessApply` before every `git push`** — CI runs `spotlessCheck` and will fail
+  if any Kotlin file has formatting violations. Fix locally first, then push.
 - **Never commit directly to `main`** – always use a feature branch
 - Branch naming: `feature/<issue-id>_<short-description>` (e.g. `feature/42_user-auth`) – every branch ties back to a GitHub Issue
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `chore:`, etc.)
