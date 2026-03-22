@@ -1,0 +1,58 @@
+/*
+ * Plugwerk — Plugin Marketplace for the PF4J Ecosystem
+ * Copyright (C) 2026 devtank42 GmbH
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+package io.plugwerk.server.config
+
+import com.nimbusds.jose.jwk.source.ImmutableSecret
+import io.plugwerk.server.PlugwerkProperties
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm
+import org.springframework.security.oauth2.jwt.JwtDecoder
+import org.springframework.security.oauth2.jwt.JwtEncoder
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder
+import javax.crypto.SecretKey
+import javax.crypto.spec.SecretKeySpec
+
+/**
+ * Provides [JwtDecoder] and [JwtEncoder] beans for HMAC-SHA256 signed JWTs.
+ *
+ * The signing key is derived from [PlugwerkProperties.AuthProperties.jwtSecret].
+ * To switch to an external OIDC provider (Keycloak, Google, etc.) in Phase 2+,
+ * replace the [jwtDecoder] bean with:
+ *   `NimbusJwtDecoder.withIssuerLocation("https://issuer.example.com").build()`
+ * or configure `spring.security.oauth2.resourceserver.jwt.issuer-uri` in application.yml.
+ */
+@Configuration
+class JwtConfiguration(private val props: PlugwerkProperties) {
+
+    private val secretKey: SecretKey by lazy {
+        val bytes = props.auth.jwtSecret.toByteArray(Charsets.UTF_8).let {
+            if (it.size < 32) it.copyOf(32) else it
+        }
+        SecretKeySpec(bytes, "HmacSHA256")
+    }
+
+    @Bean
+    fun jwtDecoder(): JwtDecoder =
+        NimbusJwtDecoder.withSecretKey(secretKey).macAlgorithm(MacAlgorithm.HS256).build()
+
+    @Bean
+    fun jwtEncoder(): JwtEncoder =
+        NimbusJwtEncoder(ImmutableSecret(secretKey))
+}

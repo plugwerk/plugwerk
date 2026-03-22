@@ -70,6 +70,9 @@ class NamespaceEntity(
     @Column(name = "settings")
     var settings: String? = null,
 
+    @Column(name = "public_catalog", nullable = false)
+    var publicCatalog: Boolean = false,
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     var createdAt: OffsetDateTime = OffsetDateTime.now(),

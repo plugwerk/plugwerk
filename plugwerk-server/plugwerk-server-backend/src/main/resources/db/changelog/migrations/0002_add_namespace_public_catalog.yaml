@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0002-add-namespace-public-catalog
+      author: plugwerk
+      changes:
+        - addColumn:
+            tableName: namespace
+            columns:
+              - column:
+                  name: public_catalog
+                  type: boolean
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false

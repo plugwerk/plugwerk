@@ -34,7 +34,7 @@ export function AdminSidebar({ activeSection, onSelect }: AdminSidebarProps) {
         flexShrink: 0,
         borderRight: '1px solid',
         borderColor: 'divider',
-        background: 'background.paper',
+        bgcolor: 'background.paper',
         display: { xs: 'none', md: 'flex' },
         flexDirection: 'column',
         position: 'sticky',

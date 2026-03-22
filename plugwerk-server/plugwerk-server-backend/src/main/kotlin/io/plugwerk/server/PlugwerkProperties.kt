@@ -37,6 +37,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 data class PlugwerkProperties(
     val storage: StorageProperties = StorageProperties(),
     val server: ServerProperties = ServerProperties(),
+    val auth: AuthProperties = AuthProperties(),
 ) {
     /**
      * Artifact storage configuration (`plugwerk.storage.*`).
@@ -120,4 +121,25 @@ data class PlugwerkProperties(
      *   ```
      */
     data class ServerProperties(val baseUrl: String = "http://localhost:8080")
+
+    /**
+     * Authentication configuration (`plugwerk.auth.*`).
+     *
+     * Controls JWT issuance and provisional dev-user credentials.
+     * In Phase 2+, dev-users are replaced by a database-backed [UserCredentialValidator]
+     * or by an external OIDC provider (Keycloak, Google, GitHub, etc.).
+     *
+     * @property jwtSecret HMAC-SHA256 signing key for self-issued JWTs.
+     *   Environment variable: `PLUGWERK_JWT_SECRET`
+     * @property tokenValidityHours Lifetime of issued access tokens in hours.
+     * @property devUsers Hardcoded credentials for the provisional auth phase.
+     *   Replace with database users in Phase 2.
+     */
+    data class AuthProperties(
+        val jwtSecret: String = "dev-secret-change-in-production-min32chars!!",
+        val tokenValidityHours: Long = 8,
+        val devUsers: List<DevUser> = listOf(DevUser("test", "test")),
+    ) {
+        data class DevUser(val username: String, val password: String)
+    }
 }

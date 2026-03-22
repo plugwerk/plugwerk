@@ -30,6 +30,12 @@ plugwerk:
       root: ${PLUGWERK_STORAGE_ROOT:/var/plugwerk/artifacts}
   server:
     base-url: ${PLUGWERK_BASE_URL:http://localhost:8080}
+  auth:
+    jwt-secret: ${PLUGWERK_JWT_SECRET:dev-secret-change-in-production-min32chars!!}
+    token-validity-hours: 8
+    dev-users:
+      - username: test
+        password: test
 
 server:
   port: 8080

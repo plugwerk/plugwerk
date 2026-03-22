@@ -14,12 +14,24 @@ const axiosInstance = axios.create({
 })
 
 axiosInstance.interceptors.request.use((config) => {
-  const apiKey = localStorage.getItem('pw-api-key')
-  if (apiKey) {
-    config.headers['X-Api-Key'] = apiKey
+  const token = localStorage.getItem('pw-access-token')
+  if (token) {
+    config.headers['Authorization'] = `Bearer ${token}`
   }
   return config
 })
+
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('pw-access-token')
+      localStorage.removeItem('pw-username')
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  },
+)
 
 const apiConfig = new Configuration({ basePath: BASE_PATH })
 

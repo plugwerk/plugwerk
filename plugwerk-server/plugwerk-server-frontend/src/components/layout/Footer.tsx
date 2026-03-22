@@ -14,7 +14,7 @@ export function Footer() {
         mt: 'auto',
         py: 1.5,
         px: { xs: 2, sm: 3 },
-        background: 'background.paper',
+        bgcolor: 'background.paper',
       }}
     >
       <Box

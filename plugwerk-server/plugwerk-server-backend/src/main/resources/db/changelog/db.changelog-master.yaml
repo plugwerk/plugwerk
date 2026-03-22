@@ -1,3 +1,5 @@
 databaseChangeLog:
   - include:
       file: db/changelog/migrations/0001_initial_schema.yaml
+  - include:
+      file: db/changelog/migrations/0002_add_namespace_public_catalog.yaml

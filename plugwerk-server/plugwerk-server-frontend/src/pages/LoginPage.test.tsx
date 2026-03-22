@@ -1,23 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Copyright (C) 2026 devtank42 GmbH
-import { describe, it, expect, beforeEach } from 'vitest'
-import { screen } from '@testing-library/react'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithRouter } from '../test/renderWithTheme'
 import { LoginPage } from './LoginPage'
 import { useAuthStore } from '../stores/authStore'
 
-// Prevent window.location.href assignment from throwing in jsdom
-Object.defineProperty(window, 'location', {
-  value: { href: '' },
-  writable: true,
-  configurable: true,
-})
-
 describe('LoginPage', () => {
   beforeEach(() => {
-    useAuthStore.setState({ apiKey: null, namespace: 'default' })
+    useAuthStore.setState({ accessToken: null, username: null, isAuthenticated: false })
     localStorage.clear()
+    vi.restoreAllMocks()
   })
 
   it('renders the sign in heading', () => {
@@ -25,9 +19,10 @@ describe('LoginPage', () => {
     expect(screen.getByText('Welcome back')).toBeInTheDocument()
   })
 
-  it('renders the API key input', () => {
+  it('renders username and password inputs', () => {
     renderWithRouter(<LoginPage />)
-    expect(screen.getByLabelText(/api key/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/username/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
   })
 
   it('renders the sign in button', () => {
@@ -35,17 +30,9 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
   })
 
-  it('shows a register link', () => {
+  it('renders subtitle text', () => {
     renderWithRouter(<LoginPage />)
-    expect(screen.getByRole('link', { name: /register/i })).toBeInTheDocument()
-  })
-
-  it('shows validation error when API key is empty and form is submitted', async () => {
-    const user = userEvent.setup()
-    renderWithRouter(<LoginPage />)
-    await user.click(screen.getByRole('button', { name: /sign in/i }))
-    expect(screen.getByRole('alert')).toBeInTheDocument()
-    expect(screen.getByText(/please enter your api key/i)).toBeInTheDocument()
+    expect(screen.getByText(/sign in to your account/i)).toBeInTheDocument()
   })
 
   it('does not show error alert initially', () => {
@@ -53,35 +40,65 @@ describe('LoginPage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it('stores the API key when a valid key is submitted', async () => {
+  it('shows validation error when fields are empty and form is submitted', async () => {
     const user = userEvent.setup()
     renderWithRouter(<LoginPage />)
-    await user.type(screen.getByLabelText(/api key/i), 'pw_test123')
-    await user.click(screen.getByRole('button', { name: /sign in/i }))
-    expect(useAuthStore.getState().apiKey).toBe('pw_test123')
-  })
-
-  it('trims whitespace from the API key', async () => {
-    const user = userEvent.setup()
-    renderWithRouter(<LoginPage />)
-    await user.type(screen.getByLabelText(/api key/i), '  pw_trimmed  ')
-    await user.click(screen.getByRole('button', { name: /sign in/i }))
-    expect(useAuthStore.getState().apiKey).toBe('pw_trimmed')
-  })
-
-  it('clears validation error after editing the field', async () => {
-    const user = userEvent.setup()
-    renderWithRouter(<LoginPage />)
-    // Trigger validation error
     await user.click(screen.getByRole('button', { name: /sign in/i }))
     expect(screen.getByRole('alert')).toBeInTheDocument()
-    // Dismiss via close button
-    await user.click(screen.getByRole('button', { name: /close/i }))
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByText(/please enter username and password/i)).toBeInTheDocument()
   })
 
-  it('renders subtitle text', () => {
+  it('calls login with username and password when form is submitted', async () => {
+    const mockLogin = vi.fn().mockResolvedValue(undefined)
+    useAuthStore.setState({ login: mockLogin } as never)
+
+    const user = userEvent.setup()
     renderWithRouter(<LoginPage />)
-    expect(screen.getByText(/sign in with your api key/i)).toBeInTheDocument()
+    await user.type(screen.getByLabelText(/username/i), 'test')
+    await user.type(screen.getByLabelText(/password/i), 'test')
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+
+    await waitFor(() => {
+      expect(mockLogin).toHaveBeenCalledWith('test', 'test')
+    })
+  })
+
+  it('trims whitespace from username before submitting', async () => {
+    const mockLogin = vi.fn().mockResolvedValue(undefined)
+    useAuthStore.setState({ login: mockLogin } as never)
+
+    const user = userEvent.setup()
+    renderWithRouter(<LoginPage />)
+    await user.type(screen.getByLabelText(/username/i), '  test  ')
+    await user.type(screen.getByLabelText(/password/i), 'test')
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+
+    await waitFor(() => {
+      expect(mockLogin).toHaveBeenCalledWith('test', 'test')
+    })
+  })
+
+  it('shows error message when login fails', async () => {
+    const mockLogin = vi.fn().mockRejectedValue(new Error('Unauthorized'))
+    useAuthStore.setState({ login: mockLogin } as never)
+
+    const user = userEvent.setup()
+    renderWithRouter(<LoginPage />)
+    await user.type(screen.getByLabelText(/username/i), 'wrong')
+    await user.type(screen.getByLabelText(/password/i), 'wrong')
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/invalid username or password/i)).toBeInTheDocument()
+    })
+  })
+
+  it('clears validation error when close button is clicked', async () => {
+    const user = userEvent.setup()
+    renderWithRouter(<LoginPage />)
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /close/i }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })

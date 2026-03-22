@@ -2,6 +2,7 @@
 // Copyright (C) 2026 devtank42 GmbH
 import { createBrowserRouter } from 'react-router-dom'
 import { AppShell } from '../AppShell'
+import { ProtectedRoute } from '../components/auth/ProtectedRoute'
 import { CatalogPage } from '../pages/CatalogPage'
 import { PluginDetailPage } from '../pages/PluginDetailPage'
 import { UploadPage } from '../pages/UploadPage'
@@ -21,19 +22,22 @@ export const router = createBrowserRouter([
     path: '/',
     element: <AppShell />,
     children: [
-      { index: true,                              element: <CatalogPage /> },
-      { path: ':namespace/plugins/:pluginId',     element: <PluginDetailPage /> },
-      { path: 'upload',                           element: <UploadPage /> },
-      { path: 'login',                            element: <LoginPage /> },
-      { path: 'register',                         element: <RegisterPage /> },
-      { path: 'forgot-password',                  element: <ForgotPasswordPage /> },
-      { path: 'reset-password',                   element: <ResetPasswordPage /> },
-      { path: 'admin/*',                          element: <AdminSettingsPage /> },
-      { path: 'profile',                          element: <ProfileSettingsPage /> },
-      { path: '403',                              element: <Error403Page /> },
-      { path: '500',                              element: <Error500Page /> },
-      { path: '503',                              element: <Error503Page /> },
-      { path: '*',                                element: <Error404Page /> },
+      // Protected routes — require a logged-in user
+      { index: true,                          element: <ProtectedRoute><CatalogPage /></ProtectedRoute> },
+      { path: ':namespace/plugins/:pluginId', element: <ProtectedRoute><PluginDetailPage /></ProtectedRoute> },
+      { path: 'upload',                       element: <ProtectedRoute><UploadPage /></ProtectedRoute> },
+      { path: 'admin/*',                      element: <ProtectedRoute><AdminSettingsPage /></ProtectedRoute> },
+      { path: 'profile',                      element: <ProtectedRoute><ProfileSettingsPage /></ProtectedRoute> },
+
+      // Public routes — no login required
+      { path: 'login',                        element: <LoginPage /> },
+      { path: 'register',                     element: <RegisterPage /> },
+      { path: 'forgot-password',              element: <ForgotPasswordPage /> },
+      { path: 'reset-password',               element: <ResetPasswordPage /> },
+      { path: '403',                          element: <Error403Page /> },
+      { path: '500',                          element: <Error500Page /> },
+      { path: '503',                          element: <Error503Page /> },
+      { path: '*',                            element: <Error404Page /> },
     ],
   },
 ])

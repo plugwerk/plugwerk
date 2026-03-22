@@ -17,12 +17,10 @@
  */
 package io.plugwerk.server.controller
 
-import io.plugwerk.api.model.UpdateCheckResponse
 import io.plugwerk.server.security.ApiKeyAuthFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
-import io.plugwerk.server.service.NamespaceNotFoundException
-import org.springframework.security.oauth2.jwt.JwtDecoder
-import io.plugwerk.server.service.UpdateCheckService
+import io.plugwerk.server.security.UserCredentialValidator
+import io.plugwerk.server.service.JwtTokenService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
@@ -39,55 +37,90 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
 
 @WebMvcTest(
-    UpdateCheckController::class,
+    AuthController::class,
     excludeAutoConfiguration = [SecurityAutoConfiguration::class, ServletWebSecurityAutoConfiguration::class],
     excludeFilters = [
         ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [ApiKeyAuthFilter::class]),
         ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [PublicNamespaceFilter::class]),
     ],
 )
-class UpdateCheckControllerTest {
+class AuthControllerTest {
 
-    @MockitoBean lateinit var jwtDecoder: JwtDecoder
+    @Autowired lateinit var mockMvc: MockMvc
 
-    @MockitoBean lateinit var updateCheckService: UpdateCheckService
-
-    @Autowired private lateinit var mockMvc: MockMvc
+    @MockitoBean lateinit var credentialValidator: UserCredentialValidator
+    @MockitoBean lateinit var jwtTokenService: JwtTokenService
 
     @Test
-    fun `POST updates check returns 200 with empty updates when all up to date`() {
-        whenever(updateCheckService.checkUpdates(eq("acme"), any()))
-            .thenReturn(UpdateCheckResponse(updates = emptyList()))
+    fun `POST login returns 200 and token for valid credentials`() {
+        whenever(credentialValidator.validate("test", "test")).thenReturn(true)
+        whenever(jwtTokenService.generateToken("test")).thenReturn("tok.abc.xyz")
+        whenever(jwtTokenService.tokenValiditySeconds()).thenReturn(28800L)
 
-        mockMvc.post("/api/v1/namespaces/acme/updates/check") {
+        mockMvc.post("/api/auth/login") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"plugins":[{"pluginId":"my-plugin","currentVersion":"1.0.0"}]}"""
+            content = """{"username":"test","password":"test"}"""
         }.andExpect {
             status { isOk() }
-            jsonPath("$.updates") { isArray() }
-            jsonPath("$.updates.length()") { value(0) }
+            jsonPath("$.accessToken") { value("tok.abc.xyz") }
+            jsonPath("$.tokenType") { value("Bearer") }
+            jsonPath("$.expiresIn") { value(28800) }
         }
     }
 
     @Test
-    fun `POST updates check returns 404 when namespace not found`() {
-        whenever(updateCheckService.checkUpdates(eq("unknown"), any()))
-            .thenThrow(NamespaceNotFoundException("unknown"))
+    fun `POST login returns 401 for invalid credentials`() {
+        whenever(credentialValidator.validate(any(), any())).thenReturn(false)
 
-        mockMvc.post("/api/v1/namespaces/unknown/updates/check") {
+        mockMvc.post("/api/auth/login") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"plugins":[]}"""
+            content = """{"username":"wrong","password":"wrong"}"""
         }.andExpect {
-            status { isNotFound() }
+            status { isUnauthorized() }
         }
     }
 
     @Test
-    fun `POST updates check returns 400 when body is missing`() {
-        mockMvc.post("/api/v1/namespaces/acme/updates/check") {
+    fun `POST login returns 400 when username is blank`() {
+        mockMvc.post("/api/auth/login") {
             contentType = MediaType.APPLICATION_JSON
+            content = """{"username":"","password":"test"}"""
         }.andExpect {
             status { isBadRequest() }
         }
+    }
+
+    @Test
+    fun `POST login returns 400 when password is blank`() {
+        mockMvc.post("/api/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"username":"test","password":""}"""
+        }.andExpect {
+            status { isBadRequest() }
+        }
+    }
+
+    @Test
+    fun `POST login returns 400 when body is missing`() {
+        mockMvc.post("/api/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = "{}"
+        }.andExpect {
+            status { isBadRequest() }
+        }
+    }
+
+    @Test
+    fun `token is not generated when credentials are invalid`() {
+        whenever(credentialValidator.validate(any(), any())).thenReturn(false)
+
+        mockMvc.post("/api/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"username":"hacker","password":"wrong"}"""
+        }.andExpect {
+            status { isUnauthorized() }
+        }
+
+        org.mockito.kotlin.verifyNoInteractions(jwtTokenService)
     }
 }

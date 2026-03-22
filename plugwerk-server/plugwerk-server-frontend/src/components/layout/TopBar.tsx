@@ -7,11 +7,10 @@ import {
   IconButton,
   Button,
   InputBase,
-  Typography,
   useTheme,
   alpha,
 } from '@mui/material'
-import { Search, Sun, Moon, Menu, User } from 'lucide-react'
+import { Search, Sun, Moon, Menu, User, LogOut } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useUiStore } from '../../stores/uiStore'
 import { useAuthStore } from '../../stores/authStore'
@@ -25,8 +24,13 @@ export function TopBar({ showSearch = true }: TopBarProps) {
   const theme = useTheme()
   const isDark = theme.palette.mode === 'dark'
   const { toggleTheme, setSearchQuery } = useUiStore()
-  const { apiKey } = useAuthStore()
+  const { isAuthenticated, logout } = useAuthStore()
   const navigate = useNavigate()
+
+  function handleLogout() {
+    logout()
+    navigate('/login', { replace: true })
+  }
 
   function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
     setSearchQuery(e.target.value)
@@ -132,27 +136,29 @@ export function TopBar({ showSearch = true }: TopBarProps) {
         {/* Spacer */}
         <Box sx={{ flex: 1 }} />
 
-        {/* Nav links */}
-        <Box
-          component="nav"
-          aria-label="Main navigation"
-          sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.5 }}
-        >
-          <Button
-            component={Link}
-            to="/"
-            sx={{ color: 'text.primary', fontWeight: 500, fontSize: '0.875rem' }}
+        {/* Nav links — only for authenticated users */}
+        {isAuthenticated && (
+          <Box
+            component="nav"
+            aria-label="Main navigation"
+            sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.5 }}
           >
-            Catalog
-          </Button>
-          <Button
-            component={Link}
-            to="/admin"
-            sx={{ color: 'text.primary', fontWeight: 500, fontSize: '0.875rem' }}
-          >
-            Admin
-          </Button>
-        </Box>
+            <Button
+              component={Link}
+              to="/"
+              sx={{ color: 'text.primary', fontWeight: 500, fontSize: '0.875rem' }}
+            >
+              Catalog
+            </Button>
+            <Button
+              component={Link}
+              to="/admin"
+              sx={{ color: 'text.primary', fontWeight: 500, fontSize: '0.875rem' }}
+            >
+              Admin
+            </Button>
+          </Box>
+        )}
 
         {/* Actions */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -165,16 +171,26 @@ export function TopBar({ showSearch = true }: TopBarProps) {
             {isDark ? <Sun size={18} /> : <Moon size={18} />}
           </IconButton>
 
-          {apiKey ? (
-            <IconButton
-              component={Link}
-              to="/profile"
-              aria-label="Profile settings"
-              size="small"
-              sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'inline-flex' } }}
-            >
-              <User size={18} />
-            </IconButton>
+          {isAuthenticated ? (
+            <>
+              <IconButton
+                component={Link}
+                to="/profile"
+                aria-label="Profile settings"
+                size="small"
+                sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'inline-flex' } }}
+              >
+                <User size={18} />
+              </IconButton>
+              <IconButton
+                onClick={handleLogout}
+                aria-label="Log out"
+                size="small"
+                sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'inline-flex' } }}
+              >
+                <LogOut size={18} />
+              </IconButton>
+            </>
           ) : (
             <Button
               component={Link}

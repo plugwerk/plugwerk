@@ -32,7 +32,7 @@ function ToastItem({ toast }: { toast: ToastItem }) {
         gap: 1.5,
         p: 1.5,
         pr: 1,
-        background: 'background.paper',
+        bgcolor: 'background.paper',
         border: `1px solid`,
         borderColor: 'divider',
         borderRadius: tokens.radius.card,

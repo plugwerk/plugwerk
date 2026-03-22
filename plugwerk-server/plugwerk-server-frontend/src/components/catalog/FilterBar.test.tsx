@@ -38,7 +38,7 @@ describe('FilterBar', () => {
 
   it('renders category, tag, compatibility and sort selects', () => {
     renderWithRouter(
-      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
+      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" totalElements={0} loading={false} />,
     )
     expect(screen.getByRole('combobox', { name: /filter by category/i })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /filter by tag/i })).toBeInTheDocument()
@@ -50,7 +50,7 @@ describe('FilterBar', () => {
 
   it('does not show reset button when no active filters', () => {
     renderWithRouter(
-      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
+      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" totalElements={0} loading={false} />,
     )
     expect(screen.queryByRole('button', { name: /reset filters/i })).not.toBeInTheDocument()
   })
@@ -58,14 +58,14 @@ describe('FilterBar', () => {
   it('shows reset button when category filter is active', () => {
     usePluginStore.setState({ filters: { ...defaultFilters, category: 'Security' } })
     renderWithRouter(
-      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
+      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" totalElements={0} loading={false} />,
     )
     expect(screen.getByRole('button', { name: /reset filters/i })).toBeInTheDocument()
   })
 
   it('renders view toggle with card and list buttons', () => {
     renderWithRouter(
-      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
+      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" totalElements={0} loading={false} />,
     )
     expect(screen.getByRole('button', { name: /card view/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /list view/i })).toBeInTheDocument()
@@ -75,7 +75,7 @@ describe('FilterBar', () => {
     const user = userEvent.setup()
     const onViewChange = vi.fn()
     renderWithRouter(
-      <FilterBar view="card" onViewChange={onViewChange} namespace="acme" />,
+      <FilterBar view="card" onViewChange={onViewChange} namespace="acme" totalElements={0} loading={false} />,
     )
     await user.click(screen.getByRole('button', { name: /list view/i }))
     expect(onViewChange).toHaveBeenCalledWith('list')
@@ -85,7 +85,7 @@ describe('FilterBar', () => {
     const user = userEvent.setup()
     const onViewChange = vi.fn()
     renderWithRouter(
-      <FilterBar view="list" onViewChange={onViewChange} namespace="acme" />,
+      <FilterBar view="list" onViewChange={onViewChange} namespace="acme" totalElements={0} loading={false} />,
     )
     await user.click(screen.getByRole('button', { name: /card view/i }))
     expect(onViewChange).toHaveBeenCalledWith('card')
@@ -93,7 +93,7 @@ describe('FilterBar', () => {
 
   it('renders the filter/sort group with accessible label', () => {
     renderWithRouter(
-      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
+      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" totalElements={0} loading={false} />,
     )
     expect(screen.getByRole('group', { name: /filter and sort options/i })).toBeInTheDocument()
   })
@@ -108,7 +108,7 @@ describe('FilterBar', () => {
       resetFilters: resetFiltersMock,
     })
     renderWithRouter(
-      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
+      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" totalElements={0} loading={false} />,
     )
     await user.click(screen.getByRole('button', { name: /reset filters/i }))
     expect(resetFiltersMock).not.toHaveBeenCalled() // FilterBar calls setFilters, not resetFilters
@@ -120,7 +120,7 @@ describe('FilterBar', () => {
   it('shows correct current sort value', () => {
     usePluginStore.setState({ filters: { ...defaultFilters, sort: 'downloadCount,desc' } })
     renderWithRouter(
-      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
+      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" totalElements={0} loading={false} />,
     )
     // The selected value is rendered inside the combobox
     expect(screen.getByText('Most Downloads')).toBeInTheDocument()

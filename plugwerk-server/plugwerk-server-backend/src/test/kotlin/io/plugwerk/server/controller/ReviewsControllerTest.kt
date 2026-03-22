@@ -23,7 +23,9 @@ import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.PluginEntity
 import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.security.ApiKeyAuthFilter
+import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.service.PluginReleaseService
+import org.springframework.security.oauth2.jwt.JwtDecoder
 import io.plugwerk.server.service.ReleaseNotFoundException
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -45,9 +47,14 @@ import java.util.UUID
 @WebMvcTest(
     ReviewsController::class,
     excludeAutoConfiguration = [SecurityAutoConfiguration::class, ServletWebSecurityAutoConfiguration::class],
-    excludeFilters = [ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [ApiKeyAuthFilter::class])],
+    excludeFilters = [
+        ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [ApiKeyAuthFilter::class]),
+        ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [PublicNamespaceFilter::class]),
+    ],
 )
 class ReviewsControllerTest {
+
+    @MockitoBean lateinit var jwtDecoder: JwtDecoder
 
     @MockitoBean lateinit var releaseService: PluginReleaseService
 

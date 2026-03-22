@@ -3,26 +3,48 @@
 import { create } from 'zustand'
 
 interface AuthState {
-  apiKey: string | null
+  accessToken: string | null
+  username: string | null
   namespace: string
+  isAuthenticated: boolean
 
-  setApiKey: (key: string) => void
-  clearApiKey: () => void
+  login: (username: string, password: string) => Promise<void>
+  logout: () => void
   setNamespace: (ns: string) => void
+
+  // Legacy alias kept for ProfileSettingsPage compatibility
+  apiKey: string | null
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  apiKey: localStorage.getItem('pw-api-key'),
+export const useAuthStore = create<AuthState>((set, get) => ({
+  accessToken: localStorage.getItem('pw-access-token'),
+  username: localStorage.getItem('pw-username'),
   namespace: localStorage.getItem('pw-namespace') ?? 'default',
+  isAuthenticated: !!localStorage.getItem('pw-access-token'),
 
-  setApiKey(key) {
-    localStorage.setItem('pw-api-key', key)
-    set({ apiKey: key })
+  get apiKey() {
+    return get().accessToken
   },
 
-  clearApiKey() {
-    localStorage.removeItem('pw-api-key')
-    set({ apiKey: null })
+  async login(username: string, password: string) {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    })
+    if (!response.ok) {
+      throw new Error('Invalid credentials')
+    }
+    const data = await response.json()
+    localStorage.setItem('pw-access-token', data.accessToken)
+    localStorage.setItem('pw-username', username)
+    set({ accessToken: data.accessToken, username, isAuthenticated: true })
+  },
+
+  logout() {
+    localStorage.removeItem('pw-access-token')
+    localStorage.removeItem('pw-username')
+    set({ accessToken: null, username: null, isAuthenticated: false })
   },
 
   setNamespace(ns) {

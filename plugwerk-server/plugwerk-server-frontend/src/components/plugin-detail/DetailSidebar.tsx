@@ -73,12 +73,12 @@ export function DetailSidebar({ plugin, release }: DetailSidebarProps) {
             <Typography variant="caption">{plugin.license}</Typography>
           </MetaItem>
         )}
-        {plugin.repository && (
+        {plugin.repository?.startsWith('http') && (
           <MetaItem label="Repository">
             <Link
               href={plugin.repository}
               target="_blank"
-              rel="noopener"
+              rel="noopener noreferrer"
               sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.75rem', color: tokens.color.primary }}
             >
               GitHub <ExternalLink size={11} />
