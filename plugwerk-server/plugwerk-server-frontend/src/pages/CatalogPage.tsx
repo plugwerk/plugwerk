@@ -11,9 +11,11 @@ import { EmptyState } from '../components/common/EmptyState'
 import { usePluginStore } from '../stores/pluginStore'
 import { useAuthStore } from '../stores/authStore'
 import { useUiStore } from '../stores/uiStore'
+import { MenuItem } from '@mui/material'
+import { FilterSelect } from '../components/common/FilterSelect'
 
 export function CatalogPage() {
-  const { namespace } = useAuthStore()
+  const { namespace, setNamespace } = useAuthStore()
   const { plugins, loading, error, totalElements, resetFilters, fetchPlugins } = usePluginStore()
   const { searchQuery } = useUiStore()
   const [view, setView] = useState<'card' | 'list'>('card')
@@ -44,6 +46,21 @@ export function CatalogPage() {
         >
           <Box>
             <Typography variant="h1" gutterBottom>Plugin Catalog</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Typography variant="caption" color="text.disabled" component="label" htmlFor="ns-select">
+                Namespace:
+              </Typography>
+              <FilterSelect
+                id="ns-select"
+                value={namespace}
+                onChange={(v) => { setNamespace(v); fetchPlugins(v) }}
+                aria-label="Select namespace"
+                minWidth={160}
+              >
+                <MenuItem value="default">default</MenuItem>
+                <MenuItem value="community">community</MenuItem>
+              </FilterSelect>
+            </Box>
           </Box>
           <Typography
             variant="caption"

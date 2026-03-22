@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Copyright (C) 2026 devtank42 GmbH
-import { Box, Typography, Link, Divider } from '@mui/material'
+import { Box, Typography, Link } from '@mui/material'
 import { tokens } from '../../theme/tokens'
 
 export function Footer() {
@@ -13,7 +13,7 @@ export function Footer() {
         borderColor: 'divider',
         mt: 'auto',
         py: 1.5,
-        px: 3,
+        px: { xs: 2, sm: 3 },
         background: 'background.paper',
       }}
     >
@@ -23,12 +23,10 @@ export function Footer() {
           alignItems: 'center',
           gap: 3,
           flexWrap: 'wrap',
-          maxWidth: 1280,
-          mx: 'auto',
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="body2" fontWeight={700}>PlugWerk</Typography>
+          <Typography variant="body2" fontWeight={700}>Plugwerk</Typography>
           <Typography variant="caption" color="text.disabled">v1.0.0</Typography>
         </Box>
 
@@ -46,43 +44,6 @@ export function Footer() {
         </Link>
 
         <Box sx={{ flex: 1 }} />
-
-        {/* Language toggle */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box
-            component="button"
-            aria-pressed="true"
-            lang="en"
-            sx={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              color: tokens.color.primary,
-              px: 0.5,
-            }}
-          >
-            EN
-          </Box>
-          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} aria-hidden="true" />
-          <Box
-            component="button"
-            aria-pressed="false"
-            lang="de"
-            sx={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '0.75rem',
-              color: 'text.disabled',
-              px: 0.5,
-              '&:hover': { color: 'text.secondary' },
-            }}
-          >
-            DE
-          </Box>
-        </Box>
       </Box>
     </Box>
   )

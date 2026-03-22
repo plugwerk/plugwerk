@@ -9,6 +9,10 @@ import {
   Button,
   Divider,
   Alert,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material'
 import { AdminSidebar } from '../components/admin/AdminSidebar'
 
@@ -22,6 +26,13 @@ function GeneralSection() {
       <TextField label="Instance Name" defaultValue="ACME Corp Plugin Hub" size="small" />
       <TextField label="Default Namespace" defaultValue="default" size="small" />
       <TextField label="Max Upload Size (MB)" type="number" defaultValue={50} size="small" />
+      <FormControl size="small" sx={{ minWidth: 200 }}>
+        <InputLabel>Default Language</InputLabel>
+        <Select defaultValue="en" label="Default Language">
+          <MenuItem value="en">English</MenuItem>
+          <MenuItem value="de">Deutsch</MenuItem>
+        </Select>
+      </FormControl>
       <Button variant="contained" sx={{ alignSelf: 'flex-start' }}>Save Changes</Button>
     </Box>
   )

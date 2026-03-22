@@ -1,17 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Copyright (C) 2026 devtank42 GmbH
-import {
-  Box,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Button,
-  ToggleButton,
-  ToggleButtonGroup,
-} from '@mui/material'
+import { useState } from 'react'
+import { Box, Button, MenuItem, ToggleButton, ToggleButtonGroup } from '@mui/material'
 import { LayoutGrid, List } from 'lucide-react'
 import { usePluginStore } from '../../stores/pluginStore'
+import { FilterSelect } from '../common/FilterSelect'
 
 interface FilterBarProps {
   view: 'card' | 'list'
@@ -20,16 +13,24 @@ interface FilterBarProps {
 }
 
 const CATEGORIES = ['Reporting', 'Export', 'Integration', 'Security', 'UI Extensions', 'Data Processing']
+const TAGS = ['pdf', 'excel', 'oauth', 'charts', 'api']
 const SORT_OPTIONS = [
-  { value: 'name,asc',          label: 'Name A–Z' },
-  { value: 'name,desc',         label: 'Name Z–A' },
+  { value: 'name,asc',           label: 'Name A–Z' },
+  { value: 'name,desc',          label: 'Name Z–A' },
   { value: 'downloadCount,desc', label: 'Most Downloads' },
-  { value: 'updatedAt,desc',    label: 'Newest' },
+  { value: 'updatedAt,desc',     label: 'Newest' },
+]
+const COMPATIBILITY_OPTIONS = [
+  { value: '',        label: 'Any Version' },
+  { value: '>=3.0.0', label: '≥ 3.0.0' },
+  { value: '>=2.5.0', label: '≥ 2.5.0' },
+  { value: '>=2.0.0', label: '≥ 2.0.0' },
 ]
 
 export function FilterBar({ view, onViewChange, namespace }: FilterBarProps) {
   const { filters, setFilters, fetchPlugins } = usePluginStore()
-  const hasActiveFilters = !!(filters.category || filters.tag || filters.status)
+  const [compatibility, setCompatibility] = useState('')
+  const hasActiveFilters = !!(filters.category || filters.tag || filters.status || compatibility)
 
   function handleChange(key: string, value: string) {
     setFilters({ [key]: value, page: 0 })
@@ -38,6 +39,7 @@ export function FilterBar({ view, onViewChange, namespace }: FilterBarProps) {
 
   function handleReset() {
     setFilters({ category: '', tag: '', status: '', sort: 'name,asc', page: 0 })
+    setCompatibility('')
     fetchPlugins(namespace)
   }
 
@@ -56,32 +58,51 @@ export function FilterBar({ view, onViewChange, namespace }: FilterBarProps) {
         mb: 3,
       }}
     >
-      <FormControl size="small" sx={{ minWidth: 160 }}>
-        <InputLabel>Category</InputLabel>
-        <Select
-          value={filters.category}
-          label="Category"
-          onChange={(e) => handleChange('category', e.target.value)}
-        >
-          <MenuItem value="">All Categories</MenuItem>
-          {CATEGORIES.map((c) => (
-            <MenuItem key={c} value={c}>{c}</MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      <FilterSelect
+        value={filters.category}
+        onChange={(v) => handleChange('category', v)}
+        aria-label="Filter by category"
+        minWidth={160}
+      >
+        <MenuItem value="">All Categories</MenuItem>
+        {CATEGORIES.map((c) => (
+          <MenuItem key={c} value={c}>{c}</MenuItem>
+        ))}
+      </FilterSelect>
 
-      <FormControl size="small" sx={{ minWidth: 140 }}>
-        <InputLabel>Sort</InputLabel>
-        <Select
-          value={filters.sort}
-          label="Sort"
-          onChange={(e) => handleChange('sort', e.target.value)}
-        >
-          {SORT_OPTIONS.map((o) => (
-            <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      <FilterSelect
+        value={filters.tag}
+        onChange={(v) => handleChange('tag', v)}
+        aria-label="Filter by tag"
+        minWidth={140}
+      >
+        <MenuItem value="">All Tags</MenuItem>
+        {TAGS.map((t) => (
+          <MenuItem key={t} value={t}>{t}</MenuItem>
+        ))}
+      </FilterSelect>
+
+      <FilterSelect
+        value={compatibility}
+        onChange={setCompatibility}
+        aria-label="Filter by compatibility"
+        minWidth={140}
+      >
+        {COMPATIBILITY_OPTIONS.map((o) => (
+          <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+        ))}
+      </FilterSelect>
+
+      <FilterSelect
+        value={filters.sort}
+        onChange={(v) => handleChange('sort', v)}
+        aria-label="Sort order"
+        minWidth={140}
+      >
+        {SORT_OPTIONS.map((o) => (
+          <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+        ))}
+      </FilterSelect>
 
       {hasActiveFilters && (
         <Button variant="text" size="small" onClick={handleReset} sx={{ color: 'text.secondary' }}>

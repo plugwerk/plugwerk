@@ -11,9 +11,10 @@ import {
   useTheme,
   alpha,
 } from '@mui/material'
-import { Search, Sun, Moon, Menu } from 'lucide-react'
+import { Search, Sun, Moon, Menu, User } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useUiStore } from '../../stores/uiStore'
+import { useAuthStore } from '../../stores/authStore'
 import { tokens } from '../../theme/tokens'
 
 interface TopBarProps {
@@ -24,6 +25,7 @@ export function TopBar({ showSearch = true }: TopBarProps) {
   const theme = useTheme()
   const isDark = theme.palette.mode === 'dark'
   const { toggleTheme, setSearchQuery } = useUiStore()
+  const { apiKey } = useAuthStore()
   const navigate = useNavigate()
 
   function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -61,7 +63,7 @@ export function TopBar({ showSearch = true }: TopBarProps) {
         <Box
           component={Link}
           to="/"
-          aria-label="PlugWerk – back to catalog"
+          aria-label="Plugwerk – back to catalog"
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -96,7 +98,7 @@ export function TopBar({ showSearch = true }: TopBarProps) {
               display: { xs: 'none', sm: 'block' },
             }}
           >
-            PlugWerk
+            Plugwerk
           </Typography>
         </Box>
 
@@ -177,15 +179,27 @@ export function TopBar({ showSearch = true }: TopBarProps) {
             {isDark ? <Sun size={18} /> : <Moon size={18} />}
           </IconButton>
 
-          <Button
-            component={Link}
-            to="/login"
-            variant="outlined"
-            size="small"
-            sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
-          >
-            Log In
-          </Button>
+          {apiKey ? (
+            <IconButton
+              component={Link}
+              to="/profile"
+              aria-label="Profile settings"
+              size="small"
+              sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'inline-flex' } }}
+            >
+              <User size={18} />
+            </IconButton>
+          ) : (
+            <Button
+              component={Link}
+              to="/login"
+              variant="outlined"
+              size="small"
+              sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
+            >
+              Log In
+            </Button>
+          )}
 
           <IconButton
             aria-label="Open menu"

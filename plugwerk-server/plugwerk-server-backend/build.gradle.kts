@@ -22,8 +22,9 @@ dependencies {
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.jackson.module.kotlin)
-    implementation(libs.liquibase.core)
+    implementation(libs.spring.boot.starter.liquibase)
 
+    runtimeOnly(libs.yasson)
     runtimeOnly(libs.postgresql)
     runtimeOnly(project(path = ":plugwerk-server:plugwerk-server-frontend", configuration = "staticResources"))
 

@@ -36,15 +36,16 @@ describe('FilterBar', () => {
     })
   })
 
-  it('renders category and sort selects', () => {
+  it('renders category, tag, compatibility and sort selects', () => {
     renderWithRouter(
       <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
     )
-    // MUI Select renders the label twice (InputLabel + fieldset legend) — use getAllByText
-    expect(screen.getAllByText('Category').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Sort').length).toBeGreaterThan(0)
-    // Two visible comboboxes (category + sort)
-    expect(screen.getAllByRole('combobox')).toHaveLength(2)
+    expect(screen.getByRole('combobox', { name: /filter by category/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /filter by tag/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /filter by compatibility/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /sort order/i })).toBeInTheDocument()
+    // All four native selects are present
+    expect(screen.getAllByRole('combobox')).toHaveLength(4)
   })
 
   it('does not show reset button when no active filters', () => {

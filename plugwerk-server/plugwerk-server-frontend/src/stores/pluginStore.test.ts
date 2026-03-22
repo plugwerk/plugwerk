@@ -16,7 +16,7 @@ vi.mock('../api/config', () => ({
 import { usePluginStore } from './pluginStore'
 import { catalogApi } from '../api/config'
 
-const mockCatalogApi = catalogApi as { listPlugins: ReturnType<typeof vi.fn> }
+const mockCatalogApi = catalogApi as unknown as { listPlugins: ReturnType<typeof vi.fn> }
 
 const defaultFilters = {
   search: '',

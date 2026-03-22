@@ -1,14 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Copyright (C) 2026 devtank42 GmbH
-import {
-  Box,
-  Select,
-  MenuItem,
-  FormControl,
-  Pagination,
-  Typography,
-} from '@mui/material'
+import { Box, MenuItem, Pagination, Typography } from '@mui/material'
 import { usePluginStore } from '../../stores/pluginStore'
+import { FilterSelect } from '../common/FilterSelect'
 
 interface PaginationBarProps {
   namespace: string
@@ -24,8 +18,8 @@ export function PaginationBar({ namespace }: PaginationBarProps) {
     fetchPlugins(namespace)
   }
 
-  function handleSizeChange(size: number) {
-    setFilters({ size, page: 0 })
+  function handleSizeChange(value: string) {
+    setFilters({ size: Number(value), page: 0 })
     fetchPlugins(namespace)
   }
 
@@ -45,18 +39,16 @@ export function PaginationBar({ namespace }: PaginationBarProps) {
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Typography variant="caption" color="text.disabled">Show:</Typography>
-        <FormControl size="small">
-          <Select
-            value={filters.size}
-            onChange={(e) => handleSizeChange(Number(e.target.value))}
-            aria-label="Items per page"
-            sx={{ fontSize: '0.8125rem', height: 32 }}
-          >
-            {PAGE_SIZES.map((s) => (
-              <MenuItem key={s} value={s}>{s}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <FilterSelect
+          value={filters.size}
+          onChange={handleSizeChange}
+          aria-label="Items per page"
+          minWidth={70}
+        >
+          {PAGE_SIZES.map((s) => (
+            <MenuItem key={s} value={s}>{s}</MenuItem>
+          ))}
+        </FilterSelect>
       </Box>
 
       <Pagination
