@@ -26,7 +26,7 @@ All endpoints: `/api/v1/namespaces/{ns}/...`
 | `GET` | `/plugins` | Catalog with filters |
 | `GET` | `/plugins/{id}/releases/{version}/download` | Artifact download |
 | `GET` | `/plugins.json` | pf4j-update compatible drop-in |
-| `POST` | `/plugins/{id}/releases` | Upload new release |
+| `POST` | `/releases` | Upload new release (descriptor auto-read from JAR/ZIP) |
 | `POST` | `/updates/check` | Body: installed plugins+versions → available updates |
 | `GET` | `/reviews/pending` | Admin review queue |
 | `POST` | `/reviews/{releaseId}/approve` | Approve release |
@@ -55,16 +55,34 @@ If `plugwerk.yml` is absent, the server falls back to the PF4J manifest.
 
 ## Build Commands
 
+### Backend (run from repo root)
+
 ```bash
-./gradlew build                    # Build all modules + run tests
-./gradlew build -x test           # Build without tests
+./gradlew build                                   # Build all modules + run all tests
+./gradlew build -x test                           # Build without tests
+./gradlew :plugwerk-api:openApiGenerate           # Regenerate backend DTOs/interfaces from OpenAPI YAML
 ./gradlew :plugwerk-server:plugwerk-server-backend:bootRun --args='--spring.profiles.active=dev'
-docker compose up -d postgres      # Start dev database
+docker compose up -d postgres                     # Start dev database
 ```
+
+### Frontend (run from `plugwerk-server/plugwerk-server-frontend/`)
+
+```bash
+npm install                  # Install dependencies
+npm run dev                  # Vite dev server (port 5173, proxies /api → localhost:8080)
+npm run build                # TypeScript check + production build → build/dist/
+npm run generate:api         # Regenerate TypeScript client from OpenAPI YAML
+npm run test:run             # Vitest single run (CI)
+npm run test:coverage        # Vitest with V8 coverage report
+npm run lint                 # ESLint
+```
+
+**Important**: Frontend tests must be run from `plugwerk-server/plugwerk-server-frontend/` — running
+`npx vitest` from the repo root uses the wrong config and picks up unrelated test files.
 
 ## Implementation Phases
 
-- **Phase 1 (MVP):** REST API + PostgreSQL + filesystem storage + API key auth + minimal Web UI + `plugins.json` endpoint + Client SDK as pf4j-update drop-in
+- **Phase 1 (MVP):** REST API + PostgreSQL + filesystem storage + JWT auth (provisional) + minimal Web UI + `plugins.json` endpoint + Client SDK as pf4j-update drop-in
 - **Phase 2 (Enterprise):** Multi-namespace, RBAC/OIDC, review/approval workflow, code signing, S3/MinIO, dependency resolution in client
 - **Phase 3 (Ecosystem):** Embeddable UI component, webhooks, vulnerability scanning, Gradle/Maven CI/CD plugin, SaaS multi-tenancy
 

@@ -23,7 +23,6 @@ class SpaController {
             "/register",
             "/forgot-password",
             "/reset-password",
-            "/upload",
             "/admin/**",
             "/403",
             "/500",

@@ -40,7 +40,10 @@ This includes **source code comments and KDoc** — inline comments, KDoc (`/** 
 
 ## License Header (MANDATORY)
 
-Every Kotlin source file (`src/**/*.kt`) **must** begin with the AGPL-3.0 license header. This is enforced automatically by Spotless — running `./gradlew spotlessApply` adds the header to any file missing it.
+### Kotlin files (`src/**/*.kt`)
+
+Every Kotlin source file **must** begin with the AGPL-3.0 license header. This is enforced automatically
+by Spotless — running `./gradlew spotlessApply` adds the header to any file missing it.
 
 ```kotlin
 /*
@@ -65,6 +68,18 @@ Every Kotlin source file (`src/**/*.kt`) **must** begin with the AGPL-3.0 licens
 - **Never omit** the header from new files — `spotlessCheck` in CI will fail without it.
 - Do **not** modify the header text — the exact wording is controlled in the root `build.gradle.kts` `licenseHeader` block.
 - Generated files under `build/generated/` are excluded from this rule (not in `src/`).
+
+### TypeScript / TSX files (`src/**/*.ts`, `src/**/*.tsx`)
+
+Every frontend source file **must** begin with the two-line SPDX header:
+
+```typescript
+// SPDX-License-Identifier: AGPL-3.0
+// Copyright (C) 2026 devtank42 GmbH
+```
+
+- Not enforced by Spotless (frontend uses ESLint), but **required** by convention.
+- Auto-generated files under `src/api/generated/` are excluded.
 
 ## Issue Management
 
@@ -99,8 +114,13 @@ PRs without labels or milestone are non-compliant. Set them via `gh pr edit <num
 ## Documentation
 
 - Architecture Decision Records: `docs/adrs/` — use `docs/adrs/TEMPLATE.md` for new ADRs
+  - [ADR-0001](docs/adrs/0001-collaboration-workflow.md) — Collaboration workflow
+  - [ADR-0002](docs/adrs/0002-issue-management-guidelines.md) — Issue management guidelines
+  - [ADR-0003](docs/adrs/0003-spring-boot-4-backend-conventions.md) — Spring Boot 4.x backend conventions
+  - [ADR-0004](docs/adrs/0004-frontend-conventions.md) — Frontend conventions (React + TypeScript + MUI + Zustand)
 - Feature specifications: `docs/features/` — GitHub Issues link to their corresponding spec file
 - Project concept: `docs/concepts/`
+- Design system: `docs/design/` — HTML prototypes and design tokens (`tokens.css`)
 
 ## Architecture
 
@@ -113,11 +133,12 @@ PRs without labels or milestone are non-compliant. Set them via `gh pr edit <num
 | Server API | Spring Web (REST) + OpenAPI 3.1 (API-First) |
 | Database | PostgreSQL + Liquibase |
 | Storage | Filesystem (MVP) / S3-compatible (Phase 2) |
-| Web UI | React / TypeScript / Material UI / Zustand |
-| Auth | API key (MVP) / Spring Security + OIDC (Phase 2) |
+| Web UI | React 19 / TypeScript / Material UI 7 / Zustand 5 / Vite |
+| Auth | JWT Bearer (Phase 1 provisional) / Spring Security + OIDC (Phase 2) |
 | Client SDK | PF4J plugin / OkHttp / Jackson / JVM 11+ |
-| Build | Gradle 9.x multi-module (Kotlin DSL) |
-| Tests | JUnit 6 + Mockito + Testcontainers |
+| Build | Gradle 9.x multi-module (Kotlin DSL) + Vite (frontend) |
+| Tests (backend) | JUnit 5 + Mockito + Testcontainers |
+| Tests (frontend) | Vitest + @testing-library/react |
 
 ### Module Structure
 
