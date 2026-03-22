@@ -75,20 +75,10 @@ export function TopBar({ showSearch = true }: TopBarProps) {
         >
           <Box
             component="img"
-            src="/logo.svg"
-            alt=""
-            aria-hidden="true"
-            sx={{ width: 32, height: 36, display: 'block', flexShrink: 0 }}
+            src={isDark ? '/logo-dark.svg' : '/logo-light.svg'}
+            alt="Plugwerk"
+            sx={{ height: 32, width: 'auto', maxWidth: { xs: 100, sm: 140 }, display: 'block', flexShrink: 0 }}
           />
-          <Typography
-            sx={{
-              fontWeight: 700,
-              fontSize: '1rem',
-              display: { xs: 'none', sm: 'block' },
-            }}
-          >
-            Plugwerk
-          </Typography>
         </Box>
 
         {/* Search */}
