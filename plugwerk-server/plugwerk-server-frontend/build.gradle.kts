@@ -2,9 +2,15 @@ plugins {
     base
 }
 
+fun npmCmd(vararg args: String): List<String> =
+    if (System.getProperty("os.name").lowercase().contains("windows"))
+        listOf("cmd", "/c", "npm") + args
+    else
+        listOf("bash", "-c", "npm ${args.joinToString(" ")}")
+
 val npmInstall by tasks.registering(Exec::class) {
     workingDir = projectDir
-    commandLine("npm", "install")
+    commandLine(npmCmd("install"))
     inputs.file("package.json")
     inputs.file("package-lock.json")
     outputs.dir("node_modules")
@@ -13,7 +19,7 @@ val npmInstall by tasks.registering(Exec::class) {
 val npmBuild by tasks.registering(Exec::class) {
     dependsOn(npmInstall)
     workingDir = projectDir
-    commandLine("npm", "run", "build")
+    commandLine(npmCmd("run", "build"))
     inputs.dir("src")
     inputs.file("index.html")
     inputs.file("vite.config.ts")

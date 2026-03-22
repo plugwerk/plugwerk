@@ -52,4 +52,27 @@ interface PluginReleaseRepository : JpaRepository<PluginReleaseEntity, UUID> {
         @Param("namespace") namespace: NamespaceEntity,
         @Param("status") status: ReleaseStatus,
     ): List<PluginReleaseEntity>
+
+    /**
+     * Returns the latest published version string per plugin for a given set of plugin IDs.
+     * Result is a list of [pluginId, version] pairs where version is the most recently
+     * created PUBLISHED release. One DB round-trip for the entire page.
+     */
+    @Query(
+        """
+        SELECT r.plugin.id, r.version
+        FROM PluginReleaseEntity r
+        WHERE r.plugin.id IN :pluginIds
+          AND r.status = io.plugwerk.common.model.ReleaseStatus.PUBLISHED
+          AND r.createdAt = (
+            SELECT MAX(r2.createdAt)
+            FROM PluginReleaseEntity r2
+            WHERE r2.plugin.id = r.plugin.id
+              AND r2.status = io.plugwerk.common.model.ReleaseStatus.PUBLISHED
+          )
+        """,
+    )
+    fun findLatestPublishedVersionsForPlugins(
+        @Param("pluginIds") pluginIds: Collection<UUID>,
+    ): List<Array<Any>>
 }

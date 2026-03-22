@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Copyright (C) 2026 devtank42 GmbH
 import { useEffect, useState } from 'react'
-import { Box, Container, Typography, Alert } from '@mui/material'
+import { Box, Container, Typography, Alert, MenuItem } from '@mui/material'
 import { FilterBar } from '../components/catalog/FilterBar'
 import { PluginCard } from '../components/catalog/PluginCard'
 import { PluginListRow } from '../components/catalog/PluginListRow'
@@ -11,14 +11,19 @@ import { EmptyState } from '../components/common/EmptyState'
 import { usePluginStore } from '../stores/pluginStore'
 import { useAuthStore } from '../stores/authStore'
 import { useUiStore } from '../stores/uiStore'
-import { MenuItem } from '@mui/material'
+import { useNamespaceStore } from '../stores/namespaceStore'
 import { FilterSelect } from '../components/common/FilterSelect'
 
 export function CatalogPage() {
   const { namespace, setNamespace } = useAuthStore()
   const { plugins, loading, error, totalElements, resetFilters, fetchPlugins } = usePluginStore()
   const { searchQuery } = useUiStore()
+  const { namespaces, fetchNamespaces } = useNamespaceStore()
   const [view, setView] = useState<'card' | 'list'>('card')
+
+  useEffect(() => {
+    fetchNamespaces()
+  }, [])
 
   useEffect(() => {
     fetchPlugins(namespace)
@@ -57,8 +62,12 @@ export function CatalogPage() {
                 aria-label="Select namespace"
                 minWidth={160}
               >
-                <MenuItem value="default">default</MenuItem>
-                <MenuItem value="community">community</MenuItem>
+                {namespaces.length > 0
+                  ? namespaces.map((ns) => (
+                      <MenuItem key={ns.slug} value={ns.slug}>{ns.slug}</MenuItem>
+                    ))
+                  : <MenuItem value={namespace}>{namespace}</MenuItem>
+                }
               </FilterSelect>
             </Box>
           </Box>

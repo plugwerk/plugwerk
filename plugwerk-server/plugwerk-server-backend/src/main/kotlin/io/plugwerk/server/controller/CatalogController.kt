@@ -27,6 +27,7 @@ import io.plugwerk.common.model.PluginStatus
 import io.plugwerk.common.model.ReleaseStatus
 import io.plugwerk.server.controller.mapper.PluginMapper
 import io.plugwerk.server.controller.mapper.PluginReleaseMapper
+import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.service.Pf4jCompatibilityService
 import io.plugwerk.server.service.PluginReleaseService
 import io.plugwerk.server.service.PluginService
@@ -44,6 +45,7 @@ import org.springframework.web.bind.annotation.RestController
 class CatalogController(
     private val pluginService: PluginService,
     private val releaseService: PluginReleaseService,
+    private val releaseRepository: PluginReleaseRepository,
     private val pf4jService: Pf4jCompatibilityService,
     private val pluginMapper: PluginMapper,
     private val releaseMapper: PluginReleaseMapper,
@@ -62,8 +64,14 @@ class CatalogController(
         val pluginStatus = status?.let { parsePluginStatus(it) }
         val pageable = buildPageable(page, size, sort)
         val resultPage = pluginService.findPagedByNamespace(ns, pluginStatus, category, tag, q, pageable)
+
+        val pluginIds = resultPage.content.mapNotNull { it.id }
+        val latestVersions: Map<java.util.UUID, String> = if (pluginIds.isEmpty()) emptyMap()
+        else releaseRepository.findLatestPublishedVersionsForPlugins(pluginIds)
+            .associate { row -> (row[0] as java.util.UUID) to (row[1] as String) }
+
         val response = PluginPagedResponse(
-            content = resultPage.content.map { pluginMapper.toDto(it, ns) },
+            content = resultPage.content.map { pluginMapper.toDto(it, ns, latestVersions[it.id]) },
             totalElements = resultPage.totalElements,
             page = resultPage.number,
             propertySize = resultPage.size,

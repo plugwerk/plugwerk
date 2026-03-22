@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Copyright (C) 2026 devtank42 GmbH
-import { Box, Card, CardActionArea, Typography } from '@mui/material'
+import { Box, Card, CardActionArea, Tooltip, Typography } from '@mui/material'
 import { Download, Clock, Puzzle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Badge } from '../common/Badge'
@@ -16,6 +16,30 @@ function formatCount(n: number | undefined): string {
   if (!n) return '0'
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
   return String(n)
+}
+
+function formatAbsoluteTime(dateStr: string | undefined): string {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+function formatRelativeTime(dateStr: string | undefined): string {
+  if (!dateStr) return '—'
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const minutes = Math.floor(diff / 60_000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+  const weeks = Math.floor(days / 7)
+  if (weeks < 5) return `${weeks}w ago`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `${months}mo ago`
+  return `${Math.floor(months / 12)}y ago`
 }
 
 export function PluginCard({ plugin, namespace }: PluginCardProps) {
@@ -64,7 +88,7 @@ export function PluginCard({ plugin, namespace }: PluginCardProps) {
             <Puzzle size={28} />
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5, mb: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
               <Typography
                 variant="body1"
                 fontWeight={600}
@@ -72,7 +96,8 @@ export function PluginCard({ plugin, namespace }: PluginCardProps) {
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
-                  maxWidth: '100%',
+                  flex: 1,
+                  minWidth: 0,
                 }}
               >
                 {plugin.name}
@@ -125,12 +150,14 @@ export function PluginCard({ plugin, namespace }: PluginCardProps) {
             <Download size={12} aria-hidden="true" />
             <Typography variant="caption">{formatCount(plugin.downloadCount ?? 0)}</Typography>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled' }}>
-            <Clock size={12} aria-hidden="true" />
-            <Typography variant="caption">
-              {plugin.updatedAt ? new Date(plugin.updatedAt).toLocaleDateString() : '—'}
-            </Typography>
-          </Box>
+          <Tooltip title={formatAbsoluteTime(plugin.updatedAt)} placement="top">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled', cursor: 'default' }}>
+              <Clock size={12} aria-hidden="true" />
+              <Typography variant="caption">
+                {formatRelativeTime(plugin.updatedAt)}
+              </Typography>
+            </Box>
+          </Tooltip>
         </Box>
       </CardActionArea>
     </Card>
