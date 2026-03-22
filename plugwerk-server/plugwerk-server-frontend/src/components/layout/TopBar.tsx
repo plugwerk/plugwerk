@@ -145,6 +145,13 @@ export function TopBar({ showSearch = true }: TopBarProps) {
           >
             Catalog
           </Button>
+          <Button
+            component={Link}
+            to="/admin"
+            sx={{ color: 'text.primary', fontWeight: 500, fontSize: '0.875rem' }}
+          >
+            Admin
+          </Button>
         </Box>
 
         {/* Actions */}
