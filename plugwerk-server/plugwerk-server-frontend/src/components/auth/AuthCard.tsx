@@ -2,7 +2,6 @@
 // Copyright (C) 2026 devtank42 GmbH
 import { Box, Paper, Typography } from '@mui/material'
 import type { ReactNode } from 'react'
-import { tokens } from '../../theme/tokens'
 
 interface AuthCardProps {
   title: string
@@ -40,22 +39,11 @@ export function AuthCard({ title, subtitle, children }: AuthCardProps) {
         {/* Logo */}
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <Box
-            sx={{
-              width: 48,
-              height: 48,
-              borderRadius: '10px',
-              background: tokens.color.primary,
-              color: tokens.color.white,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: '16px',
-            }}
-            aria-hidden="true"
-          >
-            PW
-          </Box>
+            component="img"
+            src="/logomark.svg"
+            alt="Plugwerk"
+            sx={{ height: 56, width: 'auto' }}
+          />
         </Box>
 
         {/* Title */}
