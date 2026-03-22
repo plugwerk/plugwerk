@@ -74,23 +74,12 @@ export function TopBar({ showSearch = true }: TopBarProps) {
           }}
         >
           <Box
-            sx={{
-              width: 32,
-              height: 32,
-              borderRadius: '6px',
-              background: tokens.color.primary,
-              color: tokens.color.white,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: '13px',
-              letterSpacing: '-0.5px',
-            }}
+            component="img"
+            src="/logo.svg"
+            alt=""
             aria-hidden="true"
-          >
-            PW
-          </Box>
+            sx={{ width: 32, height: 36, display: 'block', flexShrink: 0 }}
+          />
           <Typography
             sx={{
               fontWeight: 700,
