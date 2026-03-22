@@ -129,6 +129,36 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /namespaces/{ns}/releases:
+    post:
+      tags:
+        - Management
+      summary: Upload a new release (descriptor is read from the JAR)
+      operationId: uploadRelease
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/NamespaceSlug'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReleaseUploadRequest'
+      responses:
+        '201':
+          description: Release created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginReleaseDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
   /namespaces/{ns}/plugins/{pluginId}/releases:
     get:
       tags:
@@ -147,35 +177,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReleasePagedResponse'
-        '404':
-          $ref: '#/components/responses/NotFound'
-    post:
-      tags:
-        - Management
-      summary: Upload a new release
-      operationId: uploadRelease
-      security:
-        - ApiKeyAuth: []
-      parameters:
-        - $ref: '#/components/parameters/NamespaceSlug'
-        - $ref: '#/components/parameters/PluginIdPath'
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/ReleaseUploadRequest'
-      responses:
-        '201':
-          description: Release created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PluginReleaseDto'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -670,21 +671,8 @@ components:
         artifact:
           type: string
           format: binary
-        version:
-          type: string
-        changelog:
-          type: string
-        requiresSystemVersion:
-          type: string
-        requiresApiLevel:
-          type: integer
-          format: int32
-        pluginDependencies:
-          type: string
-          description: JSON array of plugin dependencies
       required:
         - artifact
-        - version
 
     ReleaseStatusUpdateRequest:
       type: object
@@ -894,6 +882,12 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     NotFound:
       description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableEntity:
+      description: Plugin descriptor is invalid or missing
       content:
         application/json:
           schema:

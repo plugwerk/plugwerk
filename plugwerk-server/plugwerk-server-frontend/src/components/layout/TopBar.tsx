@@ -13,6 +13,7 @@ import {
 import { Search, Sun, Moon, Menu, User, LogOut, Upload } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useUiStore } from '../../stores/uiStore'
+import { UploadModal } from '../upload/UploadModal'
 import { useAuthStore } from '../../stores/authStore'
 import { tokens } from '../../theme/tokens'
 
@@ -23,7 +24,7 @@ interface TopBarProps {
 export function TopBar({ showSearch = true }: TopBarProps) {
   const theme = useTheme()
   const isDark = theme.palette.mode === 'dark'
-  const { toggleTheme, setSearchQuery } = useUiStore()
+  const { toggleTheme, setSearchQuery, openUploadModal } = useUiStore()
   const { isAuthenticated, logout } = useAuthStore()
   const navigate = useNavigate()
 
@@ -43,6 +44,7 @@ export function TopBar({ showSearch = true }: TopBarProps) {
   }
 
   return (
+    <>
     <AppBar position="sticky" role="banner">
       {/* Skip link */}
       <a
@@ -151,8 +153,7 @@ export function TopBar({ showSearch = true }: TopBarProps) {
               Catalog
             </Button>
             <Button
-              component={Link}
-              to="/upload"
+              onClick={openUploadModal}
               startIcon={<Upload size={15} />}
               sx={{ color: 'text.primary', fontWeight: 500, fontSize: '0.875rem' }}
             >
@@ -221,5 +222,7 @@ export function TopBar({ showSearch = true }: TopBarProps) {
         </Box>
       </Toolbar>
     </AppBar>
+    <UploadModal />
+  </>
   )
 }

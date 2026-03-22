@@ -24,7 +24,7 @@ const { useUiStore } = await import('./uiStore')
 describe('useUiStore', () => {
   beforeEach(() => {
     localStorage.clear()
-    useUiStore.setState({ themeMode: 'light', searchQuery: '', toasts: [] })
+    useUiStore.setState({ themeMode: 'light', searchQuery: '', toasts: [], uploadModalOpen: false })
   })
 
   describe('themeMode', () => {
@@ -134,6 +134,23 @@ describe('useUiStore', () => {
       expect(toasts).toHaveLength(1)
       expect(toasts[0].message).toBe('B')
     })
+
+  describe('uploadModal', () => {
+    it('defaults to closed', () => {
+      expect(useUiStore.getState().uploadModalOpen).toBe(false)
+    })
+
+    it('openUploadModal sets uploadModalOpen to true', () => {
+      act(() => { useUiStore.getState().openUploadModal() })
+      expect(useUiStore.getState().uploadModalOpen).toBe(true)
+    })
+
+    it('closeUploadModal sets uploadModalOpen to false', () => {
+      useUiStore.setState({ uploadModalOpen: true })
+      act(() => { useUiStore.getState().closeUploadModal() })
+      expect(useUiStore.getState().uploadModalOpen).toBe(false)
+    })
+  })
 
     it('addToast auto-removes after 4 seconds', async () => {
       vi.useFakeTimers()

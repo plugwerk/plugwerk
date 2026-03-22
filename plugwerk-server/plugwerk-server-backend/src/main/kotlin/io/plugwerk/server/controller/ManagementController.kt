@@ -83,13 +83,7 @@ class ManagementController(
 
     override fun uploadRelease(
         ns: String,
-        pluginId: String,
         artifact: MultipartFile,
-        version: String,
-        changelog: String?,
-        requiresSystemVersion: String?,
-        requiresApiLevel: Int?,
-        pluginDependencies: String?,
     ): ResponseEntity<PluginReleaseDto> {
         val release = releaseService.upload(
             namespaceSlug = ns,

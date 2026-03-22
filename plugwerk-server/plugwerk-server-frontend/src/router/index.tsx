@@ -5,7 +5,6 @@ import { AppShell } from '../AppShell'
 import { ProtectedRoute } from '../components/auth/ProtectedRoute'
 import { CatalogPage } from '../pages/CatalogPage'
 import { PluginDetailPage } from '../pages/PluginDetailPage'
-import { UploadPage } from '../pages/UploadPage'
 import { LoginPage } from '../pages/LoginPage'
 import { RegisterPage } from '../pages/RegisterPage'
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage'
@@ -25,7 +24,6 @@ export const router = createBrowserRouter([
       // Protected routes — require a logged-in user
       { index: true,                          element: <ProtectedRoute><CatalogPage /></ProtectedRoute> },
       { path: ':namespace/plugins/:pluginId', element: <ProtectedRoute><PluginDetailPage /></ProtectedRoute> },
-      { path: 'upload',                       element: <ProtectedRoute><UploadPage /></ProtectedRoute> },
       { path: 'admin/*',                      element: <ProtectedRoute><AdminSettingsPage /></ProtectedRoute> },
       { path: 'profile',                      element: <ProtectedRoute><ProfileSettingsPage /></ProtectedRoute> },
 

@@ -14,12 +14,15 @@ interface UiState {
   themeMode: PaletteMode
   searchQuery: string
   toasts: ToastItem[]
+  uploadModalOpen: boolean
 
   toggleTheme: () => void
   setTheme: (mode: PaletteMode) => void
   setSearchQuery: (q: string) => void
   addToast: (toast: Omit<ToastItem, 'id'>) => void
   removeToast: (id: string) => void
+  openUploadModal: () => void
+  closeUploadModal: () => void
 }
 
 function resolveInitialTheme(): PaletteMode {
@@ -32,6 +35,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   themeMode: resolveInitialTheme(),
   searchQuery: '',
   toasts: [],
+  uploadModalOpen: false,
 
   toggleTheme() {
     const next: PaletteMode = get().themeMode === 'dark' ? 'light' : 'dark'
@@ -57,5 +61,13 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   removeToast(id) {
     set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }))
+  },
+
+  openUploadModal() {
+    set({ uploadModalOpen: true })
+  },
+
+  closeUploadModal() {
+    set({ uploadModalOpen: false })
   },
 }))

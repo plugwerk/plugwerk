@@ -175,9 +175,8 @@ class ManagementControllerTest {
         val artifact =
             MockMultipartFile("artifact", "my-plugin-1.0.0.jar", "application/octet-stream", "fake".toByteArray())
 
-        mockMvc.multipart("/api/v1/namespaces/acme/plugins/my-plugin/releases") {
+        mockMvc.multipart("/api/v1/namespaces/acme/releases") {
             file(artifact)
-            param("version", "1.0.0")
         }.andExpect {
             status { isCreated() }
         }
@@ -210,9 +209,8 @@ class ManagementControllerTest {
         whenever(releaseService.upload(any(), any(), any()))
             .thenThrow(DescriptorNotFoundException("No descriptor found in JAR (tried plugwerk.yml, MANIFEST.MF, plugin.properties)"))
 
-        mockMvc.multipart("/api/v1/namespaces/acme/plugins/my-plugin/releases") {
+        mockMvc.multipart("/api/v1/namespaces/acme/releases") {
             file(artifact)
-            param("version", "1.0.0")
         }.andExpect {
             status { isUnprocessableEntity() }
             jsonPath("$.status") { value(422) }
@@ -227,9 +225,8 @@ class ManagementControllerTest {
         whenever(releaseService.upload(any(), any(), any()))
             .thenThrow(DescriptorParseException("Invalid plugin.id in MANIFEST.MF"))
 
-        mockMvc.multipart("/api/v1/namespaces/acme/plugins/my-plugin/releases") {
+        mockMvc.multipart("/api/v1/namespaces/acme/releases") {
             file(artifact)
-            param("version", "1.0.0")
         }.andExpect {
             status { isUnprocessableEntity() }
             jsonPath("$.status") { value(422) }
