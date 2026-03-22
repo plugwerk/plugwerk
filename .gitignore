@@ -42,3 +42,5 @@ Thumbs.db
 docker-compose.override.yml
 
 .claude
+**/.observer.lock
+**/plugwerk-server-frontend/coverage
