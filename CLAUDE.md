@@ -49,7 +49,7 @@ Embedded in plugin artifacts. Extends the PF4J manifest (`MANIFEST.MF` / `plugin
 - `requires.system-version` – SemVer range (e.g. `>=2.0.0 & <4.0.0`)
 - `requires.api-level` – integer (alternative to concrete version)
 - `requires.plugins[]` – plugin-to-plugin dependencies with version ranges
-- `namespace`, `categories[]`, `tags[]`, `license`, `icon`, `screenshots`
+- `categories[]`, `tags[]`, `license`, `icon`, `screenshots`
 
 If `plugwerk.yml` is absent, the server falls back to the PF4J manifest.
 

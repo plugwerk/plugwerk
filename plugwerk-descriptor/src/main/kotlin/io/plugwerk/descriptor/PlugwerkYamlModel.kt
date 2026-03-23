@@ -32,7 +32,6 @@ data class PlugwerkYamlDescriptor(
     val author: String? = null,
     val license: String? = null,
     val requires: PlugwerkYamlRequires? = null,
-    val namespace: String? = null,
     val categories: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
     val icon: String? = null,

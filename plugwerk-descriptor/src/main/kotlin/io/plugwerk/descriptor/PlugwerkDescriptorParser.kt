@@ -93,7 +93,6 @@ class PlugwerkDescriptorParser {
             description = yaml.description,
             author = yaml.author,
             license = yaml.license,
-            namespace = yaml.namespace,
             categories = yaml.categories,
             tags = yaml.tags,
             requiresSystemVersion = yaml.requires?.systemVersion,

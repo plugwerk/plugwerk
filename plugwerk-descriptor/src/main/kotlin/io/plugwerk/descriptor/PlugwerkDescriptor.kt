@@ -24,7 +24,6 @@ data class PlugwerkDescriptor(
     val description: String? = null,
     val author: String? = null,
     val license: String? = null,
-    val namespace: String? = null,
     val categories: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
     val requiresSystemVersion: String? = null,
