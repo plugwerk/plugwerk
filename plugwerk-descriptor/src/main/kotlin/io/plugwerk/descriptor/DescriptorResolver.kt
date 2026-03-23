@@ -20,6 +20,7 @@ package io.plugwerk.descriptor
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
+import java.util.zip.ZipInputStream
 
 class DescriptorResolver(
     private val plugwerkParser: PlugwerkDescriptorParser = PlugwerkDescriptorParser(),
@@ -31,9 +32,39 @@ class DescriptorResolver(
 
         return tryParse { plugwerkParser.parseFromJar(ByteArrayInputStream(bytes)) }
             ?: tryParse { manifestParser.parseFromJar(ByteArrayInputStream(bytes)) }
+            ?: tryParse { resolveFromZipBundle(bytes) }
             ?: throw DescriptorNotFoundException(
-                "No descriptor found in JAR (tried plugwerk.yml, MANIFEST.MF, plugin.properties)",
+                "No descriptor found in artifact (tried plugwerk.yml, MANIFEST.MF, plugin.properties, ZIP bundle)",
             )
+    }
+
+    private fun resolveFromZipBundle(bytes: ByteArray): PlugwerkDescriptor {
+        val rootJars = mutableListOf<ByteArray>()
+        val libJars = mutableListOf<ByteArray>()
+
+        ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
+            var entry = zip.nextEntry
+            while (entry != null) {
+                if (!entry.isDirectory && entry.name.endsWith(".jar")) {
+                    validateEntryName(entry.name)
+                    val jarBytes = zip.readBytes()
+                    if ('/' !in entry.name) {
+                        rootJars += jarBytes
+                    } else {
+                        libJars += jarBytes
+                    }
+                }
+                entry = zip.nextEntry
+            }
+        }
+
+        for (jarBytes in rootJars + libJars) {
+            val descriptor = tryParse { plugwerkParser.parseFromJar(ByteArrayInputStream(jarBytes)) }
+                ?: tryParse { manifestParser.parseFromJar(ByteArrayInputStream(jarBytes)) }
+            if (descriptor != null) return descriptor
+        }
+
+        throw DescriptorNotFoundException("No descriptor found in any JAR inside ZIP bundle")
     }
 
     private fun tryParse(block: () -> PlugwerkDescriptor): PlugwerkDescriptor? = try {

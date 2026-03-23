@@ -26,6 +26,8 @@ import java.util.jar.Attributes
 import java.util.jar.JarEntry
 import java.util.jar.JarOutputStream
 import java.util.jar.Manifest
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 class DescriptorResolverTest {
 
@@ -87,6 +89,104 @@ class DescriptorResolverTest {
         }
     }
 
+    // --- ZIP bundle tests ---
+
+    @Test
+    fun `resolve finds plugwerk yml inside root-level JAR in ZIP bundle`() {
+        val yaml = """
+            plugwerk:
+              id: "zip-bundle-plugin"
+              version: "1.2.3"
+              name: "ZIP Bundle Plugin"
+        """.trimIndent()
+        val innerJar = createJarWithEntry("plugwerk.yml", yaml)
+        val zip = createZipWithEntry("my-plugin.jar", innerJar.readBytes())
+
+        val descriptor = resolver.resolve(zip)
+
+        assertEquals("zip-bundle-plugin", descriptor.id)
+        assertEquals("1.2.3", descriptor.version)
+    }
+
+    @Test
+    fun `resolve prefers root-level JAR over lib subdirectory JAR in ZIP bundle`() {
+        val rootYaml = """
+            plugwerk:
+              id: "root-plugin"
+              version: "1.0.0"
+              name: "Root Plugin"
+        """.trimIndent()
+        val libYaml = """
+            plugwerk:
+              id: "lib-plugin"
+              version: "2.0.0"
+              name: "Lib Plugin"
+        """.trimIndent()
+        val rootJarBytes = createJarWithEntry("plugwerk.yml", rootYaml).readBytes()
+        val libJarBytes = createJarWithEntry("plugwerk.yml", libYaml).readBytes()
+        val zip = createZipWithEntries(
+            "my-plugin.jar" to rootJarBytes,
+            "lib/dependency.jar" to libJarBytes,
+        )
+
+        val descriptor = resolver.resolve(zip)
+
+        assertEquals("root-plugin", descriptor.id)
+    }
+
+    @Test
+    fun `resolve finds descriptor in lib subdirectory JAR when no root-level JAR has descriptor`() {
+        val libYaml = """
+            plugwerk:
+              id: "lib-only-plugin"
+              version: "3.0.0"
+              name: "Lib Only Plugin"
+        """.trimIndent()
+        val libJarBytes = createJarWithEntry("plugwerk.yml", libYaml).readBytes()
+        val zip = createZipWithEntries(
+            "lib/my-plugin.jar" to libJarBytes,
+        )
+
+        val descriptor = resolver.resolve(zip)
+
+        assertEquals("lib-only-plugin", descriptor.id)
+    }
+
+    @Test
+    fun `resolve falls back to manifest in nested JAR inside ZIP bundle`() {
+        val manifest = Manifest().apply {
+            mainAttributes[Attributes.Name.MANIFEST_VERSION] = "1.0"
+            mainAttributes.putValue("Plugin-Id", "manifest-in-zip")
+            mainAttributes.putValue("Plugin-Version", "5.0.0")
+        }
+        val innerJarBytes = createJarWithManifest(manifest).readBytes()
+        val zip = createZipWithEntry("plugin.jar", innerJarBytes)
+
+        val descriptor = resolver.resolve(zip)
+
+        assertEquals("manifest-in-zip", descriptor.id)
+        assertEquals("5.0.0", descriptor.version)
+    }
+
+    @Test
+    fun `resolve throws when ZIP bundle contains no JAR with descriptor`() {
+        val innerJarBytes = createJarWithEntry("some-file.txt", "content").readBytes()
+        val zip = createZipWithEntry("plugin.jar", innerJarBytes)
+
+        assertThrows<DescriptorNotFoundException> {
+            resolver.resolve(zip)
+        }
+    }
+
+    @Test
+    fun `resolve throws when ZIP bundle contains no JAR entries at all`() {
+        val zip = createZipWithEntry("readme.txt", "no jars here".toByteArray())
+
+        assertThrows<DescriptorNotFoundException> {
+            resolver.resolve(zip)
+        }
+    }
+
     @Test
     fun `resolve propagates parse error for malformed plugwerk yml`() {
         val badYaml = """
@@ -131,6 +231,28 @@ class DescriptorResolverTest {
             jar.putNextEntry(JarEntry(entryName))
             jar.write(content.toByteArray())
             jar.closeEntry()
+        }
+        return ByteArrayInputStream(baos.toByteArray())
+    }
+
+    private fun createZipWithEntry(entryName: String, content: ByteArray): ByteArrayInputStream {
+        val baos = ByteArrayOutputStream()
+        ZipOutputStream(baos).use { zip ->
+            zip.putNextEntry(ZipEntry(entryName))
+            zip.write(content)
+            zip.closeEntry()
+        }
+        return ByteArrayInputStream(baos.toByteArray())
+    }
+
+    private fun createZipWithEntries(vararg entries: Pair<String, ByteArray>): ByteArrayInputStream {
+        val baos = ByteArrayOutputStream()
+        ZipOutputStream(baos).use { zip ->
+            entries.forEach { (name, content) ->
+                zip.putNextEntry(ZipEntry(name))
+                zip.write(content)
+                zip.closeEntry()
+            }
         }
         return ByteArrayInputStream(baos.toByteArray())
     }
