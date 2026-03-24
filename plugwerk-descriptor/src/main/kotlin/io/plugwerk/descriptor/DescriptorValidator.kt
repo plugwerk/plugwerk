@@ -17,7 +17,6 @@
  */
 package io.plugwerk.descriptor
 
-
 private val PLUGIN_ID_REGEX = Regex("^[a-zA-Z0-9._-]{1,128}$")
 
 // Each range part: optional operator + version, optionally followed by a hyphen range end
