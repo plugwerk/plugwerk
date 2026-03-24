@@ -1,5 +1,6 @@
 id: sysinfo-cli-plugin
 version: "0.1.0-SNAPSHOT"
+name: Sysinfo CLI Plugin
 description: Example CLI plugin that adds a system information subcommand.
 provider: plugwerk-examples
 license: Apache-2.0
