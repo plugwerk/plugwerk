@@ -79,13 +79,11 @@ internal object DescriptorValidator {
         if (violations.isNotEmpty()) throw DescriptorValidationException(violations)
     }
 
-    private fun isValidHttpUrl(url: String): Boolean {
-        return try {
-            val parsed = java.net.URI(url)
-            parsed.scheme in URL_SCHEMES && parsed.host != null && parsed.host.isNotEmpty()
-        } catch (_: Exception) {
-            false
-        }
+    private fun isValidHttpUrl(url: String): Boolean = try {
+        val parsed = java.net.URI(url)
+        parsed.scheme in URL_SCHEMES && parsed.host != null && parsed.host.isNotEmpty()
+    } catch (_: Exception) {
+        false
     }
 
     private fun isValidSemVerRange(range: String): Boolean {
