@@ -12,7 +12,7 @@ dependencies {
 
     // plugwerk-spi must be on the HOST classpath so PF4J can match the interface
     // loaded by the parent classloader with the plugin's implementation.
-    // plugwerk-client-sdk-plugin itself is NOT a compile dependency —
+    // plugwerk-client-plugin itself is NOT a compile dependency —
     // it is loaded at runtime as a PF4J plugin from the plugins directory.
     implementation(libs.plugwerk.spi)
     implementation(libs.pf4j)

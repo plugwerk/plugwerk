@@ -152,7 +152,7 @@ plugwerk/
 ├── plugwerk-server/
 │   ├── plugwerk-server-backend/   # Spring Boot 4.x + Kotlin REST API (JVM 21)
 │   └── plugwerk-server-frontend/  # React + TypeScript + MUI + Zustand (embedded in server JAR)
-└── plugwerk-client-sdk-plugin/    # PF4J plugin, OkHttp, Jackson (JVM 17)
+└── plugwerk-client-plugin/        # PF4J plugin, OkHttp, Jackson (JVM 17)
 ```
 
 ### Key Design Constraints

@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Milestone 7 (Issue #18) implements the Plugwerk Client SDK (`plugwerk-client-sdk-plugin`). During planning,
+Milestone 7 (Issue #18) implements the Plugwerk Client SDK (`plugwerk-client-plugin`). During planning,
 several architectural decisions were made about configuration, authentication, namespace handling,
 multi-server support, and the SDK's role as a PF4J plugin. These decisions need to be documented
 to provide a stable foundation for implementation and future contributors.
@@ -67,11 +67,11 @@ application or PF4J plugin manager.
 
 ### 6. SDK as a PF4J Plugin (ZIP Bundle)
 
-The `plugwerk-client-sdk-plugin` is packaged as a PF4J plugin in ZIP format:
+The `plugwerk-client-plugin` is packaged as a PF4J plugin in ZIP format:
 
 ```
-plugwerk-client-sdk-plugin-<version>.zip
-├── plugwerk-client-sdk-plugin-<version>.jar   (Plugin JAR with MANIFEST.MF)
+plugwerk-client-plugin-<version>.zip
+├── plugwerk-client-plugin-<version>.jar   (Plugin JAR with MANIFEST.MF)
 └── lib/
     ├── jackson-databind-x.y.z.jar
     ├── okhttp-x.y.z.jar

@@ -1,6 +1,6 @@
 # plugwerk-java-cli-example-app
 
-A Java CLI application demonstrating how to use the `plugwerk-client-sdk-plugin` in a PF4J host
+A Java CLI application demonstrating how to use the `plugwerk-client-plugin` in a PF4J host
 application. Uses [picocli](https://picocli.info/) for command parsing and supports both built-in
 marketplace commands and **dynamically loaded plugin commands** contributed by PF4J plugins
 downloaded from the Plugwerk server.
@@ -10,7 +10,7 @@ downloaded from the Plugwerk server.
 ```
 JVM (Host)
 ├── Classpath: plugwerk-spi, pf4j, picocli, plugwerk-java-cli-example-api
-└── DefaultPluginManager → plugins/plugwerk-client-sdk-plugin-<version>.zip
+└── DefaultPluginManager → plugins/plugwerk-client-plugin-<version>.zip
                                 → extracted to plugins/<id>/ on first run
                                 → exposes PlugwerkMarketplace via @Extension
                            plugins/<any-cli-plugin>.zip
@@ -39,14 +39,14 @@ JVM (Host)
 3. **Build the SDK plugin ZIP** (from the main project root):
 
    ```bash
-   ./gradlew :plugwerk-client-sdk-plugin:assemble
+   ./gradlew :plugwerk-client-plugin:assemble
    ```
 
 4. **Set up the plugins directory** and copy the SDK plugin ZIP:
 
    ```bash
    mkdir -p examples/plugwerk-java-cli-example/plugins
-   cp plugwerk-client-sdk-plugin/build/pf4j/plugwerk-client-sdk-plugin-*.zip \
+   cp plugwerk-client-plugin/build/pf4j/plugwerk-client-plugin-*.zip \
       examples/plugwerk-java-cli-example/plugins/
    ```
 
@@ -237,6 +237,6 @@ PLUGWERK_LOG_LEVEL=DEBUG java -jar plugwerk-java-cli-example-app-*-fat.jar \
 - **ZIP extraction**: The SDK plugin ZIP is extracted to a subdirectory on first run. If you
   replace the ZIP with a newer version, delete the extracted directory manually before the next run:
   ```bash
-  rm -rf plugins/plugwerk-client-sdk-plugin-*/
-  cp plugwerk-client-sdk-plugin-<new-version>.zip plugins/
+  rm -rf plugins/plugwerk-client-plugin-*/
+  cp plugwerk-client-plugin-<new-version>.zip plugins/
   ```

@@ -27,7 +27,7 @@ tasks.compileJava {
 }
 
 // PF4J plugin metadata — embedded in MANIFEST.MF so the SDK JAR is loadable as a PF4J plugin
-val pf4jPluginId = "plugwerk-client-sdk-plugin"
+val pf4jPluginId = "plugwerk-client-plugin"
 val pf4jPluginClass = "io.plugwerk.client.PlugwerkMarketplacePlugin"
 val pf4jPluginVersion: String = project.version.toString()
 val pf4jPluginProvider = "devtank42 GmbH"
@@ -81,11 +81,11 @@ dependencies {
 // ---------------------------------------------------------------------------
 // PF4J Plugin ZIP Format (compatible with DefaultPluginManager):
 //
-//   plugwerk-client-sdk-plugin-<version>.zip
+//   plugwerk-client-plugin-<version>.zip
 //   ├── META-INF/
 //   │   └── MANIFEST.MF        ← loose file (not inside the JAR!)
 //   └── lib/
-//       ├── plugwerk-client-sdk-plugin-<version>.jar   ← main plugin JAR
+//       ├── plugwerk-client-plugin-<version>.jar   ← main plugin JAR
 //       ├── jackson-databind-x.y.z.jar
 //       ├── okhttp-x.y.z.jar
 //       └── ...

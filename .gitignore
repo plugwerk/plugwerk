@@ -46,4 +46,4 @@ docker-compose.override.yml
 **/plugwerk-server-frontend/coverage
 /examples/plugwerk-java-cli-example/plugins/
 /plugwerk-server/plugwerk-server-backend/storage/
-!/examples/plugwerk-java-cli-example/plugins/plugwerk-client-sdk-plugin-0.1.0-SNAPSHOT/plugwerk-client-sdk-plugin-0.1.0-SNAPSHOT.zip
+!/examples/plugwerk-java-cli-example/plugins/plugwerk-client-plugin-0.1.0-SNAPSHOT/plugwerk-client-plugin-0.1.0-SNAPSHOT.zip

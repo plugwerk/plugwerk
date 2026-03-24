@@ -18,7 +18,7 @@ import java.util.List;
  *
  * <p>Example flow:
  * <ol>
- *   <li>PF4J starts and loads {@code plugwerk-client-sdk-plugin}.</li>
+ *   <li>PF4J starts and loads {@code plugwerk-client-plugin}.</li>
  *   <li>{@code DynamicCommandLoader.loadAll()} scans for {@link CliCommand} extensions — none yet.</li>
  *   <li>User runs {@code plugwerk-cli install io.example.analytics-plugin 1.0.0}.</li>
  *   <li>{@code InstallCommand} calls {@code DynamicCommandLoader.reload()} after install.</li>

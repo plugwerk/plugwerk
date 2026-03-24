@@ -12,7 +12,7 @@ import java.util.List;
 /**
  * Creates and configures the PF4J {@link PluginManager} used by the CLI host.
  *
- * <p>The {@code plugwerk-client-sdk-plugin} ZIP must be present in the plugins directory
+ * <p>The {@code plugwerk-client-plugin} ZIP must be present in the plugins directory
  * before calling {@link #create(Path, String, String)}. The SDK plugin is loaded and started
  * automatically; its {@link PlugwerkMarketplace} extension is then available via
  * {@link #getMarketplace(PluginManager)}.
@@ -37,7 +37,7 @@ public class PluginManagerFactory {
      * {@code DefaultPluginRepository}, which automatically extracts ZIP files to directories before
      * loading. {@code JarPluginManager} only handles plain {@code .jar} files.
      *
-     * @param pluginsDir  directory containing the {@code plugwerk-client-sdk-plugin-*.zip}
+     * @param pluginsDir  directory containing the {@code plugwerk-client-plugin-*.zip}
      * @param serverUrl   Plugwerk server base URL (e.g. {@code http://localhost:8080})
      * @param namespace   namespace slug (e.g. {@code default})
      * @param accessToken optional Bearer token for authenticated servers (may be null or blank)
@@ -72,15 +72,15 @@ public class PluginManagerFactory {
      *
      * @param manager a started {@link PluginManager}
      * @return the first available {@link PlugwerkMarketplace} extension
-     * @throws IllegalStateException if {@code plugwerk-client-sdk-plugin} is not loaded
+     * @throws IllegalStateException if {@code plugwerk-client-plugin} is not loaded
      */
     public static PlugwerkMarketplace getMarketplace(PluginManager manager) {
         List<PlugwerkMarketplace> extensions = manager.getExtensions(PlugwerkMarketplace.class);
         if (extensions.isEmpty()) {
             throw new IllegalStateException("""
                     No PlugwerkMarketplace extension found.
-                    Make sure plugwerk-client-sdk-plugin-<version>.zip is present in the plugins directory.
-                    Run: cp <main-project>/plugwerk-client-sdk-plugin/build/pf4j/*.zip <plugins-dir>/
+                    Make sure plugwerk-client-plugin-<version>.zip is present in the plugins directory.
+                    Run: cp <main-project>/plugwerk-client-plugin/build/pf4j/*.zip <plugins-dir>/
                     """);
         }
         return extensions.get(0);

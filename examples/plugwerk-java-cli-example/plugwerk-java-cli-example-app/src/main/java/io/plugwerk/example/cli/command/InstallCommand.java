@@ -48,7 +48,7 @@ public class InstallCommand implements Runnable {
             System.out.printf("✓ Successfully installed %s@%s%n", s.getPluginId(), s.getVersion());
             // Load and start only the newly installed plugin, then register its extensions.
             // Using loadPlugin(path) instead of loadPlugins() avoids a PluginAlreadyLoadedException
-            // for plugins that are already running (e.g. plugwerk-client-sdk-plugin).
+            // for plugins that are already running (e.g. plugwerk-client-plugin).
             PluginManager pm = parent.getPluginManager();
             if (pm != null) {
                 Path artifact = findInstalledArtifact(parent.pluginsDir, pluginId, version);

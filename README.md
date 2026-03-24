@@ -35,7 +35,7 @@ plugwerk/
 ├── plugwerk-server/
 │   ├── plugwerk-server-backend/   # Spring Boot 4.x + Kotlin REST API
 │   └── plugwerk-server-frontend/  # React + TypeScript + Material UI + Zustand
-└── plugwerk-client-sdk-plugin/    # PF4J plugin with isolated classloader (OkHttp + Jackson)
+└── plugwerk-client-plugin/        # PF4J plugin with isolated classloader (OkHttp + Jackson)
 ```
 
 ## Technology Stack

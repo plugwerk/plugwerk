@@ -6,7 +6,7 @@ allprojects {
     version = "0.1.0-SNAPSHOT"
 
     repositories {
-        // plugwerk-spi and plugwerk-client-sdk-plugin are resolved from Maven Local.
+        // plugwerk-spi and plugwerk-client-plugin are resolved from Maven Local.
         // Run `./gradlew publishToMavenLocal` in the main project before building examples.
         mavenLocal()
         mavenCentral()

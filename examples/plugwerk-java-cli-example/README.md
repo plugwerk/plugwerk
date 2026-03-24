@@ -59,7 +59,7 @@ the CLI to demonstrate dynamic command loading:
 
 ### 1. Publish Plugwerk artifacts to Maven Local
 
-The example build resolves `plugwerk-spi` and `plugwerk-client-sdk-plugin` from
+The example build resolves `plugwerk-spi` and `plugwerk-client-plugin` from
 Maven Local. Run once from the **main project root**:
 
 ```bash
@@ -81,16 +81,16 @@ The server listens on `http://localhost:8080`.
 
 ### 3. Build the SDK plugin ZIP and copy it to the plugins directory
 
-The `plugwerk-client-sdk-plugin` is the bridge between the CLI app and the server.
+The `plugwerk-client-plugin` is the bridge between the CLI app and the server.
 It must be present in `plugins/` before the CLI app starts.
 
 ```bash
 # Build the ZIP (from the main project root)
-./gradlew :plugwerk-client-sdk-plugin:assemble
+./gradlew :plugwerk-client-plugin:assemble
 
 # Copy to the plugins directory
 mkdir -p examples/plugwerk-java-cli-example/plugins
-cp plugwerk-client-sdk-plugin/build/pf4j/plugwerk-client-sdk-plugin-*.zip \
+cp plugwerk-client-plugin/build/pf4j/plugwerk-client-plugin-*.zip \
    examples/plugwerk-java-cli-example/plugins/
 ```
 
