@@ -169,7 +169,7 @@ class ManagementControllerTest {
             artifactSha256 = "abc123",
             artifactKey = "acme/my-plugin/1.0.0",
         )
-        whenever(releaseService.upload(any(), any(), any())).thenReturn(release)
+        whenever(releaseService.upload(any(), any(), any(), anyOrNull())).thenReturn(release)
         whenever(releaseMapper.toDto(any(), any())).thenReturn(buildReleaseDto())
 
         val artifact =
@@ -206,7 +206,7 @@ class ManagementControllerTest {
     fun `POST release upload returns 422 when descriptor not found in JAR`() {
         val artifact =
             MockMultipartFile("artifact", "invalid.jar", "application/octet-stream", "not-a-jar".toByteArray())
-        whenever(releaseService.upload(any(), any(), any()))
+        whenever(releaseService.upload(any(), any(), any(), anyOrNull()))
             .thenThrow(
                 DescriptorNotFoundException(
                     "No descriptor found in JAR (tried plugwerk.yml, MANIFEST.MF, plugin.properties)",
@@ -228,7 +228,7 @@ class ManagementControllerTest {
     fun `POST release upload returns 422 when descriptor cannot be parsed`() {
         val artifact =
             MockMultipartFile("artifact", "broken.jar", "application/octet-stream", "not-a-jar".toByteArray())
-        whenever(releaseService.upload(any(), any(), any()))
+        whenever(releaseService.upload(any(), any(), any(), anyOrNull()))
             .thenThrow(DescriptorParseException("Invalid plugin.id in MANIFEST.MF"))
 
         mockMvc.multipart("/api/v1/namespaces/acme/releases") {

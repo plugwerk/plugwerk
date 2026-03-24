@@ -95,7 +95,7 @@ class PluginReleaseServiceTest {
         val result = releaseService.upload("acme", ByteArrayInputStream(jarBytes), jarBytes.size.toLong())
 
         assertThat(result.version).isEqualTo("1.0.0")
-        verify(storageService).store(eq("acme/my-plugin/1.0.0"), any<java.io.InputStream>(), any<Long>())
+        verify(storageService).store(eq("acme/my-plugin/1.0.0.jar"), any<java.io.InputStream>(), any<Long>())
         verify(releaseRepository).save(any<PluginReleaseEntity>())
     }
 

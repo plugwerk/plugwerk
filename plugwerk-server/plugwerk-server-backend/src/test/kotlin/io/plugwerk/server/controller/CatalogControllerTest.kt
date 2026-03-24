@@ -198,6 +198,14 @@ class CatalogControllerTest {
 
     @Test
     fun `GET download returns 200 with octet-stream`() {
+        val release = PluginReleaseEntity(
+            id = UUID.randomUUID(),
+            plugin = plugin,
+            version = "1.0.0",
+            artifactSha256 = "abc",
+            artifactKey = "acme/my-plugin/1.0.0.jar",
+        )
+        whenever(releaseService.findByVersion("acme", "my-plugin", "1.0.0")).thenReturn(release)
         whenever(releaseService.downloadArtifact("acme", "my-plugin", "1.0.0"))
             .thenReturn(ByteArrayInputStream("fake-jar-content".toByteArray()))
 
