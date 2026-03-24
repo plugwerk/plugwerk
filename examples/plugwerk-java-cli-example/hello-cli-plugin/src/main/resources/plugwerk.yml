@@ -1,0 +1,13 @@
+id: hello-cli-plugin
+version: "0.1.0-SNAPSHOT"
+description: Example CLI plugin that adds a multilingual greeting subcommand.
+provider: plugwerk-examples
+license: Apache-2.0
+categories:
+  - utilities
+  - examples
+tags:
+  - hello
+  - demo
+  - cli
+  - greeting

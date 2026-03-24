@@ -153,6 +153,73 @@ java -jar *-fat.jar install io.example.analytics-plugin 1.0.0
 java -jar *-fat.jar analyze --input=data.csv
 ```
 
+## Example Plugins
+
+Two ready-made example plugins are included in this project under
+`plugwerk-java-cli-example/hello-cli-plugin/` and
+`plugwerk-java-cli-example/sysinfo-cli-plugin/`. They demonstrate the full
+workflow from build → upload → install → use.
+
+### Build the example plugin ZIPs
+
+```bash
+cd examples/
+./gradlew :plugwerk-java-cli-example:hello-cli-plugin:assemble \
+          :plugwerk-java-cli-example:sysinfo-cli-plugin:assemble
+```
+
+The ZIPs are placed in each module's `build/pf4j/` directory.
+
+### Upload to the Plugwerk server
+
+Use the management API to upload a plugin release. The server reads the
+`plugwerk.yml` descriptor from inside the JAR automatically.
+
+```bash
+# Register the plugin in the default namespace (requires auth token)
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"test","password":"test"}' | jq -r .accessToken)
+
+# Upload hello-cli-plugin
+curl -s -X POST "http://localhost:8080/api/v1/namespaces/default/plugins/hello-cli-plugin/releases" \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@plugwerk-java-cli-example/hello-cli-plugin/build/pf4j/hello-cli-plugin-0.1.0-SNAPSHOT.zip"
+
+# Upload sysinfo-cli-plugin
+curl -s -X POST "http://localhost:8080/api/v1/namespaces/default/plugins/sysinfo-cli-plugin/releases" \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@plugwerk-java-cli-example/sysinfo-cli-plugin/build/pf4j/sysinfo-cli-plugin-0.1.0-SNAPSHOT.zip"
+```
+
+### Install and use
+
+```bash
+cd examples/
+JAR=plugwerk-java-cli-example/plugwerk-java-cli-example-app/build/libs/*-fat.jar
+
+# Install both plugins from the server
+java -jar $JAR --server=http://localhost:8080 --access-token=$TOKEN \
+    install hello-cli-plugin 0.1.0-SNAPSHOT
+java -jar $JAR --server=http://localhost:8080 --access-token=$TOKEN \
+    install sysinfo-cli-plugin 0.1.0-SNAPSHOT
+
+# Use the dynamically loaded commands (next invocation — PF4J loads from plugins/)
+java -jar $JAR hello --name=Plugwerk
+# → Hello, Plugwerk!
+
+java -jar $JAR hello --name=Welt --language=de
+# → Hallo, Welt!
+
+java -jar $JAR sysinfo
+# → Java:       21.0.3 (Eclipse Adoptium)
+# → OS:         Mac OS X 14.5 (aarch64)
+# → Heap:       256 MB free / 512 MB allocated / 1024 MB max
+# → Processors: 10
+
+java -jar $JAR sysinfo --all    # includes all system properties
+```
+
 ## Debug Logging
 
 Set `PLUGWERK_LOG_LEVEL=DEBUG` to see PF4J plugin loading details (ZIP extraction, classloader
