@@ -102,7 +102,9 @@ class CatalogController(
             allReleases.filter { it.status == ReleaseStatus.DRAFT }
                 .maxByOrNull { it.createdAt }
                 ?.version
-        } else null
+        } else {
+            null
+        }
         return ResponseEntity.ok(pluginMapper.toDto(plugin, ns, latestVersion, latestDraftVersion))
     }
 

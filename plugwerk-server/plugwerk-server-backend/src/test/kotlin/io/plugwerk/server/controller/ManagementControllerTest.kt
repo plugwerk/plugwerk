@@ -91,7 +91,7 @@ class ManagementControllerTest {
                 any(), any(),
             ),
         ).thenReturn(plugin)
-        whenever(pluginMapper.toDto(any(), any(), anyOrNull())).thenReturn(buildPluginDto())
+        whenever(pluginMapper.toDto(any(), any(), anyOrNull(), anyOrNull())).thenReturn(buildPluginDto())
 
         mockMvc.post("/api/v1/namespaces/acme/plugins") {
             contentType = MediaType.APPLICATION_JSON
@@ -132,7 +132,7 @@ class ManagementControllerTest {
                 anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(),
             ),
         ).thenReturn(plugin)
-        whenever(pluginMapper.toDto(any(), any(), anyOrNull())).thenReturn(buildPluginDto())
+        whenever(pluginMapper.toDto(any(), any(), anyOrNull(), anyOrNull())).thenReturn(buildPluginDto())
 
         mockMvc.patch("/api/v1/namespaces/acme/plugins/my-plugin") {
             contentType = MediaType.APPLICATION_JSON

@@ -98,7 +98,7 @@ class CatalogControllerTest {
             ),
         )
             .thenReturn(PageImpl(listOf(plugin)))
-        whenever(pluginMapper.toDto(any(), eq("acme"), anyOrNull())).thenReturn(buildPluginDto())
+        whenever(pluginMapper.toDto(any(), eq("acme"), anyOrNull(), anyOrNull())).thenReturn(buildPluginDto())
 
         mockMvc.get("/api/v1/namespaces/acme/plugins")
             .andExpect {
@@ -134,7 +134,7 @@ class CatalogControllerTest {
     fun `GET plugin by id returns 200`() {
         whenever(pluginService.findByNamespaceAndPluginId("acme", "my-plugin")).thenReturn(plugin)
         whenever(releaseService.findAllByPlugin("acme", "my-plugin")).thenReturn(emptyList())
-        whenever(pluginMapper.toDto(any(), eq("acme"), anyOrNull())).thenReturn(buildPluginDto())
+        whenever(pluginMapper.toDto(any(), eq("acme"), anyOrNull(), anyOrNull())).thenReturn(buildPluginDto())
 
         mockMvc.get("/api/v1/namespaces/acme/plugins/my-plugin")
             .andExpect {
