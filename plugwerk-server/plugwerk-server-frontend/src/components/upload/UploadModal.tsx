@@ -19,6 +19,7 @@ import axios from 'axios'
 import { axiosInstance } from '../../api/config'
 import { useUiStore } from '../../stores/uiStore'
 import { useAuthStore } from '../../stores/authStore'
+import { usePluginStore } from '../../stores/pluginStore'
 import { tokens } from '../../theme/tokens'
 
 export function UploadModal() {
@@ -69,6 +70,7 @@ export function UploadModal() {
         },
       })
       addToast({ type: 'success', title: 'Release uploaded', message: 'Your release is pending review.' })
+      usePluginStore.getState().fetchPlugins(namespace)
       handleClose()
     } catch (err: unknown) {
       const message = axios.isAxiosError(err)
