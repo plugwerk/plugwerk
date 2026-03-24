@@ -48,6 +48,7 @@ class PluginReleaseMapper(private val objectMapper: ObjectMapper) {
         artifactSha256 = entity.artifactSha256,
         requiresSystemVersion = entity.requiresSystemVersion,
         pluginDependencies = parseDependencies(entity.pluginDependencies),
+        downloadCount = entity.downloadCount,
         createdAt = entity.createdAt,
     )
 

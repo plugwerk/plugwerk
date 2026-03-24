@@ -171,6 +171,12 @@ databaseChangeLog:
                   name: plugin_dependencies
                   type: jsonb
               - column:
+                  name: download_count
+                  type: bigint
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
                   name: status
                   type: varchar(50)
                   defaultValue: DRAFT

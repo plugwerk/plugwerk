@@ -60,6 +60,23 @@ class PluginReleaseMapperTest {
         assertThat(dto.artifactSha256).isEqualTo("deadbeef")
         assertThat(dto.requiresSystemVersion).isEqualTo(">=2.0.0")
         assertThat(dto.status).isEqualTo(PluginReleaseDto.Status.PUBLISHED)
+        assertThat(dto.downloadCount).isEqualTo(0L)
+    }
+
+    @Test
+    fun `toDto maps non-zero downloadCount`() {
+        val release = PluginReleaseEntity(
+            id = UUID.randomUUID(),
+            plugin = plugin,
+            version = "1.0.0",
+            artifactSha256 = "abc",
+            artifactKey = "key",
+            downloadCount = 42L,
+        )
+
+        val dto = mapper.toDto(release, "my-plugin")
+
+        assertThat(dto.downloadCount).isEqualTo(42L)
     }
 
     @Test

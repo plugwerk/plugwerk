@@ -24,6 +24,7 @@ import io.plugwerk.spi.model.ReleaseStatus
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import java.util.Optional
@@ -40,6 +41,10 @@ interface PluginReleaseRepository : JpaRepository<PluginReleaseEntity, UUID> {
     fun findAllByPluginAndStatus(plugin: PluginEntity, status: ReleaseStatus): List<PluginReleaseEntity>
 
     fun existsByPluginAndVersion(plugin: PluginEntity, version: String): Boolean
+
+    @Modifying
+    @Query("UPDATE PluginReleaseEntity r SET r.downloadCount = r.downloadCount + 1 WHERE r.id = :id")
+    fun incrementDownloadCount(@Param("id") id: UUID)
 
     @Query(
         """
