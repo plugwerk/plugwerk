@@ -244,3 +244,13 @@ databaseChangeLog:
                   defaultValueComputed: now()
                   constraints:
                     nullable: false
+
+  - changeSet:
+      id: 0001-seed-default-namespace
+      author: plugwerk
+      changes:
+        - sql:
+            sql: >
+              INSERT INTO namespace (id, slug, owner_org, public_catalog)
+              VALUES (gen_random_uuid(), 'default', 'plugwerk', true)
+              ON CONFLICT (slug) DO NOTHING;
