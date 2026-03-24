@@ -58,13 +58,9 @@ export function PluginCard({ plugin, namespace }: PluginCardProps) {
         height: '100%',
         textDecoration: 'none',
         transition: 'border-color 0.15s, box-shadow 0.15s',
-        ...(isDraft && {
-          borderColor: tokens.badge.draft.text,
-          opacity: 0.8,
-        }),
         '&:hover': {
-          borderColor: isDraft ? tokens.badge.draft.text : tokens.color.primary,
-          boxShadow: `0 0 0 1px ${isDraft ? tokens.badge.draft.text : tokens.color.primary}`,
+          borderColor: tokens.color.primary,
+          boxShadow: `0 0 0 1px ${tokens.color.primary}`,
         },
       }}
     >

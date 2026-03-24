@@ -60,12 +60,10 @@ export function PluginListRow({ plugin, namespace }: PluginListRowProps) {
         borderColor: 'divider',
         textDecoration: 'none',
         color: 'inherit',
-        bgcolor: isDraft ? tokens.badge.draft.bg + '44' : 'background.paper',
-        borderLeft: isDraft ? `3px solid ${tokens.badge.draft.text}` : undefined,
-        opacity: isDraft ? 0.8 : 1,
+        bgcolor: 'background.paper',
         transition: 'background-color 0.15s',
         '&:last-child': { borderBottom: 'none' },
-        '&:hover': { bgcolor: isDraft ? tokens.badge.draft.bg + '88' : 'background.default' },
+        '&:hover': { bgcolor: 'background.default' },
       }}
     >
       <Box
