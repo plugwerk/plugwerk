@@ -101,19 +101,45 @@ internal class PlugwerkInstallerImpl(private val client: PlugwerkClient, private
     }
 
     override fun uninstall(pluginId: String): InstallResult {
-        val candidates =
+        val (artifactFiles, extractedDirs) =
             Files.list(pluginDirectory).use { stream ->
                 stream.filter { path ->
                     val name = path.fileName.toString()
-                    name.startsWith("$pluginId-") && (name.endsWith(".jar") || name.endsWith(".zip"))
+                    name.startsWith("$pluginId-")
                 }.toList()
+            }.partition { path ->
+                val name = path.fileName.toString()
+                name.endsWith(".jar") || name.endsWith(".zip")
             }
-        if (candidates.isEmpty()) {
+
+        if (artifactFiles.isEmpty() && extractedDirs.isEmpty()) {
             return InstallResult.Failure(pluginId, "", "No installed artifact found for plugin $pluginId")
         }
-        candidates.forEach { Files.deleteIfExists(it) }
+
+        // Remove the ZIP/JAR artifact file
+        artifactFiles.forEach { Files.deleteIfExists(it) }
+
+        // Remove the extracted directory that PF4J created when loading the ZIP
+        // (DefaultPluginRepository.expandIfZip strips the .zip suffix for the dir name)
+        extractedDirs
+            .filter { Files.isDirectory(it) }
+            .forEach { deleteRecursively(it) }
+
         log.info("Uninstalled plugin {}", pluginId)
         return InstallResult.Success(pluginId, "")
+    }
+
+    private fun deleteRecursively(path: java.nio.file.Path) {
+        if (Files.isDirectory(path)) {
+            Files.list(path).use { children ->
+                children.forEach { deleteRecursively(it) }
+            }
+        }
+        try {
+            Files.deleteIfExists(path)
+        } catch (ex: Exception) {
+            log.warn("Could not delete {}: {}", path, ex.message)
+        }
     }
 
     override fun verifyChecksum(artifactPath: Path, expectedSha256: String): Boolean {

@@ -4,5 +4,5 @@ rootProject.name = "plugwerk-examples"
 // Add new examples here as they are created.
 include("plugwerk-java-cli-example:plugwerk-java-cli-example-api")
 include("plugwerk-java-cli-example:plugwerk-java-cli-example-app")
-include("plugwerk-java-cli-example:hello-cli-plugin")
-include("plugwerk-java-cli-example:sysinfo-cli-plugin")
+include("plugwerk-java-cli-example:plugwerk-java-cli-example-hello-cmd-plugin")
+include("plugwerk-java-cli-example:plugwerk-java-cli-example-sysinfo-cmd-plugin")

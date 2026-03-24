@@ -1,9 +1,9 @@
 // PF4J plugin metadata
-val pf4jPluginId          = "hello-cli-plugin"
-val pf4jPluginClass       = "io.plugwerk.example.cli.hello.HelloPlugin"
+val pf4jPluginId          = "plugwerk-java-cli-example-sysinfo-cmd-plugin"
+val pf4jPluginClass       = "io.plugwerk.example.cli.sysinfo.SysinfoPlugin"
 val pf4jPluginVersion     = project.version.toString()
 val pf4jPluginProvider    = "plugwerk-examples"
-val pf4jPluginDescription = "Example CLI plugin — adds a 'hello' greeting subcommand"
+val pf4jPluginDescription = "Example CLI plugin — adds a 'sysinfo' system information subcommand"
 
 tasks.jar {
     manifest {
@@ -27,10 +27,10 @@ dependencies {
 // ---------------------------------------------------------------------------
 // PF4J Plugin ZIP (compatible with DefaultPluginManager)
 //
-//   hello-cli-plugin-<version>.zip
+//   plugwerk-java-cli-example-sysinfo-cmd-plugin-<version>.zip
 //   ├── META-INF/MANIFEST.MF   ← loose file (required by ManifestPluginDescriptorFinder)
 //   └── lib/
-//       └── hello-cli-plugin-<version>.jar
+//       └── plugwerk-java-cli-example-sysinfo-cmd-plugin-<version>.jar
 //
 // All runtime dependencies (plugwerk-java-cli-example-api, plugwerk-spi, pf4j, picocli)
 // are provided by the host application and must NOT be bundled.

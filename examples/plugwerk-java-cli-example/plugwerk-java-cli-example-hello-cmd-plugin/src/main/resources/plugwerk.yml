@@ -1,4 +1,4 @@
-id: hello-cli-plugin
+id: plugwerk-java-cli-example-hello-cmd-plugin
 version: "0.1.0-SNAPSHOT"
 name: Hello CLI Plugin
 description: Example CLI plugin that adds a multilingual greeting subcommand.

@@ -44,3 +44,6 @@ docker-compose.override.yml
 .claude
 **/.observer.lock
 **/plugwerk-server-frontend/coverage
+/examples/plugwerk-java-cli-example/plugins/
+/plugwerk-server/plugwerk-server-backend/storage/
+!/examples/plugwerk-java-cli-example/plugins/plugwerk-client-sdk-plugin-0.1.0-SNAPSHOT/plugwerk-client-sdk-plugin-0.1.0-SNAPSHOT.zip
