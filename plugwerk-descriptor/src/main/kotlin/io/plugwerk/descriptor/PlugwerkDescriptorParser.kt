@@ -86,7 +86,7 @@ class PlugwerkDescriptorParser {
             )
         } ?: emptyList()
 
-        return PlugwerkDescriptor(
+        val descriptor = PlugwerkDescriptor(
             id = id,
             version = version,
             name = name,
@@ -103,6 +103,8 @@ class PlugwerkDescriptorParser {
             homepage = yaml.homepage,
             repository = yaml.repository,
         )
+        DescriptorValidator.validate(descriptor)
+        return descriptor
     }
 }
 
