@@ -7,11 +7,13 @@ import { renderWithRouter } from '../../test/renderWithTheme'
 import { UploadModal } from './UploadModal'
 import { useUiStore } from '../../stores/uiStore'
 import { useAuthStore } from '../../stores/authStore'
+import { usePluginStore } from '../../stores/pluginStore'
 import axios from 'axios'
 import * as apiConfig from '../../api/config'
 
 vi.mock('../../api/config', () => ({
   axiosInstance: { post: vi.fn(), get: vi.fn() },
+  catalogApi: { listPlugins: vi.fn().mockResolvedValue({ data: { content: [], totalElements: 0, totalPages: 0, page: 0, size: 24 } }) },
 }))
 
 describe('UploadModal', () => {
@@ -94,5 +96,48 @@ describe('UploadModal', () => {
       expect(useUiStore.getState().uploadModalOpen).toBe(false)
     }, { timeout: 15000 })
     expect(useUiStore.getState().toasts.length).toBeGreaterThan(0)
+  }, 20000)
+
+  it('re-fetches catalog after successful upload', async () => {
+    useUiStore.setState({ uploadModalOpen: true })
+    vi.mocked(apiConfig.axiosInstance.post).mockResolvedValue({ data: {} })
+
+    const user = userEvent.setup()
+    renderWithRouter(<UploadModal />)
+
+    const file = new File(['fake-jar'], 'plugin.jar', { type: 'application/java-archive' })
+    await user.upload(screen.getByLabelText(/select plugin jar or zip file/i), file)
+    await user.click(screen.getByRole('button', { name: /upload release/i }))
+
+    await waitFor(() => {
+      expect(vi.mocked(apiConfig.catalogApi.listPlugins)).toHaveBeenCalledWith(
+        expect.objectContaining({ ns: 'acme' }),
+      )
+    }, { timeout: 15000 })
+  }, 20000)
+
+  it('does not re-fetch catalog when upload fails', async () => {
+    useUiStore.setState({ uploadModalOpen: true })
+    const axiosError = new axios.AxiosError('Request failed', '422', undefined, undefined, {
+      status: 422,
+      data: { message: 'Invalid descriptor' },
+      statusText: 'Unprocessable Entity',
+      headers: {},
+      config: {} as never,
+    })
+    vi.mocked(apiConfig.axiosInstance.post).mockRejectedValue(axiosError)
+    vi.mocked(apiConfig.catalogApi.listPlugins).mockClear()
+
+    const user = userEvent.setup()
+    renderWithRouter(<UploadModal />)
+
+    const file = new File(['fake-jar'], 'plugin.jar', { type: 'application/java-archive' })
+    await user.upload(screen.getByLabelText(/select plugin jar or zip file/i), file)
+    await user.click(screen.getByRole('button', { name: /upload release/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument()
+    }, { timeout: 15000 })
+    expect(vi.mocked(apiConfig.catalogApi.listPlugins)).not.toHaveBeenCalled()
   }, 20000)
 })
