@@ -7,7 +7,6 @@ import { renderWithRouter } from '../../test/renderWithTheme'
 import { UploadModal } from './UploadModal'
 import { useUiStore } from '../../stores/uiStore'
 import { useAuthStore } from '../../stores/authStore'
-import { usePluginStore } from '../../stores/pluginStore'
 import axios from 'axios'
 import * as apiConfig from '../../api/config'
 
