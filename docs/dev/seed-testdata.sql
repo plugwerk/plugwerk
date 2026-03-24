@@ -131,7 +131,7 @@ ON CONFLICT (namespace_id, plugin_id) DO NOTHING;
 -- Releases — one PUBLISHED release per plugin
 -- ============================================================
 INSERT INTO plugin_release (id, plugin_id, version, artifact_sha256, artifact_key, requires_system_version, status, created_at, updated_at)
-SELECT gen_random_uuid(), p.id, rel.version, rel.sha, rel.key, rel.req, 'PUBLISHED'::varchar, now()-rel.ago::interval, now()-rel.ago::interval
+SELECT gen_random_uuid(), p.id, rel.version, rel.sha, (rel.ns_id || ':' || rel.plugin_id_str || ':' || rel.version || ':jar'), rel.req, 'PUBLISHED'::varchar, now()-rel.ago::interval, now()-rel.ago::interval
 FROM plugin p
 JOIN (VALUES
   -- default namespace

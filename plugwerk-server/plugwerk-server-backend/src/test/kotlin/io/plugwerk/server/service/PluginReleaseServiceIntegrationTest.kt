@@ -87,9 +87,11 @@ class PluginReleaseServiceIntegrationTest {
     @Autowired
     lateinit var descriptorResolver: DescriptorResolver
 
+    lateinit var testNamespace: io.plugwerk.server.domain.NamespaceEntity
+
     @BeforeEach
     fun setUp() {
-        namespaceService.create("rel-int-ns", "Integration Org")
+        testNamespace = namespaceService.create("rel-int-ns", "Integration Org")
     }
 
     @Test
@@ -100,7 +102,7 @@ class PluginReleaseServiceIntegrationTest {
         val result = releaseService.upload("rel-int-ns", ByteArrayInputStream("fake".toByteArray()), 4)
 
         assertThat(result.version).isEqualTo("1.0.0")
-        assertThat(result.artifactKey).isEqualTo("rel-int-ns/auto-plugin/1.0.0")
+        assertThat(result.artifactKey).isEqualTo("${testNamespace.id}:auto-plugin:1.0.0:jar")
         assertThat(result.status).isEqualTo(ReleaseStatus.DRAFT)
     }
 

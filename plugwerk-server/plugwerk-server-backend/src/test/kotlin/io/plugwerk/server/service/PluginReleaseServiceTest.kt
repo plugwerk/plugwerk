@@ -40,6 +40,7 @@ import org.mockito.kotlin.whenever
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
 import java.util.Optional
+import java.util.UUID
 import kotlin.test.assertFailsWith
 
 @ExtendWith(MockitoExtension::class)
@@ -57,7 +58,8 @@ class PluginReleaseServiceTest {
 
     lateinit var releaseService: PluginReleaseService
 
-    private val namespace = NamespaceEntity(slug = "acme", ownerOrg = "ACME Corp")
+    private val namespaceId = UUID.fromString("00000000-0000-0000-0000-000000000001")
+    private val namespace = NamespaceEntity(id = namespaceId, slug = "acme", ownerOrg = "ACME Corp")
     private val plugin = PluginEntity(namespace = namespace, pluginId = "my-plugin", name = "My Plugin")
 
     @BeforeEach
@@ -83,19 +85,21 @@ class PluginReleaseServiceTest {
         whenever(releaseRepository.existsByPluginAndVersion(plugin, "1.0.0")).thenReturn(false)
         whenever(
             storageService.store(any<String>(), any<java.io.InputStream>(), any<Long>()),
-        ).thenReturn("acme/my-plugin/1.0.0")
+        ).thenReturn("00000000-0000-0000-0000-000000000001:my-plugin:1.0.0:jar")
         val savedRelease = PluginReleaseEntity(
             plugin = plugin,
             version = "1.0.0",
             artifactSha256 = "sha",
-            artifactKey = "acme/my-plugin/1.0.0",
+            artifactKey = "00000000-0000-0000-0000-000000000001:my-plugin:1.0.0:jar",
         )
         whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenReturn(savedRelease)
 
         val result = releaseService.upload("acme", ByteArrayInputStream(jarBytes), jarBytes.size.toLong())
 
         assertThat(result.version).isEqualTo("1.0.0")
-        verify(storageService).store(eq("acme/my-plugin/1.0.0.jar"), any<java.io.InputStream>(), any<Long>())
+        verify(
+            storageService,
+        ).store(eq("00000000-0000-0000-0000-000000000001:my-plugin:1.0.0:jar"), any<java.io.InputStream>(), any<Long>())
         verify(releaseRepository).save(any<PluginReleaseEntity>())
     }
 
@@ -127,12 +131,12 @@ class PluginReleaseServiceTest {
         whenever(releaseRepository.existsByPluginAndVersion(newPlugin, "1.0.0")).thenReturn(false)
         whenever(
             storageService.store(any<String>(), any<java.io.InputStream>(), any<Long>()),
-        ).thenReturn("acme/new-plugin/1.0.0")
+        ).thenReturn("00000000-0000-0000-0000-000000000001:new-plugin:1.0.0:jar")
         val savedRelease = PluginReleaseEntity(
             plugin = newPlugin,
             version = "1.0.0",
             artifactSha256 = "sha",
-            artifactKey = "acme/new-plugin/1.0.0",
+            artifactKey = "00000000-0000-0000-0000-000000000001:new-plugin:1.0.0:jar",
         )
         whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenReturn(savedRelease)
 
@@ -159,7 +163,7 @@ class PluginReleaseServiceTest {
             plugin = plugin,
             version = "1.0.0",
             artifactSha256 = "sha",
-            artifactKey = "acme/my-plugin/1.0.0",
+            artifactKey = "00000000-0000-0000-0000-000000000001:my-plugin:1.0.0:jar",
         )
         whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
         whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
@@ -177,7 +181,7 @@ class PluginReleaseServiceTest {
             plugin = plugin,
             version = "1.0.0",
             artifactSha256 = "sha",
-            artifactKey = "acme/my-plugin/1.0.0",
+            artifactKey = "00000000-0000-0000-0000-000000000001:my-plugin:1.0.0:jar",
         )
         whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
         whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
@@ -185,7 +189,7 @@ class PluginReleaseServiceTest {
 
         releaseService.delete("acme", "my-plugin", "1.0.0")
 
-        verify(storageService).delete("acme/my-plugin/1.0.0")
+        verify(storageService).delete("00000000-0000-0000-0000-000000000001:my-plugin:1.0.0:jar")
         verify(releaseRepository).delete(release)
     }
 }

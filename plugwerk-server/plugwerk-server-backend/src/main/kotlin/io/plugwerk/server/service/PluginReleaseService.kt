@@ -101,7 +101,7 @@ class PluginReleaseService(
 
         val extension = originalFilename?.substringAfterLast('.')?.lowercase()
             ?.takeIf { it == "zip" || it == "jar" } ?: "jar"
-        val artifactKey = "$namespaceSlug/${descriptor.id}/${descriptor.version}.$extension"
+        val artifactKey = "${plugin.namespace.id}:${descriptor.id}:${descriptor.version}:$extension"
         storageService.store(artifactKey, ByteArrayInputStream(bytes), bytes.size.toLong())
 
         return releaseRepository.save(
