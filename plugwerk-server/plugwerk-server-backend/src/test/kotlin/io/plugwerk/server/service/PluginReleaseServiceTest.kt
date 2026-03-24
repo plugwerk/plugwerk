@@ -192,4 +192,24 @@ class PluginReleaseServiceTest {
         verify(storageService).delete("00000000-0000-0000-0000-000000000001:my-plugin:1.0.0:jar")
         verify(releaseRepository).delete(release)
     }
+
+    @Test
+    fun `downloadArtifact increments download counter`() {
+        val releaseId = UUID.randomUUID()
+        val release = PluginReleaseEntity(
+            id = releaseId,
+            plugin = plugin,
+            version = "1.0.0",
+            artifactSha256 = "sha",
+            artifactKey = "00000000-0000-0000-0000-000000000001:my-plugin:1.0.0:jar",
+        )
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.findByPluginAndVersion(plugin, "1.0.0")).thenReturn(Optional.of(release))
+        whenever(storageService.retrieve(release.artifactKey)).thenReturn(ByteArrayInputStream(ByteArray(0)))
+
+        releaseService.downloadArtifact("acme", "my-plugin", "1.0.0")
+
+        verify(releaseRepository).incrementDownloadCount(releaseId)
+    }
 }

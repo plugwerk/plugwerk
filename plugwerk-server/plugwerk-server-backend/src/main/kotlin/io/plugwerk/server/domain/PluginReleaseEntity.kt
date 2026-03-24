@@ -114,6 +114,9 @@ class PluginReleaseEntity(
     @Column(name = "plugin_dependencies")
     var pluginDependencies: String? = null,
 
+    @Column(name = "download_count", nullable = false)
+    var downloadCount: Long = 0,
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
     var status: ReleaseStatus = ReleaseStatus.DRAFT,

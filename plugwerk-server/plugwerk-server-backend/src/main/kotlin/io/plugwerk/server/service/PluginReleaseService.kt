@@ -78,9 +78,12 @@ class PluginReleaseService(
         return releaseRepository.save(release)
     }
 
+    @Transactional
     fun downloadArtifact(namespaceSlug: String, pluginId: String, version: String): InputStream {
         val release = findByVersion(namespaceSlug, pluginId, version)
-        return storageService.retrieve(release.artifactKey)
+        val stream = storageService.retrieve(release.artifactKey)
+        releaseRepository.incrementDownloadCount(release.id!!)
+        return stream
     }
 
     @Transactional
