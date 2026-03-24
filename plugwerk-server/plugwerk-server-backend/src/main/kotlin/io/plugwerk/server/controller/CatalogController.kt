@@ -72,9 +72,18 @@ class CatalogController(
             releaseRepository.findLatestPublishedVersionsForPlugins(pluginIds)
                 .associate { row -> (row[0] as java.util.UUID) to (row[1] as String) }
         }
+        val draftOnlyIds = pluginIds.filter { it !in latestVersions }
+        val latestDraftVersions: Map<java.util.UUID, String> = if (draftOnlyIds.isEmpty()) {
+            emptyMap()
+        } else {
+            releaseRepository.findLatestDraftVersionsForPlugins(draftOnlyIds)
+                .associate { row -> (row[0] as java.util.UUID) to (row[1] as String) }
+        }
 
         val response = PluginPagedResponse(
-            content = resultPage.content.map { pluginMapper.toDto(it, ns, latestVersions[it.id]) },
+            content = resultPage.content.map {
+                pluginMapper.toDto(it, ns, latestVersions[it.id], latestDraftVersions[it.id])
+            },
             totalElements = resultPage.totalElements,
             page = resultPage.number,
             propertySize = resultPage.size,
@@ -85,11 +94,16 @@ class CatalogController(
 
     override fun getPlugin(ns: String, pluginId: String): ResponseEntity<PluginDto> {
         val plugin = pluginService.findByNamespaceAndPluginId(ns, pluginId)
-        val latestVersion = releaseService.findAllByPlugin(ns, pluginId)
-            .filter { it.status == ReleaseStatus.PUBLISHED }
+        val allReleases = releaseService.findAllByPlugin(ns, pluginId)
+        val latestVersion = allReleases.filter { it.status == ReleaseStatus.PUBLISHED }
             .maxByOrNull { it.createdAt }
             ?.version
-        return ResponseEntity.ok(pluginMapper.toDto(plugin, ns, latestVersion))
+        val latestDraftVersion = if (latestVersion == null) {
+            allReleases.filter { it.status == ReleaseStatus.DRAFT }
+                .maxByOrNull { it.createdAt }
+                ?.version
+        } else null
+        return ResponseEntity.ok(pluginMapper.toDto(plugin, ns, latestVersion, latestDraftVersion))
     }
 
     override fun listReleases(

@@ -44,7 +44,7 @@ function formatRelativeTime(dateStr: string | undefined): string {
 
 export function PluginCard({ plugin, namespace }: PluginCardProps) {
   const isDeprecated = plugin.status === 'archived'
-  const isDraft = !plugin.latestVersion
+  const isDraft = !plugin.latestVersion && !!plugin.latestDraftVersion
 
   return (
     <Card
@@ -107,8 +107,8 @@ export function PluginCard({ plugin, namespace }: PluginCardProps) {
               >
                 {plugin.name}
               </Typography>
-              {plugin.latestVersion && (
-                <Badge variant="version">v{plugin.latestVersion}</Badge>
+              {(plugin.latestVersion ?? plugin.latestDraftVersion) && (
+                <Badge variant="version">v{plugin.latestVersion ?? plugin.latestDraftVersion}</Badge>
               )}
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

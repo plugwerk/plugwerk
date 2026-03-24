@@ -33,7 +33,12 @@ import java.net.URI
 @Component
 class PluginMapper {
 
-    fun toDto(entity: PluginEntity, namespaceSlug: String, latestVersion: String? = null): PluginDto = PluginDto(
+    fun toDto(
+        entity: PluginEntity,
+        namespaceSlug: String,
+        latestVersion: String? = null,
+        latestDraftVersion: String? = null,
+    ): PluginDto = PluginDto(
         id = entity.id!!,
         pluginId = entity.pluginId,
         name = entity.name,
@@ -45,6 +50,7 @@ class PluginMapper {
         categories = entity.categories.toList().takeIf { it.isNotEmpty() },
         tags = entity.tags.toList().takeIf { it.isNotEmpty() },
         latestVersion = latestVersion,
+        latestDraftVersion = if (latestVersion == null) latestDraftVersion else null,
         icon = entity.icon?.let { URI(it) },
         homepage = entity.homepage?.let { URI(it) },
         repository = entity.repository?.let { URI(it) },

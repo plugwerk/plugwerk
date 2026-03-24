@@ -88,6 +88,12 @@ export interface PluginDto {
     'latestVersion'?: string;
     /**
      * 
+     * @type {string}
+     * @memberof PluginDto
+     */
+    'latestDraftVersion'?: string;
+    /**
+     * 
      * @type {number}
      * @memberof PluginDto
      */

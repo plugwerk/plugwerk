@@ -44,7 +44,7 @@ function formatRelativeTime(dateStr: string | undefined): string {
 
 export function PluginListRow({ plugin, namespace }: PluginListRowProps) {
   const isDeprecated = plugin.status === 'archived'
-  const isDraft = !plugin.latestVersion
+  const isDraft = !plugin.latestVersion && !!plugin.latestDraftVersion
   return (
     <Box
       component={Link}
@@ -92,8 +92,8 @@ export function PluginListRow({ plugin, namespace }: PluginListRowProps) {
         <Typography variant="caption" color="text.disabled">{plugin.author ?? namespace}</Typography>
       </Box>
 
-      {plugin.latestVersion && (
-        <Badge variant="version">v{plugin.latestVersion}</Badge>
+      {(plugin.latestVersion ?? plugin.latestDraftVersion) && (
+        <Badge variant="version">v{plugin.latestVersion ?? plugin.latestDraftVersion}</Badge>
       )}
       {isDraft && <Badge variant="draft">Draft</Badge>}
       {isDeprecated && <Badge variant="deprecated">Deprecated</Badge>}

@@ -78,4 +78,26 @@ interface PluginReleaseRepository : JpaRepository<PluginReleaseEntity, UUID> {
         """,
     )
     fun findLatestPublishedVersionsForPlugins(@Param("pluginIds") pluginIds: Collection<UUID>): List<Array<Any>>
+
+    /**
+     * Returns the latest draft version string per plugin for a given set of plugin IDs.
+     * Used as fallback for plugins that have no published release yet.
+     * Result is a list of [pluginId, version] pairs where version is the most recently
+     * created DRAFT release.
+     */
+    @Query(
+        """
+        SELECT r.plugin.id, r.version
+        FROM PluginReleaseEntity r
+        WHERE r.plugin.id IN :pluginIds
+          AND r.status = io.plugwerk.spi.model.ReleaseStatus.DRAFT
+          AND r.createdAt = (
+            SELECT MAX(r2.createdAt)
+            FROM PluginReleaseEntity r2
+            WHERE r2.plugin.id = r.plugin.id
+              AND r2.status = io.plugwerk.spi.model.ReleaseStatus.DRAFT
+          )
+        """,
+    )
+    fun findLatestDraftVersionsForPlugins(@Param("pluginIds") pluginIds: Collection<UUID>): List<Array<Any>>
 }

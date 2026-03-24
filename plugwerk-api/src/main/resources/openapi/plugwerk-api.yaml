@@ -521,6 +521,8 @@ components:
             type: string
         latestVersion:
           type: string
+        latestDraftVersion:
+          type: string
         downloadCount:
           type: integer
           format: int64
