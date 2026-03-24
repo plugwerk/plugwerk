@@ -75,7 +75,8 @@ internal class PlugwerkInstallerImpl(private val client: PlugwerkClient, private
                 )
             }
 
-            client.download("plugins/$pluginId/releases/$version/download").use { input ->
+            val (suggestedFilename, bodyStream) = client.downloadWithFilename("plugins/$pluginId/releases/$version/download")
+            bodyStream.use { input ->
                 Files.copy(input, tempFile, StandardCopyOption.REPLACE_EXISTING)
             }
 
@@ -84,9 +85,11 @@ internal class PlugwerkInstallerImpl(private val client: PlugwerkClient, private
                 return InstallResult.Failure(pluginId, version, "SHA-256 checksum mismatch for $pluginId:$version")
             }
 
-            val finalPath = pluginDirectory.resolve("$pluginId-$version.jar")
+            val extension = suggestedFilename?.substringAfterLast('.')?.lowercase()
+                ?.takeIf { it == "zip" || it == "jar" } ?: "jar"
+            val finalPath = pluginDirectory.resolve("$pluginId-$version.$extension")
             Files.move(tempFile, finalPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-            log.info("Installed {}:{} to {}", pluginId, version, finalPath)
+            log.info("Installed {}:{} to {} ({})", pluginId, version, finalPath, extension)
             InstallResult.Success(pluginId, version)
         } catch (ex: PlugwerkNotFoundException) {
             deleteSilently(tempFile)
@@ -102,7 +105,7 @@ internal class PlugwerkInstallerImpl(private val client: PlugwerkClient, private
             Files.list(pluginDirectory).use { stream ->
                 stream.filter { path ->
                     val name = path.fileName.toString()
-                    name.startsWith("$pluginId-") && name.endsWith(".jar")
+                    name.startsWith("$pluginId-") && (name.endsWith(".jar") || name.endsWith(".zip"))
                 }.toList()
             }
         if (candidates.isEmpty()) {

@@ -41,7 +41,14 @@ public class InstallCommand implements Runnable {
 
         if (result instanceof InstallResult.Success s) {
             System.out.printf("✓ Successfully installed %s@%s%n", s.getPluginId(), s.getVersion());
-            DynamicCommandLoader.reload(parent.getCommandLine(), parent.getPluginManager());
+            // Let PF4J discover and start the newly installed plugin immediately,
+            // then register any CliCommand extensions it contributes.
+            org.pf4j.PluginManager pm = parent.getPluginManager();
+            if (pm != null) {
+                pm.loadPlugins();
+                pm.startPlugin(pluginId);
+            }
+            DynamicCommandLoader.reload(parent.getCommandLine(), pm);
         } else if (result instanceof InstallResult.Failure f) {
             System.err.printf("✗ Installation failed: %s%n", f.getReason());
             System.exit(1);

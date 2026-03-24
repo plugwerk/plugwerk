@@ -100,6 +100,20 @@ class PlugwerkClient(internal val config: PlugwerkConfig) {
         return response.body.byteStream()
     }
 
+    /**
+     * Executes a GET request for a binary artifact and returns the suggested filename from the
+     * `Content-Disposition` header paired with the response body stream.
+     * The caller is responsible for closing the stream.
+     */
+    fun downloadWithFilename(path: String): Pair<String?, InputStream> {
+        val request = Request.Builder().url(url(path)).get().build()
+        val response = httpClient.newCall(request).execute()
+        handleErrors(response, url(path))
+        val filename = response.header("Content-Disposition")
+            ?.let { Regex("""filename="([^"]+)"""").find(it)?.groupValues?.get(1) }
+        return Pair(filename, response.body.byteStream())
+    }
+
     @PublishedApi
     internal fun <T> execute(request: Request, transform: (okhttp3.ResponseBody) -> T): T {
         val response = httpClient.newCall(request).execute()
