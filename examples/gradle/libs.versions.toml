@@ -1,0 +1,25 @@
+[versions]
+plugwerk   = "0.1.0-SNAPSHOT"
+pf4j       = "3.15.0"
+picocli    = "4.7.6"
+slf4j      = "2.0.17"
+logback    = "1.5.18"
+junit      = "5.12.2"
+
+[libraries]
+# Plugwerk — resolved from mavenLocal() after `./gradlew publishToMavenLocal`
+plugwerk-spi        = { module = "io.plugwerk:plugwerk-spi",              version.ref = "plugwerk" }
+
+# PF4J
+pf4j                = { module = "org.pf4j:pf4j",                        version.ref = "pf4j" }
+
+# picocli
+picocli             = { module = "info.picocli:picocli",                  version.ref = "picocli" }
+
+# Logging
+slf4j-api           = { module = "org.slf4j:slf4j-api",                   version.ref = "slf4j" }
+logback-classic     = { module = "ch.qos.logback:logback-classic",        version.ref = "logback" }
+
+# Testing
+junit-jupiter       = { module = "org.junit.jupiter:junit-jupiter",       version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
