@@ -1,7 +1,7 @@
 package io.plugwerk.example.cli;
 
 import io.plugwerk.spi.extension.PlugwerkMarketplace;
-import org.pf4j.JarPluginManager;
+import org.pf4j.DefaultPluginManager;
 import org.pf4j.PluginManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +31,11 @@ public class PluginManagerFactory {
     private PluginManagerFactory() {}
 
     /**
-     * Creates a {@link JarPluginManager}, sets the SDK system properties, and starts all plugins.
+     * Creates a {@link DefaultPluginManager}, sets the SDK system properties, and starts all plugins.
+     *
+     * <p>{@link DefaultPluginManager} is used (not {@code JarPluginManager}) because it includes
+     * {@code DefaultPluginRepository}, which automatically extracts ZIP files to directories before
+     * loading. {@code JarPluginManager} only handles plain {@code .jar} files.
      *
      * @param pluginsDir directory containing the {@code plugwerk-client-sdk-plugin-*.zip}
      * @param serverUrl  Plugwerk server base URL (e.g. {@code http://localhost:8080})
@@ -48,7 +52,7 @@ public class PluginManagerFactory {
 
         log.debug("Starting PF4J plugin manager with plugins directory: {}", pluginsDir.toAbsolutePath());
 
-        JarPluginManager manager = new JarPluginManager(pluginsDir.toAbsolutePath());
+        DefaultPluginManager manager = new DefaultPluginManager(pluginsDir.toAbsolutePath());
         manager.loadPlugins();
         manager.startPlugins();
 

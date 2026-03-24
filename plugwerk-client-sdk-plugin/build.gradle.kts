@@ -79,19 +79,30 @@ dependencies {
 }
 
 // ---------------------------------------------------------------------------
-// PF4J Plugin ZIP — bundles the plugin JAR + all runtime dependencies under lib/
+// PF4J Plugin ZIP Format (compatible with DefaultPluginManager):
 //
-// Format:  plugwerk-client-sdk-plugin-<version>.zip
-//          ├── plugwerk-client-sdk-plugin-<version>.jar
-//          └── lib/
-//              ├── jackson-databind-x.y.z.jar
-//              ├── okhttp-x.y.z.jar
-//              └── ...
+//   plugwerk-client-sdk-plugin-<version>.zip
+//   ├── META-INF/
+//   │   └── MANIFEST.MF        ← loose file (not inside the JAR!)
+//   └── lib/
+//       ├── plugwerk-client-sdk-plugin-<version>.jar   ← main plugin JAR
+//       ├── jackson-databind-x.y.z.jar
+//       ├── okhttp-x.y.z.jar
+//       └── ...
 //
-// Only the plugwerk-spi and pf4j JARs themselves are excluded — the host
-// application must provide them on its classpath (PF4J parent classloader).
-// All transitive dependencies (e.g. kotlin-stdlib) ARE bundled so that
-// pure Java host applications work without Kotlin on their classpath.
+// Why this structure:
+//   DefaultPluginRepository.extractZipFiles() unzips the ZIP to a directory.
+//   ManifestPluginDescriptorFinder.readManifestFromDirectory() calls
+//   FileUtils.findFile(dir, "MANIFEST.MF") — which scans for a LOOSE FILE named
+//   MANIFEST.MF. It does NOT peek inside JARs. So the manifest must be at the
+//   ZIP root as a real file, not only inside the inner JAR.
+//
+//   DefaultPluginClasspath scans lib/ for JARs (classesDirectories = ["classes"],
+//   jarsDirectories = ["lib"]). Putting the main plugin JAR in lib/ ensures
+//   DefaultPluginLoader adds it to the plugin classloader's classpath.
+//
+//   plugwerk-spi and pf4j JARs are excluded — the host app provides them on the
+//   parent classloader so that ExtensionPoint interface identity is shared.
 // ---------------------------------------------------------------------------
 val hostProvidedArtifacts = setOf("plugwerk-spi", "pf4j")
 
@@ -101,14 +112,23 @@ val pluginZip by tasks.registering(Zip::class) {
     archiveBaseName.set(pf4jPluginId)
     destinationDirectory.set(layout.buildDirectory.dir("pf4j"))
 
-    // Plugin JAR at ZIP root
-    from(tasks.jar)
+    // META-INF/MANIFEST.MF as a loose file at the ZIP root.
+    // ManifestPluginDescriptorFinder searches for "MANIFEST.MF" by name in the extracted
+    // directory; it reads loose files only, not JAR-embedded manifests.
+    from(tasks.jar.map { jar ->
+        project.zipTree(jar.archiveFile.get()).matching {
+            include("META-INF/MANIFEST.MF")
+        }
+    })
 
-    // Runtime dependencies minus host-provided JARs → lib/
+    // Plugin JAR + runtime dependencies (minus host-provided) → lib/
+    // DefaultPluginClasspath scans lib/ for JARs; the main plugin JAR also goes here
+    // so DefaultPluginLoader adds it to the plugin classloader.
     val bundledDeps = configurations.runtimeClasspath.map { cp ->
         cp.filter { file -> hostProvidedArtifacts.none { file.name.startsWith("$it-") } }
     }
     into("lib") {
+        from(tasks.jar)
         from(bundledDeps)
     }
 }
