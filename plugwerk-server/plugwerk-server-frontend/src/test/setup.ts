@@ -10,6 +10,13 @@ Object.defineProperty(navigator, 'clipboard', {
   writable: true,
 })
 
+// ResizeObserver is not implemented in jsdom
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
 // matchMedia is not implemented in jsdom — mock globally before any store initialises
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

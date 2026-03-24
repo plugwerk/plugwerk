@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Copyright (C) 2026 devtank42 GmbH
 import { describe, it, expect } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { renderWithRouter } from '../../test/renderWithTheme'
 import { PluginCard } from './PluginCard'
 import type { PluginDto } from '../../api/generated/model'
@@ -98,5 +99,36 @@ describe('PluginCard', () => {
     const plugin = { ...basePlugin, latestVersion: undefined }
     renderWithRouter(<PluginCard plugin={plugin} namespace="acme" />)
     expect(screen.queryByText(/^v/)).not.toBeInTheDocument()
+  })
+
+  it('shows tooltip with full name when name is overflowing', async () => {
+    const user = userEvent.setup()
+    renderWithRouter(<PluginCard plugin={basePlugin} namespace="acme" />)
+
+    const nameEl = screen.getByText('Auth Plugin')
+    Object.defineProperty(nameEl, 'scrollWidth', { configurable: true, value: 300 })
+    Object.defineProperty(nameEl, 'clientWidth', { configurable: true, value: 100 })
+    // Trigger ResizeObserver callback by dispatching a resize
+    window.dispatchEvent(new Event('resize'))
+
+    await user.hover(nameEl)
+    await waitFor(() => {
+      expect(screen.getAllByText('Auth Plugin').length).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  it('shows tooltip with full description when description is overflowing', async () => {
+    const user = userEvent.setup()
+    renderWithRouter(<PluginCard plugin={basePlugin} namespace="acme" />)
+
+    const descEl = screen.getByText('Handles authentication for your application.')
+    Object.defineProperty(descEl, 'scrollHeight', { configurable: true, value: 200 })
+    Object.defineProperty(descEl, 'clientHeight', { configurable: true, value: 50 })
+    window.dispatchEvent(new Event('resize'))
+
+    await user.hover(descEl)
+    await waitFor(() => {
+      expect(screen.getAllByText('Handles authentication for your application.').length).toBeGreaterThanOrEqual(1)
+    })
   })
 })

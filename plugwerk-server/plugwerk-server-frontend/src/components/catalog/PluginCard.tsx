@@ -2,10 +2,12 @@
 // Copyright (C) 2026 devtank42 GmbH
 import { Box, Card, CardActionArea, Tooltip, Typography } from '@mui/material'
 import { Download, Clock, Puzzle } from 'lucide-react'
+import { useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge } from '../common/Badge'
 import type { PluginDto } from '../../api/generated/model'
 import { tokens } from '../../theme/tokens'
+import { useIsOverflowing } from '../../hooks/useIsOverflowing'
 
 interface PluginCardProps {
   plugin: PluginDto
@@ -45,6 +47,13 @@ function formatRelativeTime(dateStr: string | undefined): string {
 export function PluginCard({ plugin, namespace }: PluginCardProps) {
   const isDeprecated = plugin.status === 'archived'
   const isDraft = !plugin.latestVersion && !!plugin.latestDraftVersion
+
+  const nameRef = useRef<HTMLElement>(null)
+  const authorRef = useRef<HTMLElement>(null)
+  const descRef = useRef<HTMLElement>(null)
+  const nameOverflowing = useIsOverflowing(nameRef)
+  const authorOverflowing = useIsOverflowing(authorRef)
+  const descOverflowing = useIsOverflowing(descRef)
 
   return (
     <Card
@@ -90,27 +99,37 @@ export function PluginCard({ plugin, namespace }: PluginCardProps) {
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-              <Typography
-                variant="body1"
-                fontWeight={600}
-                sx={{
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  flex: 1,
-                  minWidth: 0,
-                }}
-              >
-                {plugin.name}
-              </Typography>
+              <Tooltip title={nameOverflowing ? plugin.name : ''} placement="top">
+                <Typography
+                  ref={nameRef}
+                  variant="body1"
+                  fontWeight={600}
+                  sx={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    flex: 1,
+                    minWidth: 0,
+                  }}
+                >
+                  {plugin.name}
+                </Typography>
+              </Tooltip>
               {(plugin.latestVersion ?? plugin.latestDraftVersion) && (
                 <Badge variant="version">v{plugin.latestVersion ?? plugin.latestDraftVersion}</Badge>
               )}
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Typography variant="caption" color="text.disabled">
-                {plugin.author ?? namespace}
-              </Typography>
+              <Tooltip title={authorOverflowing ? (plugin.author ?? namespace) : ''} placement="bottom">
+                <Typography
+                  ref={authorRef}
+                  variant="caption"
+                  color="text.disabled"
+                  sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}
+                >
+                  {plugin.author ?? namespace}
+                </Typography>
+              </Tooltip>
               {isDraft && <Badge variant="draft">Draft</Badge>}
               {isDeprecated && <Badge variant="deprecated">Deprecated</Badge>}
             </Box>
@@ -119,19 +138,22 @@ export function PluginCard({ plugin, namespace }: PluginCardProps) {
 
         {/* Description */}
         {plugin.description && (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              lineHeight: 1.6,
-            }}
-          >
-            {plugin.description}
-          </Typography>
+          <Tooltip title={descOverflowing ? plugin.description : ''} placement="bottom">
+            <Typography
+              ref={descRef}
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                lineHeight: 1.6,
+              }}
+            >
+              {plugin.description}
+            </Typography>
+          </Tooltip>
         )}
 
         {/* Tags */}
