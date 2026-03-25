@@ -550,10 +550,12 @@ components:
       properties:
         username:
           type: string
+          minLength: 1
           example: test
         password:
           type: string
           format: password
+          minLength: 1
           example: test
       required:
         - username
