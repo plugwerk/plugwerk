@@ -10,7 +10,7 @@ COPY plugwerk-descriptor/ plugwerk-descriptor/
 COPY plugwerk-server/ plugwerk-server/
 COPY plugwerk-client-plugin/ plugwerk-client-plugin/
 
-RUN apk add --no-cache nodejs npm && \
+RUN apk add --no-cache bash nodejs npm && \
     chmod +x gradlew && \
     ./gradlew :plugwerk-server:plugwerk-server-backend:bootJar --no-daemon
 
