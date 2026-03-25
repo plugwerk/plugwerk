@@ -11,7 +11,6 @@ COPY plugwerk-server/ plugwerk-server/
 COPY plugwerk-client-plugin/ plugwerk-client-plugin/
 
 RUN apk add --no-cache nodejs npm && \
-    cd plugwerk-server/plugwerk-server-frontend && npm ci && cd ../.. && \
     chmod +x gradlew && \
     ./gradlew :plugwerk-server:plugwerk-server-backend:bootJar --no-daemon
 

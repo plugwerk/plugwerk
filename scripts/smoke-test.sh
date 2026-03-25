@@ -28,7 +28,7 @@ trap cleanup EXIT
 # --------------------------------------------------------------------------- #
 echo "--- Starting Docker Compose stack ---"
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
-  docker compose -f "$COMPOSE_FILE" build --quiet
+  docker compose -f "$COMPOSE_FILE" build --progress=plain
 fi
 docker compose -f "$COMPOSE_FILE" up -d
 
