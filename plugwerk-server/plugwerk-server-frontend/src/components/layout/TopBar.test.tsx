@@ -33,7 +33,7 @@ describe('TopBar', () => {
       loading: false,
       error: null,
     })
-    useUiStore.setState({ isDark: false, toasts: [], searchQuery: '' })
+    useUiStore.setState({ themeMode: 'light', toasts: [], searchQuery: '' })
   })
 
   it('renders the namespace dropdown', () => {
