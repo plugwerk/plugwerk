@@ -21,10 +21,10 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: dev
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/plugwerk
-      SPRING_DATASOURCE_USERNAME: plugwerk
-      SPRING_DATASOURCE_PASSWORD: plugwerk
+      PLUGWERK_DB_URL: jdbc:postgresql://postgres:5432/plugwerk
+      PLUGWERK_DB_USERNAME: plugwerk
+      PLUGWERK_DB_PASSWORD: plugwerk
+      PLUGWERK_STORAGE_ROOT: /tmp/plugwerk-artifacts
     ports:
       - "8080:8080"
 

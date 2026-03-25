@@ -1,7 +1,89 @@
 openapi: 3.1.0
 info:
   title: Plugwerk API
-  description: Plugin marketplace for the Java/PF4J ecosystem
+  description: |
+    **Plugwerk** is a self-hosted plugin marketplace for the [PF4J](https://pf4j.org/) ecosystem.
+    It lets teams publish, version, and distribute Java/Kotlin plugins to their own applications
+    without relying on a public registry.
+
+    ## Core Concepts
+
+    ### Namespaces
+    A **namespace** is the top-level organisational unit. Every plugin belongs to exactly one
+    namespace. Namespaces are identified by a URL-safe **slug** (lowercase alphanumeric + hyphens,
+    2–64 characters). You might use one namespace per product, team, or customer, e.g. `acme-core`.
+
+    ### Plugins
+    A **plugin** is a logical grouping of releases for a single PF4J plugin ID. The `pluginId`
+    matches the `Plugin-Id` entry in the PF4J manifest (`MANIFEST.MF` or `plugin.properties`).
+    Each plugin can have a human-readable name, description, icon, and categorisation metadata.
+
+    ### Releases
+    A **release** is a specific versioned artifact (JAR or ZIP) for a plugin. Versions follow
+    [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`). Releases go through a
+    lifecycle: `draft` → `published` → `deprecated` / `yanked`. Only `published` releases are
+    returned to catalog and update-check consumers. A namespace owner can optionally require
+    manual review before a release is published (see the **Reviews** tag).
+
+    ### Plugin Descriptor (`plugwerk.yml`)
+    When you upload a release artifact, the server reads a `plugwerk.yml` file embedded in the
+    JAR/ZIP. This descriptor extends the standard PF4J manifest with Plugwerk-specific metadata:
+    ```yaml
+    plugwerk:
+      id: com.example.my-plugin
+      version: 1.2.0
+      name: My Plugin
+      description: Does something useful
+      requires:
+        system-version: ">=2.0.0 & <4.0.0"
+        plugins:
+          - id: com.example.dependency
+            version: ">=1.0.0"
+    ```
+    If `plugwerk.yml` is absent the server falls back to the PF4J manifest headers.
+
+    ## Authentication
+
+    The API supports two authentication methods:
+
+    ### Bearer Token (JWT)
+    Obtain a short-lived JWT by calling `POST /api/auth/login` with your username and password.
+    Pass the returned token in subsequent requests:
+    ```
+    Authorization: Bearer <token>
+    ```
+    Tokens are valid for 8 hours by default.
+
+    ### API Key
+    Long-lived API keys are suitable for CI/CD pipelines. Pass the key in the request header:
+    ```
+    X-Api-Key: <your-api-key>
+    ```
+    API keys are managed by the server administrator.
+
+    ## Quick Start
+
+    1. **Login** — `POST /api/auth/login` → receive `accessToken`
+    2. **Create a namespace** — `POST /api/v1/namespaces` with `{ "slug": "my-ns" }`
+    3. **Create a plugin** — `POST /api/v1/namespaces/my-ns/plugins` with `{ "pluginId": "...", "name": "..." }`
+    4. **Upload a release** — `POST /api/v1/namespaces/my-ns/releases` (multipart, artifact field)
+    5. **Publish the release** — `PATCH /api/v1/namespaces/my-ns/plugins/{pluginId}/releases/{version}` with `{ "status": "published" }`
+    6. **Clients poll for updates** — `POST /api/v1/namespaces/my-ns/updates/check`
+
+    ## pf4j-update Compatibility
+    The `GET /namespaces/{ns}/plugins.json` endpoint returns a response that is fully compatible
+    with the [pf4j-update](https://github.com/pf4j/pf4j-update) `UpdateRepository` format.
+    You can point any existing pf4j-update client directly at this URL as a drop-in replacement.
+
+    ## Error Handling
+    All errors return an `ErrorResponse` body with a machine-readable `error` code and a
+    human-readable `message`. HTTP status codes follow REST conventions:
+    - `400 Bad Request` — validation error in the request body or parameters
+    - `401 Unauthorized` — missing or invalid authentication credentials
+    - `404 Not Found` — the requested resource does not exist
+    - `409 Conflict` — a resource with the same identifier already exists
+    - `422 Unprocessable Entity` — the artifact was uploaded successfully but the plugin
+      descriptor inside it is missing or invalid
   version: 0.1.0
   license:
     name: AGPL-3.0
@@ -9,26 +91,180 @@ info:
 
 servers:
   - url: /api/v1
-    description: Base path for all API endpoints
+    description: Versioned REST API (all plugin/catalog/management endpoints)
+  - url: /api
+    description: Authentication endpoints (login)
 
 security: []
 
 tags:
+  - name: Auth
+    description: |
+      Endpoints for obtaining and refreshing authentication credentials.
+
+      Call `POST /api/auth/login` to exchange a username/password pair for a short-lived JWT
+      Bearer token. Include this token in the `Authorization` header of all subsequent requests
+      that require authentication.
+  - name: Namespaces
+    description: |
+      Create and list namespaces.
+
+      A namespace is the root container for plugins. Every plugin upload, catalog query, and
+      update-check is scoped to a namespace slug. Namespace slugs must be globally unique,
+      lowercase, and contain only alphanumeric characters and hyphens (pattern: `[a-z0-9][a-z0-9-]{0,62}[a-z0-9]`).
+
+      Namespace operations require authentication (Bearer token or API key).
   - name: Catalog
-    description: Plugin catalog queries (public or API-key-protected)
+    description: |
+      Read-only endpoints for discovering and downloading plugins.
+
+      These endpoints are designed to be consumed by end-user tooling (IDE plugins, CLI tools,
+      the Plugwerk client SDK). Most catalog endpoints are public (no authentication required)
+      unless the namespace owner has enabled access control.
+
+      The `plugins.json` endpoint (`GET /namespaces/{ns}/plugins.json`) is a drop-in replacement
+      for the pf4j-update `UpdateRepository` plugin feed.
   - name: Management
-    description: Plugin and release management (authenticated)
+    description: |
+      Authenticated endpoints for publishing and maintaining plugins.
+
+      Use these endpoints from your CI/CD pipeline or release tooling:
+      - **Create** a plugin entry with metadata before uploading the first release
+      - **Upload** a release artifact (JAR/ZIP); the server reads the embedded `plugwerk.yml`
+      - **Update** plugin metadata (description, categories, tags, links)
+      - **Change release status** to publish, deprecate, or yank a release
+
+      All management endpoints require an API key (`X-Api-Key` header) or Bearer token.
   - name: Updates
-    description: Update checking for client SDK
+    description: |
+      Endpoints used by the Plugwerk client SDK (and any compatible tooling) to poll for
+      available plugin updates.
+
+      Send the list of currently installed plugins with their versions; receive back only the
+      plugins that have a newer published release available. This endpoint does not require
+      authentication unless the namespace is access-controlled.
   - name: Reviews
-    description: Admin review workflow
+    description: |
+      Admin workflow for reviewing and approving plugin releases before they are published.
+
+      When review mode is enabled for a namespace, newly uploaded releases land in `draft`
+      status and appear in the pending review queue. A namespace admin calls `approve` or
+      `reject` to transition the release.
+
+      These endpoints require authentication and admin-level permissions on the namespace.
 
 paths:
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Login with username and password
+      description: |
+        Authenticates the user and returns a signed JWT Bearer token.
+
+        The token is valid for 8 hours (28 800 seconds) by default. Include it in all
+        authenticated requests as `Authorization: Bearer <token>`.
+
+        Returns `401 Unauthorized` if the username does not exist or the password is wrong.
+        The response body is intentionally empty on `401` to avoid leaking user existence.
+      operationId: login
+      servers:
+        - url: /api
+          description: Authentication base path (no version prefix)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              username: admin
+              password: changeme
+      responses:
+        '200':
+          description: Login successful — returns a JWT Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid username or password
+
+  /namespaces:
+    get:
+      tags:
+        - Namespaces
+      summary: List all namespaces
+      description: |
+        Returns all namespaces visible to the authenticated caller.
+
+        In the current MVP implementation this returns all namespaces in the system.
+        Future releases will scope this to namespaces the caller has access to.
+      operationId: listNamespaces
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: List of all namespaces
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NamespaceSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Namespaces
+      summary: Create a new namespace
+      description: |
+        Creates a new namespace with the given slug.
+
+        The slug must be unique across the system, lowercase, and contain only alphanumeric
+        characters and hyphens. It cannot start or end with a hyphen and must be at least
+        2 characters long (pattern: `^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$`).
+
+        If a namespace with the same slug already exists, `409 Conflict` is returned.
+      operationId: createNamespace
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NamespaceCreateRequest'
+            example:
+              slug: acme-core
+              ownerOrg: ACME Corporation
+      responses:
+        '201':
+          description: Namespace created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NamespaceSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: A namespace with this slug already exists
+
   /namespaces/{ns}/plugins:
     get:
       tags:
         - Catalog
-      summary: List plugins
+      summary: List plugins in a namespace
+      description: |
+        Returns a paginated list of plugins in the given namespace.
+
+        Results can be filtered by category, tag, and status, and searched by a full-text
+        query across plugin name, description, and tags. Only plugins with at least one
+        published release are shown by default (status `active`).
+
+        This endpoint is publicly accessible unless the namespace has access control enabled.
       operationId: listPlugins
       parameters:
         - $ref: '#/components/parameters/NamespaceSlug'
@@ -41,7 +277,7 @@ paths:
         - $ref: '#/components/parameters/StatusFilter'
       responses:
         '200':
-          description: Paginated plugin list
+          description: Paginated list of plugins matching the given filters
           content:
             application/json:
               schema:
@@ -52,6 +288,18 @@ paths:
       tags:
         - Management
       summary: Create a new plugin
+      description: |
+        Registers a new plugin in the namespace with the given metadata.
+
+        The `pluginId` must match the `Plugin-Id` value in the PF4J manifest of all release
+        artifacts that will be uploaded for this plugin. It must be unique within the namespace.
+
+        Creating the plugin entry is optional if you upload a release first — the server will
+        auto-create the plugin from the descriptor embedded in the artifact. Use this endpoint
+        when you want to pre-register metadata (categories, links, description) before the first
+        release is ready.
+
+        Returns `409 Conflict` if a plugin with the same `pluginId` already exists in the namespace.
       operationId: createPlugin
       security:
         - ApiKeyAuth: []
@@ -63,9 +311,20 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PluginCreateRequest'
+            example:
+              pluginId: com.example.my-plugin
+              name: My Plugin
+              description: A useful plugin for Example App
+              author: ACME Corp
+              license: Apache-2.0
+              categories:
+                - analytics
+              tags:
+                - reporting
+                - export
       responses:
         '201':
-          description: Plugin created
+          description: Plugin created successfully
           content:
             application/json:
               schema:
@@ -75,7 +334,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '409':
-          description: Plugin with this pluginId already exists
+          description: A plugin with this pluginId already exists in the namespace
           content:
             application/json:
               schema:
@@ -86,13 +345,18 @@ paths:
       tags:
         - Catalog
       summary: Get plugin details
+      description: |
+        Returns full metadata for a single plugin, including the latest published version
+        and the latest draft version (if any).
+
+        This endpoint is publicly accessible unless the namespace has access control enabled.
       operationId: getPlugin
       parameters:
         - $ref: '#/components/parameters/NamespaceSlug'
         - $ref: '#/components/parameters/PluginIdPath'
       responses:
         '200':
-          description: Plugin details
+          description: Plugin details including release summary
           content:
             application/json:
               schema:
@@ -103,6 +367,12 @@ paths:
       tags:
         - Management
       summary: Update plugin metadata
+      description: |
+        Updates the editable metadata fields of an existing plugin (name, description,
+        categories, tags, links). Only the fields present in the request body are updated —
+        omitted fields retain their current values.
+
+        Note: `pluginId` and `namespace` cannot be changed after creation.
       operationId: updatePlugin
       security:
         - ApiKeyAuth: []
@@ -117,7 +387,7 @@ paths:
               $ref: '#/components/schemas/PluginUpdateRequest'
       responses:
         '200':
-          description: Plugin updated
+          description: Plugin updated — returns the full updated plugin
           content:
             application/json:
               schema:
@@ -133,7 +403,31 @@ paths:
     post:
       tags:
         - Management
-      summary: Upload a new release (descriptor is read from the JAR)
+      summary: Upload a new release artifact
+      description: |
+        Uploads a plugin artifact (JAR or ZIP) and creates a new release.
+
+        The server reads the `plugwerk.yml` descriptor embedded in the artifact to extract
+        the plugin ID, version, and all other metadata. If `plugwerk.yml` is absent, the
+        server falls back to reading the PF4J manifest headers (`MANIFEST.MF` /
+        `plugin.properties`).
+
+        **Descriptor requirements** (`plugwerk.yml` inside the archive):
+        ```yaml
+        plugwerk:
+          id: com.example.my-plugin   # must match the registered plugin
+          version: 1.2.0              # SemVer, must be unique for this plugin
+          name: My Plugin
+          description: Short description
+        ```
+
+        The artifact SHA-256 is computed server-side and stored with the release for
+        integrity verification by the client SDK.
+
+        New releases are created with status `draft`. Publish them explicitly via
+        `PATCH /namespaces/{ns}/plugins/{pluginId}/releases/{version}`.
+
+        Returns `422 Unprocessable Entity` if the descriptor is missing or invalid.
       operationId: uploadRelease
       security:
         - ApiKeyAuth: []
@@ -147,7 +441,7 @@ paths:
               $ref: '#/components/schemas/ReleaseUploadRequest'
       responses:
         '201':
-          description: Release created
+          description: Release created with status `draft`
           content:
             application/json:
               schema:
@@ -164,6 +458,12 @@ paths:
       tags:
         - Catalog
       summary: List releases for a plugin
+      description: |
+        Returns a paginated list of all releases for the given plugin, ordered by version
+        descending (newest first) by default.
+
+        Draft releases are only included if the caller is authenticated and has management
+        access to the namespace.
       operationId: listReleases
       parameters:
         - $ref: '#/components/parameters/NamespaceSlug'
@@ -172,7 +472,7 @@ paths:
         - $ref: '#/components/parameters/SizeQuery'
       responses:
         '200':
-          description: Paginated release list
+          description: Paginated list of releases for the plugin
           content:
             application/json:
               schema:
@@ -185,6 +485,9 @@ paths:
       tags:
         - Catalog
       summary: Get a specific release
+      description: |
+        Returns the full details of a single release, including the SHA-256 checksum,
+        compatibility requirements, and plugin dependencies.
       operationId: getRelease
       parameters:
         - $ref: '#/components/parameters/NamespaceSlug'
@@ -203,6 +506,19 @@ paths:
       tags:
         - Management
       summary: Update release status
+      description: |
+        Transitions a release to a new lifecycle status.
+
+        Allowed transitions:
+        - `draft` → `published` — makes the release visible in the catalog and eligible for
+          update checks. If the namespace requires review, use the **Reviews** endpoints instead.
+        - `published` → `deprecated` — the release remains downloadable but update checks
+          will no longer recommend it.
+        - `published` → `yanked` — the release is hidden from the catalog and update checks.
+          Yanking is irreversible and typically used for releases with critical security issues.
+        - `deprecated` → `yanked` — same as above.
+
+        Note: `draft` → `yanked` is not allowed. Publish first, then yank if needed.
       operationId: updateReleaseStatus
       security:
         - ApiKeyAuth: []
@@ -216,9 +532,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ReleaseStatusUpdateRequest'
+            example:
+              status: published
       responses:
         '200':
-          description: Release status updated
+          description: Release status updated — returns the updated release
           content:
             application/json:
               schema:
@@ -235,6 +553,15 @@ paths:
       tags:
         - Catalog
       summary: Download release artifact
+      description: |
+        Downloads the raw plugin artifact binary (JAR or ZIP).
+
+        The response is a binary stream (`application/octet-stream`). Clients should verify
+        the downloaded file against the `artifactSha256` value from the release metadata to
+        ensure integrity. The Plugwerk client SDK performs this check automatically.
+
+        Only `published` releases can be downloaded by unauthenticated callers. Authenticated
+        callers with management access can also download `draft` releases.
       operationId: downloadRelease
       parameters:
         - $ref: '#/components/parameters/NamespaceSlug'
@@ -242,7 +569,7 @@ paths:
         - $ref: '#/components/parameters/VersionPath'
       responses:
         '200':
-          description: Plugin artifact binary
+          description: Plugin artifact binary stream
           content:
             application/octet-stream:
               schema:
@@ -255,13 +582,26 @@ paths:
     get:
       tags:
         - Catalog
-      summary: pf4j-update compatible plugin list
+      summary: pf4j-update compatible plugin feed
+      description: |
+        Returns the plugin catalog in the [pf4j-update](https://github.com/pf4j/pf4j-update)
+        `plugins.json` format. This is a **drop-in replacement** for any existing
+        `UpdateRepository` URL in a pf4j-update-based application.
+
+        Only `published` releases are included. Each plugin entry contains all published
+        releases with their download URLs, SHA-512 checksums, and `requires` (minimum host
+        application version) values.
+
+        Point your pf4j-update `UpdateRepository` at:
+        ```
+        https://your-server/api/v1/namespaces/{ns}/plugins.json
+        ```
       operationId: getPluginsJson
       parameters:
         - $ref: '#/components/parameters/NamespaceSlug'
       responses:
         '200':
-          description: pf4j-update compatible JSON
+          description: pf4j-update compatible plugin feed (JSON)
           content:
             application/json:
               schema:
@@ -271,7 +611,19 @@ paths:
     post:
       tags:
         - Updates
-      summary: Check for available updates
+      summary: Check for available plugin updates
+      description: |
+        Accepts the list of currently installed plugins with their versions and returns
+        only the plugins that have a newer published release available.
+
+        This endpoint is designed to be called periodically by the Plugwerk client SDK
+        (e.g. on application startup). Pass up to 500 installed plugins per request.
+
+        A plugin is considered to have an update if a published release with a higher
+        SemVer version exists in the namespace. Pre-release versions (e.g. `1.0.0-beta.1`)
+        are only suggested as updates to other pre-release versions of the same minor series.
+
+        This endpoint does not require authentication unless the namespace has access control enabled.
       operationId: checkForUpdates
       parameters:
         - $ref: '#/components/parameters/NamespaceSlug'
@@ -281,9 +633,17 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/UpdateCheckRequest'
+            example:
+              plugins:
+                - pluginId: com.example.my-plugin
+                  currentVersion: 1.0.0
+                - pluginId: com.example.other-plugin
+                  currentVersion: 2.3.1
       responses:
         '200':
-          description: Available updates
+          description: |
+            List of plugins that have a newer published release available.
+            Plugins that are already up to date are omitted from the response.
           content:
             application/json:
               schema:
@@ -293,7 +653,17 @@ paths:
     get:
       tags:
         - Reviews
-      summary: List pending reviews
+      summary: List releases pending review
+      description: |
+        Returns all releases in the namespace that are waiting for admin approval before
+        they can be published.
+
+        Releases appear here when:
+        - The namespace has review mode enabled, AND
+        - A new release artifact was uploaded (status is `draft`)
+
+        Releases approved via `POST /reviews/{releaseId}/approve` are automatically
+        transitioned to `published` and removed from this queue.
       operationId: listPendingReviews
       security:
         - ApiKeyAuth: []
@@ -301,7 +671,7 @@ paths:
         - $ref: '#/components/parameters/NamespaceSlug'
       responses:
         '200':
-          description: Pending review items
+          description: List of releases pending review, ordered by submission date ascending
           content:
             application/json:
               schema:
@@ -315,7 +685,14 @@ paths:
     post:
       tags:
         - Reviews
-      summary: Approve a release
+      summary: Approve a pending release
+      description: |
+        Approves a release that is pending review and transitions it to `published` status,
+        making it immediately visible in the catalog and eligible for update checks.
+
+        An optional `comment` can be included in the request body (e.g. review notes).
+
+        Returns `404 Not Found` if the release does not exist or is not in `draft` status.
       operationId: approveRelease
       security:
         - ApiKeyAuth: []
@@ -327,9 +704,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ReviewDecisionRequest'
+            example:
+              comment: Reviewed and approved. Artifact matches signed build.
       responses:
         '200':
-          description: Release approved
+          description: Release approved and transitioned to `published`
           content:
             application/json:
               schema:
@@ -343,7 +722,15 @@ paths:
     post:
       tags:
         - Reviews
-      summary: Reject a release
+      summary: Reject a pending release
+      description: |
+        Rejects a release that is pending review.
+
+        The release remains in `draft` status and is removed from the review queue.
+        The publisher can fix issues and re-submit by uploading a new release artifact.
+
+        A `comment` explaining the rejection reason is strongly recommended so the
+        publisher understands what needs to be fixed.
       operationId: rejectRelease
       security:
         - ApiKeyAuth: []
@@ -355,9 +742,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ReviewDecisionRequest'
+            example:
+              comment: Artifact contains unsigned code. Please sign and re-upload.
       responses:
         '200':
-          description: Release rejected
+          description: Release rejected — remains in `draft` status
           content:
             application/json:
               schema:
@@ -377,7 +766,9 @@ components:
         type: string
         pattern: '^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$'
         maxLength: 64
-      description: Namespace slug
+      description: |
+        The namespace slug. Must be lowercase alphanumeric with optional hyphens,
+        between 2 and 64 characters. Example: `acme-core`
 
     PluginIdPath:
       name: pluginId
@@ -387,7 +778,10 @@ components:
         type: string
         pattern: '^[a-zA-Z0-9._-]{1,128}$'
         maxLength: 128
-      description: PF4J Plugin-Id
+      description: |
+        The PF4J plugin identifier. Must match the `Plugin-Id` entry in the plugin manifest.
+        Supports alphanumeric characters, dots, underscores, and hyphens.
+        Example: `com.example.my-plugin`
 
     VersionPath:
       name: version
@@ -396,7 +790,9 @@ components:
       schema:
         type: string
         pattern: '^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$'
-      description: SemVer version string
+      description: |
+        Semantic version string (`MAJOR.MINOR.PATCH`). Pre-release and build metadata
+        suffixes are supported per SemVer 2.0. Examples: `1.2.3`, `2.0.0-beta.1`, `1.0.0+build.42`
 
     ReleaseIdPath:
       name: releaseId
@@ -405,7 +801,7 @@ components:
       schema:
         type: string
         format: uuid
-      description: Release UUID
+      description: The internal UUID of the release (from `PluginReleaseDto.id`)
 
     PageQuery:
       name: page
@@ -414,7 +810,7 @@ components:
         type: integer
         default: 0
         minimum: 0
-      description: Page number (zero-based)
+      description: Zero-based page index. The first page is `0`.
 
     SizeQuery:
       name: size
@@ -424,7 +820,7 @@ components:
         default: 20
         minimum: 1
         maximum: 100
-      description: Page size
+      description: Number of items per page. Maximum is 100.
 
     SortQuery:
       name: sort
@@ -434,28 +830,36 @@ components:
         default: name,asc
         pattern: '^[a-zA-Z]{1,32},(asc|desc)$'
         maxLength: 40
-      description: Sort field and direction (e.g. name,asc)
+      description: |
+        Sort field and direction, formatted as `field,direction`.
+        Examples: `name,asc`, `downloadCount,desc`, `createdAt,desc`
 
     SearchQuery:
       name: q
       in: query
       schema:
         type: string
-      description: Full-text search query
+      description: |
+        Full-text search query. Matched against plugin name, description, and tags.
+        Example: `reporting export`
 
     CategoryFilter:
       name: category
       in: query
       schema:
         type: string
-      description: Filter by category
+      description: |
+        Filter by category slug. Only plugins that have this category assigned are returned.
+        Example: `analytics`
 
     TagFilter:
       name: tag
       in: query
       schema:
         type: string
-      description: Filter by tag
+      description: |
+        Filter by tag. Only plugins that have this tag assigned are returned.
+        Example: `export`
 
     StatusFilter:
       name: status
@@ -466,21 +870,109 @@ components:
           - active
           - suspended
           - archived
-      description: Filter by plugin status
+      description: |
+        Filter by plugin status:
+        - `active` — plugin has at least one published release (default)
+        - `suspended` — plugin is temporarily unavailable
+        - `archived` — plugin is no longer maintained
 
   schemas:
+    LoginRequest:
+      type: object
+      description: Credentials for password-based login
+      properties:
+        username:
+          type: string
+          minLength: 1
+          description: The account username
+          example: admin
+        password:
+          type: string
+          format: password
+          minLength: 1
+          description: The account password (transmitted over HTTPS, never stored in plain text)
+          example: changeme
+      required:
+        - username
+        - password
+
+    LoginResponse:
+      type: object
+      description: Successful login response containing the access token
+      properties:
+        accessToken:
+          type: string
+          description: |
+            Signed JWT Bearer token. Include in subsequent requests as:
+            `Authorization: Bearer <accessToken>`
+        tokenType:
+          type: string
+          description: Token type, always `Bearer`
+          example: Bearer
+        expiresIn:
+          type: integer
+          format: int64
+          description: "Token validity duration in seconds (default: 28800 = 8 hours)"
+          example: 28800
+      required:
+        - accessToken
+        - tokenType
+        - expiresIn
+
+    NamespaceSummary:
+      type: object
+      description: Summary of a namespace
+      properties:
+        slug:
+          type: string
+          description: URL-safe identifier for the namespace, unique across the system
+          example: acme-core
+        ownerOrg:
+          type: string
+          description: Human-readable name of the organisation that owns this namespace
+          example: ACME Corporation
+      required:
+        - slug
+        - ownerOrg
+
+    NamespaceCreateRequest:
+      type: object
+      description: Request body for creating a new namespace
+      properties:
+        slug:
+          type: string
+          pattern: '^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$'
+          description: |
+            Globally unique, URL-safe namespace identifier. Lowercase alphanumeric with hyphens,
+            2–64 characters, cannot start or end with a hyphen.
+          example: acme-core
+        ownerOrg:
+          type: string
+          description: Human-readable name of the owning organisation (optional, for display only)
+          example: ACME Corporation
+      required:
+        - slug
+
     ErrorResponse:
       type: object
+      description: Standard error response body returned for all 4xx and 5xx responses
       properties:
         status:
           type: integer
+          description: HTTP status code (mirrors the response status)
+          example: 404
         error:
           type: string
+          description: Short machine-readable error code (e.g. `NOT_FOUND`, `VALIDATION_ERROR`)
+          example: NOT_FOUND
         message:
           type: string
+          description: Human-readable description of what went wrong
+          example: Plugin 'com.example.my-plugin' not found in namespace 'acme-core'
         timestamp:
           type: string
           format: date-time
+          description: ISO-8601 timestamp of when the error occurred
       required:
         - status
         - error
@@ -489,58 +981,81 @@ components:
 
     PluginDto:
       type: object
+      description: Full plugin metadata including release summary
       properties:
         id:
           type: string
           format: uuid
+          description: Internal UUID of the plugin record (immutable)
         pluginId:
           type: string
+          description: PF4J plugin identifier (e.g. `com.example.my-plugin`). Unique within the namespace.
         name:
           type: string
+          description: Human-readable display name of the plugin
         description:
           type: string
+          description: Short description of what the plugin does
         author:
           type: string
+          description: Author or maintainer name
         license:
           type: string
+          description: SPDX license identifier (e.g. `Apache-2.0`, `MIT`, `GPL-3.0-only`)
         namespace:
           type: string
+          description: Slug of the namespace this plugin belongs to
         status:
           type: string
           enum:
             - active
             - suspended
             - archived
+          description: |
+            Lifecycle status of the plugin:
+            - `active` — has at least one published release, visible in catalog
+            - `suspended` — temporarily unavailable (e.g. security review in progress)
+            - `archived` — no longer maintained, kept for historical download access
         categories:
           type: array
           items:
             type: string
+          description: List of category slugs assigned to this plugin (for catalog filtering)
         tags:
           type: array
           items:
             type: string
+          description: Free-form tags for discovery and filtering
         latestVersion:
           type: string
+          description: SemVer of the latest `published` release, or `null` if none exists
         latestDraftVersion:
           type: string
+          description: SemVer of the latest `draft` release (only visible to authenticated management callers)
         downloadCount:
           type: integer
           format: int64
+          description: Total number of artifact downloads across all releases
         icon:
           type: string
           format: uri
+          description: "URL to the plugin icon image (recommended size: 128×128 px)"
         homepage:
           type: string
           format: uri
+          description: URL of the plugin's project homepage or documentation site
         repository:
           type: string
           format: uri
+          description: URL of the source code repository (e.g. GitHub)
         createdAt:
           type: string
           format: date-time
+          description: Timestamp when the plugin was first created
         updatedAt:
           type: string
           format: date-time
+          description: Timestamp of the most recent metadata update
       required:
         - id
         - pluginId
@@ -549,30 +1064,46 @@ components:
 
     PluginReleaseDto:
       type: object
+      description: Full metadata for a single versioned plugin release
       properties:
         id:
           type: string
           format: uuid
+          description: Internal UUID of the release record (used in review endpoints)
         pluginId:
           type: string
+          description: PF4J plugin identifier this release belongs to
         version:
           type: string
+          description: SemVer version string (e.g. `1.2.3`)
         changelog:
           type: string
+          description: Release notes / changelog text for this version (Markdown supported)
         artifactSha256:
           type: string
+          description: |
+            SHA-256 hex digest of the uploaded artifact binary.
+            Clients should verify downloaded artifacts against this value.
         artifactSize:
           type: integer
           format: int64
+          description: Size of the artifact in bytes
         requiresSystemVersion:
           type: string
+          description: |
+            SemVer range expression for the minimum required host application version.
+            Uses the Maven/PF4J range syntax, e.g. `>=2.0.0 & <4.0.0`.
         requiresApiLevel:
           type: integer
           format: int32
+          description: |
+            Minimum API level integer required by the host application (alternative to
+            `requiresSystemVersion`). Use the mechanism your host application supports.
         pluginDependencies:
           type: array
           items:
             $ref: '#/components/schemas/PluginDependencyDto'
+          description: List of other plugins this release depends on (with version constraints)
         status:
           type: string
           enum:
@@ -580,15 +1111,24 @@ components:
             - published
             - deprecated
             - yanked
+          description: |
+            Lifecycle status of this release:
+            - `draft` — uploaded but not yet visible to catalog consumers
+            - `published` — visible in catalog and eligible for update checks
+            - `deprecated` — still downloadable but no longer recommended for new installations
+            - `yanked` — hidden from catalog; typically used for releases with critical issues
         publishedAt:
           type: string
           format: date-time
+          description: Timestamp when the release was transitioned to `published` status
         downloadCount:
           type: integer
           format: int64
+          description: Number of times this specific release artifact has been downloaded
         createdAt:
           type: string
           format: date-time
+          description: Timestamp when the release was created (artifact uploaded)
       required:
         - id
         - pluginId
@@ -597,87 +1137,124 @@ components:
 
     PluginDependencyDto:
       type: object
+      description: A dependency on another plugin, with a version constraint
       properties:
         id:
           type: string
+          description: PF4J plugin identifier of the required plugin
         version:
           type: string
+          description: |
+            SemVer range constraint for the required plugin version.
+            Examples: `>=1.0.0`, `>=1.0.0 & <2.0.0`
       required:
         - id
         - version
 
     PluginCreateRequest:
       type: object
+      description: Request body for creating a new plugin entry in a namespace
       properties:
         pluginId:
           type: string
+          description: |
+            PF4J plugin identifier. Must match `Plugin-Id` in the plugin manifest exactly.
+            Unique within the namespace.
+          example: com.example.my-plugin
         name:
           type: string
+          description: Human-readable display name
+          example: My Plugin
         description:
           type: string
+          description: Short description of the plugin's purpose
         author:
           type: string
+          description: Author or maintainer name or organisation
         license:
           type: string
+          description: SPDX license expression (e.g. `Apache-2.0`, `MIT`)
         categories:
           type: array
           items:
             type: string
+          description: Category slugs for catalog browsing and filtering
         tags:
           type: array
           items:
             type: string
+          description: Free-form tags for discovery
         icon:
           type: string
           format: uri
+          description: URL to plugin icon (recommended 128×128 px)
         homepage:
           type: string
           format: uri
+          description: Project homepage or documentation URL
         repository:
           type: string
           format: uri
+          description: Source code repository URL
       required:
         - pluginId
         - name
 
     PluginUpdateRequest:
       type: object
+      description: |
+        Request body for updating plugin metadata. All fields are optional — only fields
+        present in the request body are updated (partial update / PATCH semantics).
       properties:
         name:
           type: string
+          description: New display name
         description:
           type: string
+          description: New description
         categories:
           type: array
           items:
             type: string
+          description: Replaces the full list of categories (not merged)
         tags:
           type: array
           items:
             type: string
+          description: Replaces the full list of tags (not merged)
         license:
           type: string
+          description: New SPDX license expression
         icon:
           type: string
           format: uri
+          description: New icon URL
         homepage:
           type: string
           format: uri
+          description: New homepage URL
         repository:
           type: string
           format: uri
+          description: New source repository URL
 
     ReleaseUploadRequest:
       type: object
+      description: Multipart form data for uploading a plugin release artifact
       properties:
         artifact:
           type: string
           format: binary
+          description: |
+            The plugin artifact file (JAR or ZIP). Must contain a `plugwerk.yml` descriptor
+            (or a valid PF4J manifest as fallback) for the server to extract version and
+            plugin metadata.
       required:
         - artifact
 
     ReleaseStatusUpdateRequest:
       type: object
+      description: Request body for transitioning a release to a new lifecycle status
       properties:
         status:
           type: string
@@ -685,52 +1262,73 @@ components:
             - published
             - deprecated
             - yanked
+          description: |
+            Target status for the release:
+            - `published` — make the release visible in the catalog (from `draft`)
+            - `deprecated` — mark as superseded but keep it downloadable
+            - `yanked` — remove from catalog permanently (irreversible)
       required:
         - status
 
     UpdateCheckRequest:
       type: object
+      description: List of currently installed plugins to check for updates
       properties:
         plugins:
           type: array
           maxItems: 500
           items:
             $ref: '#/components/schemas/InstalledPluginInfo'
+          description: |
+            The installed plugins to check. Up to 500 entries per request.
+            Plugins not found in the namespace are silently ignored.
       required:
         - plugins
 
     InstalledPluginInfo:
       type: object
+      description: An installed plugin with its current version
       properties:
         pluginId:
           type: string
+          description: PF4J plugin identifier
         currentVersion:
           type: string
+          description: The currently installed SemVer version (e.g. `1.0.0`)
       required:
         - pluginId
         - currentVersion
 
     UpdateCheckResponse:
       type: object
+      description: Update check result — contains only plugins that have a newer version available
       properties:
         updates:
           type: array
           items:
             $ref: '#/components/schemas/PluginUpdateInfo'
+          description: |
+            List of plugins with available updates. Plugins that are already at the latest
+            published version are omitted. An empty array means everything is up to date.
       required:
         - updates
 
     PluginUpdateInfo:
       type: object
+      description: Information about an available plugin update
       properties:
         pluginId:
           type: string
+          description: PF4J plugin identifier
         currentVersion:
           type: string
+          description: The version currently installed on the client
         latestVersion:
           type: string
+          description: The latest published version available on the server
         release:
           $ref: '#/components/schemas/PluginReleaseDto'
+          description: Full release details for the latest available version
       required:
         - pluginId
         - currentVersion
@@ -739,71 +1337,97 @@ components:
 
     Pf4jPluginsJson:
       type: object
+      description: |
+        Plugin feed in the [pf4j-update](https://github.com/pf4j/pf4j-update) `plugins.json`
+        format. This is the root object returned by the `GET /plugins.json` endpoint.
       properties:
         plugins:
           type: array
           items:
             $ref: '#/components/schemas/Pf4jPluginInfo'
+          description: List of all plugins with their published releases
       required:
         - plugins
 
     Pf4jPluginInfo:
       type: object
+      description: Plugin entry in pf4j-update format
       properties:
         id:
           type: string
+          description: PF4J plugin identifier
         description:
           type: string
+          description: Short plugin description
         provider:
           type: string
+          description: Plugin author or provider name
         projectUrl:
           type: string
+          description: Homepage or project URL
         releases:
           type: array
           items:
             $ref: '#/components/schemas/Pf4jReleaseInfo'
+          description: List of published releases for this plugin, newest first
       required:
         - id
         - releases
 
     Pf4jReleaseInfo:
       type: object
+      description: Release entry in pf4j-update format
       properties:
         version:
           type: string
+          description: SemVer version string
         date:
           type: string
           format: date
+          description: Release date (ISO-8601, e.g. `2026-01-15`)
         url:
           type: string
           format: uri
+          description: Direct download URL for the release artifact
         requires:
           type: string
+          description: |
+            Minimum host application version required, in pf4j-update range format.
+            Corresponds to `requiresSystemVersion` in the Plugwerk release model.
         sha512sum:
           type: string
+          description: SHA-512 hex digest of the artifact for integrity verification
       required:
         - version
         - url
 
     ReviewItemDto:
       type: object
+      description: A release that is pending admin review
       properties:
         releaseId:
           type: string
           format: uuid
+          description: Internal UUID of the release (use this in approve/reject endpoints)
         pluginId:
           type: string
+          description: PF4J plugin identifier
         pluginName:
           type: string
+          description: Human-readable name of the plugin
         version:
           type: string
+          description: SemVer version of the release awaiting review
         submittedBy:
           type: string
+          description: Username of the account that uploaded the release
         submittedAt:
           type: string
           format: date-time
+          description: Timestamp when the artifact was uploaded
         artifactSha256:
           type: string
+          description: SHA-256 hex digest of the artifact (for manual verification before approving)
       required:
         - releaseId
         - pluginId
@@ -813,29 +1437,40 @@ components:
 
     ReviewDecisionRequest:
       type: object
+      description: Optional comment to attach to an approve or reject decision
       properties:
         comment:
           type: string
+          description: |
+            Human-readable comment explaining the decision. Strongly recommended for
+            rejections so the publisher knows what needs to be fixed.
+          example: Approved after manual artifact verification.
 
     PluginPagedResponse:
       type: object
+      description: Paginated response containing a list of plugins
       properties:
         content:
           type: array
           items:
             $ref: '#/components/schemas/PluginDto'
+          description: Plugin entries on this page
         totalElements:
           type: integer
           format: int64
+          description: Total number of plugins matching the query (across all pages)
         page:
           type: integer
           format: int32
+          description: Current zero-based page index
         size:
           type: integer
           format: int32
+          description: Number of items per page
         totalPages:
           type: integer
           format: int32
+          description: Total number of pages
       required:
         - content
         - totalElements
@@ -845,23 +1480,29 @@ components:
 
     ReleasePagedResponse:
       type: object
+      description: Paginated response containing a list of releases
       properties:
         content:
           type: array
           items:
             $ref: '#/components/schemas/PluginReleaseDto'
+          description: Release entries on this page
         totalElements:
           type: integer
           format: int64
+          description: Total number of releases matching the query (across all pages)
         page:
           type: integer
           format: int32
+          description: Current zero-based page index
         size:
           type: integer
           format: int32
+          description: Number of items per page
         totalPages:
           type: integer
           format: int32
+          description: Total number of pages
       required:
         - content
         - totalElements
@@ -871,32 +1512,45 @@ components:
 
   responses:
     BadRequest:
-      description: Invalid request
+      description: The request body or parameters failed validation
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
-      description: Authentication required
+      description: Authentication credentials are missing or invalid
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     NotFound:
-      description: Resource not found
+      description: The requested resource does not exist
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     UnprocessableEntity:
-      description: Plugin descriptor is invalid or missing
+      description: |
+        The artifact was received but the plugin descriptor is missing or invalid.
+        Check that `plugwerk.yml` is present inside the JAR/ZIP and has the correct structure.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
 
   securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Short-lived JWT token obtained via `POST /api/auth/login`.
+        Include as `Authorization: Bearer <token>`. Default validity: 8 hours.
     ApiKeyAuth:
       type: apiKey
       in: header
       name: X-Api-Key
+      description: |
+        Long-lived API key for CI/CD pipelines and service accounts.
+        Include as `X-Api-Key: <your-api-key>` header.
+        API keys are provisioned by the server administrator.

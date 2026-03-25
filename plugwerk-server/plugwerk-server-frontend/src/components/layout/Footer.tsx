@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Copyright (C) 2026 devtank42 GmbH
 import { Box, Typography, Link } from '@mui/material'
+import { Link as RouterLink } from 'react-router-dom'
 import { tokens } from '../../theme/tokens'
 
 export function Footer() {
@@ -31,9 +32,8 @@ export function Footer() {
         </Box>
 
         <Link
-          href="/api/v1"
-          target="_blank"
-          rel="noopener"
+          component={RouterLink}
+          to="/api-docs"
           sx={{
             fontSize: '0.8125rem',
             color: tokens.color.primary,

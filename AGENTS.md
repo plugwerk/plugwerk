@@ -4,7 +4,7 @@ Universal AI agent instructions for Plugwerk. All AI coding agents (Claude Code,
 
 ## What Plugwerk Is
 
-Plugwerk is a **plugin marketplace for the Java/PF4J ecosystem** – the missing link between the PF4J plugin framework and a product's plugin ecosystem. Think Maven Central, but for runtime plugins instead of build dependencies.
+Plugwerk is **plugin management and marketplace software for the Java/PF4J ecosystem** – the missing link between the PF4J plugin framework and a product's plugin ecosystem. Think Maven Central, but for runtime plugins instead of build dependencies.
 
 Two artifacts:
 - **Plugwerk Server** – Spring Boot 4.x + Kotlin web application: REST API, catalog, upload, versioning, download

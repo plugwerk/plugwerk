@@ -42,6 +42,14 @@ dependencies {
     testRuntimeOnly(libs.h2)
 }
 
+// Copy the canonical OpenAPI spec into static resources so it is served at /api-docs/openapi.yaml
+tasks.named<ProcessResources>("processResources") {
+    from(rootProject.file("plugwerk-api/src/main/resources/openapi/plugwerk-api.yaml")) {
+        into("static/api-docs")
+        rename { "openapi.yaml" }
+    }
+}
+
 tasks.named<Test>("test") {
     useJUnitPlatform {
         excludeTags("integration")

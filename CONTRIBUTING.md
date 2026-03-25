@@ -38,7 +38,7 @@ docker compose up -d postgres
 ### Running the Server
 
 ```bash
-./gradlew :plugwerk-server:plugwerk-server-backend:bootRun --args='--spring.profiles.active=dev'
+./gradlew :plugwerk-server:plugwerk-server-backend:bootRun
 ```
 
 The server starts at `http://localhost:8080`.

@@ -17,37 +17,35 @@
  */
 package io.plugwerk.server.controller
 
+import io.plugwerk.api.NamespacesApi
+import io.plugwerk.api.model.NamespaceCreateRequest
+import io.plugwerk.api.model.NamespaceSummary
 import io.plugwerk.server.service.NamespaceAlreadyExistsException
 import io.plugwerk.server.service.NamespaceService
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.net.URI
 
-data class NamespaceSummary(val slug: String, val ownerOrg: String)
-
-data class NamespaceCreateRequest(val slug: String, val ownerOrg: String = "default")
-
 @RestController
-@RequestMapping("/api/v1/namespaces")
-class NamespaceController(private val namespaceService: NamespaceService) {
+@RequestMapping("/api/v1")
+class NamespaceController(private val namespaceService: NamespaceService) : NamespacesApi {
 
-    @GetMapping
-    fun listNamespaces(): ResponseEntity<List<NamespaceSummary>> {
+    override fun listNamespaces(): ResponseEntity<List<NamespaceSummary>> {
         val namespaces = namespaceService.findAll()
             .map { NamespaceSummary(slug = it.slug, ownerOrg = it.ownerOrg) }
         return ResponseEntity.ok(namespaces)
     }
 
-    @PostMapping
-    fun createNamespace(@RequestBody request: NamespaceCreateRequest): ResponseEntity<NamespaceSummary> = try {
-        val entity = namespaceService.create(slug = request.slug, ownerOrg = request.ownerOrg)
-        val summary = NamespaceSummary(slug = entity.slug, ownerOrg = entity.ownerOrg)
-        ResponseEntity.created(URI("/api/v1/namespaces/${entity.slug}")).body(summary)
-    } catch (ex: NamespaceAlreadyExistsException) {
-        ResponseEntity.status(409).build()
-    }
+    override fun createNamespace(namespaceCreateRequest: NamespaceCreateRequest): ResponseEntity<NamespaceSummary> =
+        try {
+            val entity = namespaceService.create(
+                slug = namespaceCreateRequest.slug,
+                ownerOrg = namespaceCreateRequest.ownerOrg ?: "default",
+            )
+            val summary = NamespaceSummary(slug = entity.slug, ownerOrg = entity.ownerOrg)
+            ResponseEntity.created(URI("/api/v1/namespaces/${entity.slug}")).body(summary)
+        } catch (_: NamespaceAlreadyExistsException) {
+            ResponseEntity.status(409).build()
+        }
 }

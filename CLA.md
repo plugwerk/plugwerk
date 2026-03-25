@@ -1,6 +1,6 @@
 # Contributor License Agreement
 
-**PlugWerk – Plugin Marketplace for the Java Ecosystem**
+**PlugWerk – Plugin Management and Marketplace Software for the Java Ecosystem**
 
 This Contributor License Agreement ("Agreement") documents the rights granted by contributors to the PlugWerk project. By signing this Agreement, you accept and agree to the following terms for your present and future contributions to PlugWerk.
 

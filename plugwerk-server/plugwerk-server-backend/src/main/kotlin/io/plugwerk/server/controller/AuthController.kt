@@ -17,36 +17,31 @@
  */
 package io.plugwerk.server.controller
 
+import io.plugwerk.api.AuthApi
+import io.plugwerk.api.model.LoginRequest
+import io.plugwerk.api.model.LoginResponse
 import io.plugwerk.server.security.UserCredentialValidator
 import io.plugwerk.server.service.JwtTokenService
-import jakarta.validation.Valid
-import jakarta.validation.constraints.NotBlank
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
-data class LoginRequest(@field:NotBlank val username: String, @field:NotBlank val password: String)
-
-data class LoginResponse(val accessToken: String, val tokenType: String = "Bearer", val expiresIn: Long)
-
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api")
 class AuthController(
     private val credentialValidator: UserCredentialValidator,
     private val jwtTokenService: JwtTokenService,
-) {
+) : AuthApi {
 
-    @PostMapping("/login")
-    fun login(@Valid @RequestBody request: LoginRequest): ResponseEntity<LoginResponse> {
-        if (!credentialValidator.validate(request.username, request.password)) {
+    override fun login(loginRequest: LoginRequest): ResponseEntity<LoginResponse> {
+        if (!credentialValidator.validate(loginRequest.username, loginRequest.password)) {
             return ResponseEntity.status(401).build()
         }
-        val token = jwtTokenService.generateToken(request.username)
+        val token = jwtTokenService.generateToken(loginRequest.username)
         return ResponseEntity.ok(
             LoginResponse(
                 accessToken = token,
+                tokenType = "Bearer",
                 expiresIn = jwtTokenService.tokenValiditySeconds(),
             ),
         )

@@ -72,9 +72,8 @@ Maven Local. Run once from the **main project root**:
 # Start the database
 docker compose up -d postgres
 
-# Start the server with the dev profile
-./gradlew :plugwerk-server:plugwerk-server-backend:bootRun \
-    --args='--spring.profiles.active=dev'
+# Start the server
+./gradlew :plugwerk-server:plugwerk-server-backend:bootRun
 ```
 
 The server listens on `http://localhost:8080`.
@@ -114,7 +113,7 @@ TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
 echo $TOKEN   # eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-> The dev profile ships with a hardcoded user `test` / `test`.
+> The default configuration ships with a hardcoded user `test` / `test` for development. Never use these credentials in production.
 
 ### Passing the token to the CLI
 

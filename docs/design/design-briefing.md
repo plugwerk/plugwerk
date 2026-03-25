@@ -1,7 +1,7 @@
 # PlugWerk – Web UI Design Briefing
 
 **Document Type:** Design Briefing for Figma and HTML Templates  
-**Project:** PlugWerk – Plugin Marketplace for the Java/PF4J Ecosystem  
+**Project:** PlugWerk – Plugin Management and Marketplace Software for the Java/PF4J Ecosystem
 **Created:** March 21, 2026 | Version 2.0  
 **Audience:** Web Designers, UI/UX Designers, Frontend Developers
 
@@ -9,7 +9,7 @@
 
 ## 1. About the Product
 
-PlugWerk is a **self-hosted** plugin marketplace for Java applications built on the PF4J framework. Organizations deploy PlugWerk on their own infrastructure (Docker / Kubernetes) to provide a central catalog where users can discover, explore, and download plugins for their PF4J-based products.
+PlugWerk is **self-hosted plugin management and marketplace software** for Java applications built on the PF4J framework. Organizations deploy PlugWerk on their own infrastructure (Docker / Kubernetes) to provide a central catalog where users can discover, explore, and download plugins for their PF4J-based products.
 
 **This is not a SaaS product.** There is no public marketing site, no pricing page, and no signup funnel. The web UI is the application itself — deployed inside an organization's network or on a public server managed by the operator. The first thing a user sees is the plugin catalog, not a landing page.
 

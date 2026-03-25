@@ -1,4 +1,4 @@
-# PlugWerk – Plugin Marketplace for the Java Ecosystem
+# PlugWerk – Plugin Management and Marketplace Software for the Java Ecosystem
 
 **Concept Paper | Product Vision, Features, Implementation Outline & Operating Model**
 
@@ -12,7 +12,7 @@ Java applications built on PF4J (Plugin Framework for Java) lack a centralized i
 
 **PlugWerk** closes this gap as a standalone product. It consists of two artifacts:
 
-1. **PlugWerk Server** – a web application that serves as a central plugin marketplace: catalog, upload, versioning, download, and REST API.
+1. **PlugWerk Server** – a web application that serves as central plugin management and marketplace software: catalog, upload, versioning, download, and REST API.
 2. **PlugWerk Client SDK** – a Java library that can be embedded into any Java application to connect to the marketplace: plugin discovery, download, installation, update checking, and lifecycle integration with PF4J.
 
 The product is intentionally **product-agnostic**. Any Java software product that uses or wants to use PF4J can adopt PlugWerk as its plugin infrastructure – comparable to the relationship between Maven Central and Maven, but specialized for runtime plugins rather than build dependencies.
@@ -518,7 +518,7 @@ devtank42 operates the PlugWerk server as a managed service.
 | **Maven Central / Nexus** | Artifact hosting | Universal, proven | No plugin lifecycle, no compatibility matrix |
 | **OSGi (Felix, Karaf)** | Technically related | Hot-deploy, isolation, dependency mgmt | Complex stack, no marketplace aspect |
 
-**Positioning:** PlugWerk is the **only generic, product-agnostic plugin marketplace for the PF4J ecosystem**. It combines the simplicity of pf4j-update with the functionality of a full-featured marketplace.
+**Positioning:** PlugWerk is the **only generic, product-agnostic plugin management and marketplace solution for the PF4J ecosystem**. It combines the simplicity of pf4j-update with the functionality of a full-featured marketplace.
 
 ---
 

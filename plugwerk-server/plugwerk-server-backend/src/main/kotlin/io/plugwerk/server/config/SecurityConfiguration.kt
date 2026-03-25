@@ -63,6 +63,8 @@ class SecurityConfiguration(
                     .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                     // SPA static assets are always public
                     .requestMatchers(HttpMethod.GET, "/", "/index.html", "/assets/**", "/*.svg", "/*.ico").permitAll()
+                    // OpenAPI spec is public (used by API docs page without login)
+                    .requestMatchers(HttpMethod.GET, "/api-docs/**").permitAll()
                     // Everything else requires authentication
                     // (public namespace GET requests are handled by PublicNamespaceFilter)
                     .anyRequest().authenticated()

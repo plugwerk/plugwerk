@@ -40,7 +40,9 @@ class SpaController {
             "/403",
             "/500",
             "/503",
-            "/{namespace}/plugins/{pluginId}",
+            "/namespaces/{namespace}/plugins",
+            "/namespaces/{namespace}/plugins/{pluginId}",
+            "/api-docs",
         ],
     )
     fun spa(request: HttpServletRequest): String = "forward:/index.html"

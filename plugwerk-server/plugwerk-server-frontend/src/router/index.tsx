@@ -16,6 +16,7 @@ import { Error403Page } from '../pages/errors/Error403Page'
 import { Error500Page } from '../pages/errors/Error500Page'
 import { Error503Page } from '../pages/errors/Error503Page'
 import { useAuthStore } from '../stores/authStore'
+import { ApiDocsPage } from '../pages/ApiDocsPage'
 
 function CatalogRedirect() {
   const namespace = useAuthStore((s) => s.namespace)
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
       { path: 'profile',                                                element: <ProtectedRoute><ProfileSettingsPage /></ProtectedRoute> },
 
       // Public routes — no login required
+      { path: 'api-docs',                     element: <ApiDocsPage /> },
       { path: 'login',                        element: <LoginPage /> },
       { path: 'register',                     element: <RegisterPage /> },
       { path: 'forgot-password',              element: <ForgotPasswordPage /> },
