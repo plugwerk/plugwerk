@@ -16,7 +16,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': 'http://localhost:8080',
+      // Proxy all REST API calls and the OpenAPI YAML to the Spring Boot backend.
+      // Use '/api/' (with trailing slash) to avoid matching '/api-docs' (the SPA page).
+      '/api/': 'http://localhost:8080',
+      '/api-docs/openapi.yaml': 'http://localhost:8080',
     },
   },
 })
