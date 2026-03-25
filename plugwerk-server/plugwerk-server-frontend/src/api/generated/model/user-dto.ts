@@ -51,6 +51,12 @@ export interface UserDto {
      */
     'passwordChangeRequired': boolean;
     /**
+     * When true the user has global superadmin privileges and cannot be deleted
+     * @type {boolean}
+     * @memberof UserDto
+     */
+    'isSuperadmin': boolean;
+    /**
      * 
      * @type {string}
      * @memberof UserDto

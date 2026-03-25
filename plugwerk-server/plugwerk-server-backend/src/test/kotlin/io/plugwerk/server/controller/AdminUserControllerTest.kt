@@ -22,10 +22,12 @@ import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.service.ConflictException
 import io.plugwerk.server.service.EntityNotFoundException
+import io.plugwerk.server.service.ForbiddenException
 import io.plugwerk.server.service.UserService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.doNothing
 import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
@@ -38,6 +40,7 @@ import org.springframework.http.MediaType
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
@@ -145,6 +148,36 @@ class AdminUserControllerTest {
             content = """{"enabled":false}"""
         }.andExpect {
             status { isNotFound() }
+        }
+    }
+
+    @Test
+    fun `DELETE admin users returns 204 on success`() {
+        val userId = UUID.randomUUID()
+        doNothing().whenever(userService).delete(userId)
+
+        mockMvc.delete("/api/v1/admin/users/$userId").andExpect {
+            status { isNoContent() }
+        }
+    }
+
+    @Test
+    fun `DELETE admin users returns 404 when user not found`() {
+        val userId = UUID.randomUUID()
+        doThrow(EntityNotFoundException("User", userId.toString())).whenever(userService).delete(userId)
+
+        mockMvc.delete("/api/v1/admin/users/$userId").andExpect {
+            status { isNotFound() }
+        }
+    }
+
+    @Test
+    fun `DELETE admin users returns 403 when deleting superadmin`() {
+        val userId = UUID.randomUUID()
+        doThrow(ForbiddenException("The superadmin account cannot be deleted")).whenever(userService).delete(userId)
+
+        mockMvc.delete("/api/v1/admin/users/$userId").andExpect {
+            status { isForbidden() }
         }
     }
 }

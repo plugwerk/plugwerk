@@ -20,9 +20,7 @@ package io.plugwerk.server.controller
 import io.plugwerk.api.NamespacesApi
 import io.plugwerk.api.model.NamespaceCreateRequest
 import io.plugwerk.api.model.NamespaceSummary
-import io.plugwerk.server.domain.NamespaceMemberEntity
-import io.plugwerk.server.domain.NamespaceRole
-import io.plugwerk.server.repository.NamespaceMemberRepository
+import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.service.NamespaceAlreadyExistsException
 import io.plugwerk.server.service.NamespaceService
 import org.springframework.http.ResponseEntity
@@ -35,7 +33,7 @@ import java.net.URI
 @RequestMapping("/api/v1")
 class NamespaceController(
     private val namespaceService: NamespaceService,
-    private val namespaceMemberRepository: NamespaceMemberRepository,
+    private val namespaceAuthorizationService: NamespaceAuthorizationService,
 ) : NamespacesApi {
 
     override fun listNamespaces(): ResponseEntity<List<NamespaceSummary>> {
@@ -44,23 +42,19 @@ class NamespaceController(
         return ResponseEntity.ok(namespaces)
     }
 
-    override fun createNamespace(namespaceCreateRequest: NamespaceCreateRequest): ResponseEntity<NamespaceSummary> =
-        try {
+    override fun createNamespace(namespaceCreateRequest: NamespaceCreateRequest): ResponseEntity<NamespaceSummary> {
+        val auth = SecurityContextHolder.getContext().authentication
+            ?: throw io.plugwerk.server.service.ForbiddenException("Not authenticated")
+        namespaceAuthorizationService.requireSuperadmin(auth)
+        return try {
             val entity = namespaceService.create(
                 slug = namespaceCreateRequest.slug,
                 ownerOrg = namespaceCreateRequest.ownerOrg ?: "default",
             )
-            // Add the creating user as ADMIN of the new namespace so they can manage it immediately.
-            // Access-key principals (prefixed "key:") are service accounts with no user identity.
-            val subject = SecurityContextHolder.getContext().authentication?.name
-            if (subject != null && !subject.startsWith("key:")) {
-                namespaceMemberRepository.save(
-                    NamespaceMemberEntity(namespace = entity, userSubject = subject, role = NamespaceRole.ADMIN),
-                )
-            }
             val summary = NamespaceSummary(slug = entity.slug, ownerOrg = entity.ownerOrg)
             ResponseEntity.created(URI("/api/v1/namespaces/${entity.slug}")).body(summary)
         } catch (_: NamespaceAlreadyExistsException) {
             ResponseEntity.status(409).build()
         }
+    }
 }

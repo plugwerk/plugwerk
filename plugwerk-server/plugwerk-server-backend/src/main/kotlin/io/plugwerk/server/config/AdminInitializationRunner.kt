@@ -18,11 +18,7 @@
 package io.plugwerk.server.config
 
 import io.plugwerk.server.PlugwerkProperties
-import io.plugwerk.server.domain.NamespaceMemberEntity
-import io.plugwerk.server.domain.NamespaceRole
 import io.plugwerk.server.domain.UserEntity
-import io.plugwerk.server.repository.NamespaceMemberRepository
-import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
@@ -32,23 +28,23 @@ import org.springframework.stereotype.Component
 import java.security.SecureRandom
 
 /**
- * Bootstraps the initial admin user on first startup.
+ * Bootstraps the initial superadmin user on first startup.
  *
  * If no user with the configured admin username exists in the database, this runner:
  * 1. Uses [PlugwerkProperties.AuthProperties.adminPassword] if set (CI/smoke-test), or
  *    generates a cryptographically random initial password (production).
- * 2. Creates the admin user. If the password was generated, `passwordChangeRequired = true`
- *    is set so the operator must change it on first login.
- * 3. Grants the admin user the [NamespaceRole.ADMIN] role on every existing namespace.
- * 4. Logs the password **once** at INFO level when it was auto-generated.
+ * 2. Creates the superadmin user with [isSuperadmin = true]. If the password was generated,
+ *    `passwordChangeRequired = true` is set so the operator must change it on first login.
+ * 3. Logs the password **once** at INFO level when it was auto-generated.
  *
- * On subsequent startups (admin user already present) this runner is a no-op.
+ * The superadmin implicitly holds ADMIN rights in every namespace without needing an
+ * explicit [namespace_member] entry. The superadmin account can never be deleted.
+ *
+ * On subsequent startups (superadmin user already present) this runner is a no-op.
  */
 @Component
 class AdminInitializationRunner(
     private val userRepository: UserRepository,
-    private val namespaceRepository: NamespaceRepository,
-    private val namespaceMemberRepository: NamespaceMemberRepository,
     private val passwordEncoder: PasswordEncoder,
     private val properties: PlugwerkProperties,
 ) : ApplicationRunner {
@@ -68,28 +64,20 @@ class AdminInitializationRunner(
                 username = adminUsername,
                 passwordHash = passwordEncoder.encode(initialPassword)!!,
                 passwordChangeRequired = passwordChangeRequired,
+                isSuperadmin = true,
                 enabled = true,
             ),
         )
 
-        namespaceRepository.findAll().forEach { namespace ->
-            namespaceMemberRepository.save(
-                NamespaceMemberEntity(
-                    namespace = namespace,
-                    userSubject = adminUsername,
-                    role = NamespaceRole.ADMIN,
-                ),
-            )
-        }
-
         if (passwordChangeRequired) {
             log.info(
                 """
+
                 ╔══════════════════════════════════════════════════════════╗
-                ║         Plugwerk — Initial Admin Password                ║
+                ║         Plugwerk — Initial Superadmin Password           ║
                 ║                                                          ║
-                ║  Username : {}
-                ║  Password : {}
+                ║  Username : {}                                           ║
+                ║  Password : {}                                           ║
                 ║                                                          ║
                 ║  Change this password immediately after first login.     ║
                 ╚══════════════════════════════════════════════════════════╝

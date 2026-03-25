@@ -27,7 +27,7 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material'
-import { CheckCircle, Plus, Trash2 } from 'lucide-react'
+import { CheckCircle, Plus, Shield, Trash2 } from 'lucide-react'
 import { AdminSidebar } from '../components/admin/AdminSidebar'
 import { adminUsersApi, oidcProvidersApi, reviewsApi } from '../api/config'
 import { useAuthStore } from '../stores/authStore'
@@ -104,6 +104,16 @@ function UsersSection() {
     }
   }
 
+  async function handleDelete(user: UserDto) {
+    try {
+      await adminUsersApi.deleteUser({ userId: user.id })
+      setUsers((prev) => prev.filter((u) => u.id !== user.id))
+      setToast({ message: `User "${user.username}" deleted.`, severity: 'success' })
+    } catch {
+      setToast({ message: `Failed to delete user ${user.username}.`, severity: 'error' })
+    }
+  }
+
   async function handleCreate() {
     if (!username.trim() || !password) return
     setSaving(true)
@@ -151,13 +161,25 @@ function UsersSection() {
               <TableCell>Status</TableCell>
               <TableCell>Created</TableCell>
               <TableCell>Enabled</TableCell>
+              <TableCell />
             </TableRow>
           </TableHead>
           <TableBody>
             {users.map((user) => (
               <TableRow key={user.id}>
                 <TableCell>
-                  <Typography variant="body2" fontWeight={500}>{user.username}</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                    <Typography variant="body2" fontWeight={500}>{user.username}</Typography>
+                    {user.isSuperadmin && (
+                      <Chip
+                        icon={<Shield size={12} />}
+                        label="superadmin"
+                        size="small"
+                        color="primary"
+                        sx={{ height: 18, fontSize: '0.65rem' }}
+                      />
+                    )}
+                  </Box>
                   {user.passwordChangeRequired && (
                     <Chip label="pw change required" size="small" color="warning" sx={{ mt: 0.5 }} />
                   )}
@@ -182,8 +204,20 @@ function UsersSection() {
                     checked={user.enabled}
                     size="small"
                     onChange={() => handleToggleEnabled(user)}
+                    disabled={user.isSuperadmin}
                     inputProps={{ 'aria-label': `Toggle ${user.username}` }}
                   />
+                </TableCell>
+                <TableCell>
+                  <Button
+                    size="small"
+                    color="error"
+                    startIcon={<Trash2 size={14} />}
+                    onClick={() => handleDelete(user)}
+                    disabled={user.isSuperadmin}
+                  >
+                    Delete
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

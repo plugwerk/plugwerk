@@ -62,6 +62,12 @@ class UserService(private val userRepository: UserRepository, private val passwo
         return userRepository.save(user)
     }
 
+    fun delete(id: UUID) {
+        val user = findById(id)
+        if (user.isSuperadmin) throw ForbiddenException("The superadmin account cannot be deleted")
+        userRepository.delete(user)
+    }
+
     fun changePassword(username: String, currentPassword: String, newPassword: String): UserEntity {
         val user = userRepository.findByUsername(username)
             .orElseThrow { EntityNotFoundException("User", username) }

@@ -73,6 +73,9 @@ class UserEntity(
     @Column(name = "password_change_required", nullable = false)
     var passwordChangeRequired: Boolean = true,
 
+    @Column(name = "is_superadmin", nullable = false)
+    var isSuperadmin: Boolean = false,
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     var createdAt: OffsetDateTime = OffsetDateTime.now(),

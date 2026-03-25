@@ -43,6 +43,12 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
+                  name: is_superadmin
+                  type: boolean
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
                   name: created_at
                   type: timestamptz
                   defaultValueComputed: now()

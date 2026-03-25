@@ -51,12 +51,18 @@ class AdminUserController(private val userService: UserService) : AdminUsersApi 
         return ResponseEntity.ok(user.toDto())
     }
 
+    override fun deleteUser(userId: UUID): ResponseEntity<Unit> {
+        userService.delete(userId)
+        return ResponseEntity.noContent().build()
+    }
+
     private fun io.plugwerk.server.domain.UserEntity.toDto() = UserDto(
         id = id!!,
         username = username,
         email = email,
         enabled = enabled,
         passwordChangeRequired = passwordChangeRequired,
+        isSuperadmin = isSuperadmin,
         createdAt = createdAt,
     )
 }

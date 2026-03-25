@@ -891,6 +891,33 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - AdminUsers
+      summary: Delete user (superadmin cannot be deleted)
+      operationId: deleteUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: User deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Cannot delete the superadmin account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /v1/namespaces/{ns}/members:
     get:
@@ -1897,6 +1924,9 @@ components:
           type: boolean
         passwordChangeRequired:
           type: boolean
+        isSuperadmin:
+          type: boolean
+          description: When true the user has global superadmin privileges and cannot be deleted
         createdAt:
           type: string
           format: date-time
@@ -1905,6 +1935,7 @@ components:
         - username
         - enabled
         - passwordChangeRequired
+        - isSuperadmin
         - createdAt
 
     UserCreateRequest:
