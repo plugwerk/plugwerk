@@ -159,5 +159,19 @@ data class PlugwerkProperties(
         val jwtSecret: String = "dev-secret-change-in-production-min32chars!!",
         val tokenValidityHours: Long = 8,
         val encryptionKey: String = "change-me-16char",
+        /**
+         * Initial admin username. Defaults to `admin`.
+         * Environment variable: `PLUGWERK_AUTH_ADMIN_USERNAME`
+         */
+        val adminUsername: String = "admin",
+        /**
+         * Optional fixed initial admin password. When set the admin user is created with
+         * this password and `passwordChangeRequired = false`. When absent a random 16-char
+         * password is generated and `passwordChangeRequired = true`.
+         *
+         * **Do not set this in production.** Use only for CI / smoke-test environments.
+         * Environment variable: `PLUGWERK_AUTH_ADMIN_PASSWORD`
+         */
+        val adminPassword: String? = null,
     )
 }

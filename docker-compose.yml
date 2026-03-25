@@ -25,6 +25,8 @@ services:
       PLUGWERK_DB_USERNAME: plugwerk
       PLUGWERK_DB_PASSWORD: plugwerk
       PLUGWERK_STORAGE_ROOT: /tmp/plugwerk-artifacts
+      PLUGWERK_AUTH_ADMIN_USERNAME: test
+      PLUGWERK_AUTH_ADMIN_PASSWORD: test
     ports:
       - "8080:8080"
 

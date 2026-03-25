@@ -17,6 +17,7 @@
  */
 package io.plugwerk.server.config
 
+import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.domain.NamespaceMemberEntity
 import io.plugwerk.server.domain.NamespaceRole
 import io.plugwerk.server.domain.UserEntity
@@ -33,17 +34,15 @@ import java.security.SecureRandom
 /**
  * Bootstraps the initial admin user on first startup.
  *
- * If no user named `admin` exists in the database, this runner:
- * 1. Generates a cryptographically random initial password.
- * 2. Creates the `admin` user with `passwordChangeRequired = true`.
+ * If no user with the configured admin username exists in the database, this runner:
+ * 1. Uses [PlugwerkProperties.AuthProperties.adminPassword] if set (CI/smoke-test), or
+ *    generates a cryptographically random initial password (production).
+ * 2. Creates the admin user. If the password was generated, `passwordChangeRequired = true`
+ *    is set so the operator must change it on first login.
  * 3. Grants the admin user the [NamespaceRole.ADMIN] role on every existing namespace.
- * 4. Logs the generated password **once** at INFO level so the operator can retrieve it
- *    from the container / service logs during initial setup.
+ * 4. Logs the password **once** at INFO level when it was auto-generated.
  *
  * On subsequent startups (admin user already present) this runner is a no-op.
- *
- * The generated password is **not** stored in plain text anywhere after this point.
- * The admin must change it on first login (enforced by [UserEntity.passwordChangeRequired]).
  */
 @Component
 class AdminInitializationRunner(
@@ -51,19 +50,24 @@ class AdminInitializationRunner(
     private val namespaceRepository: NamespaceRepository,
     private val namespaceMemberRepository: NamespaceMemberRepository,
     private val passwordEncoder: PasswordEncoder,
+    private val properties: PlugwerkProperties,
 ) : ApplicationRunner {
 
     private val log = LoggerFactory.getLogger(AdminInitializationRunner::class.java)
 
     override fun run(args: ApplicationArguments) {
-        if (userRepository.existsByUsername(ADMIN_USERNAME)) return
+        val adminUsername = properties.auth.adminUsername
+        if (userRepository.existsByUsername(adminUsername)) return
 
-        val initialPassword = generatePassword()
+        val fixedPassword = properties.auth.adminPassword
+        val initialPassword = fixedPassword ?: generatePassword()
+        val passwordChangeRequired = fixedPassword == null
+
         val admin = userRepository.save(
             UserEntity(
-                username = ADMIN_USERNAME,
+                username = adminUsername,
                 passwordHash = passwordEncoder.encode(initialPassword)!!,
-                passwordChangeRequired = true,
+                passwordChangeRequired = passwordChangeRequired,
                 enabled = true,
             ),
         )
@@ -72,35 +76,33 @@ class AdminInitializationRunner(
             namespaceMemberRepository.save(
                 NamespaceMemberEntity(
                     namespace = namespace,
-                    userSubject = ADMIN_USERNAME,
+                    userSubject = adminUsername,
                     role = NamespaceRole.ADMIN,
                 ),
             )
         }
 
-        log.info(
-            """
-            ╔══════════════════════════════════════════════════════════╗
-            ║         Plugwerk — Initial Admin Password                ║
-            ║                                                          ║
-            ║  Username : {}
-            ║  Password : {}
-            ║                                                          ║
-            ║  Change this password immediately after first login.     ║
-            ╚══════════════════════════════════════════════════════════╝
-            """.trimIndent(),
-            admin.username,
-            initialPassword,
-        )
+        if (passwordChangeRequired) {
+            log.info(
+                """
+                ╔══════════════════════════════════════════════════════════╗
+                ║         Plugwerk — Initial Admin Password                ║
+                ║                                                          ║
+                ║  Username : {}
+                ║  Password : {}
+                ║                                                          ║
+                ║  Change this password immediately after first login.     ║
+                ╚══════════════════════════════════════════════════════════╝
+                """.trimIndent(),
+                admin.username,
+                initialPassword,
+            )
+        }
     }
 
     private fun generatePassword(): String {
         val chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#%&"
         val rng = SecureRandom()
         return (1..16).map { chars[rng.nextInt(chars.length)] }.joinToString("")
-    }
-
-    companion object {
-        const val ADMIN_USERNAME = "admin"
     }
 }

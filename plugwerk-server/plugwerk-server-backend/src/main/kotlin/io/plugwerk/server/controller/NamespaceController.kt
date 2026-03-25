@@ -20,16 +20,23 @@ package io.plugwerk.server.controller
 import io.plugwerk.api.NamespacesApi
 import io.plugwerk.api.model.NamespaceCreateRequest
 import io.plugwerk.api.model.NamespaceSummary
+import io.plugwerk.server.domain.NamespaceMemberEntity
+import io.plugwerk.server.domain.NamespaceRole
+import io.plugwerk.server.repository.NamespaceMemberRepository
 import io.plugwerk.server.service.NamespaceAlreadyExistsException
 import io.plugwerk.server.service.NamespaceService
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.net.URI
 
 @RestController
 @RequestMapping("/api/v1")
-class NamespaceController(private val namespaceService: NamespaceService) : NamespacesApi {
+class NamespaceController(
+    private val namespaceService: NamespaceService,
+    private val namespaceMemberRepository: NamespaceMemberRepository,
+) : NamespacesApi {
 
     override fun listNamespaces(): ResponseEntity<List<NamespaceSummary>> {
         val namespaces = namespaceService.findAll()
@@ -43,6 +50,14 @@ class NamespaceController(private val namespaceService: NamespaceService) : Name
                 slug = namespaceCreateRequest.slug,
                 ownerOrg = namespaceCreateRequest.ownerOrg ?: "default",
             )
+            // Add the creating user as ADMIN of the new namespace so they can manage it immediately.
+            // Access-key principals (prefixed "key:") are service accounts with no user identity.
+            val subject = SecurityContextHolder.getContext().authentication?.name
+            if (subject != null && !subject.startsWith("key:")) {
+                namespaceMemberRepository.save(
+                    NamespaceMemberEntity(namespace = entity, userSubject = subject, role = NamespaceRole.ADMIN),
+                )
+            }
             val summary = NamespaceSummary(slug = entity.slug, ownerOrg = entity.ownerOrg)
             ResponseEntity.created(URI("/api/v1/namespaces/${entity.slug}")).body(summary)
         } catch (_: NamespaceAlreadyExistsException) {
