@@ -2,7 +2,7 @@
 /* eslint-disable */
 /**
  * Plugwerk API
- * Plugin marketplace for the Java/PF4J ecosystem
+ * **Plugwerk** is a self-hosted plugin marketplace for the [PF4J](https://pf4j.org/) ecosystem. It lets teams publish, version, and distribute Java/Kotlin plugins to their own applications without relying on a public registry.  ## Core Concepts  ### Namespaces A **namespace** is the top-level organisational unit. Every plugin belongs to exactly one namespace. Namespaces are identified by a URL-safe **slug** (lowercase alphanumeric + hyphens, 2–64 characters). You might use one namespace per product, team, or customer, e.g. `acme-core`.  ### Plugins A **plugin** is a logical grouping of releases for a single PF4J plugin ID. The `pluginId` matches the `Plugin-Id` entry in the PF4J manifest (`MANIFEST.MF` or `plugin.properties`). Each plugin can have a human-readable name, description, icon, and categorisation metadata.  ### Releases A **release** is a specific versioned artifact (JAR or ZIP) for a plugin. Versions follow [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`). Releases go through a lifecycle: `draft` → `published` → `deprecated` / `yanked`. Only `published` releases are returned to catalog and update-check consumers. A namespace owner can optionally require manual review before a release is published (see the **Reviews** tag).  ### Plugin Descriptor (`plugwerk.yml`) When you upload a release artifact, the server reads a `plugwerk.yml` file embedded in the JAR/ZIP. This descriptor extends the standard PF4J manifest with Plugwerk-specific metadata: ```yaml plugwerk:   id: com.example.my-plugin   version: 1.2.0   name: My Plugin   description: Does something useful   requires:     system-version: \">=2.0.0 & <4.0.0\"     plugins:       - id: com.example.dependency         version: \">=1.0.0\" ``` If `plugwerk.yml` is absent the server falls back to the PF4J manifest headers.  ## Authentication  The API supports two authentication methods:  ### Bearer Token (JWT) Obtain a short-lived JWT by calling `POST /api/auth/login` with your username and password. Pass the returned token in subsequent requests: ``` Authorization: Bearer <token> ``` Tokens are valid for 8 hours by default.  ### API Key Long-lived API keys are suitable for CI/CD pipelines. Pass the key in the request header: ``` X-Api-Key: <your-api-key> ``` API keys are managed by the server administrator.  ## Quick Start  1. **Login** — `POST /api/auth/login` → receive `accessToken` 2. **Create a namespace** — `POST /api/v1/namespaces` with `{ \"slug\": \"my-ns\" }` 3. **Create a plugin** — `POST /api/v1/namespaces/my-ns/plugins` with `{ \"pluginId\": \"...\", \"name\": \"...\" }` 4. **Upload a release** — `POST /api/v1/namespaces/my-ns/releases` (multipart, artifact field) 5. **Publish the release** — `PATCH /api/v1/namespaces/my-ns/plugins/{pluginId}/releases/{version}` with `{ \"status\": \"published\" }` 6. **Clients poll for updates** — `POST /api/v1/namespaces/my-ns/updates/check`  ## pf4j-update Compatibility The `GET /namespaces/{ns}/plugins.json` endpoint returns a response that is fully compatible with the [pf4j-update](https://github.com/pf4j/pf4j-update) `UpdateRepository` format. You can point any existing pf4j-update client directly at this URL as a drop-in replacement.  ## Error Handling All errors return an `ErrorResponse` body with a machine-readable `error` code and a human-readable `message`. HTTP status codes follow REST conventions: - `400 Bad Request` — validation error in the request body or parameters - `401 Unauthorized` — missing or invalid authentication credentials - `404 Not Found` — the requested resource does not exist - `409 Conflict` — a resource with the same identifier already exists - `422 Unprocessable Entity` — the artifact was uploaded successfully but the plugin   descriptor inside it is missing or invalid 
  *
  * The version of the OpenAPI document: 0.1.0
  * 
@@ -43,11 +43,11 @@ import type { ReleasePagedResponse } from '../model';
 export const CatalogApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
         /**
-         * 
+         * Downloads the raw plugin artifact binary (JAR or ZIP).  The response is a binary stream (`application/octet-stream`). Clients should verify the downloaded file against the `artifactSha256` value from the release metadata to ensure integrity. The Plugwerk client SDK performs this check automatically.  Only `published` releases can be downloaded by unauthenticated callers. Authenticated callers with management access can also download `draft` releases. 
          * @summary Download release artifact
-         * @param {string} ns Namespace slug
-         * @param {string} pluginId PF4J Plugin-Id
-         * @param {string} version SemVer version string
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {string} pluginId The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
+         * @param {string} version Semantic version string (&#x60;MAJOR.MINOR.PATCH&#x60;). Pre-release and build metadata suffixes are supported per SemVer 2.0. Examples: &#x60;1.2.3&#x60;, &#x60;2.0.0-beta.1&#x60;, &#x60;1.0.0+build.42&#x60; 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -85,10 +85,10 @@ export const CatalogApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * 
+         * Returns full metadata for a single plugin, including the latest published version and the latest draft version (if any).  This endpoint is publicly accessible unless the namespace has access control enabled. 
          * @summary Get plugin details
-         * @param {string} ns Namespace slug
-         * @param {string} pluginId PF4J Plugin-Id
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {string} pluginId The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -123,9 +123,9 @@ export const CatalogApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * 
-         * @summary pf4j-update compatible plugin list
-         * @param {string} ns Namespace slug
+         * Returns the plugin catalog in the [pf4j-update](https://github.com/pf4j/pf4j-update) `plugins.json` format. This is a **drop-in replacement** for any existing `UpdateRepository` URL in a pf4j-update-based application.  Only `published` releases are included. Each plugin entry contains all published releases with their download URLs, SHA-512 checksums, and `requires` (minimum host application version) values.  Point your pf4j-update `UpdateRepository` at: ``` https://your-server/api/v1/namespaces/{ns}/plugins.json ``` 
+         * @summary pf4j-update compatible plugin feed
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -157,11 +157,11 @@ export const CatalogApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * 
+         * Returns the full details of a single release, including the SHA-256 checksum, compatibility requirements, and plugin dependencies. 
          * @summary Get a specific release
-         * @param {string} ns Namespace slug
-         * @param {string} pluginId PF4J Plugin-Id
-         * @param {string} version SemVer version string
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {string} pluginId The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
+         * @param {string} version Semantic version string (&#x60;MAJOR.MINOR.PATCH&#x60;). Pre-release and build metadata suffixes are supported per SemVer 2.0. Examples: &#x60;1.2.3&#x60;, &#x60;2.0.0-beta.1&#x60;, &#x60;1.0.0+build.42&#x60; 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -199,16 +199,16 @@ export const CatalogApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * 
-         * @summary List plugins
-         * @param {string} ns Namespace slug
-         * @param {number} [page] Page number (zero-based)
-         * @param {number} [size] Page size
-         * @param {string} [sort] Sort field and direction (e.g. name,asc)
-         * @param {string} [q] Full-text search query
-         * @param {string} [category] Filter by category
-         * @param {string} [tag] Filter by tag
-         * @param {ListPluginsStatusEnum} [status] Filter by plugin status
+         * Returns a paginated list of plugins in the given namespace.  Results can be filtered by category, tag, and status, and searched by a full-text query across plugin name, description, and tags. Only plugins with at least one published release are shown by default (status `active`).  This endpoint is publicly accessible unless the namespace has access control enabled. 
+         * @summary List plugins in a namespace
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {number} [page] Zero-based page index. The first page is &#x60;0&#x60;.
+         * @param {number} [size] Number of items per page. Maximum is 100.
+         * @param {string} [sort] Sort field and direction, formatted as &#x60;field,direction&#x60;. Examples: &#x60;name,asc&#x60;, &#x60;downloadCount,desc&#x60;, &#x60;createdAt,desc&#x60; 
+         * @param {string} [q] Full-text search query. Matched against plugin name, description, and tags. Example: &#x60;reporting export&#x60; 
+         * @param {string} [category] Filter by category slug. Only plugins that have this category assigned are returned. Example: &#x60;analytics&#x60; 
+         * @param {string} [tag] Filter by tag. Only plugins that have this tag assigned are returned. Example: &#x60;export&#x60; 
+         * @param {ListPluginsStatusEnum} [status] Filter by plugin status: - &#x60;active&#x60; — plugin has at least one published release (default) - &#x60;suspended&#x60; — plugin is temporarily unavailable - &#x60;archived&#x60; — plugin is no longer maintained 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -268,12 +268,12 @@ export const CatalogApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * 
+         * Returns a paginated list of all releases for the given plugin, ordered by version descending (newest first) by default.  Draft releases are only included if the caller is authenticated and has management access to the namespace. 
          * @summary List releases for a plugin
-         * @param {string} ns Namespace slug
-         * @param {string} pluginId PF4J Plugin-Id
-         * @param {number} [page] Page number (zero-based)
-         * @param {number} [size] Page size
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {string} pluginId The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
+         * @param {number} [page] Zero-based page index. The first page is &#x60;0&#x60;.
+         * @param {number} [size] Number of items per page. Maximum is 100.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -326,11 +326,11 @@ export const CatalogApiFp = function(configuration?: Configuration) {
     const localVarAxiosParamCreator = CatalogApiAxiosParamCreator(configuration)
     return {
         /**
-         * 
+         * Downloads the raw plugin artifact binary (JAR or ZIP).  The response is a binary stream (`application/octet-stream`). Clients should verify the downloaded file against the `artifactSha256` value from the release metadata to ensure integrity. The Plugwerk client SDK performs this check automatically.  Only `published` releases can be downloaded by unauthenticated callers. Authenticated callers with management access can also download `draft` releases. 
          * @summary Download release artifact
-         * @param {string} ns Namespace slug
-         * @param {string} pluginId PF4J Plugin-Id
-         * @param {string} version SemVer version string
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {string} pluginId The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
+         * @param {string} version Semantic version string (&#x60;MAJOR.MINOR.PATCH&#x60;). Pre-release and build metadata suffixes are supported per SemVer 2.0. Examples: &#x60;1.2.3&#x60;, &#x60;2.0.0-beta.1&#x60;, &#x60;1.0.0+build.42&#x60; 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -341,10 +341,10 @@ export const CatalogApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * 
+         * Returns full metadata for a single plugin, including the latest published version and the latest draft version (if any).  This endpoint is publicly accessible unless the namespace has access control enabled. 
          * @summary Get plugin details
-         * @param {string} ns Namespace slug
-         * @param {string} pluginId PF4J Plugin-Id
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {string} pluginId The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -355,9 +355,9 @@ export const CatalogApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * 
-         * @summary pf4j-update compatible plugin list
-         * @param {string} ns Namespace slug
+         * Returns the plugin catalog in the [pf4j-update](https://github.com/pf4j/pf4j-update) `plugins.json` format. This is a **drop-in replacement** for any existing `UpdateRepository` URL in a pf4j-update-based application.  Only `published` releases are included. Each plugin entry contains all published releases with their download URLs, SHA-512 checksums, and `requires` (minimum host application version) values.  Point your pf4j-update `UpdateRepository` at: ``` https://your-server/api/v1/namespaces/{ns}/plugins.json ``` 
+         * @summary pf4j-update compatible plugin feed
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -368,11 +368,11 @@ export const CatalogApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * 
+         * Returns the full details of a single release, including the SHA-256 checksum, compatibility requirements, and plugin dependencies. 
          * @summary Get a specific release
-         * @param {string} ns Namespace slug
-         * @param {string} pluginId PF4J Plugin-Id
-         * @param {string} version SemVer version string
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {string} pluginId The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
+         * @param {string} version Semantic version string (&#x60;MAJOR.MINOR.PATCH&#x60;). Pre-release and build metadata suffixes are supported per SemVer 2.0. Examples: &#x60;1.2.3&#x60;, &#x60;2.0.0-beta.1&#x60;, &#x60;1.0.0+build.42&#x60; 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -383,16 +383,16 @@ export const CatalogApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * 
-         * @summary List plugins
-         * @param {string} ns Namespace slug
-         * @param {number} [page] Page number (zero-based)
-         * @param {number} [size] Page size
-         * @param {string} [sort] Sort field and direction (e.g. name,asc)
-         * @param {string} [q] Full-text search query
-         * @param {string} [category] Filter by category
-         * @param {string} [tag] Filter by tag
-         * @param {ListPluginsStatusEnum} [status] Filter by plugin status
+         * Returns a paginated list of plugins in the given namespace.  Results can be filtered by category, tag, and status, and searched by a full-text query across plugin name, description, and tags. Only plugins with at least one published release are shown by default (status `active`).  This endpoint is publicly accessible unless the namespace has access control enabled. 
+         * @summary List plugins in a namespace
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {number} [page] Zero-based page index. The first page is &#x60;0&#x60;.
+         * @param {number} [size] Number of items per page. Maximum is 100.
+         * @param {string} [sort] Sort field and direction, formatted as &#x60;field,direction&#x60;. Examples: &#x60;name,asc&#x60;, &#x60;downloadCount,desc&#x60;, &#x60;createdAt,desc&#x60; 
+         * @param {string} [q] Full-text search query. Matched against plugin name, description, and tags. Example: &#x60;reporting export&#x60; 
+         * @param {string} [category] Filter by category slug. Only plugins that have this category assigned are returned. Example: &#x60;analytics&#x60; 
+         * @param {string} [tag] Filter by tag. Only plugins that have this tag assigned are returned. Example: &#x60;export&#x60; 
+         * @param {ListPluginsStatusEnum} [status] Filter by plugin status: - &#x60;active&#x60; — plugin has at least one published release (default) - &#x60;suspended&#x60; — plugin is temporarily unavailable - &#x60;archived&#x60; — plugin is no longer maintained 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -403,12 +403,12 @@ export const CatalogApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * 
+         * Returns a paginated list of all releases for the given plugin, ordered by version descending (newest first) by default.  Draft releases are only included if the caller is authenticated and has management access to the namespace. 
          * @summary List releases for a plugin
-         * @param {string} ns Namespace slug
-         * @param {string} pluginId PF4J Plugin-Id
-         * @param {number} [page] Page number (zero-based)
-         * @param {number} [size] Page size
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {string} pluginId The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
+         * @param {number} [page] Zero-based page index. The first page is &#x60;0&#x60;.
+         * @param {number} [size] Number of items per page. Maximum is 100.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -429,7 +429,7 @@ export const CatalogApiFactory = function (configuration?: Configuration, basePa
     const localVarFp = CatalogApiFp(configuration)
     return {
         /**
-         * 
+         * Downloads the raw plugin artifact binary (JAR or ZIP).  The response is a binary stream (`application/octet-stream`). Clients should verify the downloaded file against the `artifactSha256` value from the release metadata to ensure integrity. The Plugwerk client SDK performs this check automatically.  Only `published` releases can be downloaded by unauthenticated callers. Authenticated callers with management access can also download `draft` releases. 
          * @summary Download release artifact
          * @param {CatalogApiDownloadReleaseRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
@@ -439,7 +439,7 @@ export const CatalogApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.downloadRelease(requestParameters.ns, requestParameters.pluginId, requestParameters.version, options).then((request) => request(axios, basePath));
         },
         /**
-         * 
+         * Returns full metadata for a single plugin, including the latest published version and the latest draft version (if any).  This endpoint is publicly accessible unless the namespace has access control enabled. 
          * @summary Get plugin details
          * @param {CatalogApiGetPluginRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
@@ -449,8 +449,8 @@ export const CatalogApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.getPlugin(requestParameters.ns, requestParameters.pluginId, options).then((request) => request(axios, basePath));
         },
         /**
-         * 
-         * @summary pf4j-update compatible plugin list
+         * Returns the plugin catalog in the [pf4j-update](https://github.com/pf4j/pf4j-update) `plugins.json` format. This is a **drop-in replacement** for any existing `UpdateRepository` URL in a pf4j-update-based application.  Only `published` releases are included. Each plugin entry contains all published releases with their download URLs, SHA-512 checksums, and `requires` (minimum host application version) values.  Point your pf4j-update `UpdateRepository` at: ``` https://your-server/api/v1/namespaces/{ns}/plugins.json ``` 
+         * @summary pf4j-update compatible plugin feed
          * @param {CatalogApiGetPluginsJsonRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -459,7 +459,7 @@ export const CatalogApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.getPluginsJson(requestParameters.ns, options).then((request) => request(axios, basePath));
         },
         /**
-         * 
+         * Returns the full details of a single release, including the SHA-256 checksum, compatibility requirements, and plugin dependencies. 
          * @summary Get a specific release
          * @param {CatalogApiGetReleaseRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
@@ -469,8 +469,8 @@ export const CatalogApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.getRelease(requestParameters.ns, requestParameters.pluginId, requestParameters.version, options).then((request) => request(axios, basePath));
         },
         /**
-         * 
-         * @summary List plugins
+         * Returns a paginated list of plugins in the given namespace.  Results can be filtered by category, tag, and status, and searched by a full-text query across plugin name, description, and tags. Only plugins with at least one published release are shown by default (status `active`).  This endpoint is publicly accessible unless the namespace has access control enabled. 
+         * @summary List plugins in a namespace
          * @param {CatalogApiListPluginsRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -479,7 +479,7 @@ export const CatalogApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.listPlugins(requestParameters.ns, requestParameters.page, requestParameters.size, requestParameters.sort, requestParameters.q, requestParameters.category, requestParameters.tag, requestParameters.status, options).then((request) => request(axios, basePath));
         },
         /**
-         * 
+         * Returns a paginated list of all releases for the given plugin, ordered by version descending (newest first) by default.  Draft releases are only included if the caller is authenticated and has management access to the namespace. 
          * @summary List releases for a plugin
          * @param {CatalogApiListReleasesRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
@@ -498,21 +498,21 @@ export const CatalogApiFactory = function (configuration?: Configuration, basePa
  */
 export interface CatalogApiDownloadReleaseRequest {
     /**
-     * Namespace slug
+     * The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
      * @type {string}
      * @memberof CatalogApiDownloadRelease
      */
     readonly ns: string
 
     /**
-     * PF4J Plugin-Id
+     * The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
      * @type {string}
      * @memberof CatalogApiDownloadRelease
      */
     readonly pluginId: string
 
     /**
-     * SemVer version string
+     * Semantic version string (&#x60;MAJOR.MINOR.PATCH&#x60;). Pre-release and build metadata suffixes are supported per SemVer 2.0. Examples: &#x60;1.2.3&#x60;, &#x60;2.0.0-beta.1&#x60;, &#x60;1.0.0+build.42&#x60; 
      * @type {string}
      * @memberof CatalogApiDownloadRelease
      */
@@ -526,14 +526,14 @@ export interface CatalogApiDownloadReleaseRequest {
  */
 export interface CatalogApiGetPluginRequest {
     /**
-     * Namespace slug
+     * The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
      * @type {string}
      * @memberof CatalogApiGetPlugin
      */
     readonly ns: string
 
     /**
-     * PF4J Plugin-Id
+     * The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
      * @type {string}
      * @memberof CatalogApiGetPlugin
      */
@@ -547,7 +547,7 @@ export interface CatalogApiGetPluginRequest {
  */
 export interface CatalogApiGetPluginsJsonRequest {
     /**
-     * Namespace slug
+     * The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
      * @type {string}
      * @memberof CatalogApiGetPluginsJson
      */
@@ -561,21 +561,21 @@ export interface CatalogApiGetPluginsJsonRequest {
  */
 export interface CatalogApiGetReleaseRequest {
     /**
-     * Namespace slug
+     * The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
      * @type {string}
      * @memberof CatalogApiGetRelease
      */
     readonly ns: string
 
     /**
-     * PF4J Plugin-Id
+     * The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
      * @type {string}
      * @memberof CatalogApiGetRelease
      */
     readonly pluginId: string
 
     /**
-     * SemVer version string
+     * Semantic version string (&#x60;MAJOR.MINOR.PATCH&#x60;). Pre-release and build metadata suffixes are supported per SemVer 2.0. Examples: &#x60;1.2.3&#x60;, &#x60;2.0.0-beta.1&#x60;, &#x60;1.0.0+build.42&#x60; 
      * @type {string}
      * @memberof CatalogApiGetRelease
      */
@@ -589,56 +589,56 @@ export interface CatalogApiGetReleaseRequest {
  */
 export interface CatalogApiListPluginsRequest {
     /**
-     * Namespace slug
+     * The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
      * @type {string}
      * @memberof CatalogApiListPlugins
      */
     readonly ns: string
 
     /**
-     * Page number (zero-based)
+     * Zero-based page index. The first page is &#x60;0&#x60;.
      * @type {number}
      * @memberof CatalogApiListPlugins
      */
     readonly page?: number
 
     /**
-     * Page size
+     * Number of items per page. Maximum is 100.
      * @type {number}
      * @memberof CatalogApiListPlugins
      */
     readonly size?: number
 
     /**
-     * Sort field and direction (e.g. name,asc)
+     * Sort field and direction, formatted as &#x60;field,direction&#x60;. Examples: &#x60;name,asc&#x60;, &#x60;downloadCount,desc&#x60;, &#x60;createdAt,desc&#x60; 
      * @type {string}
      * @memberof CatalogApiListPlugins
      */
     readonly sort?: string
 
     /**
-     * Full-text search query
+     * Full-text search query. Matched against plugin name, description, and tags. Example: &#x60;reporting export&#x60; 
      * @type {string}
      * @memberof CatalogApiListPlugins
      */
     readonly q?: string
 
     /**
-     * Filter by category
+     * Filter by category slug. Only plugins that have this category assigned are returned. Example: &#x60;analytics&#x60; 
      * @type {string}
      * @memberof CatalogApiListPlugins
      */
     readonly category?: string
 
     /**
-     * Filter by tag
+     * Filter by tag. Only plugins that have this tag assigned are returned. Example: &#x60;export&#x60; 
      * @type {string}
      * @memberof CatalogApiListPlugins
      */
     readonly tag?: string
 
     /**
-     * Filter by plugin status
+     * Filter by plugin status: - &#x60;active&#x60; — plugin has at least one published release (default) - &#x60;suspended&#x60; — plugin is temporarily unavailable - &#x60;archived&#x60; — plugin is no longer maintained 
      * @type {'active' | 'suspended' | 'archived'}
      * @memberof CatalogApiListPlugins
      */
@@ -652,28 +652,28 @@ export interface CatalogApiListPluginsRequest {
  */
 export interface CatalogApiListReleasesRequest {
     /**
-     * Namespace slug
+     * The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
      * @type {string}
      * @memberof CatalogApiListReleases
      */
     readonly ns: string
 
     /**
-     * PF4J Plugin-Id
+     * The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
      * @type {string}
      * @memberof CatalogApiListReleases
      */
     readonly pluginId: string
 
     /**
-     * Page number (zero-based)
+     * Zero-based page index. The first page is &#x60;0&#x60;.
      * @type {number}
      * @memberof CatalogApiListReleases
      */
     readonly page?: number
 
     /**
-     * Page size
+     * Number of items per page. Maximum is 100.
      * @type {number}
      * @memberof CatalogApiListReleases
      */
@@ -688,7 +688,7 @@ export interface CatalogApiListReleasesRequest {
  */
 export class CatalogApi extends BaseAPI {
     /**
-     * 
+     * Downloads the raw plugin artifact binary (JAR or ZIP).  The response is a binary stream (`application/octet-stream`). Clients should verify the downloaded file against the `artifactSha256` value from the release metadata to ensure integrity. The Plugwerk client SDK performs this check automatically.  Only `published` releases can be downloaded by unauthenticated callers. Authenticated callers with management access can also download `draft` releases. 
      * @summary Download release artifact
      * @param {CatalogApiDownloadReleaseRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
@@ -700,7 +700,7 @@ export class CatalogApi extends BaseAPI {
     }
 
     /**
-     * 
+     * Returns full metadata for a single plugin, including the latest published version and the latest draft version (if any).  This endpoint is publicly accessible unless the namespace has access control enabled. 
      * @summary Get plugin details
      * @param {CatalogApiGetPluginRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
@@ -712,8 +712,8 @@ export class CatalogApi extends BaseAPI {
     }
 
     /**
-     * 
-     * @summary pf4j-update compatible plugin list
+     * Returns the plugin catalog in the [pf4j-update](https://github.com/pf4j/pf4j-update) `plugins.json` format. This is a **drop-in replacement** for any existing `UpdateRepository` URL in a pf4j-update-based application.  Only `published` releases are included. Each plugin entry contains all published releases with their download URLs, SHA-512 checksums, and `requires` (minimum host application version) values.  Point your pf4j-update `UpdateRepository` at: ``` https://your-server/api/v1/namespaces/{ns}/plugins.json ``` 
+     * @summary pf4j-update compatible plugin feed
      * @param {CatalogApiGetPluginsJsonRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -724,7 +724,7 @@ export class CatalogApi extends BaseAPI {
     }
 
     /**
-     * 
+     * Returns the full details of a single release, including the SHA-256 checksum, compatibility requirements, and plugin dependencies. 
      * @summary Get a specific release
      * @param {CatalogApiGetReleaseRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
@@ -736,8 +736,8 @@ export class CatalogApi extends BaseAPI {
     }
 
     /**
-     * 
-     * @summary List plugins
+     * Returns a paginated list of plugins in the given namespace.  Results can be filtered by category, tag, and status, and searched by a full-text query across plugin name, description, and tags. Only plugins with at least one published release are shown by default (status `active`).  This endpoint is publicly accessible unless the namespace has access control enabled. 
+     * @summary List plugins in a namespace
      * @param {CatalogApiListPluginsRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -748,7 +748,7 @@ export class CatalogApi extends BaseAPI {
     }
 
     /**
-     * 
+     * Returns a paginated list of all releases for the given plugin, ordered by version descending (newest first) by default.  Draft releases are only included if the caller is authenticated and has management access to the namespace. 
      * @summary List releases for a plugin
      * @param {CatalogApiListReleasesRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.

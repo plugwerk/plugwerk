@@ -17,7 +17,10 @@
  */
 package io.plugwerk.server.config
 
+import io.plugwerk.server.PlugwerkProperties
+import io.plugwerk.server.security.DelegatingJwtDecoder
 import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
+import io.plugwerk.server.security.OidcProviderRegistry
 import io.plugwerk.server.security.PublicNamespaceFilter
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -26,7 +29,10 @@ import org.springframework.http.HttpStatus
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
-import org.springframework.security.oauth2.jwt.JwtDecoder
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
+import org.springframework.security.crypto.encrypt.Encryptors
+import org.springframework.security.crypto.encrypt.TextEncryptor
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
@@ -36,8 +42,26 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 class SecurityConfiguration(
     private val apiKeyAuthFilter: NamespaceAccessKeyAuthFilter,
     private val publicNamespaceFilter: PublicNamespaceFilter,
-    private val jwtDecoder: JwtDecoder,
+    private val props: PlugwerkProperties,
+    private val oidcProviderRegistry: OidcProviderRegistry,
+    private val localJwtDecoder: DelegatingJwtDecoder,
 ) {
+
+    @Bean
+    fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
+
+    /**
+     * AES text encryptor for OIDC provider client secrets stored in the database.
+     *
+     * Uses the 16-character [PlugwerkProperties.AuthProperties.encryptionKey].
+     * Spring's [Encryptors.text] applies PKCS5 padding + PBKDF2 key derivation with a
+     * random salt per encrypted value, so two encryptions of the same secret produce
+     * different ciphertexts.
+     *
+     * Environment variable: `PLUGWERK_ENCRYPTION_KEY`
+     */
+    @Bean
+    fun textEncryptor(): TextEncryptor = Encryptors.text(props.auth.encryptionKey, "deadbeefcafe0000")
 
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
@@ -51,11 +75,11 @@ class SecurityConfiguration(
                 it.authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
             }
             .oauth2ResourceServer { oauth2 ->
-                oauth2.jwt { jwt -> jwt.decoder(jwtDecoder) }
+                oauth2.jwt { jwt -> jwt.decoder(localJwtDecoder) }
             }
             .authorizeHttpRequests { auth ->
                 auth
-                    // Auth endpoints are always public
+                    // Auth endpoints are always public (login + change-password requires auth but handled in controller)
                     .requestMatchers("/api/auth/**").permitAll()
                     // Update check is public (used by client SDK without auth)
                     .requestMatchers(HttpMethod.POST, "/api/v1/namespaces/*/updates/check").permitAll()

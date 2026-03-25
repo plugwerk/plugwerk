@@ -18,11 +18,15 @@
 package io.plugwerk.server.controller
 
 import io.plugwerk.api.AuthApi
+import io.plugwerk.api.model.ChangePasswordRequest
 import io.plugwerk.api.model.LoginRequest
 import io.plugwerk.api.model.LoginResponse
+import io.plugwerk.server.repository.UserRepository
 import io.plugwerk.server.security.UserCredentialValidator
 import io.plugwerk.server.service.JwtTokenService
+import io.plugwerk.server.service.UserService
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -31,19 +35,31 @@ import org.springframework.web.bind.annotation.RestController
 class AuthController(
     private val credentialValidator: UserCredentialValidator,
     private val jwtTokenService: JwtTokenService,
+    private val userRepository: UserRepository,
+    private val userService: UserService,
 ) : AuthApi {
 
     override fun login(loginRequest: LoginRequest): ResponseEntity<LoginResponse> {
         if (!credentialValidator.validate(loginRequest.username, loginRequest.password)) {
             return ResponseEntity.status(401).build()
         }
+        val user = userRepository.findByUsername(loginRequest.username).orElse(null)
+        val passwordChangeRequired = user?.passwordChangeRequired ?: false
         val token = jwtTokenService.generateToken(loginRequest.username)
         return ResponseEntity.ok(
             LoginResponse(
                 accessToken = token,
                 tokenType = "Bearer",
                 expiresIn = jwtTokenService.tokenValiditySeconds(),
+                passwordChangeRequired = passwordChangeRequired,
             ),
         )
+    }
+
+    override fun changePassword(changePasswordRequest: ChangePasswordRequest): ResponseEntity<Unit> {
+        val username = SecurityContextHolder.getContext().authentication?.name
+            ?: return ResponseEntity.status(401).build()
+        userService.changePassword(username, changePasswordRequest.currentPassword, changePasswordRequest.newPassword)
+        return ResponseEntity.noContent().build()
     }
 }

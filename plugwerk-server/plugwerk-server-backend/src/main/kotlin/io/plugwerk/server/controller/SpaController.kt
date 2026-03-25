@@ -33,6 +33,7 @@ class SpaController {
         value = [
             "/",
             "/login",
+            "/change-password",
             "/register",
             "/forgot-password",
             "/reset-password",

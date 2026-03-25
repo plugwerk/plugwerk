@@ -10,6 +10,7 @@ import { RegisterPage } from '../pages/RegisterPage'
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage'
 import { ResetPasswordPage } from '../pages/ResetPasswordPage'
 import { AdminSettingsPage } from '../pages/AdminSettingsPage'
+import { ChangePasswordPage } from '../pages/ChangePasswordPage'
 import { ProfileSettingsPage } from '../pages/ProfileSettingsPage'
 import { Error404Page } from '../pages/errors/Error404Page'
 import { Error403Page } from '../pages/errors/Error403Page'
@@ -33,6 +34,7 @@ export const router = createBrowserRouter([
       { path: 'namespaces/:namespace/plugins',                          element: <ProtectedRoute><CatalogPage /></ProtectedRoute> },
       { path: 'namespaces/:namespace/plugins/:pluginId',                element: <ProtectedRoute><PluginDetailPage /></ProtectedRoute> },
       { path: 'admin/*',                                                element: <ProtectedRoute><AdminSettingsPage /></ProtectedRoute> },
+      { path: 'change-password',                                        element: <ProtectedRoute><ChangePasswordPage /></ProtectedRoute> },
       { path: 'profile',                                                element: <ProtectedRoute><ProfileSettingsPage /></ProtectedRoute> },
 
       // Public routes — no login required

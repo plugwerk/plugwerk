@@ -23,12 +23,16 @@ import io.plugwerk.descriptor.DescriptorParseException
 import io.plugwerk.descriptor.DescriptorValidationException
 import io.plugwerk.server.service.ArtifactNotFoundException
 import io.plugwerk.server.service.ArtifactStorageException
+import io.plugwerk.server.service.ConflictException
+import io.plugwerk.server.service.EntityNotFoundException
+import io.plugwerk.server.service.ForbiddenException
 import io.plugwerk.server.service.NamespaceAlreadyExistsException
 import io.plugwerk.server.service.NamespaceNotFoundException
 import io.plugwerk.server.service.PluginAlreadyExistsException
 import io.plugwerk.server.service.PluginNotFoundException
 import io.plugwerk.server.service.ReleaseAlreadyExistsException
 import io.plugwerk.server.service.ReleaseNotFoundException
+import io.plugwerk.server.service.UnauthorizedException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -48,6 +52,7 @@ class GlobalExceptionHandler {
         PluginNotFoundException::class,
         ReleaseNotFoundException::class,
         ArtifactNotFoundException::class,
+        EntityNotFoundException::class,
     )
     fun handleNotFound(ex: RuntimeException): ResponseEntity<ErrorResponse> =
         errorResponse(HttpStatus.NOT_FOUND, ex.message ?: "Resource not found")
@@ -56,9 +61,18 @@ class GlobalExceptionHandler {
         NamespaceAlreadyExistsException::class,
         PluginAlreadyExistsException::class,
         ReleaseAlreadyExistsException::class,
+        ConflictException::class,
     )
     fun handleConflict(ex: RuntimeException): ResponseEntity<ErrorResponse> =
         errorResponse(HttpStatus.CONFLICT, ex.message ?: "Resource already exists")
+
+    @ExceptionHandler(UnauthorizedException::class)
+    fun handleUnauthorized(ex: UnauthorizedException): ResponseEntity<ErrorResponse> =
+        errorResponse(HttpStatus.UNAUTHORIZED, ex.message ?: "Unauthorized")
+
+    @ExceptionHandler(ForbiddenException::class)
+    fun handleForbidden(ex: ForbiddenException): ResponseEntity<ErrorResponse> =
+        errorResponse(HttpStatus.FORBIDDEN, ex.message ?: "Forbidden")
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidation(ex: MethodArgumentNotValidException): ResponseEntity<ErrorResponse> {

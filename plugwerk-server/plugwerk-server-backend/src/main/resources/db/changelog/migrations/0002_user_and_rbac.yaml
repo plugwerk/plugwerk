@@ -1,0 +1,161 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0002-create-user
+      author: plugwerk
+      changes:
+        - createTable:
+            tableName: plugwerk_user
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: username
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uq_user_username
+              - column:
+                  name: email
+                  type: varchar(255)
+                  constraints:
+                    unique: true
+                    uniqueConstraintName: uq_user_email
+              - column:
+                  name: password_hash
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: enabled
+                  type: boolean
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: password_change_required
+                  type: boolean
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 0002-create-namespace-member
+      author: plugwerk
+      changes:
+        - createTable:
+            tableName: namespace_member
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: namespace_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_namespace_member_namespace
+                    references: namespace(id)
+              - column:
+                  name: user_subject
+                  type: text
+                  constraints:
+                    nullable: false
+              - column:
+                  name: role
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: namespace_member
+            columnNames: namespace_id, user_subject
+            constraintName: uq_namespace_member_ns_subject
+
+  - changeSet:
+      id: 0002-create-oidc-provider
+      author: plugwerk
+      changes:
+        - createTable:
+            tableName: oidc_provider
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  # Supported: GENERIC_OIDC, KEYCLOAK, GITHUB, GOOGLE, FACEBOOK
+                  name: provider_type
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: enabled
+                  type: boolean
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: client_id
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  # Stored encrypted via Spring TextEncryptor (plugwerk.auth.encryption-key)
+                  name: client_secret_encrypted
+                  type: varchar(1024)
+                  constraints:
+                    nullable: false
+              - column:
+                  # Required for GENERIC_OIDC and KEYCLOAK; null for GITHUB/GOOGLE/FACEBOOK
+                  name: issuer_uri
+                  type: varchar(2048)
+              - column:
+                  name: scope
+                  type: varchar(255)
+                  defaultValue: openid email profile
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false

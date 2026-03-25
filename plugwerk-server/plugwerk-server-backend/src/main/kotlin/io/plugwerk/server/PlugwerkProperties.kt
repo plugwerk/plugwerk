@@ -125,21 +125,39 @@ data class PlugwerkProperties(
     /**
      * Authentication configuration (`plugwerk.auth.*`).
      *
-     * Controls JWT issuance and provisional dev-user credentials.
-     * In Phase 2+, dev-users are replaced by a database-backed [UserCredentialValidator]
-     * or by an external OIDC provider (Keycloak, Google, GitHub, etc.).
+     * Controls JWT issuance and secret encryption for OIDC provider credentials.
      *
-     * @property jwtSecret HMAC-SHA256 signing key for self-issued JWTs.
+     * @property jwtSecret HMAC-SHA256 signing key for self-issued JWTs. Must be at least
+     *   32 characters. **Never commit a real secret to source control.**
+     *
      *   Environment variable: `PLUGWERK_JWT_SECRET`
-     * @property tokenValidityHours Lifetime of issued access tokens in hours.
-     * @property devUsers Hardcoded credentials for the provisional auth phase.
-     *   Replace with database users in Phase 2.
+     *
+     *   ```yaml
+     *   plugwerk.auth.jwt-secret: "my-super-secret-key-at-least-32-chars"
+     *   ```
+     *
+     * @property tokenValidityHours Lifetime of self-issued JWT access tokens in hours.
+     *   Default: `8` (one working day). Reduce for higher-security deployments.
+     *
+     *   Environment variable: `PLUGWERK_TOKEN_VALIDITY_HOURS`
+     *
+     *   ```yaml
+     *   plugwerk.auth.token-validity-hours: 8
+     *   ```
+     *
+     * @property encryptionKey AES encryption key used to encrypt OIDC provider client
+     *   secrets at rest in the `oidc_provider` table. Must be exactly 16 characters
+     *   (AES-128). **Never commit a real key to source control.**
+     *
+     *   Environment variable: `PLUGWERK_ENCRYPTION_KEY`
+     *
+     *   ```yaml
+     *   plugwerk.auth.encryption-key: "change-me-16char"
+     *   ```
      */
     data class AuthProperties(
         val jwtSecret: String = "dev-secret-change-in-production-min32chars!!",
         val tokenValidityHours: Long = 8,
-        val devUsers: List<DevUser> = listOf(DevUser("test", "test")),
-    ) {
-        data class DevUser(val username: String, val password: String)
-    }
+        val encryptionKey: String = "change-me-16char",
+    )
 }

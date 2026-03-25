@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Copyright (C) 2026 devtank42 GmbH
 import { Box, Typography } from '@mui/material'
-import { Settings, Key, Users, FileCheck, Trash2 } from 'lucide-react'
+import { Settings, Key, Users, Shield, FileCheck, Trash2 } from 'lucide-react'
 import { tokens } from '../../theme/tokens'
 
 export interface AdminSection {
@@ -14,8 +14,9 @@ export interface AdminSection {
 export const ADMIN_SECTIONS: AdminSection[] = [
   { id: 'general',   label: 'General',          icon: <Settings size={16} /> },
   { id: 'api-keys',  label: 'API Keys',          icon: <Key size={16} /> },
-  { id: 'users',     label: 'Users',             icon: <Users size={16} /> },
-  { id: 'reviews',   label: 'Pending Reviews',   icon: <FileCheck size={16} /> },
+  { id: 'users',          label: 'Users',             icon: <Users size={16} /> },
+  { id: 'oidc-providers', label: 'OIDC Providers',    icon: <Shield size={16} /> },
+  { id: 'reviews',        label: 'Pending Reviews',   icon: <FileCheck size={16} /> },
   { id: 'danger',    label: 'Danger Zone',       icon: <Trash2 size={16} />, danger: true },
 ]
 

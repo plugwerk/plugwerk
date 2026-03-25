@@ -152,6 +152,30 @@ tags:
       `reject` to transition the release.
 
       These endpoints require authentication and admin-level permissions on the namespace.
+  - name: AdminUsers
+    description: |
+      Server-level user management. Requires authentication with a server-admin account.
+
+      Create local Plugwerk users, toggle their enabled state, and reset passwords.
+      Users created here have `passwordChangeRequired = true` by default, forcing them
+      to choose a new password on first login.
+  - name: NamespaceMembers
+    description: |
+      Manage which users hold a role within a specific namespace.
+
+      Roles: `ADMIN` (full write access), `MEMBER` (upload/manage releases), `READ_ONLY` (browse only).
+      The `userSubject` is either a local username or an OIDC `sub` claim.
+
+      Requires `ADMIN` role on the namespace.
+  - name: OidcProviders
+    description: |
+      Manage external OIDC / OAuth2 providers for token validation.
+
+      Plugwerk acts as an OAuth2 Resource Server: it validates `Authorization: Bearer` tokens
+      issued by any enabled provider. Each provider type has pre-configured JWKS endpoints;
+      only `GENERIC_OIDC` and `KEYCLOAK` require an explicit `issuerUri`.
+
+      All providers are disabled by default. Requires server-admin authentication.
 
 paths:
   /auth/login:
@@ -756,6 +780,334 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /auth/change-password:
+    post:
+      tags:
+        - Auth
+      summary: Change own password
+      description: |
+        Changes the authenticated user's password. Requires the current password for verification.
+
+        After a successful change, `passwordChangeRequired` is set to `false` on the user account.
+        This endpoint must be called before accessing any other resource when the login response
+        contains `passwordChangeRequired: true`.
+      operationId: changePassword
+      servers:
+        - url: /api
+          description: Authentication base path (no version prefix)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: Password changed successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/admin/users:
+    get:
+      tags:
+        - AdminUsers
+      summary: List all users
+      operationId: listUsers
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of all local users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - AdminUsers
+      summary: Create a new user
+      operationId: createUser
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+      responses:
+        '201':
+          description: User created. The user must change the password on first login.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Username already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/admin/users/{userId}:
+    patch:
+      tags:
+        - AdminUsers
+      summary: Update user (enable/disable or reset password)
+      operationId: updateUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/namespaces/{ns}/members:
+    get:
+      tags:
+        - NamespaceMembers
+      summary: List namespace members
+      operationId: listNamespaceMembers
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/NamespaceSlug'
+      responses:
+        '200':
+          description: List of namespace members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NamespaceMemberDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Insufficient role in namespace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - NamespaceMembers
+      summary: Add a member to the namespace
+      operationId: addNamespaceMember
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/NamespaceSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NamespaceMemberCreateRequest'
+      responses:
+        '201':
+          description: Member added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NamespaceMemberDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Subject already has a role in this namespace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/namespaces/{ns}/members/{userSubject}:
+    put:
+      tags:
+        - NamespaceMembers
+      summary: Update a member's role
+      operationId: updateNamespaceMember
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/NamespaceSlug'
+        - name: userSubject
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NamespaceMemberUpdateRequest'
+      responses:
+        '200':
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NamespaceMemberDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - NamespaceMembers
+      summary: Remove a member from the namespace
+      operationId: removeNamespaceMember
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/NamespaceSlug'
+        - name: userSubject
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Member removed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/admin/oidc-providers:
+    get:
+      tags:
+        - OidcProviders
+      summary: List all OIDC providers
+      operationId: listOidcProviders
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of configured OIDC providers (client secrets are never returned)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OidcProviderDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - OidcProviders
+      summary: Create a new OIDC provider
+      operationId: createOidcProvider
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OidcProviderCreateRequest'
+      responses:
+        '201':
+          description: Provider created (disabled by default)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcProviderDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/admin/oidc-providers/{providerId}:
+    patch:
+      tags:
+        - OidcProviders
+      summary: Enable or disable an OIDC provider
+      operationId: updateOidcProvider
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OidcProviderUpdateRequest'
+      responses:
+        '200':
+          description: Provider updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcProviderDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - OidcProviders
+      summary: Delete an OIDC provider
+      operationId: deleteOidcProvider
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Provider deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
 components:
   parameters:
     NamespaceSlug:
@@ -914,10 +1266,17 @@ components:
           format: int64
           description: "Token validity duration in seconds (default: 28800 = 8 hours)"
           example: 28800
+        passwordChangeRequired:
+          type: boolean
+          description: |
+            When `true`, the user must change their password before accessing any resource.
+            The frontend should redirect to the change-password page immediately after login.
+          example: false
       required:
         - accessToken
         - tokenType
         - expiresIn
+        - passwordChangeRequired
 
     NamespaceSummary:
       type: object
@@ -1509,6 +1868,206 @@ components:
         - page
         - size
         - totalPages
+
+    ChangePasswordRequest:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+      required:
+        - currentPassword
+        - newPassword
+
+    UserDto:
+      type: object
+      description: Local Plugwerk user account
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+          nullable: true
+        enabled:
+          type: boolean
+        passwordChangeRequired:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - username
+        - enabled
+        - passwordChangeRequired
+        - createdAt
+
+    UserCreateRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          nullable: true
+        password:
+          type: string
+          minLength: 8
+      required:
+        - username
+        - password
+
+    UserUpdateRequest:
+      type: object
+      description: Partial update — include only the fields to change
+      properties:
+        enabled:
+          type: boolean
+          nullable: true
+        newPassword:
+          type: string
+          minLength: 8
+          nullable: true
+
+    NamespaceMemberDto:
+      type: object
+      properties:
+        userSubject:
+          type: string
+          description: Local username or OIDC sub claim
+        role:
+          $ref: '#/components/schemas/NamespaceRole'
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - userSubject
+        - role
+        - createdAt
+
+    NamespaceMemberCreateRequest:
+      type: object
+      properties:
+        userSubject:
+          type: string
+        role:
+          $ref: '#/components/schemas/NamespaceRole'
+      required:
+        - userSubject
+        - role
+
+    NamespaceMemberUpdateRequest:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/NamespaceRole'
+      required:
+        - role
+
+    NamespaceRole:
+      type: string
+      enum:
+        - ADMIN
+        - MEMBER
+        - READ_ONLY
+      description: |
+        Namespace-scoped role:
+        - `ADMIN`: full write access including member and access key management
+        - `MEMBER`: upload releases, manage plugin metadata, view review queue
+        - `READ_ONLY`: browse catalog and download artifacts only
+
+    OidcProviderDto:
+      type: object
+      description: OIDC provider configuration (client secret is never returned)
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        providerType:
+          $ref: '#/components/schemas/OidcProviderType'
+        enabled:
+          type: boolean
+        clientId:
+          type: string
+        issuerUri:
+          type: string
+          nullable: true
+        scope:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - providerType
+        - enabled
+        - clientId
+        - scope
+        - createdAt
+        - updatedAt
+
+    OidcProviderCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        providerType:
+          $ref: '#/components/schemas/OidcProviderType'
+        clientId:
+          type: string
+        clientSecret:
+          type: string
+        issuerUri:
+          type: string
+          nullable: true
+          description: Required for GENERIC_OIDC and KEYCLOAK provider types
+        scope:
+          type: string
+          default: openid email profile
+      required:
+        - name
+        - providerType
+        - clientId
+        - clientSecret
+
+    OidcProviderUpdateRequest:
+      type: object
+      description: Partial update — include only fields to change
+      properties:
+        enabled:
+          type: boolean
+          nullable: true
+        clientSecret:
+          type: string
+          nullable: true
+          description: Provide to rotate the client secret
+
+    OidcProviderType:
+      type: string
+      enum:
+        - GENERIC_OIDC
+        - KEYCLOAK
+        - GITHUB
+        - GOOGLE
+        - FACEBOOK
+      description: |
+        Provider type. Pre-configured providers (GITHUB, GOOGLE, FACEBOOK) have well-known
+        endpoints embedded — only clientId and clientSecret are required.
+        GENERIC_OIDC and KEYCLOAK require an explicit issuerUri.
 
   responses:
     BadRequest:

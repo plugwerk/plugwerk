@@ -7,10 +7,12 @@ interface AuthState {
   username: string | null
   namespace: string
   isAuthenticated: boolean
+  passwordChangeRequired: boolean
 
   login: (username: string, password: string) => Promise<void>
   logout: () => void
   setNamespace: (ns: string) => void
+  clearPasswordChangeRequired: () => void
 
   // Legacy alias kept for ProfileSettingsPage compatibility
   apiKey: string | null
@@ -21,6 +23,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   username: localStorage.getItem('pw-username'),
   namespace: localStorage.getItem('pw-namespace') ?? 'default',
   isAuthenticated: !!localStorage.getItem('pw-access-token'),
+  passwordChangeRequired: false,
 
   get apiKey() {
     return get().accessToken
@@ -38,17 +41,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const data = await response.json()
     localStorage.setItem('pw-access-token', data.accessToken)
     localStorage.setItem('pw-username', username)
-    set({ accessToken: data.accessToken, username, isAuthenticated: true })
+    set({
+      accessToken: data.accessToken,
+      username,
+      isAuthenticated: true,
+      passwordChangeRequired: data.passwordChangeRequired === true,
+    })
   },
 
   logout() {
     localStorage.removeItem('pw-access-token')
     localStorage.removeItem('pw-username')
-    set({ accessToken: null, username: null, isAuthenticated: false })
+    set({ accessToken: null, username: null, isAuthenticated: false, passwordChangeRequired: false })
   },
 
   setNamespace(ns) {
     localStorage.setItem('pw-namespace', ns)
     set({ namespace: ns })
+  },
+
+  clearPasswordChangeRequired() {
+    set({ passwordChangeRequired: false })
   },
 }))

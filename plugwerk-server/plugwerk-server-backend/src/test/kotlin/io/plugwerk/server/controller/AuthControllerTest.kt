@@ -17,10 +17,14 @@
  */
 package io.plugwerk.server.controller
 
+import io.plugwerk.server.domain.UserEntity
+import io.plugwerk.server.repository.UserRepository
 import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.security.UserCredentialValidator
 import io.plugwerk.server.service.JwtTokenService
+import io.plugwerk.server.service.UnauthorizedException
+import io.plugwerk.server.service.UserService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
@@ -32,9 +36,11 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.FilterType
 import org.springframework.http.MediaType
+import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
+import java.util.Optional
 
 @WebMvcTest(
     AuthController::class,
@@ -52,11 +58,18 @@ class AuthControllerTest {
 
     @MockitoBean lateinit var jwtTokenService: JwtTokenService
 
+    @MockitoBean lateinit var userRepository: UserRepository
+
+    @MockitoBean lateinit var userService: UserService
+
+    @MockitoBean lateinit var jwtDecoder: JwtDecoder
+
     @Test
     fun `POST login returns 200 and token for valid credentials`() {
         whenever(credentialValidator.validate("test", "test")).thenReturn(true)
         whenever(jwtTokenService.generateToken("test")).thenReturn("tok.abc.xyz")
         whenever(jwtTokenService.tokenValiditySeconds()).thenReturn(28800L)
+        whenever(userRepository.findByUsername("test")).thenReturn(Optional.empty())
 
         mockMvc.post("/api/auth/login") {
             contentType = MediaType.APPLICATION_JSON
@@ -66,6 +79,23 @@ class AuthControllerTest {
             jsonPath("$.accessToken") { value("tok.abc.xyz") }
             jsonPath("$.tokenType") { value("Bearer") }
             jsonPath("$.expiresIn") { value(28800) }
+        }
+    }
+
+    @Test
+    fun `POST login sets passwordChangeRequired true when user requires it`() {
+        val user = UserEntity(username = "test", passwordHash = "\$2a\$12\$hash", passwordChangeRequired = true)
+        whenever(credentialValidator.validate("test", "test")).thenReturn(true)
+        whenever(jwtTokenService.generateToken("test")).thenReturn("tok.abc.xyz")
+        whenever(jwtTokenService.tokenValiditySeconds()).thenReturn(28800L)
+        whenever(userRepository.findByUsername("test")).thenReturn(Optional.of(user))
+
+        mockMvc.post("/api/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"username":"test","password":"test"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.passwordChangeRequired") { value(true) }
         }
     }
 

@@ -2,7 +2,7 @@
 /* eslint-disable */
 /**
  * Plugwerk API
- * Plugin marketplace for the Java/PF4J ecosystem
+ * **Plugwerk** is a self-hosted plugin marketplace for the [PF4J](https://pf4j.org/) ecosystem. It lets teams publish, version, and distribute Java/Kotlin plugins to their own applications without relying on a public registry.  ## Core Concepts  ### Namespaces A **namespace** is the top-level organisational unit. Every plugin belongs to exactly one namespace. Namespaces are identified by a URL-safe **slug** (lowercase alphanumeric + hyphens, 2–64 characters). You might use one namespace per product, team, or customer, e.g. `acme-core`.  ### Plugins A **plugin** is a logical grouping of releases for a single PF4J plugin ID. The `pluginId` matches the `Plugin-Id` entry in the PF4J manifest (`MANIFEST.MF` or `plugin.properties`). Each plugin can have a human-readable name, description, icon, and categorisation metadata.  ### Releases A **release** is a specific versioned artifact (JAR or ZIP) for a plugin. Versions follow [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`). Releases go through a lifecycle: `draft` → `published` → `deprecated` / `yanked`. Only `published` releases are returned to catalog and update-check consumers. A namespace owner can optionally require manual review before a release is published (see the **Reviews** tag).  ### Plugin Descriptor (`plugwerk.yml`) When you upload a release artifact, the server reads a `plugwerk.yml` file embedded in the JAR/ZIP. This descriptor extends the standard PF4J manifest with Plugwerk-specific metadata: ```yaml plugwerk:   id: com.example.my-plugin   version: 1.2.0   name: My Plugin   description: Does something useful   requires:     system-version: \">=2.0.0 & <4.0.0\"     plugins:       - id: com.example.dependency         version: \">=1.0.0\" ``` If `plugwerk.yml` is absent the server falls back to the PF4J manifest headers.  ## Authentication  The API supports two authentication methods:  ### Bearer Token (JWT) Obtain a short-lived JWT by calling `POST /api/auth/login` with your username and password. Pass the returned token in subsequent requests: ``` Authorization: Bearer <token> ``` Tokens are valid for 8 hours by default.  ### API Key Long-lived API keys are suitable for CI/CD pipelines. Pass the key in the request header: ``` X-Api-Key: <your-api-key> ``` API keys are managed by the server administrator.  ## Quick Start  1. **Login** — `POST /api/auth/login` → receive `accessToken` 2. **Create a namespace** — `POST /api/v1/namespaces` with `{ \"slug\": \"my-ns\" }` 3. **Create a plugin** — `POST /api/v1/namespaces/my-ns/plugins` with `{ \"pluginId\": \"...\", \"name\": \"...\" }` 4. **Upload a release** — `POST /api/v1/namespaces/my-ns/releases` (multipart, artifact field) 5. **Publish the release** — `PATCH /api/v1/namespaces/my-ns/plugins/{pluginId}/releases/{version}` with `{ \"status\": \"published\" }` 6. **Clients poll for updates** — `POST /api/v1/namespaces/my-ns/updates/check`  ## pf4j-update Compatibility The `GET /namespaces/{ns}/plugins.json` endpoint returns a response that is fully compatible with the [pf4j-update](https://github.com/pf4j/pf4j-update) `UpdateRepository` format. You can point any existing pf4j-update client directly at this URL as a drop-in replacement.  ## Error Handling All errors return an `ErrorResponse` body with a machine-readable `error` code and a human-readable `message`. HTTP status codes follow REST conventions: - `400 Bad Request` — validation error in the request body or parameters - `401 Unauthorized` — missing or invalid authentication credentials - `404 Not Found` — the requested resource does not exist - `409 Conflict` — a resource with the same identifier already exists - `422 Unprocessable Entity` — the artifact was uploaded successfully but the plugin   descriptor inside it is missing or invalid 
  *
  * The version of the OpenAPI document: 0.1.0
  * 
@@ -43,9 +43,9 @@ import type { ReleaseStatusUpdateRequest } from '../model';
 export const ManagementApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
         /**
-         * 
+         * Registers a new plugin in the namespace with the given metadata.  The `pluginId` must match the `Plugin-Id` value in the PF4J manifest of all release artifacts that will be uploaded for this plugin. It must be unique within the namespace.  Creating the plugin entry is optional if you upload a release first — the server will auto-create the plugin from the descriptor embedded in the artifact. Use this endpoint when you want to pre-register metadata (categories, links, description) before the first release is ready.  Returns `409 Conflict` if a plugin with the same `pluginId` already exists in the namespace. 
          * @summary Create a new plugin
-         * @param {string} ns Namespace slug
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
          * @param {PluginCreateRequest} pluginCreateRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -86,10 +86,10 @@ export const ManagementApiAxiosParamCreator = function (configuration?: Configur
             };
         },
         /**
-         * 
+         * Updates the editable metadata fields of an existing plugin (name, description, categories, tags, links). Only the fields present in the request body are updated — omitted fields retain their current values.  Note: `pluginId` and `namespace` cannot be changed after creation. 
          * @summary Update plugin metadata
-         * @param {string} ns Namespace slug
-         * @param {string} pluginId PF4J Plugin-Id
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {string} pluginId The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
          * @param {PluginUpdateRequest} pluginUpdateRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -133,11 +133,11 @@ export const ManagementApiAxiosParamCreator = function (configuration?: Configur
             };
         },
         /**
-         * 
+         * Transitions a release to a new lifecycle status.  Allowed transitions: - `draft` → `published` — makes the release visible in the catalog and eligible for   update checks. If the namespace requires review, use the **Reviews** endpoints instead. - `published` → `deprecated` — the release remains downloadable but update checks   will no longer recommend it. - `published` → `yanked` — the release is hidden from the catalog and update checks.   Yanking is irreversible and typically used for releases with critical security issues. - `deprecated` → `yanked` — same as above.  Note: `draft` → `yanked` is not allowed. Publish first, then yank if needed. 
          * @summary Update release status
-         * @param {string} ns Namespace slug
-         * @param {string} pluginId PF4J Plugin-Id
-         * @param {string} version SemVer version string
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {string} pluginId The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
+         * @param {string} version Semantic version string (&#x60;MAJOR.MINOR.PATCH&#x60;). Pre-release and build metadata suffixes are supported per SemVer 2.0. Examples: &#x60;1.2.3&#x60;, &#x60;2.0.0-beta.1&#x60;, &#x60;1.0.0+build.42&#x60; 
          * @param {ReleaseStatusUpdateRequest} releaseStatusUpdateRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -184,10 +184,10 @@ export const ManagementApiAxiosParamCreator = function (configuration?: Configur
             };
         },
         /**
-         * 
-         * @summary Upload a new release (descriptor is read from the JAR)
-         * @param {string} ns Namespace slug
-         * @param {File} artifact 
+         * Uploads a plugin artifact (JAR or ZIP) and creates a new release.  The server reads the `plugwerk.yml` descriptor embedded in the artifact to extract the plugin ID, version, and all other metadata. If `plugwerk.yml` is absent, the server falls back to reading the PF4J manifest headers (`MANIFEST.MF` / `plugin.properties`).  **Descriptor requirements** (`plugwerk.yml` inside the archive): ```yaml plugwerk:   id: com.example.my-plugin   # must match the registered plugin   version: 1.2.0              # SemVer, must be unique for this plugin   name: My Plugin   description: Short description ```  The artifact SHA-256 is computed server-side and stored with the release for integrity verification by the client SDK.  New releases are created with status `draft`. Publish them explicitly via `PATCH /namespaces/{ns}/plugins/{pluginId}/releases/{version}`.  Returns `422 Unprocessable Entity` if the descriptor is missing or invalid. 
+         * @summary Upload a new release artifact
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {File} artifact The plugin artifact file (JAR or ZIP). Must contain a &#x60;plugwerk.yml&#x60; descriptor (or a valid PF4J manifest as fallback) for the server to extract version and plugin metadata. 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -242,9 +242,9 @@ export const ManagementApiFp = function(configuration?: Configuration) {
     const localVarAxiosParamCreator = ManagementApiAxiosParamCreator(configuration)
     return {
         /**
-         * 
+         * Registers a new plugin in the namespace with the given metadata.  The `pluginId` must match the `Plugin-Id` value in the PF4J manifest of all release artifacts that will be uploaded for this plugin. It must be unique within the namespace.  Creating the plugin entry is optional if you upload a release first — the server will auto-create the plugin from the descriptor embedded in the artifact. Use this endpoint when you want to pre-register metadata (categories, links, description) before the first release is ready.  Returns `409 Conflict` if a plugin with the same `pluginId` already exists in the namespace. 
          * @summary Create a new plugin
-         * @param {string} ns Namespace slug
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
          * @param {PluginCreateRequest} pluginCreateRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -256,10 +256,10 @@ export const ManagementApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * 
+         * Updates the editable metadata fields of an existing plugin (name, description, categories, tags, links). Only the fields present in the request body are updated — omitted fields retain their current values.  Note: `pluginId` and `namespace` cannot be changed after creation. 
          * @summary Update plugin metadata
-         * @param {string} ns Namespace slug
-         * @param {string} pluginId PF4J Plugin-Id
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {string} pluginId The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
          * @param {PluginUpdateRequest} pluginUpdateRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -271,11 +271,11 @@ export const ManagementApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * 
+         * Transitions a release to a new lifecycle status.  Allowed transitions: - `draft` → `published` — makes the release visible in the catalog and eligible for   update checks. If the namespace requires review, use the **Reviews** endpoints instead. - `published` → `deprecated` — the release remains downloadable but update checks   will no longer recommend it. - `published` → `yanked` — the release is hidden from the catalog and update checks.   Yanking is irreversible and typically used for releases with critical security issues. - `deprecated` → `yanked` — same as above.  Note: `draft` → `yanked` is not allowed. Publish first, then yank if needed. 
          * @summary Update release status
-         * @param {string} ns Namespace slug
-         * @param {string} pluginId PF4J Plugin-Id
-         * @param {string} version SemVer version string
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {string} pluginId The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
+         * @param {string} version Semantic version string (&#x60;MAJOR.MINOR.PATCH&#x60;). Pre-release and build metadata suffixes are supported per SemVer 2.0. Examples: &#x60;1.2.3&#x60;, &#x60;2.0.0-beta.1&#x60;, &#x60;1.0.0+build.42&#x60; 
          * @param {ReleaseStatusUpdateRequest} releaseStatusUpdateRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -287,10 +287,10 @@ export const ManagementApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * 
-         * @summary Upload a new release (descriptor is read from the JAR)
-         * @param {string} ns Namespace slug
-         * @param {File} artifact 
+         * Uploads a plugin artifact (JAR or ZIP) and creates a new release.  The server reads the `plugwerk.yml` descriptor embedded in the artifact to extract the plugin ID, version, and all other metadata. If `plugwerk.yml` is absent, the server falls back to reading the PF4J manifest headers (`MANIFEST.MF` / `plugin.properties`).  **Descriptor requirements** (`plugwerk.yml` inside the archive): ```yaml plugwerk:   id: com.example.my-plugin   # must match the registered plugin   version: 1.2.0              # SemVer, must be unique for this plugin   name: My Plugin   description: Short description ```  The artifact SHA-256 is computed server-side and stored with the release for integrity verification by the client SDK.  New releases are created with status `draft`. Publish them explicitly via `PATCH /namespaces/{ns}/plugins/{pluginId}/releases/{version}`.  Returns `422 Unprocessable Entity` if the descriptor is missing or invalid. 
+         * @summary Upload a new release artifact
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {File} artifact The plugin artifact file (JAR or ZIP). Must contain a &#x60;plugwerk.yml&#x60; descriptor (or a valid PF4J manifest as fallback) for the server to extract version and plugin metadata. 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -311,7 +311,7 @@ export const ManagementApiFactory = function (configuration?: Configuration, bas
     const localVarFp = ManagementApiFp(configuration)
     return {
         /**
-         * 
+         * Registers a new plugin in the namespace with the given metadata.  The `pluginId` must match the `Plugin-Id` value in the PF4J manifest of all release artifacts that will be uploaded for this plugin. It must be unique within the namespace.  Creating the plugin entry is optional if you upload a release first — the server will auto-create the plugin from the descriptor embedded in the artifact. Use this endpoint when you want to pre-register metadata (categories, links, description) before the first release is ready.  Returns `409 Conflict` if a plugin with the same `pluginId` already exists in the namespace. 
          * @summary Create a new plugin
          * @param {ManagementApiCreatePluginRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
@@ -321,7 +321,7 @@ export const ManagementApiFactory = function (configuration?: Configuration, bas
             return localVarFp.createPlugin(requestParameters.ns, requestParameters.pluginCreateRequest, options).then((request) => request(axios, basePath));
         },
         /**
-         * 
+         * Updates the editable metadata fields of an existing plugin (name, description, categories, tags, links). Only the fields present in the request body are updated — omitted fields retain their current values.  Note: `pluginId` and `namespace` cannot be changed after creation. 
          * @summary Update plugin metadata
          * @param {ManagementApiUpdatePluginRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
@@ -331,7 +331,7 @@ export const ManagementApiFactory = function (configuration?: Configuration, bas
             return localVarFp.updatePlugin(requestParameters.ns, requestParameters.pluginId, requestParameters.pluginUpdateRequest, options).then((request) => request(axios, basePath));
         },
         /**
-         * 
+         * Transitions a release to a new lifecycle status.  Allowed transitions: - `draft` → `published` — makes the release visible in the catalog and eligible for   update checks. If the namespace requires review, use the **Reviews** endpoints instead. - `published` → `deprecated` — the release remains downloadable but update checks   will no longer recommend it. - `published` → `yanked` — the release is hidden from the catalog and update checks.   Yanking is irreversible and typically used for releases with critical security issues. - `deprecated` → `yanked` — same as above.  Note: `draft` → `yanked` is not allowed. Publish first, then yank if needed. 
          * @summary Update release status
          * @param {ManagementApiUpdateReleaseStatusRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
@@ -341,8 +341,8 @@ export const ManagementApiFactory = function (configuration?: Configuration, bas
             return localVarFp.updateReleaseStatus(requestParameters.ns, requestParameters.pluginId, requestParameters.version, requestParameters.releaseStatusUpdateRequest, options).then((request) => request(axios, basePath));
         },
         /**
-         * 
-         * @summary Upload a new release (descriptor is read from the JAR)
+         * Uploads a plugin artifact (JAR or ZIP) and creates a new release.  The server reads the `plugwerk.yml` descriptor embedded in the artifact to extract the plugin ID, version, and all other metadata. If `plugwerk.yml` is absent, the server falls back to reading the PF4J manifest headers (`MANIFEST.MF` / `plugin.properties`).  **Descriptor requirements** (`plugwerk.yml` inside the archive): ```yaml plugwerk:   id: com.example.my-plugin   # must match the registered plugin   version: 1.2.0              # SemVer, must be unique for this plugin   name: My Plugin   description: Short description ```  The artifact SHA-256 is computed server-side and stored with the release for integrity verification by the client SDK.  New releases are created with status `draft`. Publish them explicitly via `PATCH /namespaces/{ns}/plugins/{pluginId}/releases/{version}`.  Returns `422 Unprocessable Entity` if the descriptor is missing or invalid. 
+         * @summary Upload a new release artifact
          * @param {ManagementApiUploadReleaseRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -360,7 +360,7 @@ export const ManagementApiFactory = function (configuration?: Configuration, bas
  */
 export interface ManagementApiCreatePluginRequest {
     /**
-     * Namespace slug
+     * The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
      * @type {string}
      * @memberof ManagementApiCreatePlugin
      */
@@ -381,14 +381,14 @@ export interface ManagementApiCreatePluginRequest {
  */
 export interface ManagementApiUpdatePluginRequest {
     /**
-     * Namespace slug
+     * The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
      * @type {string}
      * @memberof ManagementApiUpdatePlugin
      */
     readonly ns: string
 
     /**
-     * PF4J Plugin-Id
+     * The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
      * @type {string}
      * @memberof ManagementApiUpdatePlugin
      */
@@ -409,21 +409,21 @@ export interface ManagementApiUpdatePluginRequest {
  */
 export interface ManagementApiUpdateReleaseStatusRequest {
     /**
-     * Namespace slug
+     * The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
      * @type {string}
      * @memberof ManagementApiUpdateReleaseStatus
      */
     readonly ns: string
 
     /**
-     * PF4J Plugin-Id
+     * The PF4J plugin identifier. Must match the &#x60;Plugin-Id&#x60; entry in the plugin manifest. Supports alphanumeric characters, dots, underscores, and hyphens. Example: &#x60;com.example.my-plugin&#x60; 
      * @type {string}
      * @memberof ManagementApiUpdateReleaseStatus
      */
     readonly pluginId: string
 
     /**
-     * SemVer version string
+     * Semantic version string (&#x60;MAJOR.MINOR.PATCH&#x60;). Pre-release and build metadata suffixes are supported per SemVer 2.0. Examples: &#x60;1.2.3&#x60;, &#x60;2.0.0-beta.1&#x60;, &#x60;1.0.0+build.42&#x60; 
      * @type {string}
      * @memberof ManagementApiUpdateReleaseStatus
      */
@@ -444,14 +444,14 @@ export interface ManagementApiUpdateReleaseStatusRequest {
  */
 export interface ManagementApiUploadReleaseRequest {
     /**
-     * Namespace slug
+     * The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
      * @type {string}
      * @memberof ManagementApiUploadRelease
      */
     readonly ns: string
 
     /**
-     * 
+     * The plugin artifact file (JAR or ZIP). Must contain a &#x60;plugwerk.yml&#x60; descriptor (or a valid PF4J manifest as fallback) for the server to extract version and plugin metadata. 
      * @type {File}
      * @memberof ManagementApiUploadRelease
      */
@@ -466,7 +466,7 @@ export interface ManagementApiUploadReleaseRequest {
  */
 export class ManagementApi extends BaseAPI {
     /**
-     * 
+     * Registers a new plugin in the namespace with the given metadata.  The `pluginId` must match the `Plugin-Id` value in the PF4J manifest of all release artifacts that will be uploaded for this plugin. It must be unique within the namespace.  Creating the plugin entry is optional if you upload a release first — the server will auto-create the plugin from the descriptor embedded in the artifact. Use this endpoint when you want to pre-register metadata (categories, links, description) before the first release is ready.  Returns `409 Conflict` if a plugin with the same `pluginId` already exists in the namespace. 
      * @summary Create a new plugin
      * @param {ManagementApiCreatePluginRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
@@ -478,7 +478,7 @@ export class ManagementApi extends BaseAPI {
     }
 
     /**
-     * 
+     * Updates the editable metadata fields of an existing plugin (name, description, categories, tags, links). Only the fields present in the request body are updated — omitted fields retain their current values.  Note: `pluginId` and `namespace` cannot be changed after creation. 
      * @summary Update plugin metadata
      * @param {ManagementApiUpdatePluginRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
@@ -490,7 +490,7 @@ export class ManagementApi extends BaseAPI {
     }
 
     /**
-     * 
+     * Transitions a release to a new lifecycle status.  Allowed transitions: - `draft` → `published` — makes the release visible in the catalog and eligible for   update checks. If the namespace requires review, use the **Reviews** endpoints instead. - `published` → `deprecated` — the release remains downloadable but update checks   will no longer recommend it. - `published` → `yanked` — the release is hidden from the catalog and update checks.   Yanking is irreversible and typically used for releases with critical security issues. - `deprecated` → `yanked` — same as above.  Note: `draft` → `yanked` is not allowed. Publish first, then yank if needed. 
      * @summary Update release status
      * @param {ManagementApiUpdateReleaseStatusRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
@@ -502,8 +502,8 @@ export class ManagementApi extends BaseAPI {
     }
 
     /**
-     * 
-     * @summary Upload a new release (descriptor is read from the JAR)
+     * Uploads a plugin artifact (JAR or ZIP) and creates a new release.  The server reads the `plugwerk.yml` descriptor embedded in the artifact to extract the plugin ID, version, and all other metadata. If `plugwerk.yml` is absent, the server falls back to reading the PF4J manifest headers (`MANIFEST.MF` / `plugin.properties`).  **Descriptor requirements** (`plugwerk.yml` inside the archive): ```yaml plugwerk:   id: com.example.my-plugin   # must match the registered plugin   version: 1.2.0              # SemVer, must be unique for this plugin   name: My Plugin   description: Short description ```  The artifact SHA-256 is computed server-side and stored with the release for integrity verification by the client SDK.  New releases are created with status `draft`. Publish them explicitly via `PATCH /namespaces/{ns}/plugins/{pluginId}/releases/{version}`.  Returns `422 Unprocessable Entity` if the descriptor is missing or invalid. 
+     * @summary Upload a new release artifact
      * @param {ManagementApiUploadReleaseRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}

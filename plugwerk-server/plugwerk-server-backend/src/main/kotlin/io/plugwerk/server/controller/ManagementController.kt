@@ -25,10 +25,13 @@ import io.plugwerk.api.model.PluginUpdateRequest
 import io.plugwerk.api.model.ReleaseStatusUpdateRequest
 import io.plugwerk.server.controller.mapper.PluginMapper
 import io.plugwerk.server.controller.mapper.PluginReleaseMapper
+import io.plugwerk.server.domain.NamespaceRole
+import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.service.PluginReleaseService
 import io.plugwerk.server.service.PluginService
 import io.plugwerk.spi.model.ReleaseStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
@@ -41,9 +44,15 @@ class ManagementController(
     private val releaseService: PluginReleaseService,
     private val pluginMapper: PluginMapper,
     private val releaseMapper: PluginReleaseMapper,
+    private val namespaceAuthorizationService: NamespaceAuthorizationService,
 ) : ManagementApi {
 
     override fun createPlugin(ns: String, pluginCreateRequest: PluginCreateRequest): ResponseEntity<PluginDto> {
+        namespaceAuthorizationService.requireRole(
+            ns,
+            SecurityContextHolder.getContext().authentication!!,
+            NamespaceRole.MEMBER,
+        )
         val plugin = pluginService.create(
             namespaceSlug = ns,
             pluginId = pluginCreateRequest.pluginId,
@@ -66,6 +75,11 @@ class ManagementController(
         pluginId: String,
         pluginUpdateRequest: PluginUpdateRequest,
     ): ResponseEntity<PluginDto> {
+        namespaceAuthorizationService.requireRole(
+            ns,
+            SecurityContextHolder.getContext().authentication!!,
+            NamespaceRole.MEMBER,
+        )
         val plugin = pluginService.update(
             namespaceSlug = ns,
             pluginId = pluginId,
@@ -82,6 +96,11 @@ class ManagementController(
     }
 
     override fun uploadRelease(ns: String, artifact: MultipartFile): ResponseEntity<PluginReleaseDto> {
+        namespaceAuthorizationService.requireRole(
+            ns,
+            SecurityContextHolder.getContext().authentication!!,
+            NamespaceRole.MEMBER,
+        )
         val release = releaseService.upload(
             namespaceSlug = ns,
             content = artifact.inputStream,
@@ -100,6 +119,11 @@ class ManagementController(
         version: String,
         releaseStatusUpdateRequest: ReleaseStatusUpdateRequest,
     ): ResponseEntity<PluginReleaseDto> {
+        namespaceAuthorizationService.requireRole(
+            ns,
+            SecurityContextHolder.getContext().authentication!!,
+            NamespaceRole.ADMIN,
+        )
         val newStatus = releaseStatusUpdateRequest.status.toServiceStatus()
         val release = releaseService.updateStatus(ns, pluginId, version, newStatus)
         return ResponseEntity.ok(releaseMapper.toDto(release, pluginId))

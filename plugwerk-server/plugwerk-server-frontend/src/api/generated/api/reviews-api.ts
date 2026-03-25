@@ -2,7 +2,7 @@
 /* eslint-disable */
 /**
  * Plugwerk API
- * Plugin marketplace for the Java/PF4J ecosystem
+ * **Plugwerk** is a self-hosted plugin marketplace for the [PF4J](https://pf4j.org/) ecosystem. It lets teams publish, version, and distribute Java/Kotlin plugins to their own applications without relying on a public registry.  ## Core Concepts  ### Namespaces A **namespace** is the top-level organisational unit. Every plugin belongs to exactly one namespace. Namespaces are identified by a URL-safe **slug** (lowercase alphanumeric + hyphens, 2–64 characters). You might use one namespace per product, team, or customer, e.g. `acme-core`.  ### Plugins A **plugin** is a logical grouping of releases for a single PF4J plugin ID. The `pluginId` matches the `Plugin-Id` entry in the PF4J manifest (`MANIFEST.MF` or `plugin.properties`). Each plugin can have a human-readable name, description, icon, and categorisation metadata.  ### Releases A **release** is a specific versioned artifact (JAR or ZIP) for a plugin. Versions follow [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`). Releases go through a lifecycle: `draft` → `published` → `deprecated` / `yanked`. Only `published` releases are returned to catalog and update-check consumers. A namespace owner can optionally require manual review before a release is published (see the **Reviews** tag).  ### Plugin Descriptor (`plugwerk.yml`) When you upload a release artifact, the server reads a `plugwerk.yml` file embedded in the JAR/ZIP. This descriptor extends the standard PF4J manifest with Plugwerk-specific metadata: ```yaml plugwerk:   id: com.example.my-plugin   version: 1.2.0   name: My Plugin   description: Does something useful   requires:     system-version: \">=2.0.0 & <4.0.0\"     plugins:       - id: com.example.dependency         version: \">=1.0.0\" ``` If `plugwerk.yml` is absent the server falls back to the PF4J manifest headers.  ## Authentication  The API supports two authentication methods:  ### Bearer Token (JWT) Obtain a short-lived JWT by calling `POST /api/auth/login` with your username and password. Pass the returned token in subsequent requests: ``` Authorization: Bearer <token> ``` Tokens are valid for 8 hours by default.  ### API Key Long-lived API keys are suitable for CI/CD pipelines. Pass the key in the request header: ``` X-Api-Key: <your-api-key> ``` API keys are managed by the server administrator.  ## Quick Start  1. **Login** — `POST /api/auth/login` → receive `accessToken` 2. **Create a namespace** — `POST /api/v1/namespaces` with `{ \"slug\": \"my-ns\" }` 3. **Create a plugin** — `POST /api/v1/namespaces/my-ns/plugins` with `{ \"pluginId\": \"...\", \"name\": \"...\" }` 4. **Upload a release** — `POST /api/v1/namespaces/my-ns/releases` (multipart, artifact field) 5. **Publish the release** — `PATCH /api/v1/namespaces/my-ns/plugins/{pluginId}/releases/{version}` with `{ \"status\": \"published\" }` 6. **Clients poll for updates** — `POST /api/v1/namespaces/my-ns/updates/check`  ## pf4j-update Compatibility The `GET /namespaces/{ns}/plugins.json` endpoint returns a response that is fully compatible with the [pf4j-update](https://github.com/pf4j/pf4j-update) `UpdateRepository` format. You can point any existing pf4j-update client directly at this URL as a drop-in replacement.  ## Error Handling All errors return an `ErrorResponse` body with a machine-readable `error` code and a human-readable `message`. HTTP status codes follow REST conventions: - `400 Bad Request` — validation error in the request body or parameters - `401 Unauthorized` — missing or invalid authentication credentials - `404 Not Found` — the requested resource does not exist - `409 Conflict` — a resource with the same identifier already exists - `422 Unprocessable Entity` — the artifact was uploaded successfully but the plugin   descriptor inside it is missing or invalid 
  *
  * The version of the OpenAPI document: 0.1.0
  * 
@@ -39,10 +39,10 @@ import type { ReviewItemDto } from '../model';
 export const ReviewsApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
         /**
-         * 
-         * @summary Approve a release
-         * @param {string} ns Namespace slug
-         * @param {string} releaseId Release UUID
+         * Approves a release that is pending review and transitions it to `published` status, making it immediately visible in the catalog and eligible for update checks.  An optional `comment` can be included in the request body (e.g. review notes).  Returns `404 Not Found` if the release does not exist or is not in `draft` status. 
+         * @summary Approve a pending release
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {string} releaseId The internal UUID of the release (from &#x60;PluginReleaseDto.id&#x60;)
          * @param {ReviewDecisionRequest} [reviewDecisionRequest] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -84,9 +84,9 @@ export const ReviewsApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * 
-         * @summary List pending reviews
-         * @param {string} ns Namespace slug
+         * Returns all releases in the namespace that are waiting for admin approval before they can be published.  Releases appear here when: - The namespace has review mode enabled, AND - A new release artifact was uploaded (status is `draft`)  Releases approved via `POST /reviews/{releaseId}/approve` are automatically transitioned to `published` and removed from this queue. 
+         * @summary List releases pending review
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -121,10 +121,10 @@ export const ReviewsApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * 
-         * @summary Reject a release
-         * @param {string} ns Namespace slug
-         * @param {string} releaseId Release UUID
+         * Rejects a release that is pending review.  The release remains in `draft` status and is removed from the review queue. The publisher can fix issues and re-submit by uploading a new release artifact.  A `comment` explaining the rejection reason is strongly recommended so the publisher understands what needs to be fixed. 
+         * @summary Reject a pending release
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {string} releaseId The internal UUID of the release (from &#x60;PluginReleaseDto.id&#x60;)
          * @param {ReviewDecisionRequest} [reviewDecisionRequest] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -176,10 +176,10 @@ export const ReviewsApiFp = function(configuration?: Configuration) {
     const localVarAxiosParamCreator = ReviewsApiAxiosParamCreator(configuration)
     return {
         /**
-         * 
-         * @summary Approve a release
-         * @param {string} ns Namespace slug
-         * @param {string} releaseId Release UUID
+         * Approves a release that is pending review and transitions it to `published` status, making it immediately visible in the catalog and eligible for update checks.  An optional `comment` can be included in the request body (e.g. review notes).  Returns `404 Not Found` if the release does not exist or is not in `draft` status. 
+         * @summary Approve a pending release
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {string} releaseId The internal UUID of the release (from &#x60;PluginReleaseDto.id&#x60;)
          * @param {ReviewDecisionRequest} [reviewDecisionRequest] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -191,9 +191,9 @@ export const ReviewsApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * 
-         * @summary List pending reviews
-         * @param {string} ns Namespace slug
+         * Returns all releases in the namespace that are waiting for admin approval before they can be published.  Releases appear here when: - The namespace has review mode enabled, AND - A new release artifact was uploaded (status is `draft`)  Releases approved via `POST /reviews/{releaseId}/approve` are automatically transitioned to `published` and removed from this queue. 
+         * @summary List releases pending review
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -204,10 +204,10 @@ export const ReviewsApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * 
-         * @summary Reject a release
-         * @param {string} ns Namespace slug
-         * @param {string} releaseId Release UUID
+         * Rejects a release that is pending review.  The release remains in `draft` status and is removed from the review queue. The publisher can fix issues and re-submit by uploading a new release artifact.  A `comment` explaining the rejection reason is strongly recommended so the publisher understands what needs to be fixed. 
+         * @summary Reject a pending release
+         * @param {string} ns The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
+         * @param {string} releaseId The internal UUID of the release (from &#x60;PluginReleaseDto.id&#x60;)
          * @param {ReviewDecisionRequest} [reviewDecisionRequest] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -229,8 +229,8 @@ export const ReviewsApiFactory = function (configuration?: Configuration, basePa
     const localVarFp = ReviewsApiFp(configuration)
     return {
         /**
-         * 
-         * @summary Approve a release
+         * Approves a release that is pending review and transitions it to `published` status, making it immediately visible in the catalog and eligible for update checks.  An optional `comment` can be included in the request body (e.g. review notes).  Returns `404 Not Found` if the release does not exist or is not in `draft` status. 
+         * @summary Approve a pending release
          * @param {ReviewsApiApproveReleaseRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -239,8 +239,8 @@ export const ReviewsApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.approveRelease(requestParameters.ns, requestParameters.releaseId, requestParameters.reviewDecisionRequest, options).then((request) => request(axios, basePath));
         },
         /**
-         * 
-         * @summary List pending reviews
+         * Returns all releases in the namespace that are waiting for admin approval before they can be published.  Releases appear here when: - The namespace has review mode enabled, AND - A new release artifact was uploaded (status is `draft`)  Releases approved via `POST /reviews/{releaseId}/approve` are automatically transitioned to `published` and removed from this queue. 
+         * @summary List releases pending review
          * @param {ReviewsApiListPendingReviewsRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -249,8 +249,8 @@ export const ReviewsApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.listPendingReviews(requestParameters.ns, options).then((request) => request(axios, basePath));
         },
         /**
-         * 
-         * @summary Reject a release
+         * Rejects a release that is pending review.  The release remains in `draft` status and is removed from the review queue. The publisher can fix issues and re-submit by uploading a new release artifact.  A `comment` explaining the rejection reason is strongly recommended so the publisher understands what needs to be fixed. 
+         * @summary Reject a pending release
          * @param {ReviewsApiRejectReleaseRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -268,14 +268,14 @@ export const ReviewsApiFactory = function (configuration?: Configuration, basePa
  */
 export interface ReviewsApiApproveReleaseRequest {
     /**
-     * Namespace slug
+     * The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
      * @type {string}
      * @memberof ReviewsApiApproveRelease
      */
     readonly ns: string
 
     /**
-     * Release UUID
+     * The internal UUID of the release (from &#x60;PluginReleaseDto.id&#x60;)
      * @type {string}
      * @memberof ReviewsApiApproveRelease
      */
@@ -296,7 +296,7 @@ export interface ReviewsApiApproveReleaseRequest {
  */
 export interface ReviewsApiListPendingReviewsRequest {
     /**
-     * Namespace slug
+     * The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
      * @type {string}
      * @memberof ReviewsApiListPendingReviews
      */
@@ -310,14 +310,14 @@ export interface ReviewsApiListPendingReviewsRequest {
  */
 export interface ReviewsApiRejectReleaseRequest {
     /**
-     * Namespace slug
+     * The namespace slug. Must be lowercase alphanumeric with optional hyphens, between 2 and 64 characters. Example: &#x60;acme-core&#x60; 
      * @type {string}
      * @memberof ReviewsApiRejectRelease
      */
     readonly ns: string
 
     /**
-     * Release UUID
+     * The internal UUID of the release (from &#x60;PluginReleaseDto.id&#x60;)
      * @type {string}
      * @memberof ReviewsApiRejectRelease
      */
@@ -339,8 +339,8 @@ export interface ReviewsApiRejectReleaseRequest {
  */
 export class ReviewsApi extends BaseAPI {
     /**
-     * 
-     * @summary Approve a release
+     * Approves a release that is pending review and transitions it to `published` status, making it immediately visible in the catalog and eligible for update checks.  An optional `comment` can be included in the request body (e.g. review notes).  Returns `404 Not Found` if the release does not exist or is not in `draft` status. 
+     * @summary Approve a pending release
      * @param {ReviewsApiApproveReleaseRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -351,8 +351,8 @@ export class ReviewsApi extends BaseAPI {
     }
 
     /**
-     * 
-     * @summary List pending reviews
+     * Returns all releases in the namespace that are waiting for admin approval before they can be published.  Releases appear here when: - The namespace has review mode enabled, AND - A new release artifact was uploaded (status is `draft`)  Releases approved via `POST /reviews/{releaseId}/approve` are automatically transitioned to `published` and removed from this queue. 
+     * @summary List releases pending review
      * @param {ReviewsApiListPendingReviewsRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -363,8 +363,8 @@ export class ReviewsApi extends BaseAPI {
     }
 
     /**
-     * 
-     * @summary Reject a release
+     * Rejects a release that is pending review.  The release remains in `draft` status and is removed from the review queue. The publisher can fix issues and re-submit by uploading a new release artifact.  A `comment` explaining the rejection reason is strongly recommended so the publisher understands what needs to be fixed. 
+     * @summary Reject a pending release
      * @param {ReviewsApiRejectReleaseRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}

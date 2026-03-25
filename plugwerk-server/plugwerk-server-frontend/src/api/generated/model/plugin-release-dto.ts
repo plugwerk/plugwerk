@@ -2,7 +2,7 @@
 /* eslint-disable */
 /**
  * Plugwerk API
- * Plugin marketplace for the Java/PF4J ecosystem
+ * **Plugwerk** is a self-hosted plugin marketplace for the [PF4J](https://pf4j.org/) ecosystem. It lets teams publish, version, and distribute Java/Kotlin plugins to their own applications without relying on a public registry.  ## Core Concepts  ### Namespaces A **namespace** is the top-level organisational unit. Every plugin belongs to exactly one namespace. Namespaces are identified by a URL-safe **slug** (lowercase alphanumeric + hyphens, 2–64 characters). You might use one namespace per product, team, or customer, e.g. `acme-core`.  ### Plugins A **plugin** is a logical grouping of releases for a single PF4J plugin ID. The `pluginId` matches the `Plugin-Id` entry in the PF4J manifest (`MANIFEST.MF` or `plugin.properties`). Each plugin can have a human-readable name, description, icon, and categorisation metadata.  ### Releases A **release** is a specific versioned artifact (JAR or ZIP) for a plugin. Versions follow [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`). Releases go through a lifecycle: `draft` → `published` → `deprecated` / `yanked`. Only `published` releases are returned to catalog and update-check consumers. A namespace owner can optionally require manual review before a release is published (see the **Reviews** tag).  ### Plugin Descriptor (`plugwerk.yml`) When you upload a release artifact, the server reads a `plugwerk.yml` file embedded in the JAR/ZIP. This descriptor extends the standard PF4J manifest with Plugwerk-specific metadata: ```yaml plugwerk:   id: com.example.my-plugin   version: 1.2.0   name: My Plugin   description: Does something useful   requires:     system-version: \">=2.0.0 & <4.0.0\"     plugins:       - id: com.example.dependency         version: \">=1.0.0\" ``` If `plugwerk.yml` is absent the server falls back to the PF4J manifest headers.  ## Authentication  The API supports two authentication methods:  ### Bearer Token (JWT) Obtain a short-lived JWT by calling `POST /api/auth/login` with your username and password. Pass the returned token in subsequent requests: ``` Authorization: Bearer <token> ``` Tokens are valid for 8 hours by default.  ### API Key Long-lived API keys are suitable for CI/CD pipelines. Pass the key in the request header: ``` X-Api-Key: <your-api-key> ``` API keys are managed by the server administrator.  ## Quick Start  1. **Login** — `POST /api/auth/login` → receive `accessToken` 2. **Create a namespace** — `POST /api/v1/namespaces` with `{ \"slug\": \"my-ns\" }` 3. **Create a plugin** — `POST /api/v1/namespaces/my-ns/plugins` with `{ \"pluginId\": \"...\", \"name\": \"...\" }` 4. **Upload a release** — `POST /api/v1/namespaces/my-ns/releases` (multipart, artifact field) 5. **Publish the release** — `PATCH /api/v1/namespaces/my-ns/plugins/{pluginId}/releases/{version}` with `{ \"status\": \"published\" }` 6. **Clients poll for updates** — `POST /api/v1/namespaces/my-ns/updates/check`  ## pf4j-update Compatibility The `GET /namespaces/{ns}/plugins.json` endpoint returns a response that is fully compatible with the [pf4j-update](https://github.com/pf4j/pf4j-update) `UpdateRepository` format. You can point any existing pf4j-update client directly at this URL as a drop-in replacement.  ## Error Handling All errors return an `ErrorResponse` body with a machine-readable `error` code and a human-readable `message`. HTTP status codes follow REST conventions: - `400 Bad Request` — validation error in the request body or parameters - `401 Unauthorized` — missing or invalid authentication credentials - `404 Not Found` — the requested resource does not exist - `409 Conflict` — a resource with the same identifier already exists - `422 Unprocessable Entity` — the artifact was uploaded successfully but the plugin   descriptor inside it is missing or invalid 
  *
  * The version of the OpenAPI document: 0.1.0
  * 
@@ -18,85 +18,85 @@
 import type { PluginDependencyDto } from './plugin-dependency-dto';
 
 /**
- * 
+ * Full metadata for a single versioned plugin release
  * @export
  * @interface PluginReleaseDto
  */
 export interface PluginReleaseDto {
     /**
-     * 
+     * Internal UUID of the release record (used in review endpoints)
      * @type {string}
      * @memberof PluginReleaseDto
      */
     'id': string;
     /**
-     * 
+     * PF4J plugin identifier this release belongs to
      * @type {string}
      * @memberof PluginReleaseDto
      */
     'pluginId': string;
     /**
-     * 
+     * SemVer version string (e.g. `1.2.3`)
      * @type {string}
      * @memberof PluginReleaseDto
      */
     'version': string;
     /**
-     * 
+     * Release notes / changelog text for this version (Markdown supported)
      * @type {string}
      * @memberof PluginReleaseDto
      */
     'changelog'?: string;
     /**
-     * 
+     * SHA-256 hex digest of the uploaded artifact binary. Clients should verify downloaded artifacts against this value. 
      * @type {string}
      * @memberof PluginReleaseDto
      */
     'artifactSha256'?: string;
     /**
-     * 
+     * Size of the artifact in bytes
      * @type {number}
      * @memberof PluginReleaseDto
      */
     'artifactSize'?: number;
     /**
-     * 
+     * SemVer range expression for the minimum required host application version. Uses the Maven/PF4J range syntax, e.g. `>=2.0.0 & <4.0.0`. 
      * @type {string}
      * @memberof PluginReleaseDto
      */
     'requiresSystemVersion'?: string;
     /**
-     * 
+     * Minimum API level integer required by the host application (alternative to `requiresSystemVersion`). Use the mechanism your host application supports. 
      * @type {number}
      * @memberof PluginReleaseDto
      */
     'requiresApiLevel'?: number;
     /**
-     * 
+     * List of other plugins this release depends on (with version constraints)
      * @type {Array<PluginDependencyDto>}
      * @memberof PluginReleaseDto
      */
     'pluginDependencies'?: Array<PluginDependencyDto>;
     /**
-     * 
+     * Lifecycle status of this release: - `draft` — uploaded but not yet visible to catalog consumers - `published` — visible in catalog and eligible for update checks - `deprecated` — still downloadable but no longer recommended for new installations - `yanked` — hidden from catalog; typically used for releases with critical issues 
      * @type {string}
      * @memberof PluginReleaseDto
      */
     'status': PluginReleaseDtoStatusEnum;
     /**
-     * 
+     * Timestamp when the release was transitioned to `published` status
      * @type {string}
      * @memberof PluginReleaseDto
      */
     'publishedAt'?: string;
     /**
-     * 
+     * Number of times this specific release artifact has been downloaded
      * @type {number}
      * @memberof PluginReleaseDto
      */
     'downloadCount'?: number;
     /**
-     * 
+     * Timestamp when the release was created (artifact uploaded)
      * @type {string}
      * @memberof PluginReleaseDto
      */

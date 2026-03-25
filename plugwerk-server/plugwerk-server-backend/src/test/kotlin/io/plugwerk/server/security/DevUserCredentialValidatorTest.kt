@@ -17,73 +17,24 @@
  */
 package io.plugwerk.server.security
 
-import io.plugwerk.server.PlugwerkProperties
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
+/**
+ * Verifies that the deprecated [DevUserCredentialValidator] always returns false.
+ *
+ * This validator was replaced by [DatabaseUserCredentialValidator] in Phase 2. It is
+ * kept for reference only and must not grant access to any credentials.
+ */
+@Suppress("DEPRECATION")
 class DevUserCredentialValidatorTest {
 
-    private fun validatorWith(vararg users: Pair<String, String>): DevUserCredentialValidator {
-        val devUsers = users.map { (u, p) -> PlugwerkProperties.AuthProperties.DevUser(u, p) }
-        val props = PlugwerkProperties(
-            auth = PlugwerkProperties.AuthProperties(devUsers = devUsers),
-        )
-        return DevUserCredentialValidator(props)
-    }
+    private val validator = DevUserCredentialValidator()
 
     @Test
-    fun `returns true for valid credentials`() {
-        val validator = validatorWith("test" to "test")
-        assertThat(validator.validate("test", "test")).isTrue()
-    }
-
-    @Test
-    fun `returns false for wrong password`() {
-        val validator = validatorWith("test" to "test")
-        assertThat(validator.validate("test", "wrong")).isFalse()
-    }
-
-    @Test
-    fun `returns false for unknown username`() {
-        val validator = validatorWith("test" to "test")
-        assertThat(validator.validate("unknown", "test")).isFalse()
-    }
-
-    @Test
-    fun `returns false when dev-users list is empty`() {
-        val validator = validatorWith()
+    fun `always returns false regardless of credentials`() {
+        assertThat(validator.validate("admin", "admin")).isFalse()
         assertThat(validator.validate("test", "test")).isFalse()
-    }
-
-    @Test
-    fun `is case-sensitive for username`() {
-        val validator = validatorWith("test" to "test")
-        assertThat(validator.validate("Test", "test")).isFalse()
-        assertThat(validator.validate("TEST", "test")).isFalse()
-    }
-
-    @Test
-    fun `is case-sensitive for password`() {
-        val validator = validatorWith("test" to "secret")
-        assertThat(validator.validate("test", "Secret")).isFalse()
-        assertThat(validator.validate("test", "SECRET")).isFalse()
-    }
-
-    @Test
-    fun `validates first of multiple dev-users`() {
-        val validator = validatorWith("alice" to "pass1", "bob" to "pass2")
-        assertThat(validator.validate("alice", "pass1")).isTrue()
-    }
-
-    @Test
-    fun `validates second of multiple dev-users`() {
-        val validator = validatorWith("alice" to "pass1", "bob" to "pass2")
-        assertThat(validator.validate("bob", "pass2")).isTrue()
-    }
-
-    @Test
-    fun `cross-user password is rejected`() {
-        val validator = validatorWith("alice" to "pass1", "bob" to "pass2")
-        assertThat(validator.validate("alice", "pass2")).isFalse()
+        assertThat(validator.validate("", "")).isFalse()
     }
 }

@@ -17,7 +17,6 @@
  */
 package io.plugwerk.server.security
 
-import io.plugwerk.server.PlugwerkProperties
 import org.springframework.stereotype.Component
 
 /**
@@ -31,14 +30,13 @@ interface UserCredentialValidator {
 }
 
 /**
- * Validates credentials against the hardcoded dev-user list in [PlugwerkProperties.AuthProperties].
+ * Provisional credential validator for Phase 1 development.
  *
- * This is a provisional implementation for Phase 1. Replace with a database-backed
- * validator or OIDC provider in Phase 2.
+ * @deprecated Replaced by [DatabaseUserCredentialValidator] in Phase 2. This class is kept
+ * for reference only and is no longer active — [DatabaseUserCredentialValidator] is annotated
+ * with [@Primary] and takes precedence.
  */
-@Component
-class DevUserCredentialValidator(private val props: PlugwerkProperties) : UserCredentialValidator {
-
-    override fun validate(username: String, password: String): Boolean =
-        props.auth.devUsers.any { it.username == username && it.password == password }
+@Deprecated("Replaced by DatabaseUserCredentialValidator in Phase 2")
+class DevUserCredentialValidator : UserCredentialValidator {
+    override fun validate(username: String, password: String): Boolean = false
 }

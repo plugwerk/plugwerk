@@ -36,3 +36,11 @@ class ReleaseNotFoundException(pluginId: String, version: String) :
 class ArtifactNotFoundException(key: String) : RuntimeException("Artifact not found: $key")
 
 class ArtifactStorageException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
+
+class EntityNotFoundException(entity: String, id: String) : RuntimeException("$entity not found: $id")
+
+class ConflictException(message: String) : RuntimeException(message)
+
+class UnauthorizedException(message: String) : RuntimeException(message)
+
+class ForbiddenException(message: String) : RuntimeException(message)

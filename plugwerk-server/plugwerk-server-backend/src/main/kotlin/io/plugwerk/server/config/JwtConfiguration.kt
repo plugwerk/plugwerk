@@ -33,10 +33,9 @@ import javax.crypto.spec.SecretKeySpec
  * Provides [JwtDecoder] and [JwtEncoder] beans for HMAC-SHA256 signed JWTs.
  *
  * The signing key is derived from [PlugwerkProperties.AuthProperties.jwtSecret].
- * To switch to an external OIDC provider (Keycloak, Google, etc.) in Phase 2+,
- * replace the [jwtDecoder] bean with:
- *   `NimbusJwtDecoder.withIssuerLocation("https://issuer.example.com").build()`
- * or configure `spring.security.oauth2.resourceserver.jwt.issuer-uri` in application.yml.
+ * Phase 2+: External OIDC providers are configured via the admin UI and loaded dynamically
+ * by [io.plugwerk.server.security.OidcProviderRegistry]. The [io.plugwerk.server.security.DelegatingJwtDecoder]
+ * tries the local decoder first and falls back to enabled OIDC decoders automatically.
  */
 @Configuration
 class JwtConfiguration(private val props: PlugwerkProperties) {
@@ -48,8 +47,14 @@ class JwtConfiguration(private val props: PlugwerkProperties) {
         SecretKeySpec(bytes, "HmacSHA256")
     }
 
+    /**
+     * Local HMAC-SHA256 decoder for tokens self-issued by this server via `/api/auth/login`.
+     *
+     * Named `localDecoder` to distinguish it from the composite [io.plugwerk.server.security.DelegatingJwtDecoder]
+     * which combines this decoder with any enabled OIDC provider decoders.
+     */
     @Bean
-    fun jwtDecoder(): JwtDecoder = NimbusJwtDecoder.withSecretKey(secretKey).macAlgorithm(MacAlgorithm.HS256).build()
+    fun localDecoder(): JwtDecoder = NimbusJwtDecoder.withSecretKey(secretKey).macAlgorithm(MacAlgorithm.HS256).build()
 
     @Bean
     fun jwtEncoder(): JwtEncoder = NimbusJwtEncoder(ImmutableSecret(secretKey))

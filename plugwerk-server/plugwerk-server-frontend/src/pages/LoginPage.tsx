@@ -27,7 +27,12 @@ export function LoginPage() {
     setLoading(true)
     try {
       await login(username.trim(), password)
-      navigate(from, { replace: true })
+      const { passwordChangeRequired } = useAuthStore.getState()
+      if (passwordChangeRequired) {
+        navigate('/change-password', { replace: true })
+      } else {
+        navigate(from, { replace: true })
+      }
     } catch {
       setError('Invalid username or password.')
     } finally {
