@@ -58,7 +58,7 @@ export function PluginCard({ plugin, namespace }: PluginCardProps) {
   return (
     <Card
       component={Link}
-      to={`/${namespace}/plugins/${plugin.pluginId}`}
+      to={`/namespaces/${namespace}/plugins/${plugin.pluginId}`}
       role="listitem"
       aria-label={`${plugin.name} plugin`}
       sx={{

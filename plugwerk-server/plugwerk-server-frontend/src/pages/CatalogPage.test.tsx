@@ -2,7 +2,7 @@
 // Copyright (C) 2026 devtank42 GmbH
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { screen } from '@testing-library/react'
-import { renderWithRouter } from '../test/renderWithTheme'
+import { renderWithRouterAt } from '../test/renderWithTheme'
 import { CatalogPage } from './CatalogPage'
 import { usePluginStore } from '../stores/pluginStore'
 import { useAuthStore } from '../stores/authStore'
@@ -43,6 +43,13 @@ const defaultFilters = {
 describe('CatalogPage', () => {
   const noOpFetch = vi.fn().mockResolvedValue(undefined)
 
+  const ROUTE_PATH = '/namespaces/:namespace/plugins'
+  const INITIAL_PATH = '/namespaces/acme/plugins'
+
+  function renderCatalog() {
+    return renderWithRouterAt(<CatalogPage />, ROUTE_PATH, INITIAL_PATH)
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
     useAuthStore.setState({ accessToken: null, namespace: 'acme' })
@@ -62,59 +69,59 @@ describe('CatalogPage', () => {
   })
 
   it('renders the page heading', () => {
-    renderWithRouter(<CatalogPage />)
+    renderCatalog()
     expect(screen.getByText('Plugin Catalog')).toBeInTheDocument()
   })
 
   it('shows empty state when no plugins are available', () => {
-    renderWithRouter(<CatalogPage />)
+    renderCatalog()
     expect(screen.getByText('No plugins found')).toBeInTheDocument()
   })
 
   it('shows loading skeleton when loading is true', () => {
     usePluginStore.setState({ loading: true })
-    renderWithRouter(<CatalogPage />)
+    renderCatalog()
     expect(screen.getByLabelText('Loading plugins')).toBeInTheDocument()
   })
 
   it('does not show empty state while loading', () => {
     usePluginStore.setState({ loading: true })
-    renderWithRouter(<CatalogPage />)
+    renderCatalog()
     expect(screen.queryByText('No plugins found')).not.toBeInTheDocument()
   })
 
   it('shows error alert when there is an error', () => {
     usePluginStore.setState({ error: 'Network error' })
-    renderWithRouter(<CatalogPage />)
+    renderCatalog()
     expect(screen.getByText('Network error')).toBeInTheDocument()
   })
 
   it('does not show empty state when there is an error', () => {
     usePluginStore.setState({ error: 'Something failed', plugins: [] })
-    renderWithRouter(<CatalogPage />)
+    renderCatalog()
     expect(screen.queryByText('No plugins found')).not.toBeInTheDocument()
   })
 
   it('renders plugin cards in card view', () => {
     usePluginStore.setState({ plugins: [mockPlugin], totalElements: 1, totalPages: 1 })
-    renderWithRouter(<CatalogPage />)
+    renderCatalog()
     expect(screen.getByText('Auth Plugin')).toBeInTheDocument()
   })
 
   it('shows plugin count when not loading', () => {
     usePluginStore.setState({ plugins: [mockPlugin], totalElements: 42 })
-    renderWithRouter(<CatalogPage />)
+    renderCatalog()
     expect(screen.getByText('42 plugins')).toBeInTheDocument()
   })
 
   it('does not show plugin count while loading', () => {
     usePluginStore.setState({ loading: true, totalElements: 42 })
-    renderWithRouter(<CatalogPage />)
+    renderCatalog()
     expect(screen.queryByText('42 plugins')).not.toBeInTheDocument()
   })
 
   it('renders filter bar', () => {
-    renderWithRouter(<CatalogPage />)
+    renderCatalog()
     expect(screen.getByRole('group', { name: /filter and sort options/i })).toBeInTheDocument()
   })
 
@@ -122,8 +129,14 @@ describe('CatalogPage', () => {
     const { default: userEvent } = await import('@testing-library/user-event')
     const user = userEvent.setup()
     usePluginStore.setState({ plugins: [mockPlugin], totalElements: 1, totalPages: 1 })
-    renderWithRouter(<CatalogPage />)
+    renderCatalog()
     await user.click(screen.getByRole('button', { name: /list view/i }))
     expect(screen.getByRole('list', { name: /plugin list/i })).toBeInTheDocument()
+  })
+
+  it('syncs namespace from URL param into the auth store', async () => {
+    renderWithRouterAt(<CatalogPage />, ROUTE_PATH, '/namespaces/other-ns/plugins')
+    const { namespace } = useAuthStore.getState()
+    expect(namespace).toBe('other-ns')
   })
 })

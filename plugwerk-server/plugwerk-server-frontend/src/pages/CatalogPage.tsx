@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Copyright (C) 2026 devtank42 GmbH
 import { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { Box, Container, Typography, Alert } from '@mui/material'
 import { FilterBar } from '../components/catalog/FilterBar'
 import { PluginCard } from '../components/catalog/PluginCard'
@@ -14,7 +15,8 @@ import { useUiStore } from '../stores/uiStore'
 import { useNamespaceStore } from '../stores/namespaceStore'
 
 export function CatalogPage() {
-  const { namespace } = useAuthStore()
+  const { namespace = 'default' } = useParams<{ namespace: string }>()
+  const { setNamespace } = useAuthStore()
   const { plugins, loading, error, totalElements, resetFilters, fetchPlugins } = usePluginStore()
   const { searchQuery } = useUiStore()
   const { fetchNamespaces } = useNamespaceStore()
@@ -23,6 +25,10 @@ export function CatalogPage() {
   useEffect(() => {
     fetchNamespaces()
   }, [])
+
+  useEffect(() => {
+    setNamespace(namespace)
+  }, [namespace])
 
   useEffect(() => {
     fetchPlugins(namespace)

@@ -32,6 +32,11 @@ export function TopBar() {
     return path === '/' ? pathname === '/' : pathname.startsWith(path)
   }
 
+  function handleNamespaceChange(ns: string) {
+    setNamespace(ns)
+    navigate(`/namespaces/${ns}/plugins`)
+  }
+
   function handleLogout() {
     logout()
     navigate('/login', { replace: true })
@@ -97,7 +102,7 @@ export function TopBar() {
             </Typography>
             <FilterSelect
               value={namespace}
-              onChange={setNamespace}
+              onChange={handleNamespaceChange}
               aria-label="Select namespace"
               minWidth={130}
             >

@@ -48,7 +48,7 @@ export function PluginListRow({ plugin, namespace }: PluginListRowProps) {
   return (
     <Box
       component={Link}
-      to={`/${namespace}/plugins/${plugin.pluginId}`}
+      to={`/namespaces/${namespace}/plugins/${plugin.pluginId}`}
       role="listitem"
       sx={{
         display: 'flex',
