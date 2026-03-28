@@ -59,7 +59,7 @@ class PlugwerkCatalogImplTest {
             MockResponse()
                 .setBody(
                     """{"content":[
-                        {"id":"00000000-0000-0000-0000-000000000001","pluginId":"my-plugin","name":"My Plugin","status":"active","latestVersion":"1.0.0"}
+                        {"id":"00000000-0000-0000-0000-000000000001","pluginId":"my-plugin","name":"My Plugin","status":"active","latestRelease":{"id":"00000000-0000-0000-0000-000000000002","pluginId":"my-plugin","version":"1.0.0","status":"published"}}
                     ],"totalElements":1,"page":0,"size":20,"totalPages":1}""",
                 )
                 .setResponseCode(200),

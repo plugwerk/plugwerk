@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Box, Container, Typography, Alert } from '@mui/material'
 import { FilterBar } from '../components/catalog/FilterBar'
+import { PendingReviewBanner } from '../components/catalog/PendingReviewBanner'
 import { PluginCard } from '../components/catalog/PluginCard'
 import { PluginListRow } from '../components/catalog/PluginListRow'
 import { PluginCardSkeleton } from '../components/catalog/PluginCardSkeleton'
@@ -16,8 +17,8 @@ import { useNamespaceStore } from '../stores/namespaceStore'
 
 export function CatalogPage() {
   const { namespace = 'default' } = useParams<{ namespace: string }>()
-  const { setNamespace } = useAuthStore()
-  const { plugins, loading, error, totalElements, resetFilters, fetchPlugins } = usePluginStore()
+  const { setNamespace, namespaceRole, fetchNamespaceRole, isAuthenticated } = useAuthStore()
+  const { plugins, loading, error, totalElements, pendingReviewPluginCount, resetFilters, fetchPlugins } = usePluginStore()
   const { searchQuery } = useUiStore()
   const { fetchNamespaces } = useNamespaceStore()
   const [view, setView] = useState<'card' | 'list'>('card')
@@ -28,6 +29,7 @@ export function CatalogPage() {
 
   useEffect(() => {
     setNamespace(namespace)
+    fetchNamespaceRole(namespace)
   }, [namespace])
 
   useEffect(() => {
@@ -48,13 +50,20 @@ export function CatalogPage() {
           sx={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: 2,
             mb: 1,
           }}
         >
           <Typography variant="h1">Plugin Catalog</Typography>
+          {isAuthenticated && pendingReviewPluginCount != null && pendingReviewPluginCount > 0 && (
+            <PendingReviewBanner
+              count={pendingReviewPluginCount}
+              namespace={namespace}
+              isAdmin={namespaceRole === 'ADMIN'}
+            />
+          )}
+          <Box sx={{ flex: 1 }} />
           {!loading && (
             <Typography variant="caption" color="text.primary" aria-live="polite">
               {totalElements} plugins

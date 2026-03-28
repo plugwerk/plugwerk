@@ -18,8 +18,10 @@
 package io.plugwerk.server.service
 
 import io.plugwerk.server.domain.PluginEntity
+import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
 import io.plugwerk.spi.model.PluginStatus
+import io.plugwerk.spi.model.ReleaseStatus
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
@@ -28,7 +30,11 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 @Transactional(readOnly = true)
-class PluginService(private val pluginRepository: PluginRepository, private val namespaceService: NamespaceService) {
+class PluginService(
+    private val pluginRepository: PluginRepository,
+    private val releaseRepository: PluginReleaseRepository,
+    private val namespaceService: NamespaceService,
+) {
 
     fun findByNamespaceAndPluginId(namespaceSlug: String, pluginId: String): PluginEntity {
         val namespace = namespaceService.findBySlug(namespaceSlug)
@@ -48,9 +54,12 @@ class PluginService(private val pluginRepository: PluginRepository, private val 
     /**
      * Returns a paginated, filtered list of plugins for the given namespace.
      *
-     * Category, tag, and full-text (q) filters are applied in-memory after the DB query,
-     * which is acceptable for MVP catalog sizes. A DB-level filter can replace this when
-     * catalog size demands it.
+     * Category, tag, full-text (q), and published-only filters are applied in-memory after
+     * the DB query, which is acceptable for MVP catalog sizes. A DB-level filter can
+     * replace this when catalog size demands it.
+     *
+     * @param publishedOnly when `true`, only plugins that have at least one PUBLISHED release
+     *   are returned. SUSPENDED plugins are always excluded regardless of this flag.
      */
     fun findPagedByNamespace(
         namespaceSlug: String,
@@ -59,6 +68,7 @@ class PluginService(private val pluginRepository: PluginRepository, private val 
         tag: String?,
         q: String?,
         pageable: Pageable,
+        publishedOnly: Boolean = false,
     ): Page<PluginEntity> {
         val namespace = namespaceService.findBySlug(namespaceSlug)
         val all = if (status != null) {
@@ -66,14 +76,31 @@ class PluginService(private val pluginRepository: PluginRepository, private val 
         } else {
             pluginRepository.findAllByNamespace(namespace)
         }
-        val filtered = all.filter { plugin ->
-            (category == null || plugin.categories.contains(category)) &&
-                (tag == null || plugin.tags.contains(tag)) &&
-                (
-                    q == null || plugin.name.contains(q, ignoreCase = true) ||
-                        plugin.description?.contains(q, ignoreCase = true) == true
-                    )
+
+        val pluginIdsWithPublishedRelease: Set<java.util.UUID> = if (publishedOnly) {
+            val ids = all.mapNotNull { it.id }
+            if (ids.isEmpty()) {
+                emptySet()
+            } else {
+                releaseRepository.findLatestPublishedReleasesForPlugins(ids)
+                    .map { it.plugin.id!! }
+                    .toSet()
+            }
+        } else {
+            emptySet()
         }
+
+        val filtered = all
+            .filter { it.status != PluginStatus.SUSPENDED }
+            .filter { plugin ->
+                (!publishedOnly || plugin.id in pluginIdsWithPublishedRelease) &&
+                    (category == null || plugin.categories.contains(category)) &&
+                    (tag == null || plugin.tags.contains(tag)) &&
+                    (
+                        q == null || plugin.name.contains(q, ignoreCase = true) ||
+                            plugin.description?.contains(q, ignoreCase = true) == true
+                        )
+            }
         val offset = pageable.offset.toInt().coerceAtMost(filtered.size)
         val page = filtered.subList(offset, (offset + pageable.pageSize).coerceAtMost(filtered.size))
         return PageImpl(page, pageable, filtered.size.toLong())

@@ -47,7 +47,7 @@ function formatRelativeTime(dateStr: string | undefined): string {
 
 export function PluginCard({ plugin, namespace }: PluginCardProps) {
   const isDeprecated = plugin.status === 'archived'
-  const isDraft = !plugin.latestVersion && !!plugin.latestDraftVersion
+  const latestRelease = plugin.latestRelease
 
   const nameRef = useRef<HTMLElement>(null)
   const authorRef = useRef<HTMLElement>(null)
@@ -116,8 +116,8 @@ export function PluginCard({ plugin, namespace }: PluginCardProps) {
                   {plugin.name}
                 </Typography>
               </Tooltip>
-              {(plugin.latestVersion ?? plugin.latestDraftVersion) && (
-                <Badge variant="version">v{plugin.latestVersion ?? plugin.latestDraftVersion}</Badge>
+              {latestRelease?.version && (
+                <Badge variant="version">v{latestRelease.version}</Badge>
               )}
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -131,7 +131,6 @@ export function PluginCard({ plugin, namespace }: PluginCardProps) {
                   {plugin.author ?? namespace}
                 </Typography>
               </Tooltip>
-              {isDraft && <Badge variant="draft">Draft</Badge>}
               {isDeprecated && <Badge variant="deprecated">Deprecated</Badge>}
             </Box>
           </Box>
@@ -175,10 +174,10 @@ export function PluginCard({ plugin, namespace }: PluginCardProps) {
             <Download size={12} aria-hidden="true" />
             <Typography variant="caption">{formatCount(plugin.downloadCount ?? 0)}</Typography>
           </Box>
-          {plugin.latestArtifactSize && (
+          {latestRelease?.artifactSize && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled' }}>
               <HardDrive size={12} aria-hidden="true" />
-              <Typography variant="caption">{formatFileSize(plugin.latestArtifactSize)}</Typography>
+              <Typography variant="caption">{formatFileSize(latestRelease.artifactSize)}</Typography>
             </Box>
           )}
           <Tooltip title={formatAbsoluteTime(plugin.updatedAt)} placement="top">

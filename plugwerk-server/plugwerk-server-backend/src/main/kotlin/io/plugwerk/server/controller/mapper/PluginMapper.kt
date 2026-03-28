@@ -19,6 +19,7 @@ package io.plugwerk.server.controller.mapper
 
 import io.plugwerk.api.model.PluginDto
 import io.plugwerk.server.domain.PluginEntity
+import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.spi.model.PluginStatus
 import org.springframework.stereotype.Component
 import java.net.URI
@@ -27,38 +28,31 @@ import java.net.URI
  * Maps [PluginEntity] to the API v1 [PluginDto].
  *
  * Intentionally a separate component so that a future v2 mapper can coexist without
- * touching this class. The namespace slug and latest version are passed explicitly to
+ * touching this class. The namespace slug and latest release are passed explicitly to
  * avoid triggering lazy-loading outside a JPA session.
  */
 @Component
-class PluginMapper {
+class PluginMapper(private val releaseMapper: PluginReleaseMapper) {
 
-    fun toDto(
-        entity: PluginEntity,
-        namespaceSlug: String,
-        latestVersion: String? = null,
-        latestDraftVersion: String? = null,
-        latestArtifactSize: Long? = null,
-    ): PluginDto = PluginDto(
-        id = entity.id!!,
-        pluginId = entity.pluginId,
-        name = entity.name,
-        status = entity.status.toDto(),
-        description = entity.description,
-        author = entity.author,
-        license = entity.license,
-        namespace = namespaceSlug,
-        categories = entity.categories.toList().takeIf { it.isNotEmpty() },
-        tags = entity.tags.toList().takeIf { it.isNotEmpty() },
-        latestVersion = latestVersion,
-        latestDraftVersion = if (latestVersion == null) latestDraftVersion else null,
-        latestArtifactSize = latestArtifactSize,
-        icon = entity.icon?.let { URI(it) },
-        homepage = entity.homepage?.let { URI(it) },
-        repository = entity.repository?.let { URI(it) },
-        createdAt = entity.createdAt,
-        updatedAt = entity.updatedAt,
-    )
+    fun toDto(entity: PluginEntity, namespaceSlug: String, latestRelease: PluginReleaseEntity? = null): PluginDto =
+        PluginDto(
+            id = entity.id!!,
+            pluginId = entity.pluginId,
+            name = entity.name,
+            status = entity.status.toDto(),
+            description = entity.description,
+            author = entity.author,
+            license = entity.license,
+            namespace = namespaceSlug,
+            categories = entity.categories.toList().takeIf { it.isNotEmpty() },
+            tags = entity.tags.toList().takeIf { it.isNotEmpty() },
+            latestRelease = latestRelease?.let { releaseMapper.toDto(it, entity.pluginId) },
+            icon = entity.icon?.let { URI(it) },
+            homepage = entity.homepage?.let { URI(it) },
+            repository = entity.repository?.let { URI(it) },
+            createdAt = entity.createdAt,
+            updatedAt = entity.updatedAt,
+        )
 
     private fun PluginStatus.toDto(): PluginDto.Status = when (this) {
         PluginStatus.ACTIVE -> PluginDto.Status.ACTIVE

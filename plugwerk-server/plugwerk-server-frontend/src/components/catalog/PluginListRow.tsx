@@ -45,7 +45,7 @@ function formatRelativeTime(dateStr: string | undefined): string {
 
 export function PluginListRow({ plugin, namespace }: PluginListRowProps) {
   const isDeprecated = plugin.status === 'archived'
-  const isDraft = !plugin.latestVersion && !!plugin.latestDraftVersion
+  const latestRelease = plugin.latestRelease
   return (
     <Box
       component={Link}
@@ -91,10 +91,9 @@ export function PluginListRow({ plugin, namespace }: PluginListRowProps) {
         <Typography variant="caption" color="text.disabled">{plugin.author ?? namespace}</Typography>
       </Box>
 
-      {isDraft && <Badge variant="draft">Draft</Badge>}
       {isDeprecated && <Badge variant="deprecated">Deprecated</Badge>}
-      {(plugin.latestVersion ?? plugin.latestDraftVersion) && (
-        <Badge variant="version">v{plugin.latestVersion ?? plugin.latestDraftVersion}</Badge>
+      {latestRelease?.version && (
+        <Badge variant="version">v{latestRelease.version}</Badge>
       )}
 
       <Box sx={{ display: 'flex', gap: 2, color: 'text.disabled', flexShrink: 0 }}>
@@ -102,10 +101,10 @@ export function PluginListRow({ plugin, namespace }: PluginListRowProps) {
           <Download size={12} aria-hidden="true" />
           <Typography variant="caption">{formatCount(plugin.downloadCount ?? 0)}</Typography>
         </Box>
-        {plugin.latestArtifactSize && (
+        {latestRelease?.artifactSize && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <HardDrive size={12} aria-hidden="true" />
-            <Typography variant="caption">{formatFileSize(plugin.latestArtifactSize)}</Typography>
+            <Typography variant="caption">{formatFileSize(latestRelease.artifactSize)}</Typography>
           </Box>
         )}
         <Tooltip title={formatAbsoluteTime(plugin.updatedAt)} placement="top">

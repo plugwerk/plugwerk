@@ -68,7 +68,7 @@ class ManagementController(
             categories = pluginUpdateRequest.categories?.toTypedArray(),
             tags = pluginUpdateRequest.tags?.toTypedArray(),
         )
-        return ResponseEntity.ok(pluginMapper.toDto(plugin, ns))
+        return ResponseEntity.ok(pluginMapper.toDto(plugin, ns, latestRelease = null))
     }
 
     override fun uploadPluginRelease(ns: String, artifact: MultipartFile): ResponseEntity<PluginReleaseDto> {

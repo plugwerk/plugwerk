@@ -12,7 +12,12 @@ const plugin: PluginDto = {
   name: 'Cache Plugin',
   author: 'Acme',
   status: 'active',
-  latestVersion: '2.0.0',
+  latestRelease: {
+    id: 'rel-1',
+    pluginId: 'cache-plugin',
+    version: '2.0.0',
+    status: 'published',
+  },
   downloadCount: 5000,
   updatedAt: '2026-02-01T00:00:00Z',
 }

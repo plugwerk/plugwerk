@@ -44,15 +44,20 @@ info:
 
     ## Authentication
 
-    The API supports two authentication methods:
+    The API supports three authentication methods:
 
-    ### Bearer Token (JWT)
+    ### Bearer Token (JWT — local login)
     Obtain a short-lived JWT by calling `POST /api/v1/auth/login` with your username and password.
     Pass the returned token in subsequent requests:
     ```
     Authorization: Bearer <token>
     ```
     Tokens are valid for 8 hours by default.
+
+    ### Bearer Token (OIDC)
+    Plugwerk acts as an OAuth2 Resource Server and can validate tokens issued by external
+    OIDC providers (Keycloak, GitHub, Google, etc.). Configure providers via the **OidcProviders**
+    admin endpoints. Pass the provider-issued token in the same `Authorization: Bearer` header.
 
     ### API Key
     Long-lived API keys are suitable for CI/CD pipelines. Pass the key in the request header:
@@ -215,8 +220,8 @@ paths:
       description: |
         Returns all namespaces visible to the authenticated caller.
 
-        In the current MVP implementation this returns all namespaces in the system.
-        Future releases will scope this to namespaces the caller has access to.
+        Superadmins see all namespaces. Regular users see only namespaces in which they
+        hold a membership. Access-key principals see only the namespace the key was issued for.
       operationId: listNamespaces
       security:
         - BearerAuth: []
@@ -278,8 +283,16 @@ paths:
         Returns a paginated list of plugins in the given namespace.
 
         Results can be filtered by category, tag, and status, and searched by a full-text
-        query across plugin name, description, and tags. Only plugins with at least one
-        published release are shown by default (status `active`).
+        query across plugin name, description, and tags.
+
+        **Visibility rules:**
+        - Only plugins with at least one **published** release are returned.
+        - Default status filter is `active`.
+        - `suspended` plugins are never returned via this endpoint.
+
+        For authenticated users with namespace access, the response includes
+        `pendingReviewPluginCount` — the number of active plugins that have draft releases
+        but no published release yet (i.e. plugins not shown in the catalog).
 
         This endpoint is publicly accessible unless the namespace has access control enabled.
       operationId: listPlugins
@@ -308,8 +321,8 @@ paths:
         - Catalog
       summary: Get plugin details
       description: |
-        Returns full metadata for a single plugin, including the latest published version
-        and the latest draft version (if any).
+        Returns full metadata for a single plugin, including the latest published release
+        embedded as `latestRelease`.
 
         This endpoint is publicly accessible unless the namespace has access control enabled.
       operationId: getPlugin
@@ -858,6 +871,39 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /namespaces/{ns}/members/me:
+    get:
+      tags:
+        - NamespaceMembers
+      summary: Get the current user's role in a namespace
+      description: |
+        Returns the calling user's role in the specified namespace.
+        Useful for frontends that need to conditionally render admin-only UI elements
+        (e.g. review links, member management).
+      operationId: getMyMembership
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/NamespaceSlug'
+      responses:
+        '200':
+          description: The caller's membership in this namespace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NamespaceMembershipDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Caller has no role in this namespace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /namespaces/{ns}/members:
     get:
       tags:
@@ -1186,13 +1232,12 @@ components:
         type: string
         enum:
           - active
-          - suspended
           - archived
       description: |
-        Filter by plugin status:
-        - `active` — plugin has at least one published release (default)
-        - `suspended` — plugin is temporarily unavailable
-        - `archived` — plugin is no longer maintained
+        Filter by plugin lifecycle status. Defaults to `active` when omitted.
+        - `active` — default; only active plugins with published releases
+        - `archived` — deprecated/end-of-life plugins only
+        Note: `suspended` plugins are never returned via the catalog endpoint.
 
   schemas:
     LoginRequest:
@@ -1351,20 +1396,18 @@ components:
           items:
             type: string
           description: Free-form tags for discovery and filtering
-        latestVersion:
-          type: string
-          description: SemVer of the latest `published` release, or `null` if none exists
-        latestDraftVersion:
-          type: string
-          description: SemVer of the latest `draft` release (only visible to authenticated management callers)
+        latestRelease:
+          allOf:
+            - $ref: '#/components/schemas/PluginReleaseDto'
+          nullable: true
+          description: |
+            Full metadata of the latest published release, or `null` if no published
+            release exists. Embedded to avoid extra round-trips when rendering catalog
+            cards (includes version, artifactSize, status, downloadCount, etc.).
         downloadCount:
           type: integer
           format: int64
-          description: Total number of artifact downloads across all releases
-        latestArtifactSize:
-          type: integer
-          format: int64
-          description: File size in bytes of the latest published release artifact, or `null` if no published release exists
+          description: Total number of artifact downloads across all releases (plugin-level aggregate)
         icon:
           type: string
           format: uri
@@ -1751,6 +1794,15 @@ components:
           type: integer
           format: int32
           description: Total number of pages
+        pendingReviewPluginCount:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            Number of active plugins that have draft releases pending review but no
+            published release yet (i.e. plugins not shown in the catalog).
+            Only populated for authenticated users with namespace access; `null` for
+            anonymous requests.
       required:
         - content
         - totalElements
@@ -1861,6 +1913,15 @@ components:
           type: string
           minLength: 8
           nullable: true
+
+    NamespaceMembershipDto:
+      type: object
+      description: The calling user's role in a specific namespace
+      properties:
+        role:
+          $ref: '#/components/schemas/NamespaceRole'
+      required:
+        - role
 
     NamespaceMemberDto:
       type: object

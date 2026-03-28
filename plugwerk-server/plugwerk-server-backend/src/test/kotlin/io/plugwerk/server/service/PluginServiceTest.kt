@@ -19,6 +19,7 @@ package io.plugwerk.server.service
 
 import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.PluginEntity
+import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
 import io.plugwerk.spi.model.PluginStatus
 import org.assertj.core.api.Assertions.assertThat
@@ -39,6 +40,9 @@ class PluginServiceTest {
 
     @Mock
     lateinit var pluginRepository: PluginRepository
+
+    @Mock
+    lateinit var releaseRepository: PluginReleaseRepository
 
     @Mock
     lateinit var namespaceService: NamespaceService

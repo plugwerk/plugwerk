@@ -36,16 +36,16 @@ describe('FilterBar', () => {
     })
   })
 
-  it('renders category, tag, compatibility and sort selects', () => {
+  it('renders category, tag, status, compatibility and sort selects', () => {
     renderWithRouter(
       <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
     )
     expect(screen.getByRole('combobox', { name: /filter by category/i })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /filter by tag/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /filter by status/i })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /filter by compatibility/i })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /sort order/i })).toBeInTheDocument()
-    // All four native selects are present
-    expect(screen.getAllByRole('combobox')).toHaveLength(4)
+    expect(screen.getAllByRole('combobox')).toHaveLength(5)
   })
 
   it('does not show reset button when no active filters', () => {

@@ -19,17 +19,31 @@ User → Organization → Namespace → Role (RBAC)
 
 ### API Structure
 
-All endpoints: `/api/v1/namespaces/{ns}/...`
+All namespace-scoped endpoints: `/api/v1/namespaces/{ns}/...`
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `GET` | `/plugins` | Catalog with filters |
+| `GET` | `/plugins` | Catalog with filters (status, category, tag, search) |
+| `GET` | `/plugins/{id}` | Plugin details with embedded `latestRelease` |
 | `GET` | `/plugins/{id}/releases/{version}/download` | Artifact download |
 | `GET` | `/plugins.json` | pf4j-update compatible drop-in |
-| `POST` | `/plugin-releases` | Upload new release — plugin auto-created if unknown (descriptor read from JAR/ZIP) |
+| `POST` | `/plugin-releases` | Upload new release — plugin auto-created from descriptor |
+| `PATCH` | `/plugins/{id}/releases/{version}` | Update release status (publish, deprecate, yank) |
 | `POST` | `/updates/check` | Body: installed plugins+versions → available updates |
 | `GET` | `/reviews/pending` | Admin review queue |
 | `POST` | `/reviews/{releaseId}/approve` | Approve release |
+| `POST` | `/reviews/{releaseId}/reject` | Reject release |
+| `GET` | `/members/me` | Current user's namespace role |
+| `GET/POST` | `/members` | List / add namespace members |
+
+Auth & admin endpoints (under `/api/v1/`):
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/auth/login` | Local login → JWT |
+| `POST` | `/auth/change-password` | Change own password |
+| `GET/POST` | `/admin/users` | User management (superadmin) |
+| `GET/POST` | `/admin/oidc-providers` | OIDC provider management |
 
 ### Client SDK Core Classes
 
@@ -60,7 +74,7 @@ If `plugwerk.yml` is absent, the server falls back to the PF4J manifest.
 ```bash
 ./gradlew build                                   # Build all modules + run all tests
 ./gradlew build -x test                           # Build without tests
-./gradlew :plugwerk-api:openApiGenerate           # Regenerate backend DTOs/interfaces from OpenAPI YAML
+./gradlew :plugwerk-api:plugwerk-api-endpoint:openApiGenerate :plugwerk-api:plugwerk-api-model:openApiGenerate  # Regenerate backend DTOs/interfaces from OpenAPI YAML
 ./gradlew :plugwerk-server:plugwerk-server-backend:bootRun --args='--spring.profiles.active=dev'
 docker compose up -d postgres                     # Start dev database
 ```
@@ -82,9 +96,9 @@ npm run lint                 # ESLint
 
 ## Implementation Phases
 
-- **Phase 1 (MVP):** REST API + PostgreSQL + filesystem storage + JWT auth (provisional) + minimal Web UI + `plugins.json` endpoint + Client SDK as pf4j-update drop-in
-- **Phase 2 (Enterprise):** Multi-namespace, RBAC/OIDC, review/approval workflow, code signing, S3/MinIO, dependency resolution in client
-- **Phase 3 (Ecosystem):** Embeddable UI component, webhooks, vulnerability scanning, Gradle/Maven CI/CD plugin, SaaS multi-tenancy
+- **Phase 1 (Core):** REST API, PostgreSQL, filesystem storage, JWT auth, Web UI (React + MUI), `plugins.json` endpoint, Client SDK as pf4j-update drop-in — **completed**
+- **Phase 2 (Enterprise):** Multi-namespace, RBAC with namespace roles (ADMIN/MEMBER/READ_ONLY), OIDC multi-issuer auth, review/approval workflow, catalog visibility (status filter, pending review banner) — **in progress**
+- **Phase 3 (Ecosystem):** Embeddable UI component, webhooks, vulnerability scanning, Gradle/Maven CI/CD plugin, code signing, S3/MinIO storage, SaaS multi-tenancy
 
 ## Deployment (Self-Hosted Minimal)
 

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 devtank42 GmbH
 import { create } from 'zustand'
 import type { PluginDto, PluginPagedResponse } from '../api/generated/model'
+import type { ListPluginsStatusEnum } from '../api/generated/api/catalog-api'
 import { catalogApi } from '../api/config'
 
 interface PluginFilters {
@@ -18,6 +19,7 @@ interface PluginState {
   plugins: PluginDto[]
   totalElements: number
   totalPages: number
+  pendingReviewPluginCount: number | null
   loading: boolean
   error: string | null
   filters: PluginFilters
@@ -41,6 +43,7 @@ export const usePluginStore = create<PluginState>((set, get) => ({
   plugins: [],
   totalElements: 0,
   totalPages: 0,
+  pendingReviewPluginCount: null,
   loading: false,
   error: null,
   filters: { ...defaultFilters },
@@ -67,13 +70,14 @@ export const usePluginStore = create<PluginState>((set, get) => ({
         q: filters.search || undefined,
         category: filters.category || undefined,
         tag: filters.tag || undefined,
-        status: (filters.status || undefined) as 'active' | 'suspended' | 'archived' | undefined,
+        status: (filters.status || undefined) as ListPluginsStatusEnum | undefined,
       })
       const data: PluginPagedResponse = response.data
       set({
         plugins: data.content,
         totalElements: data.totalElements,
         totalPages: data.totalPages,
+        pendingReviewPluginCount: data.pendingReviewPluginCount ?? null,
         loading: false,
       })
     } catch (err) {

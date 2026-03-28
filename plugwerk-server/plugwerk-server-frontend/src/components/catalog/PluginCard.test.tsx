@@ -14,7 +14,12 @@ const basePlugin: PluginDto = {
   description: 'Handles authentication for your application.',
   author: 'ACME Corp',
   status: 'active',
-  latestVersion: '1.2.3',
+  latestRelease: {
+    id: 'rel-1',
+    pluginId: 'auth-plugin',
+    version: '1.2.3',
+    status: 'published',
+  },
   downloadCount: 1500,
   tags: ['auth', 'security', 'oauth'],
   updatedAt: '2026-01-15T10:00:00Z',
@@ -95,8 +100,8 @@ describe('PluginCard', () => {
     expect(screen.getByText('—')).toBeInTheDocument()
   })
 
-  it('does not render version badge when latestVersion is absent', () => {
-    const plugin = { ...basePlugin, latestVersion: undefined }
+  it('does not render version badge when latestRelease is absent', () => {
+    const plugin = { ...basePlugin, latestRelease: undefined }
     renderWithRouter(<PluginCard plugin={plugin} namespace="acme" />)
     expect(screen.queryByText(/^v/)).not.toBeInTheDocument()
   })

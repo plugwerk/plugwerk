@@ -13,6 +13,9 @@ vi.mock('../api/config', () => ({
   catalogApi: {
     listPlugins: vi.fn().mockResolvedValue({ data: { content: [], totalElements: 0, totalPages: 0 } }),
   },
+  namespaceMembersApi: {
+    getMyMembership: vi.fn().mockRejectedValue(new Error('not a member')),
+  },
   managementApi: {},
   reviewsApi: {},
   updatesApi: {},
@@ -25,7 +28,12 @@ const mockPlugin: PluginDto = {
   description: 'Authentication support.',
   author: 'ACME Corp',
   status: 'active',
-  latestVersion: '1.0.0',
+  latestRelease: {
+    id: 'rel-1',
+    pluginId: 'auth-plugin',
+    version: '1.0.0',
+    status: 'published',
+  },
   downloadCount: 42,
   tags: ['auth'],
 }
@@ -52,12 +60,13 @@ describe('CatalogPage', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    useAuthStore.setState({ accessToken: null, namespace: 'acme' })
+    useAuthStore.setState({ accessToken: null, namespace: 'acme', namespaceRole: null, fetchNamespaceRole: vi.fn() })
     useUiStore.setState({ searchQuery: '', toasts: [] })
     usePluginStore.setState({
       plugins: [],
       totalElements: 0,
       totalPages: 0,
+      pendingReviewPluginCount: null,
       loading: false,
       error: null,
       filters: { ...defaultFilters },

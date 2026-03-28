@@ -88,6 +88,16 @@ export function FilterBar({ view, onViewChange, namespace }: FilterBarProps) {
       </FilterSelect>
 
       <FilterSelect
+        value={filters.status}
+        onChange={(v) => handleChange('status', v)}
+        aria-label="Filter by status"
+        minWidth={140}
+      >
+        <MenuItem value="">Active</MenuItem>
+        <MenuItem value="archived">Archived</MenuItem>
+      </FilterSelect>
+
+      <FilterSelect
         value={compatibility}
         onChange={setCompatibility}
         aria-label="Filter by compatibility"

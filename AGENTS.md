@@ -14,7 +14,7 @@ Project concept: `docs/concepts/concept-pf4j-marketplace-en.md`
 
 ## Project Status
 
-Phase 1 (MVP) is **in active development**. The Gradle multi-module project is scaffolded. Tracking issue: [#7](https://github.com/devtank42gmbh/plugwerk/issues/7).
+Phase 1 (Core) is **complete**. Phase 2 (Enterprise) is **in active development** — multi-namespace RBAC, OIDC authentication, and review workflows are implemented. Tracking issue: [#7](https://github.com/devtank42gmbh/plugwerk/issues/7).
 
 ## Naming
 
@@ -144,9 +144,9 @@ PRs without labels or milestone are non-compliant. Set them via `gh pr edit <num
 | Server Backend | Spring Boot 4.x / JVM 21+ |
 | Server API | Spring Web (REST) + OpenAPI 3.1 (API-First) |
 | Database | PostgreSQL + Liquibase |
-| Storage | Filesystem (MVP) / S3-compatible (Phase 2) |
+| Storage | Filesystem (local) / S3-compatible (planned) |
 | Web UI | React 19 / TypeScript / Material UI 7 / Zustand 5 / Vite |
-| Auth | JWT Bearer (Phase 1 provisional) / Spring Security + OIDC (Phase 2) |
+| Auth | Spring Security: JWT (local login) + OIDC multi-issuer + API keys |
 | Client SDK | PF4J plugin / OkHttp / Jackson / JVM 11+ |
 | Build | Gradle 9.x multi-module (Kotlin DSL) + Vite (frontend) |
 | Tests (backend) | JUnit 5 + Mockito + Testcontainers |

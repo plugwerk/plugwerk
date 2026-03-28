@@ -25,6 +25,8 @@ import io.plugwerk.api.model.PluginReleaseDto
 import io.plugwerk.api.model.ReleasePagedResponse
 import io.plugwerk.server.controller.mapper.PluginMapper
 import io.plugwerk.server.controller.mapper.PluginReleaseMapper
+import io.plugwerk.server.domain.PluginReleaseEntity
+import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.service.Pf4jCompatibilityService
 import io.plugwerk.server.service.PluginReleaseService
@@ -37,8 +39,10 @@ import org.springframework.data.domain.Sort
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.util.UUID
 
 @RestController
 @RequestMapping("/api/v1")
@@ -46,6 +50,7 @@ class CatalogController(
     private val pluginService: PluginService,
     private val releaseService: PluginReleaseService,
     private val releaseRepository: PluginReleaseRepository,
+    private val namespaceRepository: NamespaceRepository,
     private val pf4jService: Pf4jCompatibilityService,
     private val pluginMapper: PluginMapper,
     private val releaseMapper: PluginReleaseMapper,
@@ -61,45 +66,35 @@ class CatalogController(
         tag: String?,
         status: String?,
     ): ResponseEntity<PluginPagedResponse> {
-        val pluginStatus = status?.let { parsePluginStatus(it) }
+        val pluginStatus = status?.let { parsePluginStatus(it) } ?: PluginStatus.ACTIVE
         val pageable = buildPageable(page, size, sort)
-        val resultPage = pluginService.findPagedByNamespace(ns, pluginStatus, category, tag, q, pageable)
+        val resultPage = pluginService.findPagedByNamespace(
+            ns,
+            pluginStatus,
+            category,
+            tag,
+            q,
+            pageable,
+            publishedOnly = true,
+        )
 
         val pluginIds = resultPage.content.mapNotNull { it.id }
-        val latestVersions: Map<java.util.UUID, String> = if (pluginIds.isEmpty()) {
+        val latestReleases: Map<UUID, PluginReleaseEntity> = if (pluginIds.isEmpty()) {
             emptyMap()
         } else {
-            releaseRepository.findLatestPublishedVersionsForPlugins(pluginIds)
-                .associate { row -> (row[0] as java.util.UUID) to (row[1] as String) }
-        }
-        val latestArtifactSizes: Map<java.util.UUID, Long> = if (pluginIds.isEmpty()) {
-            emptyMap()
-        } else {
-            releaseRepository.findLatestPublishedArtifactSizesForPlugins(pluginIds)
-                .associate { row -> (row[0] as java.util.UUID) to (row[1] as Long) }
-        }
-        val draftOnlyIds = pluginIds.filter { it !in latestVersions }
-        val latestDraftVersions: Map<java.util.UUID, String> = if (draftOnlyIds.isEmpty()) {
-            emptyMap()
-        } else {
-            releaseRepository.findLatestDraftVersionsForPlugins(draftOnlyIds)
-                .associate { row -> (row[0] as java.util.UUID) to (row[1] as String) }
+            releaseRepository.findLatestPublishedReleasesForPlugins(pluginIds)
+                .associateBy { it.plugin.id!! }
         }
 
+        val pendingCount = resolvePendingReviewCount(ns)
+
         val response = PluginPagedResponse(
-            content = resultPage.content.map {
-                pluginMapper.toDto(
-                    it,
-                    ns,
-                    latestVersions[it.id],
-                    latestDraftVersions[it.id],
-                    latestArtifactSizes[it.id],
-                )
-            },
+            content = resultPage.content.map { pluginMapper.toDto(it, ns, latestReleases[it.id]) },
             totalElements = resultPage.totalElements,
             page = resultPage.number,
             propertySize = resultPage.size,
             totalPages = resultPage.totalPages,
+            pendingReviewPluginCount = pendingCount,
         )
         return ResponseEntity.ok(response)
     }
@@ -107,19 +102,10 @@ class CatalogController(
     override fun getPlugin(ns: String, pluginId: String): ResponseEntity<PluginDto> {
         val plugin = pluginService.findByNamespaceAndPluginId(ns, pluginId)
         val allReleases = releaseService.findAllByPlugin(ns, pluginId)
-        val latestPublishedRelease = allReleases.filter { it.status == ReleaseStatus.PUBLISHED }
+        val latestPublishedRelease = allReleases
+            .filter { it.status == ReleaseStatus.PUBLISHED }
             .maxByOrNull { it.createdAt }
-        val latestVersion = latestPublishedRelease?.version
-        val latestDraftVersion = if (latestVersion == null) {
-            allReleases.filter { it.status == ReleaseStatus.DRAFT }
-                .maxByOrNull { it.createdAt }
-                ?.version
-        } else {
-            null
-        }
-        return ResponseEntity.ok(
-            pluginMapper.toDto(plugin, ns, latestVersion, latestDraftVersion, latestPublishedRelease?.artifactSize),
-        )
+        return ResponseEntity.ok(pluginMapper.toDto(plugin, ns, latestPublishedRelease))
     }
 
     override fun listReleases(
@@ -163,9 +149,19 @@ class CatalogController(
     override fun getPluginsJson(ns: String): ResponseEntity<Pf4jPluginsJson> =
         ResponseEntity.ok(pf4jService.buildPluginsJson(ns))
 
+    /**
+     * Returns the number of active plugins pending review (draft-only) for authenticated users.
+     * Returns `null` for anonymous requests — no sensitive information is leaked.
+     */
+    private fun resolvePendingReviewCount(ns: String): Long? {
+        val auth = SecurityContextHolder.getContext().authentication ?: return null
+        if (!auth.isAuthenticated) return null
+        val namespace = namespaceRepository.findBySlug(ns).orElse(null) ?: return null
+        return releaseRepository.countPluginsWithOnlyDraftReleases(namespace.id!!)
+    }
+
     private fun parsePluginStatus(value: String): PluginStatus = when (value.lowercase()) {
         "active" -> PluginStatus.ACTIVE
-        "suspended" -> PluginStatus.SUSPENDED
         "archived" -> PluginStatus.ARCHIVED
         else -> throw IllegalArgumentException("Unknown plugin status: $value")
     }

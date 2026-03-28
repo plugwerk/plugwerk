@@ -21,6 +21,7 @@ import io.plugwerk.api.NamespaceMembersApi
 import io.plugwerk.api.model.NamespaceMemberCreateRequest
 import io.plugwerk.api.model.NamespaceMemberDto
 import io.plugwerk.api.model.NamespaceMemberUpdateRequest
+import io.plugwerk.api.model.NamespaceMembershipDto
 import io.plugwerk.api.model.NamespaceRole
 import io.plugwerk.server.domain.NamespaceMemberEntity
 import io.plugwerk.server.repository.NamespaceMemberRepository
@@ -45,6 +46,26 @@ class NamespaceMemberController(
     private val namespaceMemberRepository: NamespaceMemberRepository,
     private val namespaceAuthorizationService: NamespaceAuthorizationService,
 ) : NamespaceMembersApi {
+
+    override fun getMyMembership(ns: String): ResponseEntity<NamespaceMembershipDto> {
+        val authentication = SecurityContextHolder.getContext().authentication
+            ?: return ResponseEntity.status(401).build()
+        val namespace = namespaceRepository.findBySlug(ns)
+            .orElseThrow { NamespaceNotFoundException(ns) }
+
+        // Superadmin and access keys have implicit ADMIN — no member entry needed
+        if (namespaceAuthorizationService.isSuperadmin(authentication) ||
+            authentication.name.startsWith("key:")
+        ) {
+            return ResponseEntity.ok(NamespaceMembershipDto(role = NamespaceRole.ADMIN))
+        }
+
+        val member = namespaceMemberRepository.findByNamespaceIdAndUserSubject(
+            namespace.id!!,
+            authentication.name,
+        ).orElseThrow { EntityNotFoundException("NamespaceMember", authentication.name) }
+        return ResponseEntity.ok(NamespaceMembershipDto(role = member.role.toDto()))
+    }
 
     override fun listNamespaceMembers(ns: String): ResponseEntity<List<NamespaceMemberDto>> {
         namespaceAuthorizationService.requireRole(

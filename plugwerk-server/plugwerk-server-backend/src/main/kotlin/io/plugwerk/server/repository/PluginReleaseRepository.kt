@@ -59,13 +59,13 @@ interface PluginReleaseRepository : JpaRepository<PluginReleaseEntity, UUID> {
     ): List<PluginReleaseEntity>
 
     /**
-     * Returns the latest published version string per plugin for a given set of plugin IDs.
-     * Result is a list of [pluginId, version] pairs where version is the most recently
-     * created PUBLISHED release. One DB round-trip for the entire page.
+     * Returns the full latest published release entity per plugin for a given set of plugin IDs.
+     * Replaces the three individual queries for version, draft version, and artifact size.
+     * One DB round-trip for the entire page.
      */
     @Query(
         """
-        SELECT r.plugin.id, r.version
+        SELECT r
         FROM PluginReleaseEntity r
         WHERE r.plugin.id IN :pluginIds
           AND r.status = io.plugwerk.spi.model.ReleaseStatus.PUBLISHED
@@ -77,48 +77,29 @@ interface PluginReleaseRepository : JpaRepository<PluginReleaseEntity, UUID> {
           )
         """,
     )
-    fun findLatestPublishedVersionsForPlugins(@Param("pluginIds") pluginIds: Collection<UUID>): List<Array<Any>>
+    fun findLatestPublishedReleasesForPlugins(
+        @Param("pluginIds") pluginIds: Collection<UUID>,
+    ): List<PluginReleaseEntity>
 
     /**
-     * Returns the latest draft version string per plugin for a given set of plugin IDs.
-     * Used as fallback for plugins that have no published release yet.
-     * Result is a list of [pluginId, version] pairs where version is the most recently
-     * created DRAFT release.
+     * Counts the number of active plugins in a namespace that have at least one draft release
+     * but no published release. Used for the "pending review" banner on the catalog page.
      */
     @Query(
         """
-        SELECT r.plugin.id, r.version
-        FROM PluginReleaseEntity r
-        WHERE r.plugin.id IN :pluginIds
+        SELECT COUNT(DISTINCT p.id)
+        FROM PluginEntity p
+        JOIN PluginReleaseEntity r ON r.plugin = p
+        WHERE p.namespace.id = :namespaceId
+          AND p.status = io.plugwerk.spi.model.PluginStatus.ACTIVE
           AND r.status = io.plugwerk.spi.model.ReleaseStatus.DRAFT
-          AND r.createdAt = (
-            SELECT MAX(r2.createdAt)
+          AND NOT EXISTS (
+            SELECT 1
             FROM PluginReleaseEntity r2
-            WHERE r2.plugin.id = r.plugin.id
-              AND r2.status = io.plugwerk.spi.model.ReleaseStatus.DRAFT
-          )
-        """,
-    )
-    fun findLatestDraftVersionsForPlugins(@Param("pluginIds") pluginIds: Collection<UUID>): List<Array<Any>>
-
-    /**
-     * Returns the artifact size of the latest published release per plugin for a given set of
-     * plugin IDs. Result is a list of [pluginId, artifactSize] pairs. One DB round-trip for the
-     * entire page.
-     */
-    @Query(
-        """
-        SELECT r.plugin.id, r.artifactSize
-        FROM PluginReleaseEntity r
-        WHERE r.plugin.id IN :pluginIds
-          AND r.status = io.plugwerk.spi.model.ReleaseStatus.PUBLISHED
-          AND r.createdAt = (
-            SELECT MAX(r2.createdAt)
-            FROM PluginReleaseEntity r2
-            WHERE r2.plugin.id = r.plugin.id
+            WHERE r2.plugin = p
               AND r2.status = io.plugwerk.spi.model.ReleaseStatus.PUBLISHED
           )
         """,
     )
-    fun findLatestPublishedArtifactSizesForPlugins(@Param("pluginIds") pluginIds: Collection<UUID>): List<Array<Any>>
+    fun countPluginsWithOnlyDraftReleases(@Param("namespaceId") namespaceId: UUID): Long
 }

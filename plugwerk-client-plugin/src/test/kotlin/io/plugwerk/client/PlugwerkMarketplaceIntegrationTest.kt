@@ -79,7 +79,7 @@ class PlugwerkMarketplaceIntegrationTest {
             MockResponse()
                 .setBody(
                     """{"content":[
-                        {"id":"00000000-0000-0000-0000-000000000001","pluginId":"plugin-a","name":"Plugin A","status":"active","latestVersion":"3.0.0"},
+                        {"id":"00000000-0000-0000-0000-000000000001","pluginId":"plugin-a","name":"Plugin A","status":"active","latestRelease":{"id":"00000000-0000-0000-0000-000000000002","pluginId":"plugin-a","version":"3.0.0","status":"published"}},
                         {"id":"00000000-0000-0000-0000-000000000003","pluginId":"plugin-b","name":"Plugin B","status":"archived"}
                     ],"totalElements":2,"page":0,"size":20,"totalPages":1}""",
                 )
