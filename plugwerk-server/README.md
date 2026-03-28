@@ -67,8 +67,8 @@ The Gradle build calls `npm run build` via the `plugwerk-server-frontend` submod
 # Start database
 docker compose up -d postgres
 
-# Backend (port 8080)
-./gradlew :plugwerk-server:plugwerk-server-backend:bootRun --args='--spring.profiles.active=dev'
+# Backend (port 8080) — requires PLUGWERK_JWT_SECRET and PLUGWERK_ENCRYPTION_KEY
+./gradlew :plugwerk-server:plugwerk-server-backend:bootRun
 
 # Frontend dev server (port 5173, proxies /api to localhost:8080)
 cd plugwerk-server/plugwerk-server-frontend

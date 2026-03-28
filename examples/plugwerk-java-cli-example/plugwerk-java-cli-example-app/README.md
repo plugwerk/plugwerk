@@ -33,7 +33,7 @@ JVM (Host)
 
    ```bash
    docker compose up -d postgres
-   ./gradlew :plugwerk-server:plugwerk-server-backend:bootRun --args='--spring.profiles.active=dev'
+   ./gradlew :plugwerk-server:plugwerk-server-backend:bootRun
    ```
 
 3. **Build the SDK plugin ZIP** (from the main project root):

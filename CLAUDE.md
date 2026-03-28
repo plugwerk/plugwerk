@@ -75,7 +75,7 @@ If `plugwerk.yml` is absent, the server falls back to the PF4J manifest.
 ./gradlew build                                   # Build all modules + run all tests
 ./gradlew build -x test                           # Build without tests
 ./gradlew :plugwerk-api:plugwerk-api-endpoint:openApiGenerate :plugwerk-api:plugwerk-api-model:openApiGenerate  # Regenerate backend DTOs/interfaces from OpenAPI YAML
-./gradlew :plugwerk-server:plugwerk-server-backend:bootRun --args='--spring.profiles.active=dev'
+./gradlew :plugwerk-server:plugwerk-server-backend:bootRun
 docker compose up -d postgres                     # Start dev database
 ```
 
