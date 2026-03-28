@@ -36,7 +36,7 @@ class Pf4jManifestParser {
         val license = attrs.getValue("Plugin-License")
         val dependencies = parseDependencyString(attrs.getValue("Plugin-Dependencies"))
 
-        return PlugwerkDescriptor(
+        val descriptor = PlugwerkDescriptor(
             id = id,
             version = version,
             name = description ?: id,
@@ -46,6 +46,8 @@ class Pf4jManifestParser {
             requiresSystemVersion = requires,
             pluginDependencies = dependencies,
         )
+        DescriptorValidator.validate(descriptor)
+        return descriptor
     }
 
     fun parseProperties(properties: Properties): PlugwerkDescriptor {
@@ -59,7 +61,7 @@ class Pf4jManifestParser {
         val license = properties.getProperty("plugin.license")
         val dependencies = parseDependencyString(properties.getProperty("plugin.dependencies"))
 
-        return PlugwerkDescriptor(
+        val descriptor = PlugwerkDescriptor(
             id = id,
             version = version,
             name = description ?: id,
@@ -69,6 +71,8 @@ class Pf4jManifestParser {
             requiresSystemVersion = requires,
             pluginDependencies = dependencies,
         )
+        DescriptorValidator.validate(descriptor)
+        return descriptor
     }
 
     fun parseFromJar(jarStream: InputStream): PlugwerkDescriptor {

@@ -406,6 +406,20 @@ paths:
         New releases are created with status `draft`. Publish them explicitly via
         `PATCH /namespaces/{ns}/plugins/{pluginId}/releases/{version}`.
 
+        **Descriptor validation:**
+        All descriptor fields are validated on upload. Key constraints:
+        - `id`: `^[a-zA-Z0-9._-]{1,128}$`
+        - `version`: valid SemVer, max 100 characters
+        - `name`: max 255 characters
+        - `description`: max 10,000 characters
+        - `author`: max 255 characters
+        - `license`: max 100 characters
+        - URL fields (`homepage`, `repository`, `icon`): max 2,048 characters, must be valid http/https
+        - `categories`: max 20 entries, each max 64 characters
+        - `tags`: max 50 entries, each max 64 characters
+        - `pluginDependencies`: max 100 entries, each ID must match the plugin ID format
+        - Plain-text fields must not contain HTML/script tags
+
         Returns `422 Unprocessable Entity` if the descriptor is missing or invalid.
       operationId: uploadPluginRelease
       security:

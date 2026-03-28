@@ -86,10 +86,10 @@ class PlugwerkDescriptorParserTest {
     @Test
     fun `parse throws on invalid version`() {
         val input = loadResource("plugwerk-bad-version.yml")
-        val ex = assertThrows<DescriptorParseException> {
+        val ex = assertThrows<DescriptorValidationException> {
             parser.parse(input)
         }
-        assertTrue(ex.message!!.contains("version"), "Error should mention 'version': ${ex.message}")
+        assertTrue(ex.violations.any { it.contains("version") }, "Error should mention 'version': ${ex.message}")
     }
 
     @Test

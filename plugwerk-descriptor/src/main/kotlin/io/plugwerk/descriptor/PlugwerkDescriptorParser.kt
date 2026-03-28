@@ -17,7 +17,6 @@
  */
 package io.plugwerk.descriptor
 
-import io.plugwerk.spi.version.isValidSemVer
 import tools.jackson.core.JacksonException
 import tools.jackson.core.StreamReadConstraints
 import tools.jackson.dataformat.yaml.YAMLFactory
@@ -74,10 +73,6 @@ class PlugwerkDescriptorParser {
             ?: throw DescriptorParseException("Required field 'version' is missing in plugwerk.yml")
         val name = yaml.name
             ?: throw DescriptorParseException("Required field 'name' is missing in plugwerk.yml")
-
-        if (!version.isValidSemVer()) {
-            throw DescriptorParseException("Invalid SemVer version '$version' in plugwerk.yml")
-        }
 
         val dependencies = yaml.requires?.plugins?.map { dep ->
             PluginDependency(

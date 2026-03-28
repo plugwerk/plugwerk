@@ -19,6 +19,7 @@ package io.plugwerk.descriptor
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.util.Properties
@@ -157,6 +158,62 @@ class Pf4jManifestParserTest {
         assertEquals("props-jar", descriptor.id)
         assertEquals("2.0.0", descriptor.version)
     }
+
+    // ---- Validation via DescriptorValidator ----
+
+    @Test
+    fun `manifest with invalid plugin id throws DescriptorValidationException`() {
+        val manifest = Manifest().apply {
+            mainAttributes[Attributes.Name.MANIFEST_VERSION] = "1.0"
+            mainAttributes.putValue("Plugin-Id", "../traversal")
+            mainAttributes.putValue("Plugin-Version", "1.0.0")
+        }
+        val ex = assertThrows<DescriptorValidationException> {
+            parser.parseManifest(manifest)
+        }
+        assertTrue(ex.violations.any { it.contains("id") })
+    }
+
+    @Test
+    fun `manifest with non-SemVer version throws DescriptorValidationException`() {
+        val manifest = Manifest().apply {
+            mainAttributes[Attributes.Name.MANIFEST_VERSION] = "1.0"
+            mainAttributes.putValue("Plugin-Id", "valid-plugin")
+            mainAttributes.putValue("Plugin-Version", "not-a-version")
+        }
+        val ex = assertThrows<DescriptorValidationException> {
+            parser.parseManifest(manifest)
+        }
+        assertTrue(ex.violations.any { it.contains("version") })
+    }
+
+    @Test
+    fun `manifest with oversized author throws DescriptorValidationException`() {
+        val manifest = Manifest().apply {
+            mainAttributes[Attributes.Name.MANIFEST_VERSION] = "1.0"
+            mainAttributes.putValue("Plugin-Id", "valid-plugin")
+            mainAttributes.putValue("Plugin-Version", "1.0.0")
+            mainAttributes.putValue("Plugin-Provider", "a".repeat(256))
+        }
+        val ex = assertThrows<DescriptorValidationException> {
+            parser.parseManifest(manifest)
+        }
+        assertTrue(ex.violations.any { it.contains("author") })
+    }
+
+    @Test
+    fun `properties with plugin id exceeding 128 chars throws DescriptorValidationException`() {
+        val props = Properties().apply {
+            setProperty("plugin.id", "a".repeat(129))
+            setProperty("plugin.version", "1.0.0")
+        }
+        val ex = assertThrows<DescriptorValidationException> {
+            parser.parseProperties(props)
+        }
+        assertTrue(ex.violations.any { it.contains("id") })
+    }
+
+    // ---- parseFromJar ----
 
     @Test
     fun `parse from JAR without any descriptor throws`() {

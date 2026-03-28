@@ -188,6 +188,20 @@ class DescriptorResolverTest {
     }
 
     @Test
+    fun `resolve propagates validation error for invalid plugin id in manifest`() {
+        val manifest = Manifest().apply {
+            mainAttributes[Attributes.Name.MANIFEST_VERSION] = "1.0"
+            mainAttributes.putValue("Plugin-Id", "../traversal")
+            mainAttributes.putValue("Plugin-Version", "1.0.0")
+        }
+        val jar = createJarWithManifest(manifest)
+
+        assertThrows<DescriptorValidationException> {
+            resolver.resolve(jar)
+        }
+    }
+
+    @Test
     fun `resolve propagates parse error for malformed plugwerk yml`() {
         val badYaml = """
             plugwerk:

@@ -30,22 +30,32 @@ class DescriptorValidatorTest {
         id: String = "my-plugin",
         name: String = "My Plugin",
         version: String = "1.0.0",
+        description: String? = null,
+        author: String? = null,
+        license: String? = null,
         homepage: String? = null,
         repository: String? = null,
         icon: String? = null,
         categories: List<String> = emptyList(),
         tags: List<String> = emptyList(),
+        screenshots: List<String> = emptyList(),
         requiresSystemVersion: String? = null,
+        pluginDependencies: List<PluginDependency> = emptyList(),
     ) = PlugwerkDescriptor(
         id = id,
         version = version,
         name = name,
+        description = description,
+        author = author,
+        license = license,
         homepage = homepage,
         repository = repository,
         icon = icon,
         categories = categories,
         tags = tags,
+        screenshots = screenshots,
         requiresSystemVersion = requiresSystemVersion,
+        pluginDependencies = pluginDependencies,
     )
 
     @Test
@@ -85,6 +95,32 @@ class DescriptorValidatorTest {
         assertTrue(ex.violations.any { it.contains("id") })
     }
 
+    // ---- version ----
+
+    @ParameterizedTest
+    @ValueSource(strings = ["1.0.0", "0.1.0", "10.20.30", "1.0.0-beta.1", "1.0.0+build.42"])
+    fun `valid SemVer versions pass`(version: String) {
+        assertDoesNotThrow { DescriptorValidator.validate(minimalDescriptor(version = version)) }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["not-a-version", "1.0", "1", "latest", "v1.0.0.0"])
+    fun `invalid SemVer versions throw`(version: String) {
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(minimalDescriptor(version = version))
+        }
+        assertTrue(ex.violations.any { it.contains("version") })
+    }
+
+    @Test
+    fun `version exceeding max length throws`() {
+        val longVersion = "1.0.0-${"a".repeat(DescriptorValidator.VERSION_MAX_LENGTH)}"
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(minimalDescriptor(version = longVersion))
+        }
+        assertTrue(ex.violations.any { it.contains("version") })
+    }
+
     // ---- name ----
 
     @Test
@@ -100,6 +136,67 @@ class DescriptorValidatorTest {
             DescriptorValidator.validate(minimalDescriptor(name = "a".repeat(256)))
         }
         assertTrue(ex.violations.any { it.contains("name") })
+    }
+
+    // ---- description ----
+
+    @Test
+    fun `description at max length passes`() {
+        assertDoesNotThrow {
+            DescriptorValidator.validate(
+                minimalDescriptor(description = "a".repeat(DescriptorValidator.DESCRIPTION_MAX_LENGTH)),
+            )
+        }
+    }
+
+    @Test
+    fun `description exceeding max length throws`() {
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(
+                minimalDescriptor(description = "a".repeat(DescriptorValidator.DESCRIPTION_MAX_LENGTH + 1)),
+            )
+        }
+        assertTrue(ex.violations.any { it.contains("description") })
+    }
+
+    // ---- author ----
+
+    @Test
+    fun `author at max length passes`() {
+        assertDoesNotThrow {
+            DescriptorValidator.validate(minimalDescriptor(author = "a".repeat(DescriptorValidator.AUTHOR_MAX_LENGTH)))
+        }
+    }
+
+    @Test
+    fun `author exceeding max length throws`() {
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(
+                minimalDescriptor(author = "a".repeat(DescriptorValidator.AUTHOR_MAX_LENGTH + 1)),
+            )
+        }
+        assertTrue(ex.violations.any { it.contains("author") })
+    }
+
+    // ---- license ----
+
+    @Test
+    fun `license at max length passes`() {
+        assertDoesNotThrow {
+            DescriptorValidator.validate(
+                minimalDescriptor(license = "a".repeat(DescriptorValidator.LICENSE_MAX_LENGTH)),
+            )
+        }
+    }
+
+    @Test
+    fun `license exceeding max length throws`() {
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(
+                minimalDescriptor(license = "a".repeat(DescriptorValidator.LICENSE_MAX_LENGTH + 1)),
+            )
+        }
+        assertTrue(ex.violations.any { it.contains("license") })
     }
 
     // ---- URL fields ----
@@ -131,6 +228,24 @@ class DescriptorValidatorTest {
     }
 
     @Test
+    fun `homepage exceeding max URL length throws`() {
+        val longUrl = "https://example.com/${"a".repeat(DescriptorValidator.URL_MAX_LENGTH)}"
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(minimalDescriptor(homepage = longUrl))
+        }
+        assertTrue(ex.violations.any { it.contains("homepage") })
+    }
+
+    @Test
+    fun `repository exceeding max URL length throws`() {
+        val longUrl = "https://example.com/${"a".repeat(DescriptorValidator.URL_MAX_LENGTH)}"
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(minimalDescriptor(repository = longUrl))
+        }
+        assertTrue(ex.violations.any { it.contains("repository") })
+    }
+
+    @Test
     fun `icon as relative path passes without URL validation`() {
         assertDoesNotThrow {
             DescriptorValidator.validate(minimalDescriptor(icon = "icons/plugin.png"))
@@ -148,6 +263,15 @@ class DescriptorValidatorTest {
     fun `icon as invalid https URL throws`() {
         val ex = assertThrows<DescriptorValidationException> {
             DescriptorValidator.validate(minimalDescriptor(icon = "https://"))
+        }
+        assertTrue(ex.violations.any { it.contains("icon") })
+    }
+
+    @Test
+    fun `icon exceeding max URL length throws`() {
+        val longIcon = "icons/${"a".repeat(DescriptorValidator.URL_MAX_LENGTH)}.png"
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(minimalDescriptor(icon = longIcon))
         }
         assertTrue(ex.violations.any { it.contains("icon") })
     }
@@ -177,6 +301,61 @@ class DescriptorValidatorTest {
         assertTrue(ex.violations.any { it.contains("categories") })
     }
 
+    @Test
+    fun `categories exceeding max count throws`() {
+        val tooMany = (1..DescriptorValidator.MAX_CATEGORIES + 1).map { "cat-$it" }
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(minimalDescriptor(categories = tooMany))
+        }
+        assertTrue(ex.violations.any { it.contains("categories") && it.contains("exceed") })
+    }
+
+    @Test
+    fun `tags exceeding max count throws`() {
+        val tooMany = (1..DescriptorValidator.MAX_TAGS + 1).map { "tag-$it" }
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(minimalDescriptor(tags = tooMany))
+        }
+        assertTrue(ex.violations.any { it.contains("tags") && it.contains("exceed") })
+    }
+
+    // ---- screenshots ----
+
+    @Test
+    fun `valid screenshots pass`() {
+        assertDoesNotThrow {
+            DescriptorValidator.validate(
+                minimalDescriptor(screenshots = listOf("screenshot.png", "https://example.com/screen.png")),
+            )
+        }
+    }
+
+    @Test
+    fun `screenshot exceeding max URL length throws`() {
+        val longUrl = "https://example.com/${"a".repeat(DescriptorValidator.URL_MAX_LENGTH)}.png"
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(minimalDescriptor(screenshots = listOf(longUrl)))
+        }
+        assertTrue(ex.violations.any { it.contains("screenshots") })
+    }
+
+    @Test
+    fun `screenshot with invalid URL scheme throws`() {
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(minimalDescriptor(screenshots = listOf("https://")))
+        }
+        assertTrue(ex.violations.any { it.contains("screenshots") })
+    }
+
+    @Test
+    fun `screenshots exceeding max count throws`() {
+        val tooMany = (1..DescriptorValidator.MAX_SCREENSHOTS + 1).map { "screen-$it.png" }
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(minimalDescriptor(screenshots = tooMany))
+        }
+        assertTrue(ex.violations.any { it.contains("screenshots") && it.contains("exceed") })
+    }
+
     // ---- requiresSystemVersion ----
 
     @ParameterizedTest
@@ -194,6 +373,107 @@ class DescriptorValidatorTest {
             DescriptorValidator.validate(minimalDescriptor(requiresSystemVersion = range))
         }
         assertTrue(ex.violations.any { it.contains("requiresSystemVersion") })
+    }
+
+    @Test
+    fun `requiresSystemVersion exceeding max length throws`() {
+        val longRange = ">=1.0.0 ${"& >=1.0.0 ".repeat(50)}"
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(minimalDescriptor(requiresSystemVersion = longRange))
+        }
+        assertTrue(ex.violations.any { it.contains("requiresSystemVersion") })
+    }
+
+    // ---- pluginDependencies ----
+
+    @Test
+    fun `valid plugin dependencies pass`() {
+        assertDoesNotThrow {
+            DescriptorValidator.validate(
+                minimalDescriptor(
+                    pluginDependencies = listOf(PluginDependency("acme-dep", ">=1.0.0")),
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `dependency with invalid id format throws`() {
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(
+                minimalDescriptor(
+                    pluginDependencies = listOf(PluginDependency("../traversal", ">=1.0.0")),
+                ),
+            )
+        }
+        assertTrue(ex.violations.any { it.contains("pluginDependencies[0].id") })
+    }
+
+    @Test
+    fun `dependency with oversized version throws`() {
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(
+                minimalDescriptor(
+                    pluginDependencies = listOf(
+                        PluginDependency(
+                            "valid-dep",
+                            "a".repeat(DescriptorValidator.DEPENDENCY_VERSION_MAX_LENGTH + 1),
+                        ),
+                    ),
+                ),
+            )
+        }
+        assertTrue(ex.violations.any { it.contains("pluginDependencies[0].version") })
+    }
+
+    @Test
+    fun `dependencies exceeding max count throws`() {
+        val tooMany = (1..DescriptorValidator.MAX_DEPENDENCIES + 1).map { PluginDependency("dep-$it", "*") }
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(minimalDescriptor(pluginDependencies = tooMany))
+        }
+        assertTrue(ex.violations.any { it.contains("pluginDependencies") && it.contains("exceed") })
+    }
+
+    // ---- HTML / script injection ----
+
+    @ParameterizedTest
+    @ValueSource(strings = ["<script>alert(1)</script>", "<iframe src=x>", "<object data=x>", "javascript:alert(1)"])
+    fun `name with HTML or script injection throws`(name: String) {
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(minimalDescriptor(name = name))
+        }
+        assertTrue(ex.violations.any { it.contains("HTML") || it.contains("script") })
+    }
+
+    @Test
+    fun `description with script tag throws`() {
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(minimalDescriptor(description = "Hello <script>alert(1)</script>"))
+        }
+        assertTrue(ex.violations.any { it.contains("description") && it.contains("HTML") })
+    }
+
+    @Test
+    fun `author with iframe tag throws`() {
+        val ex = assertThrows<DescriptorValidationException> {
+            DescriptorValidator.validate(minimalDescriptor(author = "<iframe src=evil>"))
+        }
+        assertTrue(ex.violations.any { it.contains("author") && it.contains("HTML") })
+    }
+
+    @Test
+    fun `legitimate less-than in description passes`() {
+        assertDoesNotThrow {
+            DescriptorValidator.validate(minimalDescriptor(description = "values < 10 are ignored"))
+        }
+    }
+
+    @Test
+    fun `description with harmless angle brackets passes`() {
+        assertDoesNotThrow {
+            DescriptorValidator.validate(minimalDescriptor(description = "Use <T> for generics"))
+        }
     }
 
     // ---- multiple violations reported at once ----
