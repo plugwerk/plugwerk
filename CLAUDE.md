@@ -109,4 +109,11 @@ Docker Compose:
 └── nginx            (reverse proxy, TLS – optional)
 ```
 
+Required environment variables (server refuses to start without them):
+- `PLUGWERK_JWT_SECRET` — HMAC signing key, min 32 chars
+- `PLUGWERK_ENCRYPTION_KEY` — AES key for OIDC secrets, exactly 16 chars
+- `PLUGWERK_AUTH_ADMIN_PASSWORD` — initial admin password
+
+See `.env.example` for a complete template.
+
 Health: `/actuator/health` | Metrics: Prometheus | Logging: structured JSON

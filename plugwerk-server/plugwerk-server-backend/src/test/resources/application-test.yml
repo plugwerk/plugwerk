@@ -5,3 +5,8 @@ spring:
     show-sql: true
   liquibase:
     enabled: false
+
+plugwerk:
+  auth:
+    jwt-secret: test-only-secret-not-for-production-32ch
+    encryption-key: test-encrypt16c!

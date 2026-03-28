@@ -17,7 +17,11 @@
  */
 package io.plugwerk.server
 
+import jakarta.validation.Valid
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Size
 import org.springframework.boot.context.properties.ConfigurationProperties
+import org.springframework.validation.annotation.Validated
 
 /**
  * Central configuration properties for the Plugwerk server, bound to the `plugwerk` prefix.
@@ -33,11 +37,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  *   backend-specific settings. See [StorageProperties].
  * @property server Server-level settings shared across services. See [ServerProperties].
  */
+@Validated
 @ConfigurationProperties(prefix = "plugwerk")
 data class PlugwerkProperties(
     val storage: StorageProperties = StorageProperties(),
     val server: ServerProperties = ServerProperties(),
-    val auth: AuthProperties = AuthProperties(),
+    @field:Valid val auth: AuthProperties = AuthProperties(),
 ) {
     /**
      * Artifact storage configuration (`plugwerk.storage.*`).
@@ -132,8 +137,8 @@ data class PlugwerkProperties(
      *
      *   Environment variable: `PLUGWERK_JWT_SECRET`
      *
-     *   ```yaml
-     *   plugwerk.auth.jwt-secret: "my-super-secret-key-at-least-32-chars"
+     *   ```bash
+     *   export PLUGWERK_JWT_SECRET="$(openssl rand -base64 32)"
      *   ```
      *
      * @property tokenValidityHours Lifetime of self-issued JWT access tokens in hours.
@@ -151,14 +156,18 @@ data class PlugwerkProperties(
      *
      *   Environment variable: `PLUGWERK_ENCRYPTION_KEY`
      *
-     *   ```yaml
-     *   plugwerk.auth.encryption-key: "change-me-16char"
+     *   ```bash
+     *   export PLUGWERK_ENCRYPTION_KEY="$(openssl rand -hex 8)"
      *   ```
      */
     data class AuthProperties(
-        val jwtSecret: String = "dev-secret-change-in-production-min32chars!!",
+        @field:NotBlank(message = "plugwerk.auth.jwt-secret must not be blank — set PLUGWERK_JWT_SECRET")
+        @field:Size(min = 32, message = "plugwerk.auth.jwt-secret must be at least 32 characters")
+        val jwtSecret: String = "",
         val tokenValidityHours: Long = 8,
-        val encryptionKey: String = "change-me-16char",
+        @field:NotBlank(message = "plugwerk.auth.encryption-key must not be blank — set PLUGWERK_ENCRYPTION_KEY")
+        @field:Size(min = 16, max = 16, message = "plugwerk.auth.encryption-key must be exactly 16 characters")
+        val encryptionKey: String = "",
         /**
          * Initial admin username. Defaults to `admin`.
          * Environment variable: `PLUGWERK_AUTH_ADMIN_USERNAME`

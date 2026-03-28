@@ -13,4 +13,5 @@ plugwerk:
       root: ${java.io.tmpdir}/plugwerk-smoke-test
   auth:
     jwt-secret: integration-test-secret-min32chars-ok!!
+    encryption-key: integ-encrypt-16
     admin-password: smoke-test-password

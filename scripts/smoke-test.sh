@@ -12,8 +12,18 @@
 #   value as PLUGWERK_PASSWORD here. When PLUGWERK_AUTH_ADMIN_PASSWORD is set, the server
 #   skips random password generation and the forced password-change flow.
 #
+#   Required env vars:
+#     PLUGWERK_PASSWORD              — admin password used to log in
+#     PLUGWERK_AUTH_ADMIN_PASSWORD   — must match PLUGWERK_PASSWORD
+#     PLUGWERK_JWT_SECRET            — HMAC signing key, min 32 chars
+#     PLUGWERK_ENCRYPTION_KEY        — AES key, exactly 16 chars
+#
 #   Example:
-#     PLUGWERK_AUTH_ADMIN_PASSWORD=smoketest PLUGWERK_PASSWORD=smoketest ./scripts/smoke-test.sh
+#     PLUGWERK_JWT_SECRET="$(openssl rand -base64 32)" \
+#     PLUGWERK_ENCRYPTION_KEY="$(openssl rand -hex 8)" \
+#     PLUGWERK_AUTH_ADMIN_PASSWORD=smoketest \
+#     PLUGWERK_PASSWORD=smoketest \
+#     ./scripts/smoke-test.sh
 set -euo pipefail
 
 BASE_URL="${PLUGWERK_BASE_URL:-http://localhost:8080}"
