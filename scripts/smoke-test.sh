@@ -5,11 +5,20 @@
 # Usage:
 #   ./scripts/smoke-test.sh              # builds image + starts stack
 #   SKIP_BUILD=1 ./scripts/smoke-test.sh # skips docker compose build (faster for local iteration)
+#
+# Authentication:
+#   The smoke test requires a fixed admin password so it can log in non-interactively.
+#   Set PLUGWERK_AUTH_ADMIN_PASSWORD (passed to the server via docker-compose) to the same
+#   value as PLUGWERK_PASSWORD here. When PLUGWERK_AUTH_ADMIN_PASSWORD is set, the server
+#   skips random password generation and the forced password-change flow.
+#
+#   Example:
+#     PLUGWERK_AUTH_ADMIN_PASSWORD=smoketest PLUGWERK_PASSWORD=smoketest ./scripts/smoke-test.sh
 set -euo pipefail
 
 BASE_URL="${PLUGWERK_BASE_URL:-http://localhost:8080}"
 USERNAME="${PLUGWERK_USERNAME:-admin}"
-PASSWORD="${PLUGWERK_PASSWORD:-admin}"
+PASSWORD="${PLUGWERK_PASSWORD:?ERROR: Set PLUGWERK_PASSWORD (and PLUGWERK_AUTH_ADMIN_PASSWORD to the same value) before running the smoke test}"
 NAMESPACE="smoke-$(date +%s)"
 PLUGIN_ID="smoke-plugin"
 PLUGIN_VERSION="1.0.0"

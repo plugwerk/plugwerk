@@ -51,21 +51,38 @@ curl http://localhost:8080/actuator/health
 
 Open the Web UI at **http://localhost:8080**.
 
-### Default credentials
+### Initial admin credentials
 
-| Username | Password |
-|----------|----------|
-| `test`   | `test`   |
+On first startup, Plugwerk creates a superadmin account with a **randomly generated password** and prints it once to the server log:
 
-> **Production:** Set `PLUGWERK_JWT_SECRET` to a strong secret (at least 32 characters) and configure proper user credentials. Never use the defaults on a publicly accessible server.
+```
+╔══════════════════════════════════════════════════════════╗
+║         Plugwerk — Initial Superadmin Password           ║
+║                                                          ║
+║  Username : admin                                        ║
+║  Password : <generated>                                  ║
+║                                                          ║
+║  Change this password immediately after first login.     ║
+╚══════════════════════════════════════════════════════════╝
+```
+
+Retrieve the password from the logs:
+
+```bash
+docker compose logs plugwerk-server | grep "Password :"
+```
+
+You will be prompted to change the password on first login. The admin username defaults to `admin` and can be overridden via `PLUGWERK_AUTH_ADMIN_USERNAME`.
+
+> **CI/CD or smoke tests:** Set `PLUGWERK_AUTH_ADMIN_PASSWORD` to a fixed value to skip random generation and the forced password change.
 
 ### Obtain a token and create a namespace
 
 ```bash
-# Login
+# Login — use the password from the server log (see "Initial admin credentials" above)
 TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"<your-admin-password>"}' | jq -r '.accessToken')
+  -d '{"username":"admin","password":"<password-from-log>"}' | jq -r '.accessToken')
 
 # Create a namespace for your product
 curl -s -X POST http://localhost:8080/api/v1/namespaces \
@@ -189,6 +206,8 @@ http://localhost:8080/api-docs/openapi.yaml
 | `PLUGWERK_DB_USERNAME` | `plugwerk` | Database username |
 | `PLUGWERK_DB_PASSWORD` | `plugwerk` | Database password |
 | `PLUGWERK_JWT_SECRET` | _(dev default)_ | HMAC-SHA256 signing secret, minimum 32 characters. **Must be changed in production.** |
+| `PLUGWERK_AUTH_ADMIN_USERNAME` | `admin` | Username of the superadmin account created on first startup |
+| `PLUGWERK_AUTH_ADMIN_PASSWORD` | _(randomly generated)_ | Fixed initial admin password. When set, skips random generation and the forced password change. Intended for CI/CD and smoke tests only. |
 | `PLUGWERK_BASE_URL` | `http://localhost:8080` | Public base URL of the server (used for artifact download links) |
 | `PLUGWERK_STORAGE_ROOT` | `/var/plugwerk/artifacts` | Filesystem path for storing artifact binaries |
 | `PLUGWERK_STORAGE_TYPE` | `fs` | Storage backend: `fs` (filesystem) |
