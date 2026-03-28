@@ -111,7 +111,17 @@ RELEASE_ID=$(echo "$UPLOAD_RESPONSE" | python3 -c "import sys,json; print(json.l
 echo "Upload OK (release ID: $RELEASE_ID)"
 
 # --------------------------------------------------------------------------- #
-# 6. Query catalog                                                              #
+# 6. Publish release                                                            #
+# --------------------------------------------------------------------------- #
+echo "--- Publishing release ---"
+curl -sf -X PATCH "$BASE_URL/api/v1/namespaces/$NAMESPACE/plugins/$PLUGIN_ID/releases/$PLUGIN_VERSION" \
+  -H "$AUTH_HEADER" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"published"}' > /dev/null
+echo "Release published"
+
+# --------------------------------------------------------------------------- #
+# 7. Query catalog                                                              #
 # --------------------------------------------------------------------------- #
 echo "--- Querying catalog ---"
 CATALOG=$(curl -sf "$BASE_URL/api/v1/namespaces/$NAMESPACE/plugins" \
@@ -126,7 +136,7 @@ print(next((p['pluginId'] for p in plugins if p['pluginId'] == '$PLUGIN_ID'), ''
 echo "Catalog OK — plugin found"
 
 # --------------------------------------------------------------------------- #
-# 7. Download artifact + verify SHA-256                                         #
+# 8. Download artifact + verify SHA-256                                         #
 # --------------------------------------------------------------------------- #
 echo "--- Downloading artifact ---"
 DOWNLOAD_FILE="$WORKDIR/downloaded.jar"
