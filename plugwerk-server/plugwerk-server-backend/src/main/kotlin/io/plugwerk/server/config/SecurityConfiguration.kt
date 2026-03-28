@@ -37,6 +37,7 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter
 
 @Configuration
 @EnableWebSecurity
@@ -65,10 +66,42 @@ class SecurityConfiguration(
     @Bean
     fun textEncryptor(): TextEncryptor = Encryptors.text(props.auth.encryptionKey, "deadbeefcafe0000")
 
+    companion object {
+        /**
+         * Content-Security-Policy directives.
+         *
+         * - `style-src 'unsafe-inline'` is required because MUI 7 / Emotion injects `<style>`
+         *   tags at runtime. A nonce-based approach would require SSR integration.
+         * - `img-src data:` allows MUI SVG icons encoded as data URIs.
+         *
+         * TODO(Phase 3): make `frame-ancestors` configurable for embeddable UI component.
+         */
+        const val CSP_POLICY = "default-src 'self'; " +
+            "script-src 'self'; " +
+            "style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data:; " +
+            "font-src 'self'; " +
+            "connect-src 'self'; " +
+            "frame-ancestors 'none'; " +
+            "form-action 'self'; " +
+            "base-uri 'self'; " +
+            "object-src 'none'"
+    }
+
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
             .csrf { it.disable() }
+            .headers { headers ->
+                headers.contentTypeOptions { }
+                headers.frameOptions { it.deny() }
+                headers.httpStrictTransportSecurity { it.maxAgeInSeconds(31536000).includeSubDomains(true) }
+                headers.referrerPolicy {
+                    it.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN)
+                }
+                headers.permissionsPolicy { it.policy("camera=(), microphone=(), geolocation=(), payment=()") }
+                headers.contentSecurityPolicy { it.policyDirectives(CSP_POLICY) }
+            }
             .httpBasic { it.disable() }
             .formLogin { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
