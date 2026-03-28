@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Copyright (C) 2026 devtank42 GmbH
 import { Box, Tooltip, Typography } from '@mui/material'
-import { Download, Clock, Puzzle } from 'lucide-react'
+import { Download, Clock, Puzzle, HardDrive } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Badge } from '../common/Badge'
 import type { PluginDto } from '../../api/generated/model'
 import { tokens } from '../../theme/tokens'
+import { formatFileSize } from '../../utils/formatFileSize'
 
 interface PluginListRowProps {
   plugin: PluginDto
@@ -101,6 +102,12 @@ export function PluginListRow({ plugin, namespace }: PluginListRowProps) {
           <Download size={12} aria-hidden="true" />
           <Typography variant="caption">{formatCount(plugin.downloadCount ?? 0)}</Typography>
         </Box>
+        {plugin.latestArtifactSize && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <HardDrive size={12} aria-hidden="true" />
+            <Typography variant="caption">{formatFileSize(plugin.latestArtifactSize)}</Typography>
+          </Box>
+        )}
         <Tooltip title={formatAbsoluteTime(plugin.updatedAt)} placement="top">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'default' }}>
             <Clock size={12} aria-hidden="true" />

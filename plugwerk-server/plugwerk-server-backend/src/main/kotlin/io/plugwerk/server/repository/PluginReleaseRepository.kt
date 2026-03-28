@@ -100,4 +100,25 @@ interface PluginReleaseRepository : JpaRepository<PluginReleaseEntity, UUID> {
         """,
     )
     fun findLatestDraftVersionsForPlugins(@Param("pluginIds") pluginIds: Collection<UUID>): List<Array<Any>>
+
+    /**
+     * Returns the artifact size of the latest published release per plugin for a given set of
+     * plugin IDs. Result is a list of [pluginId, artifactSize] pairs. One DB round-trip for the
+     * entire page.
+     */
+    @Query(
+        """
+        SELECT r.plugin.id, r.artifactSize
+        FROM PluginReleaseEntity r
+        WHERE r.plugin.id IN :pluginIds
+          AND r.status = io.plugwerk.spi.model.ReleaseStatus.PUBLISHED
+          AND r.createdAt = (
+            SELECT MAX(r2.createdAt)
+            FROM PluginReleaseEntity r2
+            WHERE r2.plugin.id = r.plugin.id
+              AND r2.status = io.plugwerk.spi.model.ReleaseStatus.PUBLISHED
+          )
+        """,
+    )
+    fun findLatestPublishedArtifactSizesForPlugins(@Param("pluginIds") pluginIds: Collection<UUID>): List<Array<Any>>
 }

@@ -72,6 +72,12 @@ class CatalogController(
             releaseRepository.findLatestPublishedVersionsForPlugins(pluginIds)
                 .associate { row -> (row[0] as java.util.UUID) to (row[1] as String) }
         }
+        val latestArtifactSizes: Map<java.util.UUID, Long> = if (pluginIds.isEmpty()) {
+            emptyMap()
+        } else {
+            releaseRepository.findLatestPublishedArtifactSizesForPlugins(pluginIds)
+                .associate { row -> (row[0] as java.util.UUID) to (row[1] as Long) }
+        }
         val draftOnlyIds = pluginIds.filter { it !in latestVersions }
         val latestDraftVersions: Map<java.util.UUID, String> = if (draftOnlyIds.isEmpty()) {
             emptyMap()
@@ -82,7 +88,13 @@ class CatalogController(
 
         val response = PluginPagedResponse(
             content = resultPage.content.map {
-                pluginMapper.toDto(it, ns, latestVersions[it.id], latestDraftVersions[it.id])
+                pluginMapper.toDto(
+                    it,
+                    ns,
+                    latestVersions[it.id],
+                    latestDraftVersions[it.id],
+                    latestArtifactSizes[it.id],
+                )
             },
             totalElements = resultPage.totalElements,
             page = resultPage.number,
@@ -95,9 +107,9 @@ class CatalogController(
     override fun getPlugin(ns: String, pluginId: String): ResponseEntity<PluginDto> {
         val plugin = pluginService.findByNamespaceAndPluginId(ns, pluginId)
         val allReleases = releaseService.findAllByPlugin(ns, pluginId)
-        val latestVersion = allReleases.filter { it.status == ReleaseStatus.PUBLISHED }
+        val latestPublishedRelease = allReleases.filter { it.status == ReleaseStatus.PUBLISHED }
             .maxByOrNull { it.createdAt }
-            ?.version
+        val latestVersion = latestPublishedRelease?.version
         val latestDraftVersion = if (latestVersion == null) {
             allReleases.filter { it.status == ReleaseStatus.DRAFT }
                 .maxByOrNull { it.createdAt }
@@ -105,7 +117,9 @@ class CatalogController(
         } else {
             null
         }
-        return ResponseEntity.ok(pluginMapper.toDto(plugin, ns, latestVersion, latestDraftVersion))
+        return ResponseEntity.ok(
+            pluginMapper.toDto(plugin, ns, latestVersion, latestDraftVersion, latestPublishedRelease?.artifactSize),
+        )
     }
 
     override fun listReleases(
