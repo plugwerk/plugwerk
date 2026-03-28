@@ -43,13 +43,6 @@ plugwerk:
     # No environment variable override — change this value directly when needed.
     token-validity-hours: 8
 
-    # Provisional Phase 1 user list. Credentials are validated in plain text.
-    # Phase 2+: replace with a database-backed UserCredentialValidator or OIDC provider.
-    # WARNING: Do not add real user passwords here. This list is committed to source control.
-    # Env: not overridable via env vars — configure via Spring Boot config server for production.
-    dev-users:
-      - username: test
-        password: test
 
 server:
   port: 8080

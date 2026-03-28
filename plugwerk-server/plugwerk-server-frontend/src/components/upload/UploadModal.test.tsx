@@ -17,7 +17,7 @@ vi.mock('../../api/config', () => ({
 
 describe('UploadModal', () => {
   beforeEach(() => {
-    useAuthStore.setState({ accessToken: 'token', username: 'test', isAuthenticated: true, namespace: 'acme' })
+    useAuthStore.setState({ accessToken: 'token', username: 'alice', isAuthenticated: true, namespace: 'acme' })
     useUiStore.setState({ uploadModalOpen: false })
     vi.mocked(apiConfig.axiosInstance.post).mockReset()
   })

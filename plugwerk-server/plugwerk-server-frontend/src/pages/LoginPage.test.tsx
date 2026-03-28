@@ -54,12 +54,12 @@ describe('LoginPage', () => {
 
     const user = userEvent.setup()
     renderWithRouter(<LoginPage />)
-    await user.type(screen.getByLabelText(/username/i), 'test')
-    await user.type(screen.getByLabelText(/password/i), 'test')
+    await user.type(screen.getByLabelText(/username/i), 'alice')
+    await user.type(screen.getByLabelText(/password/i), 'secret')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith('test', 'test')
+      expect(mockLogin).toHaveBeenCalledWith('alice', 'secret')
     })
   })
 
@@ -69,12 +69,12 @@ describe('LoginPage', () => {
 
     const user = userEvent.setup()
     renderWithRouter(<LoginPage />)
-    await user.type(screen.getByLabelText(/username/i), '  test  ')
-    await user.type(screen.getByLabelText(/password/i), 'test')
+    await user.type(screen.getByLabelText(/username/i), '  alice  ')
+    await user.type(screen.getByLabelText(/password/i), 'secret')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith('test', 'test')
+      expect(mockLogin).toHaveBeenCalledWith('alice', 'secret')
     })
   })
 

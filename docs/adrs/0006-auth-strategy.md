@@ -33,27 +33,27 @@ Both token types are handled by separate Spring Security filters that run in ord
 2. `ApiKeyAuthFilter` — validates `X-Api-Key` against `namespace_access_key` table
 3. OAuth2 Resource Server — validates `Authorization: Bearer` JWT
 
-### Phase 1 (MVP)
+### Phase 1 (MVP) — superseded
 
 - Self-issued JWTs signed with HMAC-SHA256 (`plugwerk.auth.jwt-secret`)
 - A provisional `dev-users` list in `application.yml` for human login (no database user table)
 - Namespace Access Keys via `X-Api-Key` header (`ApiKeyAuthFilter` + `namespace_access_key` table)
 - Token validity: 8 hours (configurable)
 
-### Phase 2+ (see issue #77)
+> **Phase 1 is superseded.** The `dev-users` list and `DevUserCredentialValidator` have been removed.
+> See [ADR-0006 Phase 2](./0006-phase2-auth-and-rbac.md) for the current implementation.
 
-- Replace the provisional credential validator with a database-backed `UserRepository`
-- Add `namespace_member` table for namespace-scoped RBAC (ADMIN / MEMBER / READ_ONLY)
-- Integrate an external OIDC provider (e.g. Keycloak, Auth0) via Spring Security OAuth2 Resource Server
-- Support multi-issuer JWT validation: locally issued tokens + externally issued OIDC tokens
-- Map OIDC `sub` claim as user identity key (compatible with `namespace_member.user_subject`)
-- Remove `dev-users` list from configuration
+### Phase 2+ (see issue #77) — implemented
+
+- Database-backed `UserRepository` replaces the provisional credential validator
+- `namespace_member` table for namespace-scoped RBAC (ADMIN / MEMBER / READ_ONLY)
+- OIDC provider configuration via the admin Web UI (database-backed)
+- Multi-issuer JWT validation: locally issued tokens + externally issued OIDC tokens
+- OIDC `sub` claim as user identity key (compatible with `namespace_member.user_subject`)
 
 ## Consequences
 
 - **Easier:** Zero external dependencies in Phase 1 — no identity provider to run or configure
 - **Easier:** Namespace Access Key flow is simple and CI/CD-friendly; easy to configure in PF4J host app properties
 - **Easier:** Clear separation of concerns — human sessions vs. machine identity
-- **Harder:** `dev-users` are committed to source control — not suitable for real production use
-- **Harder:** No self-service user registration in Phase 1
 - **Risk:** `jwt-secret` must be rotated if exposed; enforced via startup validation and documented warning

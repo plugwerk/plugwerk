@@ -66,11 +66,20 @@ class NamespaceAuthorizationServiceTest {
     )
 
     @Test
-    fun `access key principal bypasses member check`() {
-        val auth = auth("key:acme-production")
+    fun `access key passes for its own namespace without member table check`() {
+        val auth = auth("key:acme")
 
         // No repository interaction expected — should pass without throwing
         assertThatCode { service.requireRole("acme", auth, NamespaceRole.ADMIN) }.doesNotThrowAnyException()
+    }
+
+    @Test
+    fun `access key is rejected for a different namespace`() {
+        val auth = auth("key:acme-production")
+
+        assertThatThrownBy { service.requireRole("acme-staging", auth, NamespaceRole.ADMIN) }
+            .isInstanceOf(ForbiddenException::class.java)
+            .hasMessageContaining("acme-staging")
     }
 
     @Test

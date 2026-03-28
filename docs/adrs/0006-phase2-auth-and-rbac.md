@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Phase 1 used a hardcoded `DevUserCredentialValidator` with plaintext credentials from `application.yml`.
+Phase 1 used a provisional `dev-users` list in `application.yml` with plaintext credentials (no database user table).
 Phase 2 implements production-ready authentication and access control as described in GitHub Issue #77:
 
 - Local user accounts stored in PostgreSQL, BCrypt-hashed passwords
@@ -38,7 +38,7 @@ Three new tables added via Liquibase migration `0002_user_and_rbac.yaml`:
 
 ### Credential Validation
 
-`DatabaseUserCredentialValidator` replaces `DevUserCredentialValidator` as the `@Primary` `UserCredentialValidator` bean:
+`DatabaseUserCredentialValidator` is the `@Primary` `UserCredentialValidator` bean:
 - Looks up the user by username in `plugwerk_user`
 - Rejects disabled accounts before password check
 - Uses `BCryptPasswordEncoder.matches()` for constant-time comparison

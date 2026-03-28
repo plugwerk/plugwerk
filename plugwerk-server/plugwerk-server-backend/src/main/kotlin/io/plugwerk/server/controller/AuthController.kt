@@ -24,6 +24,7 @@ import io.plugwerk.api.model.LoginResponse
 import io.plugwerk.server.repository.UserRepository
 import io.plugwerk.server.security.UserCredentialValidator
 import io.plugwerk.server.service.JwtTokenService
+import io.plugwerk.server.service.UnauthorizedException
 import io.plugwerk.server.service.UserService
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.context.SecurityContextHolder
@@ -58,7 +59,7 @@ class AuthController(
 
     override fun changePassword(changePasswordRequest: ChangePasswordRequest): ResponseEntity<Unit> {
         val username = SecurityContextHolder.getContext().authentication?.name
-            ?: return ResponseEntity.status(401).build()
+            ?: throw UnauthorizedException("Authentication required to change password")
         userService.changePassword(username, changePasswordRequest.currentPassword, changePasswordRequest.newPassword)
         return ResponseEntity.noContent().build()
     }

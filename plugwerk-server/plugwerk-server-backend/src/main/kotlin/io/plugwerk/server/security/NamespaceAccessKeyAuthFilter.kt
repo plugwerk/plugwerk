@@ -49,7 +49,7 @@ class NamespaceAccessKeyAuthFilter(private val apiKeyRepository: NamespaceAccess
                 .filter { !it.revoked && (it.expiresAt == null || it.expiresAt!!.isAfter(OffsetDateTime.now())) }
                 .ifPresent { keyEntity ->
                     val auth = UsernamePasswordAuthenticationToken(
-                        keyEntity.namespace.slug,
+                        "key:${keyEntity.namespace.slug}",
                         null,
                         listOf(SimpleGrantedAuthority("ROLE_API_CLIENT")),
                     )

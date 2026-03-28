@@ -23,6 +23,7 @@ import io.plugwerk.api.model.NamespaceSummary
 import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.service.NamespaceAlreadyExistsException
 import io.plugwerk.server.service.NamespaceService
+import io.plugwerk.server.service.UnauthorizedException
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
@@ -37,14 +38,16 @@ class NamespaceController(
 ) : NamespacesApi {
 
     override fun listNamespaces(): ResponseEntity<List<NamespaceSummary>> {
-        val namespaces = namespaceService.findAll()
+        val auth = SecurityContextHolder.getContext().authentication
+            ?: throw UnauthorizedException("Not authenticated")
+        val namespaces = namespaceAuthorizationService.listVisibleNamespaces(auth)
             .map { NamespaceSummary(slug = it.slug, ownerOrg = it.ownerOrg) }
         return ResponseEntity.ok(namespaces)
     }
 
     override fun createNamespace(namespaceCreateRequest: NamespaceCreateRequest): ResponseEntity<NamespaceSummary> {
         val auth = SecurityContextHolder.getContext().authentication
-            ?: throw io.plugwerk.server.service.ForbiddenException("Not authenticated")
+            ?: throw UnauthorizedException("Not authenticated")
         namespaceAuthorizationService.requireSuperadmin(auth)
         return try {
             val entity = namespaceService.create(

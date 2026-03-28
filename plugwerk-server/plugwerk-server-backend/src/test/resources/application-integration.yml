@@ -13,6 +13,4 @@ plugwerk:
       root: ${java.io.tmpdir}/plugwerk-smoke-test
   auth:
     jwt-secret: integration-test-secret-min32chars-ok!!
-    dev-users:
-      - username: smoke
-        password: smoke
+    admin-password: smoke-test-password

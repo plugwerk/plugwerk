@@ -60,11 +60,11 @@ Namespaces on the Plugwerk server require a JWT Bearer token. Obtain one via the
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"test","password":"test"}' | jq -r .accessToken)
+  -d '{"username":"admin","password":"<your-admin-password>"}' | jq -r .accessToken)
 ```
 
-> The dev profile ships with a hardcoded user `test` / `test` (see `application.yml`).
-> In production, use proper credentials or an API key.
+> The admin password is auto-generated on first startup and logged once at INFO level.
+> Set `PLUGWERK_AUTH_ADMIN_PASSWORD` to use a fixed password (e.g. for CI/CD).
 
 Pass the token to the CLI via `--access-token` or the `PLUGWERK_ACCESS_TOKEN` environment variable:
 
@@ -179,7 +179,7 @@ Use the management API to upload a plugin release. The server reads the
 # Register the plugin in the default namespace (requires auth token)
 TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"test","password":"test"}' | jq -r .accessToken)
+  -d '{"username":"admin","password":"<your-admin-password>"}' | jq -r .accessToken)
 
 # Upload hello-cli-plugin
 curl -s -X POST "http://localhost:8080/api/v1/namespaces/default/plugins/hello-cli-plugin/releases" \

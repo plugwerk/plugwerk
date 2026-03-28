@@ -17,26 +17,12 @@
  */
 package io.plugwerk.server.security
 
-import org.springframework.stereotype.Component
-
 /**
  * Strategy interface for validating username/password credentials.
  *
- * Phase 1: implemented by [DevUserCredentialValidator] using a hardcoded list from config.
- * Phase 2+: replace with a database-backed implementation or delegate to an OIDC provider.
+ * Implemented by [DatabaseUserCredentialValidator] which validates against the
+ * `plugwerk_user` table. Can be replaced by an OIDC provider delegation in future phases.
  */
 interface UserCredentialValidator {
     fun validate(username: String, password: String): Boolean
-}
-
-/**
- * Provisional credential validator for Phase 1 development.
- *
- * @deprecated Replaced by [DatabaseUserCredentialValidator] in Phase 2. This class is kept
- * for reference only and is no longer active — [DatabaseUserCredentialValidator] is annotated
- * with [@Primary] and takes precedence.
- */
-@Deprecated("Replaced by DatabaseUserCredentialValidator in Phase 2")
-class DevUserCredentialValidator : UserCredentialValidator {
-    override fun validate(username: String, password: String): Boolean = false
 }

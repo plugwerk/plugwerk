@@ -81,7 +81,7 @@ class SmokeTest {
     fun login() {
         val result = mockMvc.post("/api/v1/auth/login") {
             contentType = MediaType.APPLICATION_JSON
-            content = objectMapper.writeValueAsString(mapOf("username" to "smoke", "password" to "smoke"))
+            content = objectMapper.writeValueAsString(mapOf("username" to "admin", "password" to "smoke-test-password"))
         }.andExpect {
             status { isOk() }
             jsonPath("$.accessToken").exists()

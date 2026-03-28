@@ -108,12 +108,13 @@ approve) and for namespaces configured as non-public.
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"test","password":"test"}' | jq -r .accessToken)
+  -d '{"username":"admin","password":"<your-admin-password>"}' | jq -r .accessToken)
 
 echo $TOKEN   # eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-> The default configuration ships with a hardcoded user `test` / `test` for development. Never use these credentials in production.
+> The admin password is auto-generated on first startup and logged once at INFO level.
+> Set `PLUGWERK_AUTH_ADMIN_PASSWORD` to use a fixed password (e.g. for CI/CD).
 
 ### Passing the token to the CLI
 

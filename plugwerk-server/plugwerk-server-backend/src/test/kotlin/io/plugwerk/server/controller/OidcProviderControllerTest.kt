@@ -20,13 +20,18 @@ package io.plugwerk.server.controller
 import io.plugwerk.server.domain.OidcProviderEntity
 import io.plugwerk.server.domain.OidcProviderType
 import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
+import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.security.PasswordChangeRequiredFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.service.EntityNotFoundException
+import io.plugwerk.server.service.ForbiddenException
 import io.plugwerk.server.service.OidcProviderService
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
@@ -36,6 +41,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.FilterType
 import org.springframework.http.MediaType
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
@@ -64,6 +71,20 @@ class OidcProviderControllerTest {
 
     @MockitoBean
     private lateinit var oidcProviderService: OidcProviderService
+
+    @MockitoBean
+    private lateinit var namespaceAuthorizationService: NamespaceAuthorizationService
+
+    @BeforeEach
+    fun setUp() {
+        SecurityContextHolder.getContext().authentication =
+            UsernamePasswordAuthenticationToken("admin", null, emptyList())
+    }
+
+    @AfterEach
+    fun tearDown() {
+        SecurityContextHolder.clearContext()
+    }
 
     private fun stubProvider(name: String = "My Keycloak", enabled: Boolean = false): OidcProviderEntity =
         OidcProviderEntity(
@@ -151,6 +172,41 @@ class OidcProviderControllerTest {
 
         mockMvc.delete("/api/v1/admin/oidc-providers/$providerId").andExpect {
             status { isNoContent() }
+        }
+    }
+
+    @Test
+    fun `GET oidc-providers returns 403 for non-superadmin`() {
+        doThrow(ForbiddenException("Superadmin privileges required"))
+            .whenever(namespaceAuthorizationService).requireSuperadmin(any())
+
+        mockMvc.get("/api/v1/admin/oidc-providers").andExpect {
+            status { isForbidden() }
+        }
+    }
+
+    @Test
+    fun `POST oidc-providers returns 403 for non-superadmin`() {
+        doThrow(ForbiddenException("Superadmin privileges required"))
+            .whenever(namespaceAuthorizationService).requireSuperadmin(any())
+
+        mockMvc.post("/api/v1/admin/oidc-providers") {
+            contentType = MediaType.APPLICATION_JSON
+            content =
+                """{"name":"Rogue","providerType":"GENERIC_OIDC","clientId":"x","clientSecret":"y","issuerUri":"https://evil.example.com"}"""
+        }.andExpect {
+            status { isForbidden() }
+        }
+    }
+
+    @Test
+    fun `DELETE oidc-providers returns 403 for non-superadmin`() {
+        val providerId = UUID.randomUUID()
+        doThrow(ForbiddenException("Superadmin privileges required"))
+            .whenever(namespaceAuthorizationService).requireSuperadmin(any())
+
+        mockMvc.delete("/api/v1/admin/oidc-providers/$providerId").andExpect {
+            status { isForbidden() }
         }
     }
 }

@@ -17,6 +17,7 @@
  */
 package io.plugwerk.server.security
 
+import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.NamespaceRole
 import io.plugwerk.server.repository.NamespaceMemberRepository
 import io.plugwerk.server.repository.NamespaceRepository
@@ -63,7 +64,7 @@ class NamespaceAuthorizationService(
      * @throws ForbiddenException if the principal is not the superadmin.
      */
     fun requireSuperadmin(authentication: Authentication) {
-        if (isSuperadmin(authentication.name)) return
+        if (isSuperadmin(authentication)) return
         throw ForbiddenException("Superadmin privileges required")
     }
 
@@ -81,8 +82,16 @@ class NamespaceAuthorizationService(
      * @throws ForbiddenException if the principal lacks the required role.
      */
     fun requireRole(namespaceSlug: String, authentication: Authentication, minimumRole: NamespaceRole) {
-        // Access keys are namespace-scoped and implicitly ADMIN
-        if (authentication.name.startsWith("key:")) return
+        // Access keys are namespace-scoped and implicitly ADMIN — but only for their own namespace
+        if (authentication.name.startsWith("key:")) {
+            val keyNamespaceSlug = authentication.name.removePrefix("key:")
+            if (keyNamespaceSlug != namespaceSlug) {
+                throw ForbiddenException(
+                    "Access key is not valid for namespace '$namespaceSlug'",
+                )
+            }
+            return
+        }
 
         // Superadmin has implicit ADMIN in every namespace
         if (isSuperadmin(authentication.name)) return
@@ -100,6 +109,35 @@ class NamespaceAuthorizationService(
         if (!hasRole) {
             throw ForbiddenException("Insufficient role in namespace '$namespaceSlug': requires $minimumRole")
         }
+    }
+
+    /**
+     * Returns `true` if the authenticated principal is the superadmin.
+     *
+     * Access key principals (`key:` prefix) are service accounts and are never superadmin.
+     */
+    fun isSuperadmin(authentication: Authentication): Boolean = !authentication.name.startsWith("key:") &&
+        userRepository.findByUsername(authentication.name).map { it.isSuperadmin }.orElse(false)
+
+    /**
+     * Returns the namespaces visible to the authenticated principal:
+     * - Superadmin: all namespaces
+     * - Access key (`key:<slug>`): only the namespace the key was issued for
+     * - Regular user: only namespaces where they hold a [NamespaceMemberEntity] entry
+     */
+    fun listVisibleNamespaces(authentication: Authentication): List<NamespaceEntity> {
+        if (isSuperadmin(authentication)) return namespaceRepository.findAll()
+
+        if (authentication.name.startsWith("key:")) {
+            val slug = authentication.name.removePrefix("key:")
+            return namespaceRepository.findBySlug(slug)
+                .map { listOf(it) }.orElse(emptyList())
+        }
+
+        val memberSlugs = namespaceMemberRepository.findAllByUserSubject(authentication.name)
+            .map { it.namespace.slug }
+            .toSet()
+        return namespaceRepository.findAll().filter { it.slug in memberSlugs }
     }
 
     private fun isSuperadmin(username: String): Boolean =

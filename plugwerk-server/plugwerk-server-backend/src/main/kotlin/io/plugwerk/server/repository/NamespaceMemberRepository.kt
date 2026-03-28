@@ -29,6 +29,8 @@ interface NamespaceMemberRepository : JpaRepository<NamespaceMemberEntity, UUID>
 
     fun findAllByNamespaceId(namespaceId: UUID): List<NamespaceMemberEntity>
 
+    fun findAllByUserSubject(userSubject: String): List<NamespaceMemberEntity>
+
     fun existsByNamespaceIdAndUserSubjectAndRoleIn(
         namespaceId: UUID,
         userSubject: String,

@@ -23,12 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 
 /**
- * Validates username/password credentials against the [plugwerk_user] database table.
- *
- * This implementation replaces [DevUserCredentialValidator] from Phase 1.
- * It is annotated with [@Primary] so Spring injects this bean wherever
- * [UserCredentialValidator] is required, even if the dev implementation is still present
- * on the classpath during migration.
+ * Validates username/password credentials against the `plugwerk_user` database table.
  *
  * Validation rules:
  * - The user must exist in the database.

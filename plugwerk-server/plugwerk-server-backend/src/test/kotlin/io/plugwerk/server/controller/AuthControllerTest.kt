@@ -68,14 +68,14 @@ class AuthControllerTest {
 
     @Test
     fun `POST login returns 200 and token for valid credentials`() {
-        whenever(credentialValidator.validate("test", "test")).thenReturn(true)
-        whenever(jwtTokenService.generateToken("test")).thenReturn("tok.abc.xyz")
+        whenever(credentialValidator.validate("alice", "secret")).thenReturn(true)
+        whenever(jwtTokenService.generateToken("alice")).thenReturn("tok.abc.xyz")
         whenever(jwtTokenService.tokenValiditySeconds()).thenReturn(28800L)
-        whenever(userRepository.findByUsername("test")).thenReturn(Optional.empty())
+        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.empty())
 
         mockMvc.post("/api/v1/auth/login") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"username":"test","password":"test"}"""
+            content = """{"username":"alice","password":"secret"}"""
         }.andExpect {
             status { isOk() }
             jsonPath("$.accessToken") { value("tok.abc.xyz") }
@@ -86,15 +86,15 @@ class AuthControllerTest {
 
     @Test
     fun `POST login sets passwordChangeRequired true when user requires it`() {
-        val user = UserEntity(username = "test", passwordHash = "\$2a\$12\$hash", passwordChangeRequired = true)
-        whenever(credentialValidator.validate("test", "test")).thenReturn(true)
-        whenever(jwtTokenService.generateToken("test")).thenReturn("tok.abc.xyz")
+        val user = UserEntity(username = "alice", passwordHash = "\$2a\$12\$hash", passwordChangeRequired = true)
+        whenever(credentialValidator.validate("alice", "secret")).thenReturn(true)
+        whenever(jwtTokenService.generateToken("alice")).thenReturn("tok.abc.xyz")
         whenever(jwtTokenService.tokenValiditySeconds()).thenReturn(28800L)
-        whenever(userRepository.findByUsername("test")).thenReturn(Optional.of(user))
+        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.of(user))
 
         mockMvc.post("/api/v1/auth/login") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"username":"test","password":"test"}"""
+            content = """{"username":"alice","password":"secret"}"""
         }.andExpect {
             status { isOk() }
             jsonPath("$.passwordChangeRequired") { value(true) }
@@ -117,7 +117,7 @@ class AuthControllerTest {
     fun `POST login returns 400 when username is blank`() {
         mockMvc.post("/api/v1/auth/login") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"username":"","password":"test"}"""
+            content = """{"username":"","password":"secret"}"""
         }.andExpect {
             status { isBadRequest() }
         }
@@ -127,7 +127,7 @@ class AuthControllerTest {
     fun `POST login returns 400 when password is blank`() {
         mockMvc.post("/api/v1/auth/login") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"username":"test","password":""}"""
+            content = """{"username":"alice","password":""}"""
         }.andExpect {
             status { isBadRequest() }
         }

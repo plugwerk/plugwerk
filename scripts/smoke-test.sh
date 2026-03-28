@@ -8,8 +8,8 @@
 set -euo pipefail
 
 BASE_URL="${PLUGWERK_BASE_URL:-http://localhost:8080}"
-USERNAME="${PLUGWERK_USERNAME:-test}"
-PASSWORD="${PLUGWERK_PASSWORD:-test}"
+USERNAME="${PLUGWERK_USERNAME:-admin}"
+PASSWORD="${PLUGWERK_PASSWORD:-admin}"
 NAMESPACE="smoke-$(date +%s)"
 PLUGIN_ID="smoke-plugin"
 PLUGIN_VERSION="1.0.0"

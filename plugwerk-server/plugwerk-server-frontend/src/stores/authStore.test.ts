@@ -37,12 +37,12 @@ describe('useAuthStore', () => {
       }))
 
       await act(async () => {
-        await useAuthStore.getState().login('test', 'test')
+        await useAuthStore.getState().login('alice', 'secret')
       })
 
       expect(useAuthStore.getState().isAuthenticated).toBe(true)
       expect(useAuthStore.getState().accessToken).toBe('tok_abc')
-      expect(useAuthStore.getState().username).toBe('test')
+      expect(useAuthStore.getState().username).toBe('alice')
       expect(localStorage.getItem('pw-access-token')).toBe('tok_abc')
 
       vi.unstubAllGlobals()
@@ -65,7 +65,7 @@ describe('useAuthStore', () => {
 
   describe('logout', () => {
     it('clears accessToken and isAuthenticated', () => {
-      useAuthStore.setState({ accessToken: 'tok_xyz', isAuthenticated: true, username: 'test' })
+      useAuthStore.setState({ accessToken: 'tok_xyz', isAuthenticated: true, username: 'alice' })
       localStorage.setItem('pw-access-token', 'tok_xyz')
 
       act(() => { useAuthStore.getState().logout() })

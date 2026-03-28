@@ -65,7 +65,7 @@ Open the Web UI at **http://localhost:8080**.
 # Login
 TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"test","password":"test"}' | jq -r '.accessToken')
+  -d '{"username":"admin","password":"<your-admin-password>"}' | jq -r '.accessToken')
 
 # Create a namespace for your product
 curl -s -X POST http://localhost:8080/api/v1/namespaces \
