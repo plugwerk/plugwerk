@@ -17,6 +17,7 @@ export function PluginCardSkeleton() {
       <Box sx={{ display: 'flex', gap: 0.5 }}>
         <Skeleton variant="rounded" width={40} height={20} />
         <Skeleton variant="rounded" width={50} height={20} />
+        <Skeleton variant="rounded" width={45} height={20} />
       </Box>
     </Card>
   )

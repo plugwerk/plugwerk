@@ -6,6 +6,7 @@ import { Badge } from '../common/Badge'
 import { CodeBlock } from '../common/CodeBlock'
 import type { PluginDto, PluginReleaseDto } from '../../api/generated/model'
 import { tokens } from '../../theme/tokens'
+import { formatFileSize } from '../../utils/formatFileSize'
 
 interface DetailSidebarProps {
   plugin: PluginDto
@@ -92,7 +93,7 @@ export function DetailSidebar({ plugin, release }: DetailSidebarProps) {
         )}
         {release?.artifactSize && (
           <MetaItem label="File Size">
-            <Typography variant="caption">{(release.artifactSize / 1024 / 1024).toFixed(1)} MB</Typography>
+            <Typography variant="caption">{formatFileSize(release.artifactSize)}</Typography>
           </MetaItem>
         )}
         {sha256 && (

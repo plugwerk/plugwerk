@@ -74,6 +74,8 @@ import java.util.UUID
  *   backend (e.g. `acme/my-plugin/1.2.3` for filesystem or S3).
  *   Interpreted by [io.plugwerk.server.service.storage.ArtifactStorageService],
  *   independent of the concrete storage type.
+ * @property artifactSize Size of the stored artefact in bytes. Set at upload time from
+ *   the raw byte array length. Exposed to clients for display purposes.
  * @property requiresSystemVersion Optional SemVer range for the minimum/maximum version
  *   of the host system (e.g. `>=2.0.0 & <4.0.0`).
  * @property pluginDependencies Optional list of plugin-to-plugin dependencies as a JSON
@@ -106,6 +108,9 @@ class PluginReleaseEntity(
 
     @Column(name = "artifact_key", nullable = false, length = 1024)
     var artifactKey: String,
+
+    @Column(name = "artifact_size", nullable = false)
+    var artifactSize: Long = 0,
 
     @Column(name = "requires_system_version", length = 255)
     var requiresSystemVersion: String? = null,

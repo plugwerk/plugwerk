@@ -38,6 +38,7 @@ class PluginMapper {
         namespaceSlug: String,
         latestVersion: String? = null,
         latestDraftVersion: String? = null,
+        latestArtifactSize: Long? = null,
     ): PluginDto = PluginDto(
         id = entity.id!!,
         pluginId = entity.pluginId,
@@ -51,6 +52,7 @@ class PluginMapper {
         tags = entity.tags.toList().takeIf { it.isNotEmpty() },
         latestVersion = latestVersion,
         latestDraftVersion = if (latestVersion == null) latestDraftVersion else null,
+        latestArtifactSize = latestArtifactSize,
         icon = entity.icon?.let { URI(it) },
         homepage = entity.homepage?.let { URI(it) },
         repository = entity.repository?.let { URI(it) },

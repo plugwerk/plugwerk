@@ -104,6 +104,25 @@ class PluginReleaseServiceTest {
     }
 
     @Test
+    fun `upload stores artifact size in bytes`() {
+        val jarBytes = "fake-jar-content".toByteArray()
+        val descriptor = PlugwerkDescriptor(id = "my-plugin", version = "1.0.0", name = "My Plugin")
+
+        whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.existsByPluginAndVersion(plugin, "1.0.0")).thenReturn(false)
+        whenever(storageService.store(any(), any(), any())).thenReturn("key")
+        whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenAnswer { invocation ->
+            invocation.getArgument<PluginReleaseEntity>(0)
+        }
+
+        val result = releaseService.upload("acme", ByteArrayInputStream(jarBytes), jarBytes.size.toLong())
+
+        assertThat(result.artifactSize).isEqualTo(jarBytes.size.toLong())
+    }
+
+    @Test
     fun `upload throws ReleaseAlreadyExistsException when version exists`() {
         val jarBytes = "fake-jar-content".toByteArray()
         val descriptor = PlugwerkDescriptor(id = "my-plugin", version = "1.0.0", name = "My Plugin")

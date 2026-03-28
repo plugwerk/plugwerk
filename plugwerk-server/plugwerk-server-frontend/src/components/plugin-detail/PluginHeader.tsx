@@ -5,17 +5,12 @@ import { Download, Calendar, Scale, Puzzle } from 'lucide-react'
 import { Badge } from '../common/Badge'
 import type { PluginDto, PluginReleaseDto } from '../../api/generated/model'
 import { tokens } from '../../theme/tokens'
+import { formatFileSize } from '../../utils/formatFileSize'
 
 interface PluginHeaderProps {
   plugin: PluginDto
   latestRelease: PluginReleaseDto | null
   namespace: string
-}
-
-function formatSize(bytes: number | undefined): string {
-  if (!bytes) return ''
-  const mb = bytes / 1024 / 1024
-  return `${mb.toFixed(1)} MB`
 }
 
 export function PluginHeader({ plugin, latestRelease, namespace }: PluginHeaderProps) {
@@ -117,7 +112,7 @@ export function PluginHeader({ plugin, latestRelease, namespace }: PluginHeaderP
           </Button>
           {latestRelease.artifactSize && (
             <Typography variant="caption" color="text.disabled">
-              {formatSize(latestRelease.artifactSize)} · .jar
+              {formatFileSize(latestRelease.artifactSize)} · .jar
             </Typography>
           )}
         </Box>

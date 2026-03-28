@@ -165,6 +165,12 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
+                  name: artifact_size
+                  type: bigint
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
                   name: requires_system_version
                   type: varchar(255)
               - column:

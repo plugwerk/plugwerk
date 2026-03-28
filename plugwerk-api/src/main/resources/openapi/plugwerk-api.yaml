@@ -1361,6 +1361,10 @@ components:
           type: integer
           format: int64
           description: Total number of artifact downloads across all releases
+        latestArtifactSize:
+          type: integer
+          format: int64
+          description: File size in bytes of the latest published release artifact, or `null` if no published release exists
         icon:
           type: string
           format: uri

@@ -20,6 +20,7 @@ import type { PluginReleaseDto } from '../../api/generated/model'
 import { tokens } from '../../theme/tokens'
 import type { BadgeVariant } from '../common/Badge'
 import { reviewsApi } from '../../api/config'
+import { formatFileSize } from '../../utils/formatFileSize'
 
 interface VersionsTabProps {
   releases: PluginReleaseDto[]
@@ -63,6 +64,7 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
             <TableCell>Version</TableCell>
             <TableCell>Released</TableCell>
             <TableCell>Status</TableCell>
+            <TableCell>Size</TableCell>
             <TableCell>Changelog</TableCell>
             <TableCell>Actions</TableCell>
           </TableRow>
@@ -103,6 +105,11 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
                   <Badge variant={statusToBadge[rel.status] ?? 'draft'}>
                     {rel.status.charAt(0).toUpperCase() + rel.status.slice(1)}
                   </Badge>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption" color="text.disabled">
+                    {rel.artifactSize ? formatFileSize(rel.artifactSize) : '—'}
+                  </Typography>
                 </TableCell>
                 <TableCell>
                   <Typography variant="caption" color="text.secondary">

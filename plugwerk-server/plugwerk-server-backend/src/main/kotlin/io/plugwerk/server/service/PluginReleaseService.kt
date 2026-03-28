@@ -113,6 +113,7 @@ class PluginReleaseService(
                 version = descriptor.version,
                 artifactSha256 = sha256,
                 artifactKey = artifactKey,
+                artifactSize = bytes.size.toLong(),
                 requiresSystemVersion = descriptor.requiresSystemVersion,
                 pluginDependencies = serializeDependencies(descriptor),
             ),
