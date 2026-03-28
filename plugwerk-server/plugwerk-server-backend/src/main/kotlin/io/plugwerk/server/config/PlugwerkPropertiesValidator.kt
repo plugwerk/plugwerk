@@ -22,20 +22,21 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesBindin
 import org.springframework.stereotype.Component
 import org.springframework.validation.Errors
 import org.springframework.validation.Validator
+import java.net.URI
 
 /**
- * Rejects well-known insecure default values for [PlugwerkProperties.AuthProperties].
+ * Semantic validation for [PlugwerkProperties] beyond what JSR-303 annotations can express.
  *
- * JSR-303 annotations on [PlugwerkProperties.AuthProperties] enforce structural constraints
- * (non-blank, length). This validator adds a semantic blocklist so that copy-paste defaults
- * from documentation or old configuration files are caught at startup.
+ * - Rejects well-known insecure default values for auth secrets (copy-paste protection).
+ * - Validates [PlugwerkProperties.ServerProperties.baseUrl] as a well-formed HTTP(S) URI
+ *   to prevent SSRF/open-redirect via `plugins.json` download URLs.
  *
  * Registered as a Spring [Validator] bean; Spring Boot automatically invokes it during
  * `@ConfigurationProperties` binding because the target type matches [supports].
  */
 @Component
 @ConfigurationPropertiesBinding
-class AuthPropertiesValidator : Validator {
+class PlugwerkPropertiesValidator : Validator {
 
     companion object {
         val BLOCKED_JWT_SECRETS = setOf(
@@ -48,14 +49,20 @@ class AuthPropertiesValidator : Validator {
             "change-me-16char",
             "0123456789abcdef",
         )
+
+        private val ALLOWED_SCHEMES = setOf("http", "https")
     }
 
     override fun supports(clazz: Class<*>): Boolean = PlugwerkProperties::class.java.isAssignableFrom(clazz)
 
     override fun validate(target: Any, errors: Errors) {
         val props = target as PlugwerkProperties
-        val auth = props.auth
 
+        validateAuthSecrets(props.auth, errors)
+        validateBaseUrl(props.server.baseUrl, errors)
+    }
+
+    private fun validateAuthSecrets(auth: PlugwerkProperties.AuthProperties, errors: Errors) {
         if (auth.jwtSecret in BLOCKED_JWT_SECRETS) {
             errors.rejectValue(
                 "auth.jwtSecret",
@@ -71,6 +78,60 @@ class AuthPropertiesValidator : Validator {
                 "insecure.default",
                 "plugwerk.auth.encryption-key uses a known insecure default — " +
                     "generate a unique value with: openssl rand -hex 8",
+            )
+        }
+    }
+
+    private fun validateBaseUrl(baseUrl: String, errors: Errors) {
+        if (baseUrl.isBlank()) {
+            errors.rejectValue("server.baseUrl", "invalid.base-url", "plugwerk.server.base-url must not be blank")
+            return
+        }
+
+        val uri = runCatching { URI(baseUrl) }.getOrElse {
+            errors.rejectValue("server.baseUrl", "invalid.base-url", "plugwerk.server.base-url is not a valid URI")
+            return
+        }
+
+        if (uri.scheme?.lowercase() !in ALLOWED_SCHEMES) {
+            errors.rejectValue(
+                "server.baseUrl",
+                "invalid.base-url",
+                "plugwerk.server.base-url must use http or https scheme",
+            )
+            return
+        }
+
+        if (uri.host.isNullOrBlank()) {
+            errors.rejectValue(
+                "server.baseUrl",
+                "invalid.base-url",
+                "plugwerk.server.base-url must contain a valid host",
+            )
+            return
+        }
+
+        if (uri.query != null) {
+            errors.rejectValue(
+                "server.baseUrl",
+                "invalid.base-url",
+                "plugwerk.server.base-url must not contain a query string",
+            )
+        }
+
+        if (uri.fragment != null) {
+            errors.rejectValue(
+                "server.baseUrl",
+                "invalid.base-url",
+                "plugwerk.server.base-url must not contain a fragment",
+            )
+        }
+
+        if (baseUrl.endsWith("/")) {
+            errors.rejectValue(
+                "server.baseUrl",
+                "invalid.base-url",
+                "plugwerk.server.base-url must not end with a trailing slash",
             )
         }
     }
