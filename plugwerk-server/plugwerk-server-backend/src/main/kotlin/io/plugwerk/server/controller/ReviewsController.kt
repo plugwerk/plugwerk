@@ -64,12 +64,15 @@ class ReviewsController(
         releaseId: UUID,
         reviewDecisionRequest: ReviewDecisionRequest?,
     ): ResponseEntity<PluginReleaseDto> {
-        namespaceAuthorizationService.requireRole(
+        val auth = SecurityContextHolder.getContext().authentication!!
+        namespaceAuthorizationService.requireRole(ns, auth, NamespaceRole.ADMIN)
+        val isSuperadmin = namespaceAuthorizationService.isSuperadmin(auth)
+        val release = releaseService.updateStatusByIdInNamespace(
+            releaseId,
             ns,
-            SecurityContextHolder.getContext().authentication!!,
-            NamespaceRole.ADMIN,
+            ReleaseStatus.PUBLISHED,
+            enforceNamespace = !isSuperadmin,
         )
-        val release = releaseService.updateStatusById(releaseId, ReleaseStatus.PUBLISHED)
         return ResponseEntity.ok(releaseMapper.toDto(release, release.plugin.pluginId))
     }
 
@@ -78,12 +81,15 @@ class ReviewsController(
         releaseId: UUID,
         reviewDecisionRequest: ReviewDecisionRequest?,
     ): ResponseEntity<PluginReleaseDto> {
-        namespaceAuthorizationService.requireRole(
+        val auth = SecurityContextHolder.getContext().authentication!!
+        namespaceAuthorizationService.requireRole(ns, auth, NamespaceRole.ADMIN)
+        val isSuperadmin = namespaceAuthorizationService.isSuperadmin(auth)
+        val release = releaseService.updateStatusByIdInNamespace(
+            releaseId,
             ns,
-            SecurityContextHolder.getContext().authentication!!,
-            NamespaceRole.ADMIN,
+            ReleaseStatus.YANKED,
+            enforceNamespace = !isSuperadmin,
         )
-        val release = releaseService.updateStatusById(releaseId, ReleaseStatus.YANKED)
         return ResponseEntity.ok(releaseMapper.toDto(release, release.plugin.pluginId))
     }
 }

@@ -73,9 +73,22 @@ class PluginReleaseService(
         return releaseRepository.findPendingByNamespace(namespace, ReleaseStatus.DRAFT)
     }
 
+    /**
+     * Updates the status of a release, verifying it belongs to the given namespace.
+     *
+     * @param enforceNamespace when `false` the namespace check is skipped (superadmin use-case).
+     */
     @Transactional
-    fun updateStatusById(id: UUID, status: ReleaseStatus): PluginReleaseEntity {
+    fun updateStatusByIdInNamespace(
+        id: UUID,
+        namespaceSlug: String,
+        status: ReleaseStatus,
+        enforceNamespace: Boolean = true,
+    ): PluginReleaseEntity {
         val release = findById(id)
+        if (enforceNamespace && release.plugin.namespace.slug != namespaceSlug) {
+            throw ReleaseNotFoundException("id=$id", "")
+        }
         release.status = status
         return releaseRepository.save(release)
     }

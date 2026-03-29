@@ -243,6 +243,41 @@ class PluginReleaseServiceTest {
     }
 
     @Test
+    fun `updateStatusByIdInNamespace updates status when namespace matches`() {
+        val releaseId = UUID.randomUUID()
+        val release = PluginReleaseEntity(
+            id = releaseId,
+            plugin = plugin,
+            version = "1.0.0",
+            artifactSha256 = "sha",
+            artifactKey = "acme:my-plugin:1.0.0:jar",
+        )
+        whenever(releaseRepository.findById(releaseId)).thenReturn(Optional.of(release))
+        whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenReturn(release)
+
+        val result = releaseService.updateStatusByIdInNamespace(releaseId, "acme", ReleaseStatus.PUBLISHED)
+
+        assertThat(result.status).isEqualTo(ReleaseStatus.PUBLISHED)
+    }
+
+    @Test
+    fun `updateStatusByIdInNamespace throws ReleaseNotFoundException when namespace does not match`() {
+        val releaseId = UUID.randomUUID()
+        val release = PluginReleaseEntity(
+            id = releaseId,
+            plugin = plugin,
+            version = "1.0.0",
+            artifactSha256 = "sha",
+            artifactKey = "acme:my-plugin:1.0.0:jar",
+        )
+        whenever(releaseRepository.findById(releaseId)).thenReturn(Optional.of(release))
+
+        assertFailsWith<ReleaseNotFoundException> {
+            releaseService.updateStatusByIdInNamespace(releaseId, "evil-namespace", ReleaseStatus.PUBLISHED)
+        }
+    }
+
+    @Test
     fun `upload throws FileTooLargeException when contentLength exceeds limit`() {
         val oversizedLength = 2L * 1_048_576L // 2 MB, limit is 1 MB
 

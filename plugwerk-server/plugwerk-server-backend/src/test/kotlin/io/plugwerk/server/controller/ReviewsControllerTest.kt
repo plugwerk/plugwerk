@@ -113,7 +113,14 @@ class ReviewsControllerTest {
     @Test
     fun `POST approve returns 200 with published release`() {
         val published = draftRelease.apply { status = ReleaseStatus.PUBLISHED }
-        whenever(releaseService.updateStatusById(eq(releaseId), eq(ReleaseStatus.PUBLISHED))).thenReturn(published)
+        whenever(
+            releaseService.updateStatusByIdInNamespace(
+                eq(releaseId),
+                eq("acme"),
+                eq(ReleaseStatus.PUBLISHED),
+                eq(true),
+            ),
+        ).thenReturn(published)
         whenever(releaseMapper.toDto(any(), eq("my-plugin")))
             .thenReturn(buildReleaseDto(io.plugwerk.api.model.PluginReleaseDto.Status.PUBLISHED))
 
@@ -129,7 +136,7 @@ class ReviewsControllerTest {
     @Test
     fun `POST approve returns 404 when release not found`() {
         val unknownId = UUID.randomUUID()
-        whenever(releaseService.updateStatusById(eq(unknownId), any()))
+        whenever(releaseService.updateStatusByIdInNamespace(eq(unknownId), eq("acme"), any(), eq(true)))
             .thenThrow(ReleaseNotFoundException("id=$unknownId", ""))
 
         mockMvc.post("/api/v1/namespaces/acme/reviews/$unknownId/approve") {
@@ -141,9 +148,58 @@ class ReviewsControllerTest {
     }
 
     @Test
+    fun `POST approve returns 404 when release belongs to different namespace`() {
+        whenever(
+            releaseService.updateStatusByIdInNamespace(
+                eq(releaseId),
+                eq("acme"),
+                eq(ReleaseStatus.PUBLISHED),
+                eq(true),
+            ),
+        ).thenThrow(ReleaseNotFoundException("id=$releaseId", ""))
+
+        mockMvc.post("/api/v1/namespaces/acme/reviews/$releaseId/approve") {
+            contentType = MediaType.APPLICATION_JSON
+            content = "{}"
+        }.andExpect {
+            status { isNotFound() }
+        }
+    }
+
+    @Test
+    fun `POST approve bypasses namespace check for superadmin`() {
+        val published = draftRelease.apply { status = ReleaseStatus.PUBLISHED }
+        whenever(namespaceAuthorizationService.isSuperadmin(any())).thenReturn(true)
+        whenever(
+            releaseService.updateStatusByIdInNamespace(
+                eq(releaseId),
+                eq("acme"),
+                eq(ReleaseStatus.PUBLISHED),
+                eq(false),
+            ),
+        ).thenReturn(published)
+        whenever(releaseMapper.toDto(any(), eq("my-plugin")))
+            .thenReturn(buildReleaseDto(io.plugwerk.api.model.PluginReleaseDto.Status.PUBLISHED))
+
+        mockMvc.post("/api/v1/namespaces/acme/reviews/$releaseId/approve") {
+            contentType = MediaType.APPLICATION_JSON
+            content = "{}"
+        }.andExpect {
+            status { isOk() }
+        }
+    }
+
+    @Test
     fun `POST reject returns 200 with yanked release`() {
         val yanked = draftRelease.apply { status = ReleaseStatus.YANKED }
-        whenever(releaseService.updateStatusById(eq(releaseId), eq(ReleaseStatus.YANKED))).thenReturn(yanked)
+        whenever(
+            releaseService.updateStatusByIdInNamespace(
+                eq(releaseId),
+                eq("acme"),
+                eq(ReleaseStatus.YANKED),
+                eq(true),
+            ),
+        ).thenReturn(yanked)
         whenever(releaseMapper.toDto(any(), eq("my-plugin")))
             .thenReturn(buildReleaseDto(io.plugwerk.api.model.PluginReleaseDto.Status.YANKED))
 
@@ -153,6 +209,25 @@ class ReviewsControllerTest {
         }.andExpect {
             status { isOk() }
             jsonPath("$.status") { value("yanked") }
+        }
+    }
+
+    @Test
+    fun `POST reject returns 404 when release belongs to different namespace`() {
+        whenever(
+            releaseService.updateStatusByIdInNamespace(
+                eq(releaseId),
+                eq("acme"),
+                eq(ReleaseStatus.YANKED),
+                eq(true),
+            ),
+        ).thenThrow(ReleaseNotFoundException("id=$releaseId", ""))
+
+        mockMvc.post("/api/v1/namespaces/acme/reviews/$releaseId/reject") {
+            contentType = MediaType.APPLICATION_JSON
+            content = "{}"
+        }.andExpect {
+            status { isNotFound() }
         }
     }
 
