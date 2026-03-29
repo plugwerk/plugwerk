@@ -48,7 +48,7 @@ class PlugwerkConfigTest {
         val config = PlugwerkConfig.Builder("https://plugins.example.com", "acme").build()
 
         assertNull(config.accessToken)
-        assertNull(config.cacheDirectory)
+        assertNull(config.pluginDirectory)
         assertEquals(PlugwerkConfig.DEFAULT_CONNECTION_TIMEOUT_MS, config.connectionTimeoutMs)
         assertEquals(PlugwerkConfig.DEFAULT_READ_TIMEOUT_MS, config.readTimeoutMs)
     }

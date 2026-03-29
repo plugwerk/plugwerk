@@ -44,7 +44,7 @@ instance is bound to exactly one namespace.
 - `namespace` — the namespace on that server (e.g. `acme`)
 - `accessToken` — optional Bearer token; `null` means anonymous access
 - `connectionTimeoutMs`, `readTimeoutMs` — OkHttp timeouts
-- `cacheDirectory` — optional local directory for downloaded artifacts
+- `pluginDirectory` — optional local directory for downloaded/installed plugin artifacts
 
 The namespace is **not** embedded in `serverUrl` as a path segment. Keeping it as a dedicated field
 makes it visible in logs, validatable on startup, and clearly separable from the host URL.

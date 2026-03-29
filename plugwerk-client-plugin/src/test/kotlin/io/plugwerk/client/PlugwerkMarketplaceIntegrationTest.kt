@@ -51,13 +51,12 @@ class PlugwerkMarketplaceIntegrationTest {
         server.start()
         marketplace =
             PlugwerkMarketplaceImpl.create(
-                config =
                 PlugwerkConfig(
                     serverUrl = server.url("/").toString().trimEnd('/'),
                     namespace = "test-ns",
                     accessToken = "integration-token",
+                    pluginDirectory = pluginDir,
                 ),
-                pluginDirectory = pluginDir,
             )
     }
 

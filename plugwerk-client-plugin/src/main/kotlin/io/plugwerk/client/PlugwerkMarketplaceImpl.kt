@@ -24,59 +24,30 @@ import io.plugwerk.spi.extension.PlugwerkCatalog
 import io.plugwerk.spi.extension.PlugwerkInstaller
 import io.plugwerk.spi.extension.PlugwerkMarketplace
 import io.plugwerk.spi.extension.PlugwerkUpdateChecker
-import org.pf4j.Extension
-import java.nio.file.Path
 
 /**
- * PF4J `@Extension` facade that combines catalog, installer, and update checker into a
- * single [PlugwerkMarketplace] extension point.
+ * Facade that combines catalog, installer, and update checker into a single
+ * [PlugwerkMarketplace] implementation.
  *
- * **PF4J extension discovery (recommended):**
- * Set the required system properties, then let PF4J discover the extension:
+ * **PF4J plugin mode (recommended):**
+ * Obtain the instance via [PlugwerkMarketplacePlugin.marketplace] after configuring the plugin:
+ * ```kotlin
+ * val plugin = pluginManager.getPlugin("plugwerk-client")
+ *     .plugin as PlugwerkMarketplacePlugin
+ * plugin.configure(config)
+ * val marketplace = plugin.marketplace()
  * ```
- * System.setProperty("plugwerk.serverUrl", "https://plugins.example.com")
- * System.setProperty("plugwerk.namespace", "acme")
- * System.setProperty("plugwerk.cacheDirectory", "/var/plugwerk/plugins")
- * val marketplace = pluginManager.getExtensions(PlugwerkMarketplace::class.java).first()
- * ```
- * See [PlugwerkConfig.fromSystemProperties] for all supported properties.
  *
  * **Programmatic construction (testing / embedding without PF4J):**
  * ```kotlin
- * val marketplace = PlugwerkMarketplaceImpl.create(config, pluginDirectory)
+ * val marketplace = PlugwerkMarketplaceImpl.create(config)
  * ```
  */
-@Extension
-class PlugwerkMarketplaceImpl : PlugwerkMarketplace {
-    private val catalog: PlugwerkCatalog
-    private val installer: PlugwerkInstaller
-    private val updateChecker: PlugwerkUpdateChecker
-
-    /**
-     * No-arg constructor for PF4J extension discovery via reflection.
-     * Reads configuration from system properties via [PlugwerkConfig.fromSystemProperties].
-     */
-    constructor() {
-        val config = PlugwerkConfig.fromSystemProperties()
-        val pluginDir = config.cacheDirectory
-            ?: throw IllegalStateException(
-                "System property 'plugwerk.cacheDirectory' is required in PF4J plugin mode",
-            )
-        val client = PlugwerkClient(config)
-        catalog = PlugwerkCatalogImpl(client)
-        installer = PlugwerkInstallerImpl(client, pluginDir)
-        updateChecker = PlugwerkUpdateCheckerImpl(client)
-    }
-
-    internal constructor(
-        catalog: PlugwerkCatalog,
-        installer: PlugwerkInstaller,
-        updateChecker: PlugwerkUpdateChecker,
-    ) {
-        this.catalog = catalog
-        this.installer = installer
-        this.updateChecker = updateChecker
-    }
+class PlugwerkMarketplaceImpl internal constructor(
+    private val catalog: PlugwerkCatalog,
+    private val installer: PlugwerkInstaller,
+    private val updateChecker: PlugwerkUpdateChecker,
+) : PlugwerkMarketplace {
 
     override fun catalog(): PlugwerkCatalog = catalog
 
@@ -88,14 +59,18 @@ class PlugwerkMarketplaceImpl : PlugwerkMarketplace {
         /**
          * Creates a fully wired [PlugwerkMarketplaceImpl] from the given [config].
          *
-         * @param config server and namespace configuration
-         * @param pluginDirectory directory where plugin artifacts are stored after installation
+         * [PlugwerkConfig.pluginDirectory] must be set.
+         *
+         * @param config server, namespace, and plugin directory configuration
          */
-        fun create(config: PlugwerkConfig, pluginDirectory: Path): PlugwerkMarketplaceImpl {
+        fun create(config: PlugwerkConfig): PlugwerkMarketplaceImpl {
+            val pluginDir = config.pluginDirectory ?: throw IllegalStateException(
+                "pluginDirectory is required — set it via PlugwerkConfig.Builder.pluginDirectory()",
+            )
             val client = PlugwerkClient(config)
             return PlugwerkMarketplaceImpl(
                 catalog = PlugwerkCatalogImpl(client),
-                installer = PlugwerkInstallerImpl(client, pluginDirectory),
+                installer = PlugwerkInstallerImpl(client, pluginDir),
                 updateChecker = PlugwerkUpdateCheckerImpl(client),
             )
         }

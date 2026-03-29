@@ -22,15 +22,19 @@ import org.pf4j.ExtensionPoint
 /**
  * Unified facade extension point that provides access to all Plugwerk SDK capabilities.
  *
- * Host applications typically retrieve this single extension point from the PF4J plugin manager
- * instead of querying [PlugwerkCatalog], [PlugwerkInstaller], and [PlugwerkUpdateChecker]
- * individually. All three sub-components share the same server connection and configuration.
+ * Host applications retrieve this facade from the [io.plugwerk.client.PlugwerkMarketplacePlugin]
+ * after configuring it, instead of querying [PlugwerkCatalog], [PlugwerkInstaller], and
+ * [PlugwerkUpdateChecker] individually. All three sub-components share the same server connection
+ * and configuration.
  *
  * Typical usage in a host application:
  *
  * Kotlin:
  * ```kotlin
- * val marketplace = pluginManager.getExtensions(PlugwerkMarketplace::class.java).first()
+ * val plugin = pluginManager.getPlugin("plugwerk-client")
+ *     .plugin as PlugwerkMarketplacePlugin
+ * plugin.configure(config)
+ * val marketplace = plugin.marketplace()
  *
  * // Browse the catalog
  * val plugins = marketplace.catalog().listPlugins()
@@ -44,7 +48,10 @@ import org.pf4j.ExtensionPoint
  *
  * Java:
  * ```java
- * PlugwerkMarketplace marketplace = pluginManager.getExtensions(PlugwerkMarketplace.class).get(0);
+ * PlugwerkMarketplacePlugin plugin = (PlugwerkMarketplacePlugin)
+ *     pluginManager.getPlugin("plugwerk-client").getPlugin();
+ * plugin.configure(config);
+ * PlugwerkMarketplace marketplace = plugin.marketplace();
  *
  * // Browse the catalog
  * List<PluginInfo> plugins = marketplace.catalog().listPlugins();

@@ -28,6 +28,10 @@ import kotlin.io.path.inputStream
  * Use [Builder] for programmatic construction or [fromProperties] to load from a
  * `.properties` file.
  *
+ * **Security:** Never pass sensitive values (e.g. access tokens) as JVM system properties
+ * (`-Dplugwerk.accessToken=…`) — they are visible in `ps aux` and `/proc/PID/cmdline`.
+ * Use [Builder] or a `.properties` file with restricted filesystem permissions instead.
+ *
  * The SDK constructs API URLs as:
  * `{serverUrl}/api/v1/namespaces/{namespace}/...`
  */
@@ -37,7 +41,7 @@ data class PlugwerkConfig(
     val accessToken: String? = null,
     val connectionTimeoutMs: Long = DEFAULT_CONNECTION_TIMEOUT_MS,
     val readTimeoutMs: Long = DEFAULT_READ_TIMEOUT_MS,
-    val cacheDirectory: Path? = null,
+    val pluginDirectory: Path? = null,
 ) {
     init {
         require(serverUrl.isNotBlank()) { "serverUrl must not be blank" }
@@ -58,7 +62,7 @@ data class PlugwerkConfig(
         private const val PROP_ACCESS_TOKEN = "plugwerk.accessToken"
         private const val PROP_CONNECTION_TIMEOUT_MS = "plugwerk.connectionTimeoutMs"
         private const val PROP_READ_TIMEOUT_MS = "plugwerk.readTimeoutMs"
-        private const val PROP_CACHE_DIRECTORY = "plugwerk.cacheDirectory"
+        private const val PROP_PLUGIN_DIRECTORY = "plugwerk.pluginDirectory"
 
         /** Loads configuration from a `.properties` file on the filesystem. */
         fun fromProperties(path: Path): PlugwerkConfig = path.inputStream().use { fromProperties(it) }
@@ -73,35 +77,7 @@ data class PlugwerkConfig(
                 props.getProperty(PROP_ACCESS_TOKEN)?.let { accessToken(it) }
                 props.getProperty(PROP_CONNECTION_TIMEOUT_MS)?.let { connectionTimeoutMs(it.toLong()) }
                 props.getProperty(PROP_READ_TIMEOUT_MS)?.let { readTimeoutMs(it.toLong()) }
-                props.getProperty(PROP_CACHE_DIRECTORY)?.let { cacheDirectory(Path.of(it)) }
-            }.build()
-        }
-
-        /**
-         * Loads configuration from JVM system properties.
-         *
-         * Required system properties:
-         * - `plugwerk.serverUrl` — base URL of the Plugwerk server
-         * - `plugwerk.namespace` — namespace to connect to
-         *
-         * Optional system properties mirror the `.properties` file keys.
-         * `plugwerk.cacheDirectory` is required when using PF4J plugin mode (no-arg constructor).
-         *
-         * This factory is used by [io.plugwerk.client.PlugwerkMarketplaceImpl]'s no-arg constructor,
-         * which PF4J invokes when discovering the extension via reflection. Set the required system
-         * properties before calling `pluginManager.getExtensions(PlugwerkMarketplace::class.java)`.
-         */
-        fun fromSystemProperties(): PlugwerkConfig {
-            fun requireProp(key: String) = System.getProperty(key)?.takeIf { it.isNotBlank() }
-                ?: throw IllegalStateException("Required system property '$key' is not set or blank")
-            return Builder(
-                serverUrl = requireProp(PROP_SERVER_URL),
-                namespace = requireProp(PROP_NAMESPACE),
-            ).apply {
-                System.getProperty(PROP_ACCESS_TOKEN)?.let { accessToken(it) }
-                System.getProperty(PROP_CONNECTION_TIMEOUT_MS)?.let { connectionTimeoutMs(it.toLong()) }
-                System.getProperty(PROP_READ_TIMEOUT_MS)?.let { readTimeoutMs(it.toLong()) }
-                System.getProperty(PROP_CACHE_DIRECTORY)?.let { cacheDirectory(Path.of(it)) }
+                props.getProperty(PROP_PLUGIN_DIRECTORY)?.let { pluginDirectory(Path.of(it)) }
             }.build()
         }
 
@@ -114,7 +90,7 @@ data class PlugwerkConfig(
         private var accessToken: String? = null
         private var connectionTimeoutMs: Long = DEFAULT_CONNECTION_TIMEOUT_MS
         private var readTimeoutMs: Long = DEFAULT_READ_TIMEOUT_MS
-        private var cacheDirectory: Path? = null
+        private var pluginDirectory: Path? = null
 
         fun accessToken(token: String) = apply { this.accessToken = token }
 
@@ -122,7 +98,7 @@ data class PlugwerkConfig(
 
         fun readTimeoutMs(ms: Long) = apply { this.readTimeoutMs = ms }
 
-        fun cacheDirectory(path: Path) = apply { this.cacheDirectory = path }
+        fun pluginDirectory(path: Path) = apply { this.pluginDirectory = path }
 
         fun build(): PlugwerkConfig = PlugwerkConfig(
             serverUrl = serverUrl,
@@ -130,7 +106,7 @@ data class PlugwerkConfig(
             accessToken = accessToken,
             connectionTimeoutMs = connectionTimeoutMs,
             readTimeoutMs = readTimeoutMs,
-            cacheDirectory = cacheDirectory,
+            pluginDirectory = pluginDirectory,
         )
     }
 }
