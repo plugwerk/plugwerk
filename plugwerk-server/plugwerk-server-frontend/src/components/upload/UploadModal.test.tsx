@@ -11,7 +11,10 @@ import axios from 'axios'
 import * as apiConfig from '../../api/config'
 
 vi.mock('../../api/config', () => ({
-  axiosInstance: { post: vi.fn(), get: vi.fn() },
+  axiosInstance: {
+    post: vi.fn(),
+    get: vi.fn().mockResolvedValue({ data: { upload: { maxFileSizeMb: 100 } } }),
+  },
   catalogApi: { listPlugins: vi.fn().mockResolvedValue({ data: { content: [], totalElements: 0, totalPages: 0, page: 0, size: 24 } }) },
 }))
 
@@ -139,4 +142,39 @@ describe('UploadModal', () => {
     }, { timeout: 15000 })
     expect(vi.mocked(apiConfig.catalogApi.listPlugins)).not.toHaveBeenCalled()
   }, 20000)
+
+  it('shows error when file exceeds size limit', async () => {
+    useUiStore.setState({ uploadModalOpen: true })
+    const user = userEvent.setup()
+    renderWithRouter(<UploadModal />)
+
+    const largeFile = new File([new ArrayBuffer(101 * 1024 * 1024)], 'huge-plugin.jar', {
+      type: 'application/java-archive',
+    })
+    await user.upload(screen.getByLabelText(/select plugin jar or zip file/i), largeFile)
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument()
+      expect(screen.getByText(/file is too large/i)).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: /upload release/i })).toBeDisabled()
+  })
+
+  it('displays max size hint in dropzone', async () => {
+    useUiStore.setState({ uploadModalOpen: true })
+    renderWithRouter(<UploadModal />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/max\. 100 mb/i)).toBeInTheDocument()
+    })
+  })
+
+  it('fetches config when modal opens', async () => {
+    useUiStore.setState({ uploadModalOpen: true })
+    renderWithRouter(<UploadModal />)
+
+    await waitFor(() => {
+      expect(vi.mocked(apiConfig.axiosInstance.get)).toHaveBeenCalledWith('/config')
+    })
+  })
 })

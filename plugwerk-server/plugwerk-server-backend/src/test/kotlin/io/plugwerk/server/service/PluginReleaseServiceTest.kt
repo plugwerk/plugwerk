@@ -19,6 +19,7 @@ package io.plugwerk.server.service
 
 import io.plugwerk.descriptor.DescriptorResolver
 import io.plugwerk.descriptor.PlugwerkDescriptor
+import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.PluginEntity
 import io.plugwerk.server.domain.PluginReleaseEntity
@@ -62,6 +63,14 @@ class PluginReleaseServiceTest {
     private val namespace = NamespaceEntity(id = namespaceId, slug = "acme", ownerOrg = "ACME Corp")
     private val plugin = PluginEntity(namespace = namespace, pluginId = "my-plugin", name = "My Plugin")
 
+    private val properties = PlugwerkProperties(
+        auth = PlugwerkProperties.AuthProperties(
+            jwtSecret = "test-only-secret-not-for-production-32ch",
+            encryptionKey = "test-encrypt16c!",
+        ),
+        upload = PlugwerkProperties.UploadProperties(maxFileSizeMb = 1),
+    )
+
     @BeforeEach
     fun setUp() {
         releaseService = PluginReleaseService(
@@ -71,6 +80,7 @@ class PluginReleaseServiceTest {
             storageService,
             descriptorResolver,
             ObjectMapper(),
+            properties,
         )
     }
 
@@ -230,5 +240,40 @@ class PluginReleaseServiceTest {
         releaseService.downloadArtifact("acme", "my-plugin", "1.0.0")
 
         verify(releaseRepository).incrementDownloadCount(releaseId)
+    }
+
+    @Test
+    fun `upload throws FileTooLargeException when contentLength exceeds limit`() {
+        val oversizedLength = 2L * 1_048_576L // 2 MB, limit is 1 MB
+
+        assertFailsWith<FileTooLargeException> {
+            releaseService.upload("acme", ByteArrayInputStream(ByteArray(0)), oversizedLength)
+        }
+    }
+
+    @Test
+    fun `upload throws FileTooLargeException when stream exceeds limit regardless of contentLength`() {
+        val oversizedBytes = ByteArray(1_048_576 + 1) // 1 MB + 1 byte
+
+        assertFailsWith<FileTooLargeException> {
+            releaseService.upload("acme", ByteArrayInputStream(oversizedBytes), 0)
+        }
+    }
+
+    @Test
+    fun `upload succeeds when file is within size limit`() {
+        val jarBytes = "small-content".toByteArray()
+        val descriptor = PlugwerkDescriptor(id = "my-plugin", version = "2.0.0", name = "My Plugin")
+
+        whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.existsByPluginAndVersion(plugin, "2.0.0")).thenReturn(false)
+        whenever(storageService.store(any(), any(), any())).thenReturn("key")
+        whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenAnswer { it.getArgument(0) }
+
+        val result = releaseService.upload("acme", ByteArrayInputStream(jarBytes), jarBytes.size.toLong())
+
+        assertThat(result.version).isEqualTo("2.0.0")
     }
 }

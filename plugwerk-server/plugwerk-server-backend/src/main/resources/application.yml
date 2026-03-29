@@ -19,6 +19,11 @@ spring:
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
+  servlet:
+    multipart:
+      max-file-size: ${PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB:100}MB
+      max-request-size: ${PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB:100}MB
+
   jackson:
     deserialization:
       fail-on-unknown-properties: false
@@ -50,6 +55,11 @@ plugwerk:
     # No environment variable override — change this value directly when needed.
     token-validity-hours: 8
 
+  # Maximum allowed plugin artifact file size in MB.
+  # Files exceeding this limit are rejected with HTTP 413 (Payload Too Large).
+  # Env: PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB
+  upload:
+    max-file-size-mb: ${PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB:100}
 
 server:
   port: 8080

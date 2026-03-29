@@ -43,6 +43,7 @@ data class PlugwerkProperties(
     val storage: StorageProperties = StorageProperties(),
     val server: ServerProperties = ServerProperties(),
     @field:Valid val auth: AuthProperties = AuthProperties(),
+    val upload: UploadProperties = UploadProperties(),
 ) {
     /**
      * Artifact storage configuration (`plugwerk.storage.*`).
@@ -178,4 +179,21 @@ data class PlugwerkProperties(
          */
         val adminPassword: String? = null,
     )
+
+    /**
+     * Upload configuration (`plugwerk.upload.*`).
+     *
+     * Controls the maximum allowed size for plugin artifact uploads.
+     *
+     * @property maxFileSizeMb Maximum artifact file size in megabytes. Files exceeding this
+     *   limit are rejected with HTTP 413 (Payload Too Large). This limit is enforced both
+     *   at the Spring multipart layer and in the application service layer.
+     *
+     *   Environment variable: `PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB`
+     *
+     *   ```yaml
+     *   plugwerk.upload.max-file-size-mb: 100
+     *   ```
+     */
+    data class UploadProperties(val maxFileSizeMb: Int = 100)
 }

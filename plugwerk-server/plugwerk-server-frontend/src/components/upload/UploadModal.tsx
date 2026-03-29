@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Copyright (C) 2026 devtank42 GmbH
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -22,6 +22,8 @@ import { useAuthStore } from '../../stores/authStore'
 import { usePluginStore } from '../../stores/pluginStore'
 import { tokens } from '../../theme/tokens'
 
+const DEFAULT_MAX_FILE_SIZE_MB = 100
+
 export function UploadModal() {
   const { uploadModalOpen, closeUploadModal, addToast } = useUiStore()
   const { namespace } = useAuthStore()
@@ -29,13 +31,31 @@ export function UploadModal() {
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState<number | null>(null)
+  const [maxFileSizeMb, setMaxFileSizeMb] = useState(DEFAULT_MAX_FILE_SIZE_MB)
+
+  useEffect(() => {
+    if (!uploadModalOpen) return
+    axiosInstance.get('/config')
+      .then((res) => {
+        const limit = res.data?.upload?.maxFileSizeMb
+        if (typeof limit === 'number' && limit > 0) setMaxFileSizeMb(limit)
+      })
+      .catch(() => { /* use default */ })
+  }, [uploadModalOpen])
+
+  const maxFileSizeBytes = maxFileSizeMb * 1024 * 1024
 
   const onDrop = useCallback((accepted: File[]) => {
     if (accepted[0]) {
+      if (accepted[0].size > maxFileSizeBytes) {
+        setError(`File is too large (${(accepted[0].size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is ${maxFileSizeMb} MB.`)
+        setFile(null)
+        return
+      }
       setFile(accepted[0])
       setError(null)
     }
-  }, [])
+  }, [maxFileSizeBytes, maxFileSizeMb])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -131,7 +151,9 @@ export function UploadModal() {
                 <Typography variant="body2" fontWeight={600}>
                   {isDragActive ? 'Drop the file here…' : 'Drag & drop a .jar or .zip file here'}
                 </Typography>
-                <Typography variant="caption" color="text.disabled">or click to browse</Typography>
+                <Typography variant="caption" color="text.disabled">
+                  or click to browse · Max. {maxFileSizeMb} MB
+                </Typography>
               </>
             )}
           </Box>

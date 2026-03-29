@@ -86,6 +86,7 @@ info:
     - `401 Unauthorized` — missing or invalid authentication credentials
     - `404 Not Found` — the requested resource does not exist
     - `409 Conflict` — a resource with the same identifier already exists
+    - `413 Payload Too Large` — the uploaded artifact exceeds the server's file size limit
     - `422 Unprocessable Entity` — the artifact was uploaded successfully but the plugin
       descriptor inside it is missing or invalid
   version: 0.1.0
@@ -168,6 +169,13 @@ tags:
       The `userSubject` is either a local username or an OIDC `sub` claim.
 
       Requires `ADMIN` role on the namespace.
+  - name: ServerConfig
+    description: |
+      Public, unauthenticated endpoint exposing non-sensitive server configuration.
+
+      The frontend uses this endpoint to synchronise client-side validation rules
+      (e.g. maximum upload file size) with the server without requiring authentication.
+      The values returned here mirror the operator-configurable `plugwerk.*` properties.
   - name: OidcProviders
     description: |
       Manage external OIDC / OAuth2 providers for token validation.
@@ -179,6 +187,35 @@ tags:
       All providers are disabled by default. Requires server-admin authentication.
 
 paths:
+  /config:
+    get:
+      tags:
+        - ServerConfig
+      summary: Get public server configuration
+      description: |
+        Returns non-sensitive, operator-configurable server settings that clients need
+        to enforce local validation rules — most notably the maximum allowed upload file size.
+
+        This endpoint is **public** and does not require authentication. The frontend
+        calls it when the upload dialog opens so that client-side file size validation
+        always matches the server-side limit, even when the operator has overridden the
+        default via the `PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB` environment variable.
+
+        The response is intentionally small and stable — it will only grow with new
+        top-level keys, never remove existing ones.
+      operationId: getServerConfig
+      security: []
+      responses:
+        '200':
+          description: Current server configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerConfigResponse'
+              example:
+                upload:
+                  maxFileSizeMb: 100
+
   /auth/login:
     post:
       tags:
@@ -420,6 +457,12 @@ paths:
         - `pluginDependencies`: max 100 entries, each ID must match the plugin ID format
         - Plain-text fields must not contain HTML/script tags
 
+        **File size limit:**
+        The server enforces a maximum artifact size (default: 100 MB, configurable via
+        `PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB`). Files exceeding this limit are rejected with
+        `413 Payload Too Large`. Use `GET /config` to query the current limit at runtime.
+
+        Returns `413 Payload Too Large` if the artifact exceeds the file size limit.
         Returns `422 Unprocessable Entity` if the descriptor is missing or invalid.
       operationId: uploadPluginRelease
       security:
@@ -443,6 +486,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 
@@ -2069,6 +2114,30 @@ components:
         endpoints embedded — only clientId and clientSecret are required.
         GENERIC_OIDC and KEYCLOAK require an explicit issuerUri.
 
+    ServerConfigResponse:
+      type: object
+      description: |
+        Public, non-sensitive server configuration that clients use to enforce local
+        validation rules. This response is intentionally small and stable — new top-level
+        keys may be added in future versions, but existing keys will not be removed.
+      properties:
+        upload:
+          type: object
+          description: Upload-related configuration
+          properties:
+            maxFileSizeMb:
+              type: integer
+              description: |
+                Maximum allowed plugin artifact file size in megabytes. Files exceeding
+                this limit are rejected with HTTP 413 (Payload Too Large). The server
+                operator can change this value via the `PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB`
+                environment variable. Default: `100`.
+              example: 100
+          required:
+            - maxFileSizeMb
+      required:
+        - upload
+
   responses:
     BadRequest:
       description: The request body or parameters failed validation
@@ -2084,6 +2153,15 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     NotFound:
       description: The requested resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    PayloadTooLarge:
+      description: |
+        The uploaded artifact exceeds the server's maximum allowed file size.
+        Use `GET /config` to query the current limit. The default is 100 MB,
+        configurable via the `PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB` environment variable.
       content:
         application/json:
           schema:

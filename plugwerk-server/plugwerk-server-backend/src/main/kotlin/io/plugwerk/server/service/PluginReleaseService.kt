@@ -19,6 +19,7 @@ package io.plugwerk.server.service
 
 import io.plugwerk.descriptor.DescriptorResolver
 import io.plugwerk.descriptor.PlugwerkDescriptor
+import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.PluginEntity
 import io.plugwerk.server.domain.PluginReleaseEntity
@@ -46,6 +47,7 @@ class PluginReleaseService(
     private val storageService: ArtifactStorageService,
     private val descriptorResolver: DescriptorResolver,
     private val objectMapper: ObjectMapper,
+    private val properties: PlugwerkProperties,
 ) {
 
     fun findAllByPlugin(namespaceSlug: String, pluginId: String): List<PluginReleaseEntity> {
@@ -93,7 +95,16 @@ class PluginReleaseService(
         contentLength: Long,
         originalFilename: String? = null,
     ): PluginReleaseEntity {
-        val bytes = content.readAllBytes()
+        val maxBytes = properties.upload.maxFileSizeMb.toLong() * 1_048_576L
+
+        if (contentLength > 0 && contentLength > maxBytes) {
+            throw FileTooLargeException(contentLength, properties.upload.maxFileSizeMb)
+        }
+
+        val bytes = content.readNBytes(maxBytes.toInt() + 1)
+        if (bytes.size > maxBytes) {
+            throw FileTooLargeException(bytes.size.toLong(), properties.upload.maxFileSizeMb)
+        }
         val descriptor = descriptorResolver.resolve(ByteArrayInputStream(bytes))
         val sha256 = computeSha256(bytes)
         val plugin = findOrCreatePlugin(namespaceSlug, descriptor)

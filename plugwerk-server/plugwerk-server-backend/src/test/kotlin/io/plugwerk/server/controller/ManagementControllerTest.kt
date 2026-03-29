@@ -28,6 +28,7 @@ import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
 import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.security.PasswordChangeRequiredFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
+import io.plugwerk.server.service.FileTooLargeException
 import io.plugwerk.server.service.PluginNotFoundException
 import io.plugwerk.server.service.PluginReleaseService
 import io.plugwerk.server.service.PluginService
@@ -164,6 +165,22 @@ class ManagementControllerTest {
             content = """{"status":"published"}"""
         }.andExpect {
             status { isOk() }
+        }
+    }
+
+    @Test
+    fun `POST release upload returns 413 when file exceeds size limit`() {
+        val artifact =
+            MockMultipartFile("artifact", "huge.jar", "application/octet-stream", "data".toByteArray())
+        whenever(releaseService.upload(any(), any(), any(), anyOrNull()))
+            .thenThrow(FileTooLargeException(200L * 1_048_576, 100))
+
+        mockMvc.multipart("/api/v1/namespaces/acme/plugin-releases") {
+            file(artifact)
+        }.andExpect {
+            status { isPayloadTooLarge() }
+            jsonPath("$.status") { value(413) }
+            jsonPath("$.message") { value("File size 200 MB exceeds maximum allowed 100 MB") }
         }
     }
 

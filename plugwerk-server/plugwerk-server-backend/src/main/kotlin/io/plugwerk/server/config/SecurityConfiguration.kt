@@ -118,6 +118,8 @@ class SecurityConfiguration(
                     .requestMatchers("/api/v1/auth/**").permitAll()
                     // Update check is public (used by client SDK without auth)
                     .requestMatchers(HttpMethod.POST, "/api/v1/namespaces/*/updates/check").permitAll()
+                    // Public server config (upload limits etc.) — used by frontend without auth
+                    .requestMatchers(HttpMethod.GET, "/api/v1/config").permitAll()
                     // Actuator health and info are public
                     .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                     // SPA static assets are always public

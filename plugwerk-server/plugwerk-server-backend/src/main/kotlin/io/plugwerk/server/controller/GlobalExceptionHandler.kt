@@ -25,6 +25,7 @@ import io.plugwerk.server.service.ArtifactNotFoundException
 import io.plugwerk.server.service.ArtifactStorageException
 import io.plugwerk.server.service.ConflictException
 import io.plugwerk.server.service.EntityNotFoundException
+import io.plugwerk.server.service.FileTooLargeException
 import io.plugwerk.server.service.ForbiddenException
 import io.plugwerk.server.service.NamespaceAlreadyExistsException
 import io.plugwerk.server.service.NamespaceNotFoundException
@@ -40,6 +41,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.multipart.MaxUploadSizeExceededException
 import java.time.OffsetDateTime
 
 @RestControllerAdvice
@@ -95,6 +97,14 @@ class GlobalExceptionHandler {
     )
     fun handleDescriptorError(ex: RuntimeException): ResponseEntity<ErrorResponse> =
         errorResponse(HttpStatus.UNPROCESSABLE_ENTITY, ex.message ?: "Plugin descriptor is invalid or missing")
+
+    @ExceptionHandler(FileTooLargeException::class)
+    fun handleFileTooLarge(ex: FileTooLargeException): ResponseEntity<ErrorResponse> =
+        errorResponse(HttpStatus.PAYLOAD_TOO_LARGE, ex.message ?: "File too large")
+
+    @ExceptionHandler(MaxUploadSizeExceededException::class)
+    fun handleMaxUploadSize(ex: MaxUploadSizeExceededException): ResponseEntity<ErrorResponse> =
+        errorResponse(HttpStatus.PAYLOAD_TOO_LARGE, "Upload exceeds the maximum allowed file size")
 
     @ExceptionHandler(ArtifactStorageException::class)
     fun handleStorage(ex: ArtifactStorageException): ResponseEntity<ErrorResponse> {
