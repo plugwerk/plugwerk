@@ -17,6 +17,7 @@
  */
 package io.plugwerk.client
 
+import io.plugwerk.spi.PlugwerkConfig
 import io.plugwerk.spi.model.InstallResult
 import io.plugwerk.spi.model.PluginStatus
 import okhttp3.mockwebserver.MockResponse
@@ -172,7 +173,7 @@ class PlugwerkMarketplaceIntegrationTest {
         serverB.start()
 
         try {
-            val plugin = PlugwerkMarketplacePlugin()
+            val plugin = PlugwerkPluginImpl()
             plugin.configure(
                 "server-a",
                 PlugwerkConfig(

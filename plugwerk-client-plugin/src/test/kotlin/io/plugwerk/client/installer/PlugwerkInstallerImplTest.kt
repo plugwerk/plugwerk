@@ -18,7 +18,7 @@
 package io.plugwerk.client.installer
 
 import io.plugwerk.client.PlugwerkClient
-import io.plugwerk.client.PlugwerkConfig
+import io.plugwerk.spi.PlugwerkConfig
 import io.plugwerk.spi.model.InstallResult
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer

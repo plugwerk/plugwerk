@@ -31,10 +31,9 @@ Plugin Classloader (isolated)
 
 | Class | Responsibility |
 |-------|---------------|
-| `PlugwerkMarketplacePlugin` | PF4J plugin entry point (`start()` / `stop()` lifecycle) |
+| `PlugwerkPluginImpl` | PF4J plugin entry point, implements `PlugwerkPlugin` from `plugwerk-spi` |
 | `PlugwerkMarketplaceImpl` | Facade combining catalog, installer, and update checker |
 | `PlugwerkClient` | Low-level OkHttp HTTP client, namespace-scoped URL construction, auth headers |
-| `PlugwerkConfig` | Configuration data class with builder pattern and `.properties` file loader |
 | `PlugwerkCatalogImpl` | `GET /plugins`, search, filtering — maps server DTOs to SPI models |
 | `PlugwerkInstallerImpl` | Download with SHA-256 verification, transactional install/uninstall |
 | `PlugwerkUpdateCheckerImpl` | `POST /updates/check` with installed version map |
@@ -50,7 +49,7 @@ pluginManager.loadPlugins()
 pluginManager.startPlugins()
 
 val plugin = pluginManager.getPlugin("plugwerk-client")
-    .plugin as PlugwerkMarketplacePlugin
+    .plugin as PlugwerkPlugin
 plugin.configure(
     PlugwerkConfig.Builder("https://plugwerk.example.com", "acme-crm")
         .accessToken("eyJhbG...")

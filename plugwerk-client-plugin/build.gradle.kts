@@ -28,7 +28,7 @@ tasks.compileJava {
 
 // PF4J plugin metadata — embedded in MANIFEST.MF so the SDK JAR is loadable as a PF4J plugin
 val pf4jPluginId = "plugwerk-client-plugin"
-val pf4jPluginClass = "io.plugwerk.client.PlugwerkMarketplacePlugin"
+val pf4jPluginClass = "io.plugwerk.client.PlugwerkPluginImpl"
 val pf4jPluginVersion: String = project.version.toString()
 val pf4jPluginProvider = "devtank42 GmbH"
 val pf4jPluginDescription = "Plugwerk Client SDK — catalog, install, update for PF4J host apps"
