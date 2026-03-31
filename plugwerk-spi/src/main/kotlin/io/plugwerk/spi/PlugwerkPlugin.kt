@@ -45,7 +45,7 @@ import io.plugwerk.spi.extension.PlugwerkMarketplace
  * **Java:**
  * ```java
  * PlugwerkPlugin plugin = (PlugwerkPlugin)
- *     pluginManager.getPlugin("plugwerk-client").getPlugin();
+ *     pluginManager.getPlugin(PlugwerkPlugin.PLUGIN_ID).getPlugin();
  * plugin.configure("production", prodConfig);
  * plugin.configure("staging", stagingConfig);
  *
@@ -59,6 +59,9 @@ import io.plugwerk.spi.extension.PlugwerkMarketplace
 interface PlugwerkPlugin {
 
     companion object {
+        /** PF4J Plugin-Id of the Plugwerk Client SDK plugin. */
+        const val PLUGIN_ID = "plugwerk-client-plugin"
+
         /** Default server ID used by the single-server convenience methods. */
         const val DEFAULT_SERVER_ID = "default"
     }

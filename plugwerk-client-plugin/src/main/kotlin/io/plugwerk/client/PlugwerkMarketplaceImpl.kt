@@ -33,7 +33,7 @@ import io.plugwerk.spi.extension.PlugwerkUpdateChecker
  * **PF4J plugin mode (recommended):**
  * Obtain the instance via [io.plugwerk.spi.PlugwerkPlugin.marketplace] after configuring the plugin:
  * ```kotlin
- * val plugin = pluginManager.getPlugin("plugwerk-client")
+ * val plugin = pluginManager.getPlugin(PlugwerkPlugin.PLUGIN_ID)
  *     .plugin as PlugwerkPlugin
  * plugin.configure(config)
  * val marketplace = plugin.marketplace()

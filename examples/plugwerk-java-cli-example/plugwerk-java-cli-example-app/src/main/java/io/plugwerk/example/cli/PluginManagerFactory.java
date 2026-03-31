@@ -22,7 +22,7 @@ import java.nio.file.Path;
 public class PluginManagerFactory {
 
     private static final Logger log = LoggerFactory.getLogger(PluginManagerFactory.class);
-    private static final String PLUGIN_ID = "plugwerk-client";
+    private static final String PLUGIN_ID = PlugwerkPlugin.PLUGIN_ID;
 
     private PluginManagerFactory() {}
 

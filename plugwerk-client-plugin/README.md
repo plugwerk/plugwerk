@@ -48,7 +48,7 @@ val pluginManager = DefaultPluginManager(pluginsDir)
 pluginManager.loadPlugins()
 pluginManager.startPlugins()
 
-val plugin = pluginManager.getPlugin("plugwerk-client")
+val plugin = pluginManager.getPlugin("plugwerk-client-plugin")
     .plugin as PlugwerkPlugin
 plugin.configure(
     PlugwerkConfig.Builder("https://plugwerk.example.com", "acme-crm")

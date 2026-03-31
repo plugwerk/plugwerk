@@ -31,7 +31,7 @@ import org.pf4j.ExtensionPoint
  *
  * Kotlin:
  * ```kotlin
- * val plugin = pluginManager.getPlugin("plugwerk-client")
+ * val plugin = pluginManager.getPlugin(PlugwerkPlugin.PLUGIN_ID)
  *     .plugin as PlugwerkPlugin
  * plugin.configure(config)
  * val marketplace = plugin.marketplace()
@@ -49,7 +49,7 @@ import org.pf4j.ExtensionPoint
  * Java:
  * ```java
  * PlugwerkPlugin plugin = (PlugwerkPlugin)
- *     pluginManager.getPlugin("plugwerk-client").getPlugin();
+ *     pluginManager.getPlugin(PlugwerkPlugin.PLUGIN_ID).getPlugin();
  * plugin.configure(config);
  * PlugwerkMarketplace marketplace = plugin.marketplace();
  *

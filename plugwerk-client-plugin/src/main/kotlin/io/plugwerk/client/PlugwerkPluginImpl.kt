@@ -33,14 +33,14 @@ import java.util.concurrent.ConcurrentHashMap
  * interface defined in `plugwerk-spi`:
  *
  * ```kotlin
- * val plugin = pluginManager.getPlugin("plugwerk-client").plugin as PlugwerkPlugin
+ * val plugin = pluginManager.getPlugin(PlugwerkPlugin.PLUGIN_ID).plugin as PlugwerkPlugin
  * plugin.configure(config)
  * val marketplace = plugin.marketplace()
  * ```
  *
  * ```java
  * PlugwerkPlugin plugin = (PlugwerkPlugin)
- *     pluginManager.getPlugin("plugwerk-client").getPlugin();
+ *     pluginManager.getPlugin(PlugwerkPlugin.PLUGIN_ID).getPlugin();
  * plugin.configure(config);
  * PlugwerkMarketplace marketplace = plugin.marketplace();
  * ```
