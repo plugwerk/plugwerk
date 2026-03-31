@@ -18,7 +18,7 @@
 package io.plugwerk.client.catalog
 
 import io.plugwerk.client.PlugwerkClient
-import io.plugwerk.client.PlugwerkConfig
+import io.plugwerk.spi.PlugwerkConfig
 import io.plugwerk.spi.model.PluginStatus
 import io.plugwerk.spi.model.ReleaseStatus
 import io.plugwerk.spi.model.SearchCriteria

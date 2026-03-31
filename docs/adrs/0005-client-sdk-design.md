@@ -80,12 +80,12 @@ plugwerk-client-plugin-<version>.zip
 ```
 
 The plugin JAR contains an embedded `MANIFEST.MF` with PF4J metadata (`Plugin-Id`, `Plugin-Class`,
-`Plugin-Version`, `Plugin-Provider`). The plugin class is `PlugwerkMarketplacePlugin`
-(extends `org.pf4j.Plugin` using the no-arg constructor).
+`Plugin-Version`, `Plugin-Provider`). The plugin class is `PlugwerkPluginImpl`
+(extends `org.pf4j.Plugin` and implements the `PlugwerkPlugin` interface from `plugwerk-spi`).
 
-`PlugwerkMarketplaceImpl` is annotated with `@Extension` and implements `PlugwerkMarketplace`
-(the facade extension point from `plugwerk-spi`). Host applications retrieve the marketplace
-via PF4J's standard extension lookup.
+Host applications interact with the plugin through the `PlugwerkPlugin` interface, which is
+defined in `plugwerk-spi` alongside `PlugwerkConfig`. This means host applications only need
+`plugwerk-spi` on their compile classpath — no dependency on `plugwerk-client-plugin` internals.
 
 **Host-provided dependencies** (`plugwerk-spi`, `pf4j`) are excluded from the ZIP — they must be
 on the host application's classpath. All other dependencies (OkHttp, Jackson, api-model) are

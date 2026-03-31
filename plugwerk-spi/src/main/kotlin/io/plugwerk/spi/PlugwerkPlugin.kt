@@ -15,29 +15,26 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-package io.plugwerk.client
+package io.plugwerk.spi
 
 import io.plugwerk.spi.extension.PlugwerkMarketplace
-import org.pf4j.Plugin
-import java.util.concurrent.ConcurrentHashMap
 
 /**
- * PF4J plugin entry point for the Plugwerk Client SDK.
+ * Host-facing contract for configuring and accessing Plugwerk marketplace instances.
  *
- * This class is referenced in `MANIFEST.MF` via `Plugin-Class`. PF4J instantiates it
- * when the SDK JAR is loaded as a plugin.
- *
- * A single plugin instance can manage connections to **multiple Plugwerk servers**
- * simultaneously. Each server is identified by a string ID chosen by the host application.
+ * A single plugin can manage connections to **multiple Plugwerk servers** simultaneously.
+ * Each server is identified by a string ID chosen by the host application.
  *
  * **Single server (convenience):**
  * ```kotlin
+ * val plugin = wrapper.plugin as PlugwerkPlugin
  * plugin.configure(config)
  * val marketplace = plugin.marketplace()
  * ```
  *
  * **Multiple servers:**
  * ```kotlin
+ * val plugin = wrapper.plugin as PlugwerkPlugin
  * plugin.configure("production", prodConfig)
  * plugin.configure("staging", stagingConfig)
  *
@@ -47,20 +44,27 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * **Java:**
  * ```java
- * PlugwerkMarketplacePlugin plugin = (PlugwerkMarketplacePlugin)
- *     pluginManager.getPlugin("plugwerk-client").getPlugin();
+ * PlugwerkPlugin plugin = (PlugwerkPlugin)
+ *     pluginManager.getPlugin(PlugwerkPlugin.PLUGIN_ID).getPlugin();
  * plugin.configure("production", prodConfig);
  * plugin.configure("staging", stagingConfig);
  *
  * PlugwerkMarketplace prod = plugin.marketplace("production");
  * PlugwerkMarketplace staging = plugin.marketplace("staging");
  * ```
+ *
+ * @see PlugwerkConfig
+ * @see PlugwerkMarketplace
  */
-class PlugwerkMarketplacePlugin : Plugin() {
+interface PlugwerkPlugin {
 
-    private data class ServerEntry(val config: PlugwerkConfig, var marketplace: PlugwerkMarketplaceImpl? = null)
+    companion object {
+        /** PF4J Plugin-Id of the Plugwerk Client SDK plugin. */
+        const val PLUGIN_ID = "plugwerk-client-plugin"
 
-    private val servers = ConcurrentHashMap<String, ServerEntry>()
+        /** Default server ID used by the single-server convenience methods. */
+        const val DEFAULT_SERVER_ID = "default"
+    }
 
     /**
      * Registers a server configuration under the given [serverId].
@@ -71,10 +75,7 @@ class PlugwerkMarketplacePlugin : Plugin() {
      * @param serverId identifier chosen by the host application (e.g. `"production"`, `"vendor-a"`)
      * @param config server URL, namespace, credentials, and plugin directory
      */
-    fun configure(serverId: String, config: PlugwerkConfig) {
-        val old = servers.put(serverId, ServerEntry(config))
-        old?.marketplace?.close()
-    }
+    fun configure(serverId: String, config: PlugwerkConfig)
 
     /**
      * Convenience overload that registers the config under [DEFAULT_SERVER_ID].
@@ -91,17 +92,7 @@ class PlugwerkMarketplacePlugin : Plugin() {
      * @throws IllegalStateException if no server with this ID has been configured.
      * @throws IllegalStateException if [PlugwerkConfig.pluginDirectory] is not set.
      */
-    fun marketplace(serverId: String): PlugwerkMarketplace {
-        val entry = servers[serverId] ?: throw IllegalStateException(
-            "No server configured with ID '$serverId'. " +
-                "Call plugin.configure(\"$serverId\", config) first.",
-        )
-        entry.marketplace?.let { return it }
-
-        val instance = PlugwerkMarketplaceImpl.create(entry.config)
-        entry.marketplace = instance
-        return instance
-    }
+    fun marketplace(serverId: String): PlugwerkMarketplace
 
     /**
      * Convenience overload that returns the marketplace for [DEFAULT_SERVER_ID].
@@ -111,32 +102,15 @@ class PlugwerkMarketplacePlugin : Plugin() {
     fun marketplace(): PlugwerkMarketplace = marketplace(DEFAULT_SERVER_ID)
 
     /** Returns an immutable snapshot of all registered server IDs. */
-    fun serverIds(): Set<String> = servers.keys.toSet()
+    fun serverIds(): Set<String>
 
     /**
      * Removes the server entry for the given [serverId] and closes its HTTP client.
      *
      * @return `true` if a server with this ID was registered, `false` otherwise.
      */
-    fun remove(serverId: String): Boolean {
-        val entry = servers.remove(serverId)
-        entry?.marketplace?.close()
-        return entry != null
-    }
+    fun remove(serverId: String): Boolean
 
     /** Removes all server entries and closes their HTTP clients. */
-    fun removeAll() {
-        val entries = servers.values.toList()
-        servers.clear()
-        entries.forEach { it.marketplace?.close() }
-    }
-
-    override fun stop() {
-        removeAll()
-    }
-
-    companion object {
-        /** Default server ID used by the single-server convenience methods. */
-        const val DEFAULT_SERVER_ID = "default"
-    }
+    fun removeAll()
 }

@@ -17,6 +17,7 @@
  */
 package io.plugwerk.client
 
+import io.plugwerk.spi.PlugwerkConfig
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -34,7 +35,7 @@ import java.util.concurrent.TimeUnit
  * Low-level HTTP client for communication with a single Plugwerk server.
  *
  * All requests are scoped to the namespace defined in [config]. The Bearer token
- * from [PlugwerkConfig.accessToken] is added automatically when present.
+ * from [io.plugwerk.spi.PlugwerkConfig.accessToken] is added automatically when present.
  *
  * Callers work with the higher-level components ([catalog][io.plugwerk.client.catalog.PlugwerkCatalogImpl],
  * [installer][io.plugwerk.client.installer.PlugwerkInstallerImpl], etc.) rather than this class directly.
@@ -54,8 +55,8 @@ class PlugwerkClient(internal val config: PlugwerkConfig) {
             .connectTimeout(config.connectionTimeoutMs, TimeUnit.MILLISECONDS)
             .readTimeout(config.readTimeoutMs, TimeUnit.MILLISECONDS)
             .apply {
-                if (config.accessToken != null) {
-                    addInterceptor(BearerTokenInterceptor(config.accessToken))
+                config.accessToken?.let { token ->
+                    addInterceptor(BearerTokenInterceptor(token))
                 }
             }
             .build()

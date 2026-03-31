@@ -20,6 +20,7 @@ package io.plugwerk.client
 import io.plugwerk.client.catalog.PlugwerkCatalogImpl
 import io.plugwerk.client.installer.PlugwerkInstallerImpl
 import io.plugwerk.client.updater.PlugwerkUpdateCheckerImpl
+import io.plugwerk.spi.PlugwerkConfig
 import io.plugwerk.spi.extension.PlugwerkCatalog
 import io.plugwerk.spi.extension.PlugwerkInstaller
 import io.plugwerk.spi.extension.PlugwerkMarketplace
@@ -30,10 +31,10 @@ import io.plugwerk.spi.extension.PlugwerkUpdateChecker
  * [PlugwerkMarketplace] implementation.
  *
  * **PF4J plugin mode (recommended):**
- * Obtain the instance via [PlugwerkMarketplacePlugin.marketplace] after configuring the plugin:
+ * Obtain the instance via [io.plugwerk.spi.PlugwerkPlugin.marketplace] after configuring the plugin:
  * ```kotlin
- * val plugin = pluginManager.getPlugin("plugwerk-client")
- *     .plugin as PlugwerkMarketplacePlugin
+ * val plugin = pluginManager.getPlugin(PlugwerkPlugin.PLUGIN_ID)
+ *     .plugin as PlugwerkPlugin
  * plugin.configure(config)
  * val marketplace = plugin.marketplace()
  * ```

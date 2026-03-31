@@ -1,7 +1,7 @@
 package io.plugwerk.example.cli;
 
-import io.plugwerk.client.PlugwerkConfig;
-import io.plugwerk.client.PlugwerkMarketplacePlugin;
+import io.plugwerk.spi.PlugwerkConfig;
+import io.plugwerk.spi.PlugwerkPlugin;
 import io.plugwerk.spi.extension.PlugwerkMarketplace;
 import org.pf4j.DefaultPluginManager;
 import org.pf4j.PluginManager;
@@ -22,7 +22,7 @@ import java.nio.file.Path;
 public class PluginManagerFactory {
 
     private static final Logger log = LoggerFactory.getLogger(PluginManagerFactory.class);
-    private static final String PLUGIN_ID = "plugwerk-client";
+    private static final String PLUGIN_ID = PlugwerkPlugin.PLUGIN_ID;
 
     private PluginManagerFactory() {}
 
@@ -66,7 +66,7 @@ public class PluginManagerFactory {
                     Run: cp <main-project>/plugwerk-client-plugin/build/pf4j/*.zip %s/
                     """.formatted(PLUGIN_ID, pluginsDir.toAbsolutePath()));
         }
-        ((PlugwerkMarketplacePlugin) wrapper.getPlugin()).configure(configBuilder.build());
+        ((PlugwerkPlugin) wrapper.getPlugin()).configure(configBuilder.build());
 
         return manager;
     }
@@ -86,6 +86,6 @@ public class PluginManagerFactory {
                     Make sure plugwerk-client-plugin-<version>.zip is present in the plugins directory.
                     """.formatted(PLUGIN_ID));
         }
-        return ((PlugwerkMarketplacePlugin) wrapper.getPlugin()).marketplace();
+        return ((PlugwerkPlugin) wrapper.getPlugin()).marketplace();
     }
 }

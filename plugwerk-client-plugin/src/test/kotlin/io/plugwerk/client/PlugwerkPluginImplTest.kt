@@ -17,6 +17,8 @@
  */
 package io.plugwerk.client
 
+import io.plugwerk.spi.PlugwerkConfig
+import io.plugwerk.spi.PlugwerkPlugin
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotSame
@@ -28,12 +30,12 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 
-class PlugwerkMarketplacePluginTest {
+class PlugwerkPluginImplTest {
 
     @TempDir
     lateinit var tempDir: Path
 
-    private lateinit var plugin: PlugwerkMarketplacePlugin
+    private lateinit var plugin: PlugwerkPluginImpl
 
     private fun config(serverUrl: String = "http://localhost:8080", namespace: String = "acme") =
         PlugwerkConfig.Builder(serverUrl, namespace)
@@ -42,7 +44,7 @@ class PlugwerkMarketplacePluginTest {
 
     @BeforeEach
     fun setUp() {
-        plugin = PlugwerkMarketplacePlugin()
+        plugin = PlugwerkPluginImpl()
     }
 
     @Test
@@ -139,8 +141,8 @@ class PlugwerkMarketplacePluginTest {
     fun `default server convenience delegates to DEFAULT_SERVER_ID`() {
         plugin.configure(config())
 
-        assertEquals(setOf(PlugwerkMarketplacePlugin.DEFAULT_SERVER_ID), plugin.serverIds())
-        assertSame(plugin.marketplace(), plugin.marketplace(PlugwerkMarketplacePlugin.DEFAULT_SERVER_ID))
+        assertEquals(setOf(PlugwerkPlugin.DEFAULT_SERVER_ID), plugin.serverIds())
+        assertSame(plugin.marketplace(), plugin.marketplace(PlugwerkPlugin.DEFAULT_SERVER_ID))
     }
 
     @Test

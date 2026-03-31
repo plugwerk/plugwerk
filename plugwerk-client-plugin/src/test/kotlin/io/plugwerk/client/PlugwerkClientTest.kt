@@ -17,6 +17,7 @@
  */
 package io.plugwerk.client
 
+import io.plugwerk.spi.PlugwerkConfig
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.jupiter.api.AfterEach

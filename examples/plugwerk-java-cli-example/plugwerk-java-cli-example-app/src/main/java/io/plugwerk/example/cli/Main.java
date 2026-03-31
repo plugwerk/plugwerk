@@ -29,9 +29,19 @@ public class Main {
         // from command-line args and env vars before we initialize the plugin manager.
         // Errors (e.g. unknown subcommand before dynamic commands are registered) are
         // intentionally ignored — execute() will handle them properly.
+        boolean helpRequested = false;
         try {
-            commandLine.parseArgs(args);
+            CommandLine.ParseResult parseResult = commandLine.parseArgs(args);
+            helpRequested = parseResult.isUsageHelpRequested() || parseResult.isVersionHelpRequested();
         } catch (Exception ignored) {}
+
+        // Short-circuit for --help / --version: print usage without initializing the
+        // plugin manager (which requires the plugwerk-client plugin ZIP to be present).
+        if (helpRequested) {
+            int exitCode = commandLine.execute(args);
+            System.exit(exitCode);
+            return;
+        }
 
         // Eagerly initialize the plugin manager so that already-installed plugins are
         // loaded and their CliCommand extensions are registered as picocli subcommands
