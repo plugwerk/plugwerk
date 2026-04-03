@@ -304,7 +304,7 @@ class PluginReleaseServiceTest {
             artifactSha256 = "sha",
             artifactKey = "acme:my-plugin:1.0.0:jar",
         )
-        whenever(releaseRepository.findById(releaseId)).thenReturn(Optional.of(release))
+        whenever(releaseRepository.findByIdWithPlugin(releaseId)).thenReturn(Optional.of(release))
         whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenReturn(release)
 
         val result = releaseService.updateStatusByIdInNamespace(releaseId, "acme", ReleaseStatus.PUBLISHED)
@@ -322,7 +322,7 @@ class PluginReleaseServiceTest {
             artifactSha256 = "sha",
             artifactKey = "acme:my-plugin:1.0.0:jar",
         )
-        whenever(releaseRepository.findById(releaseId)).thenReturn(Optional.of(release))
+        whenever(releaseRepository.findByIdWithPlugin(releaseId)).thenReturn(Optional.of(release))
 
         assertFailsWith<ReleaseNotFoundException> {
             releaseService.updateStatusByIdInNamespace(releaseId, "evil-namespace", ReleaseStatus.PUBLISHED)

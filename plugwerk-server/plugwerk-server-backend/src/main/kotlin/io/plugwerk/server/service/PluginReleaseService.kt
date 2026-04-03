@@ -68,6 +68,9 @@ class PluginReleaseService(
     fun findById(id: UUID): PluginReleaseEntity = releaseRepository.findById(id)
         .orElseThrow { ReleaseNotFoundException("id=$id", "") }
 
+    fun findByIdWithPlugin(id: UUID): PluginReleaseEntity = releaseRepository.findByIdWithPlugin(id)
+        .orElseThrow { ReleaseNotFoundException("id=$id", "") }
+
     fun findPendingByNamespace(namespaceSlug: String): List<PluginReleaseEntity> {
         val namespace = namespaceRepository.findBySlug(namespaceSlug)
             .orElseThrow { NamespaceNotFoundException(namespaceSlug) }
@@ -86,7 +89,7 @@ class PluginReleaseService(
         status: ReleaseStatus,
         enforceNamespace: Boolean = true,
     ): PluginReleaseEntity {
-        val release = findById(id)
+        val release = findByIdWithPlugin(id)
         if (enforceNamespace && release.plugin.namespace.slug != namespaceSlug) {
             throw ReleaseNotFoundException("id=$id", "")
         }

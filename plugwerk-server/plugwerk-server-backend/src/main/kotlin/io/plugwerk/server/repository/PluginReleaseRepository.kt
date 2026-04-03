@@ -58,6 +58,9 @@ interface PluginReleaseRepository : JpaRepository<PluginReleaseEntity, UUID> {
         @Param("status") status: ReleaseStatus,
     ): List<PluginReleaseEntity>
 
+    @Query("SELECT r FROM PluginReleaseEntity r JOIN FETCH r.plugin WHERE r.id = :id")
+    fun findByIdWithPlugin(@Param("id") id: UUID): Optional<PluginReleaseEntity>
+
     /**
      * Returns the full latest published release entity per plugin for a given set of plugin IDs.
      * Replaces the three individual queries for version, draft version, and artifact size.
