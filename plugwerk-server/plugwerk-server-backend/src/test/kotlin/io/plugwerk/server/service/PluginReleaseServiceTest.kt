@@ -20,6 +20,7 @@ package io.plugwerk.server.service
 import io.plugwerk.descriptor.DescriptorResolver
 import io.plugwerk.descriptor.PlugwerkDescriptor
 import io.plugwerk.server.PlugwerkProperties
+import io.plugwerk.server.domain.FileFormat
 import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.PluginEntity
 import io.plugwerk.server.domain.PluginReleaseEntity
@@ -130,6 +131,57 @@ class PluginReleaseServiceTest {
         val result = releaseService.upload("acme", ByteArrayInputStream(jarBytes), jarBytes.size.toLong())
 
         assertThat(result.artifactSize).isEqualTo(jarBytes.size.toLong())
+    }
+
+    @Test
+    fun `upload sets fileFormat to JAR for jar uploads`() {
+        val jarBytes = "fake-jar-content".toByteArray()
+        val descriptor = PlugwerkDescriptor(id = "my-plugin", version = "1.0.0", name = "My Plugin")
+
+        whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.existsByPluginAndVersion(plugin, "1.0.0")).thenReturn(false)
+        whenever(storageService.store(any(), any(), any())).thenReturn("key")
+        whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenAnswer { it.getArgument(0) }
+
+        val result = releaseService.upload("acme", ByteArrayInputStream(jarBytes), jarBytes.size.toLong(), "plugin.jar")
+
+        assertThat(result.fileFormat).isEqualTo(FileFormat.JAR)
+    }
+
+    @Test
+    fun `upload sets fileFormat to ZIP for zip uploads`() {
+        val zipBytes = "fake-zip-content".toByteArray()
+        val descriptor = PlugwerkDescriptor(id = "my-plugin", version = "1.0.0", name = "My Plugin")
+
+        whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.existsByPluginAndVersion(plugin, "1.0.0")).thenReturn(false)
+        whenever(storageService.store(any(), any(), any())).thenReturn("key")
+        whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenAnswer { it.getArgument(0) }
+
+        val result = releaseService.upload("acme", ByteArrayInputStream(zipBytes), zipBytes.size.toLong(), "plugin.zip")
+
+        assertThat(result.fileFormat).isEqualTo(FileFormat.ZIP)
+    }
+
+    @Test
+    fun `upload defaults fileFormat to JAR when no filename provided`() {
+        val jarBytes = "fake-jar-content".toByteArray()
+        val descriptor = PlugwerkDescriptor(id = "my-plugin", version = "1.0.0", name = "My Plugin")
+
+        whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.existsByPluginAndVersion(plugin, "1.0.0")).thenReturn(false)
+        whenever(storageService.store(any(), any(), any())).thenReturn("key")
+        whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenAnswer { it.getArgument(0) }
+
+        val result = releaseService.upload("acme", ByteArrayInputStream(jarBytes), jarBytes.size.toLong())
+
+        assertThat(result.fileFormat).isEqualTo(FileFormat.JAR)
     }
 
     @Test

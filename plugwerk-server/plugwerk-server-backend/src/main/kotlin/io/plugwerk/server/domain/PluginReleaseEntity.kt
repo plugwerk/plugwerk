@@ -112,6 +112,10 @@ class PluginReleaseEntity(
     @Column(name = "artifact_size", nullable = false)
     var artifactSize: Long = 0,
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "file_format", nullable = false, length = 10)
+    var fileFormat: FileFormat = FileFormat.JAR,
+
     @Column(name = "requires_system_version", length = 255)
     var requiresSystemVersion: String? = null,
 

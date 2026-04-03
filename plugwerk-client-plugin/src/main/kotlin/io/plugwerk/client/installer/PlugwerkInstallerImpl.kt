@@ -87,8 +87,10 @@ internal class PlugwerkInstallerImpl(private val client: PlugwerkClient, private
                 return InstallResult.Failure(pluginId, version, "SHA-256 checksum mismatch for $pluginId:$version")
             }
 
-            val extension = suggestedFilename?.substringAfterLast('.')?.lowercase()
-                ?.takeIf { it == "zip" || it == "jar" } ?: "jar"
+            val extension = releaseInfo.fileFormat?.value
+                ?: suggestedFilename?.substringAfterLast('.')?.lowercase()
+                    ?.takeIf { it == "zip" || it == "jar" }
+                ?: "jar"
             val finalPath = pluginDirectory.resolve("$pluginId-$version.$extension")
             Files.move(tempFile, finalPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
             log.info("Installed {}:{} to {} ({})", pluginId, version, finalPath, extension)

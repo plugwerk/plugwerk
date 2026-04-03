@@ -19,6 +19,7 @@ package io.plugwerk.server.controller.mapper
 
 import io.plugwerk.api.model.PluginDependencyDto
 import io.plugwerk.api.model.PluginReleaseDto
+import io.plugwerk.server.domain.FileFormat
 import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.spi.model.ReleaseStatus
 import org.springframework.stereotype.Component
@@ -47,6 +48,7 @@ class PluginReleaseMapper(private val objectMapper: ObjectMapper) {
         status = entity.status.toDto(),
         artifactSha256 = entity.artifactSha256,
         artifactSize = entity.artifactSize,
+        fileFormat = entity.fileFormat.toDto(),
         requiresSystemVersion = entity.requiresSystemVersion,
         pluginDependencies = parseDependencies(entity.pluginDependencies),
         downloadCount = entity.downloadCount,
@@ -57,6 +59,11 @@ class PluginReleaseMapper(private val objectMapper: ObjectMapper) {
         if (json == null) return null
         val raw: List<Map<String, String>> = objectMapper.readValue(json, dependencyListType)
         return raw.map { PluginDependencyDto(id = it["id"]!!, version = it["version"]!!) }
+    }
+
+    private fun FileFormat.toDto(): PluginReleaseDto.FileFormat = when (this) {
+        FileFormat.JAR -> PluginReleaseDto.FileFormat.JAR
+        FileFormat.ZIP -> PluginReleaseDto.FileFormat.ZIP
     }
 
     private fun ReleaseStatus.toDto(): PluginReleaseDto.Status = when (this) {

@@ -171,6 +171,12 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
+                  name: file_format
+                  type: varchar(10)
+                  defaultValue: JAR
+                  constraints:
+                    nullable: false
+              - column:
                   name: requires_system_version
                   type: varchar(255)
               - column:

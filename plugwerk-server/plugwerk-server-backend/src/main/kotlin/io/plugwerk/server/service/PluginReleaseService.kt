@@ -20,6 +20,7 @@ package io.plugwerk.server.service
 import io.plugwerk.descriptor.DescriptorResolver
 import io.plugwerk.descriptor.PlugwerkDescriptor
 import io.plugwerk.server.PlugwerkProperties
+import io.plugwerk.server.domain.FileFormat
 import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.PluginEntity
 import io.plugwerk.server.domain.PluginReleaseEntity
@@ -128,6 +129,7 @@ class PluginReleaseService(
 
         val extension = originalFilename?.substringAfterLast('.')?.lowercase()
             ?.takeIf { it == "zip" || it == "jar" } ?: "jar"
+        val fileFormat = FileFormat.fromExtension(extension)
         val artifactKey = "${plugin.namespace.id}:${descriptor.id}:${descriptor.version}:$extension"
         storageService.store(artifactKey, ByteArrayInputStream(bytes), bytes.size.toLong())
 
@@ -138,6 +140,7 @@ class PluginReleaseService(
                 artifactSha256 = sha256,
                 artifactKey = artifactKey,
                 artifactSize = bytes.size.toLong(),
+                fileFormat = fileFormat,
                 requiresSystemVersion = descriptor.requiresSystemVersion,
                 pluginDependencies = serializeDependencies(descriptor),
             ),

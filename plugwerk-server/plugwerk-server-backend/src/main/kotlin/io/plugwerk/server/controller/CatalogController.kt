@@ -138,7 +138,7 @@ class CatalogController(
         version: String,
     ): ResponseEntity<org.springframework.core.io.Resource> {
         val release = releaseService.findByVersion(ns, pluginId, version)
-        val extension = if (release.artifactKey.endsWith(":zip")) "zip" else "jar"
+        val extension = release.fileFormat.name.lowercase()
         val stream = releaseService.downloadArtifact(ns, pluginId, version)
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"$pluginId-$version.$extension\"")

@@ -1519,6 +1519,12 @@ components:
           type: integer
           format: int64
           description: Size of the artifact in bytes
+        fileFormat:
+          type: string
+          enum:
+            - jar
+            - zip
+          description: Artifact packaging format (jar or zip)
         requiresSystemVersion:
           type: string
           description: |

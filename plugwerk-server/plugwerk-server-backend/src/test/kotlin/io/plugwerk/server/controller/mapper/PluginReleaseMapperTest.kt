@@ -18,6 +18,7 @@
 package io.plugwerk.server.controller.mapper
 
 import io.plugwerk.api.model.PluginReleaseDto
+import io.plugwerk.server.domain.FileFormat
 import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.PluginEntity
 import io.plugwerk.server.domain.PluginReleaseEntity
@@ -60,6 +61,7 @@ class PluginReleaseMapperTest {
         assertThat(dto.artifactSha256).isEqualTo("deadbeef")
         assertThat(dto.requiresSystemVersion).isEqualTo(">=2.0.0")
         assertThat(dto.status).isEqualTo(PluginReleaseDto.Status.PUBLISHED)
+        assertThat(dto.fileFormat).isEqualTo(PluginReleaseDto.FileFormat.JAR)
         assertThat(dto.downloadCount).isEqualTo(0L)
     }
 
@@ -111,6 +113,38 @@ class PluginReleaseMapperTest {
         val dto = mapper.toDto(release, "my-plugin")
 
         assertThat(dto.pluginDependencies).isNull()
+    }
+
+    @Test
+    fun `toDto maps fileFormat JAR correctly`() {
+        val release = PluginReleaseEntity(
+            id = UUID.randomUUID(),
+            plugin = plugin,
+            version = "1.0.0",
+            artifactSha256 = "abc",
+            artifactKey = "key",
+            fileFormat = FileFormat.JAR,
+        )
+
+        val dto = mapper.toDto(release, "my-plugin")
+
+        assertThat(dto.fileFormat).isEqualTo(PluginReleaseDto.FileFormat.JAR)
+    }
+
+    @Test
+    fun `toDto maps fileFormat ZIP correctly`() {
+        val release = PluginReleaseEntity(
+            id = UUID.randomUUID(),
+            plugin = plugin,
+            version = "1.0.0",
+            artifactSha256 = "abc",
+            artifactKey = "key",
+            fileFormat = FileFormat.ZIP,
+        )
+
+        val dto = mapper.toDto(release, "my-plugin")
+
+        assertThat(dto.fileFormat).isEqualTo(PluginReleaseDto.FileFormat.ZIP)
     }
 
     @Test
