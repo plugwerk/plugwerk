@@ -118,10 +118,12 @@ export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDele
             startIcon={<Download size={15} />}
             aria-label={`Download v${latestRelease.version}`}
             sx={{ borderRadius: tokens.radius.btn }}
-            onClick={() => downloadArtifact(
-              downloadUrl,
-              `${plugin.pluginId}-${latestRelease.version}.${latestRelease.fileFormat ?? 'jar'}`,
-            )}
+            onClick={() => {
+              downloadArtifact(
+                downloadUrl,
+                `${plugin.pluginId}-${latestRelease.version}.${latestRelease.fileFormat ?? 'jar'}`,
+              ).catch(() => { /* errors handled silently — server may return 401 on expired token */ })
+            }}
           >
             Download
           </Button>

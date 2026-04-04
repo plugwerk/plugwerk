@@ -18,8 +18,12 @@ export async function downloadArtifact(url: string, filename: string): Promise<v
   const a = document.createElement('a')
   a.href = blobUrl
   a.download = filename
+  a.style.display = 'none'
   document.body.appendChild(a)
   a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(blobUrl)
+  // Delay cleanup so the browser has time to start the download
+  setTimeout(() => {
+    document.body.removeChild(a)
+    URL.revokeObjectURL(blobUrl)
+  }, 100)
 }

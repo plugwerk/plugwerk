@@ -186,10 +186,12 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
                           size="small"
                           aria-label={`download release ${rel.version}`}
                           sx={{ minWidth: 'auto', p: 0.5, borderRadius: tokens.radius.btn }}
-                          onClick={() => downloadArtifact(
-                            `/api/v1/namespaces/${namespace}/plugins/${pluginId}/releases/${rel.version}/download`,
-                            `${pluginId}-${rel.version}.${rel.fileFormat ?? 'jar'}`,
-                          )}
+                          onClick={() => {
+                            downloadArtifact(
+                              `/api/v1/namespaces/${namespace}/plugins/${pluginId}/releases/${rel.version}/download`,
+                              `${pluginId}-${rel.version}.${rel.fileFormat ?? 'jar'}`,
+                            ).catch(() => setToast({ message: 'Download failed.', severity: 'error' }))
+                          }}
                         >
                           <Download size={14} />
                         </Button>
