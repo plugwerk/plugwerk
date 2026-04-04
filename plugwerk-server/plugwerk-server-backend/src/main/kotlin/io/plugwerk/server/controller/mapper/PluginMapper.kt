@@ -34,24 +34,29 @@ import java.net.URI
 @Component
 class PluginMapper(private val releaseMapper: PluginReleaseMapper) {
 
-    fun toDto(entity: PluginEntity, namespaceSlug: String, latestRelease: PluginReleaseEntity? = null): PluginDto =
-        PluginDto(
-            id = entity.id!!,
-            pluginId = entity.pluginId,
-            name = entity.name,
-            status = entity.status.toDto(),
-            description = entity.description,
-            provider = entity.provider,
-            license = entity.license,
-            namespace = namespaceSlug,
-            tags = entity.tags.toList().takeIf { it.isNotEmpty() },
-            latestRelease = latestRelease?.let { releaseMapper.toDto(it, entity.pluginId) },
-            icon = entity.icon?.let { URI(it) },
-            homepage = entity.homepage?.let { URI(it) },
-            repository = entity.repository?.let { URI(it) },
-            createdAt = entity.createdAt,
-            updatedAt = entity.updatedAt,
-        )
+    fun toDto(
+        entity: PluginEntity,
+        namespaceSlug: String,
+        latestRelease: PluginReleaseEntity? = null,
+        downloadCount: Long = 0,
+    ): PluginDto = PluginDto(
+        id = entity.id!!,
+        pluginId = entity.pluginId,
+        name = entity.name,
+        status = entity.status.toDto(),
+        description = entity.description,
+        provider = entity.provider,
+        license = entity.license,
+        namespace = namespaceSlug,
+        tags = entity.tags.toList().takeIf { it.isNotEmpty() },
+        latestRelease = latestRelease?.let { releaseMapper.toDto(it, entity.pluginId) },
+        downloadCount = downloadCount,
+        icon = entity.icon?.let { URI(it) },
+        homepage = entity.homepage?.let { URI(it) },
+        repository = entity.repository?.let { URI(it) },
+        createdAt = entity.createdAt,
+        updatedAt = entity.updatedAt,
+    )
 
     private fun PluginStatus.toDto(): PluginDto.Status = when (this) {
         PluginStatus.ACTIVE -> PluginDto.Status.ACTIVE

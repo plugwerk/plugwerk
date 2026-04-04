@@ -77,17 +77,24 @@ class CatalogController(
         )
 
         val pluginIds = resultPage.content.mapNotNull { it.id }
-        val latestReleases: Map<UUID, PluginReleaseEntity> = if (pluginIds.isEmpty()) {
-            emptyMap()
+        val latestReleases: Map<UUID, PluginReleaseEntity>
+        val downloadCounts: Map<UUID, Long>
+        if (pluginIds.isEmpty()) {
+            latestReleases = emptyMap()
+            downloadCounts = emptyMap()
         } else {
-            releaseRepository.findLatestPublishedReleasesForPlugins(pluginIds)
+            latestReleases = releaseRepository.findLatestPublishedReleasesForPlugins(pluginIds)
                 .associateBy { it.plugin.id!! }
+            downloadCounts = releaseRepository.sumDownloadCountsByPluginIds(pluginIds)
+                .associate { (it[0] as UUID) to (it[1] as Long) }
         }
 
         val pendingCount = resolvePendingReviewCount(ns)
 
         val response = PluginPagedResponse(
-            content = resultPage.content.map { pluginMapper.toDto(it, ns, latestReleases[it.id]) },
+            content = resultPage.content.map {
+                pluginMapper.toDto(it, ns, latestReleases[it.id], downloadCounts[it.id] ?: 0)
+            },
             totalElements = resultPage.totalElements,
             page = resultPage.number,
             propertySize = resultPage.size,
@@ -103,7 +110,8 @@ class CatalogController(
         val latestPublishedRelease = allReleases
             .filter { it.status == ReleaseStatus.PUBLISHED }
             .maxByOrNull { it.createdAt }
-        return ResponseEntity.ok(pluginMapper.toDto(plugin, ns, latestPublishedRelease))
+        val totalDownloads = allReleases.sumOf { it.downloadCount }
+        return ResponseEntity.ok(pluginMapper.toDto(plugin, ns, latestPublishedRelease, totalDownloads))
     }
 
     override fun listReleases(

@@ -93,7 +93,7 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
             <TableCell>Released</TableCell>
             <TableCell>Status</TableCell>
             <TableCell>Size</TableCell>
-            <TableCell>Downloads</TableCell>
+            <TableCell align="right">Downloads</TableCell>
             <TableCell sx={{ width: 160 }}>Actions</TableCell>
           </TableRow>
         </TableHead>
@@ -139,7 +139,7 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
                     {rel.artifactSize ? formatFileSize(rel.artifactSize) : '—'}
                   </Typography>
                 </TableCell>
-                <TableCell>
+                <TableCell align="right">
                   <Typography variant="caption" color="text.disabled">
                     {rel.downloadCount ?? 0}
                   </Typography>
