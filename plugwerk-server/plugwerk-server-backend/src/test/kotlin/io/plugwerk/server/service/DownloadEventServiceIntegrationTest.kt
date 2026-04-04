@@ -20,8 +20,8 @@ package io.plugwerk.server.service
 import io.plugwerk.descriptor.DescriptorResolver
 import io.plugwerk.descriptor.PlugwerkDescriptor
 import io.plugwerk.server.SharedPostgresContainer
+import io.plugwerk.server.repository.DownloadEventRepository
 import io.plugwerk.server.service.storage.ArtifactStorageService
-import io.plugwerk.spi.model.ReleaseStatus
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
@@ -40,26 +40,26 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
-import kotlin.test.assertFailsWith
 
 @DataJpaTest
 @ActiveProfiles("test")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import(
+    DownloadEventService::class,
     PluginReleaseService::class,
     PluginService::class,
     NamespaceService::class,
-    DownloadEventService::class,
-    PluginReleaseServiceIntegrationTest.MockConfig::class,
+    DownloadEventServiceIntegrationTest.MockConfig::class,
 )
 @Tag("integration")
-class PluginReleaseServiceIntegrationTest {
+class DownloadEventServiceIntegrationTest {
 
     @Configuration
     class MockConfig {
         @Bean
         fun artifactStorageService(): ArtifactStorageService = mock(ArtifactStorageService::class.java).also {
             whenever(it.store(any(), any(), any())).thenAnswer { inv -> inv.arguments[0] as String }
+            whenever(it.retrieve(any())).thenReturn(ByteArrayInputStream(ByteArray(0)))
         }
 
         @Bean
@@ -79,69 +79,51 @@ class PluginReleaseServiceIntegrationTest {
         }
     }
 
-    @Autowired
-    lateinit var releaseService: PluginReleaseService
+    @Autowired lateinit var downloadEventService: DownloadEventService
 
-    @Autowired
-    lateinit var namespaceService: NamespaceService
+    @Autowired lateinit var downloadEventRepository: DownloadEventRepository
 
-    @Autowired
-    lateinit var descriptorResolver: DescriptorResolver
+    @Autowired lateinit var releaseService: PluginReleaseService
+
+    @Autowired lateinit var namespaceService: NamespaceService
+
+    @Autowired lateinit var descriptorResolver: DescriptorResolver
 
     lateinit var testNamespace: io.plugwerk.server.domain.NamespaceEntity
 
     @BeforeEach
     fun setUp() {
-        testNamespace = namespaceService.create("rel-int-ns", "Integration Org")
+        testNamespace = namespaceService.create("dl-event-ns", "DL Event Org")
     }
 
     @Test
-    fun `upload creates release and auto-creates plugin`() {
-        val descriptor = PlugwerkDescriptor(id = "auto-plugin", version = "1.0.0", name = "Auto Plugin")
+    fun `record persists download event with correct release FK`() {
+        val descriptor = PlugwerkDescriptor(id = "evt-plugin", version = "1.0.0", name = "Event Plugin")
         whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+        val release = releaseService.upload("dl-event-ns", ByteArrayInputStream("fake".toByteArray()), 4)
 
-        val result = releaseService.upload("rel-int-ns", ByteArrayInputStream("fake".toByteArray()), 4)
+        downloadEventService.record(release, "10.20.30.40", "curl/7.88")
 
-        assertThat(result.version).isEqualTo("1.0.0")
-        assertThat(result.artifactKey).isEqualTo("${testNamespace.id}:auto-plugin:1.0.0:jar")
-        assertThat(result.status).isEqualTo(ReleaseStatus.DRAFT)
+        val events = downloadEventRepository.findAll()
+        assertThat(events).hasSize(1)
+        assertThat(events[0].release.id).isEqualTo(release.id)
+        assertThat(events[0].clientIp).isEqualTo("10.20.30.0")
+        assertThat(events[0].userAgent).isEqualTo("curl/7.88")
+        assertThat(events[0].downloadedAt).isNotNull()
     }
 
     @Test
-    fun `upload throws ReleaseAlreadyExistsException on duplicate version`() {
-        val descriptor = PlugwerkDescriptor(id = "dup-plugin", version = "1.0.0", name = "Dup Plugin")
+    fun `cascade delete removes events when release is deleted`() {
+        val descriptor = PlugwerkDescriptor(id = "cascade-plugin", version = "1.0.0", name = "Cascade Plugin")
         whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+        val release = releaseService.upload("dl-event-ns", ByteArrayInputStream("fake".toByteArray()), 4)
 
-        releaseService.upload("rel-int-ns", ByteArrayInputStream("fake".toByteArray()), 4)
+        downloadEventService.record(release, "1.2.3.4", null)
+        downloadEventService.record(release, "5.6.7.8", null)
+        assertThat(downloadEventRepository.findAll()).hasSize(2)
 
-        assertFailsWith<ReleaseAlreadyExistsException> {
-            releaseService.upload("rel-int-ns", ByteArrayInputStream("fake".toByteArray()), 4)
-        }
-    }
+        releaseService.delete("dl-event-ns", "cascade-plugin", "1.0.0")
 
-    @Test
-    fun `updateStatus transitions release to PUBLISHED`() {
-        val descriptor = PlugwerkDescriptor(id = "pub-plugin", version = "1.0.0", name = "Pub Plugin")
-        whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
-        releaseService.upload("rel-int-ns", ByteArrayInputStream("fake".toByteArray()), 4)
-
-        releaseService.updateStatus("rel-int-ns", "pub-plugin", "1.0.0", ReleaseStatus.PUBLISHED)
-
-        val found = releaseService.findByVersion("rel-int-ns", "pub-plugin", "1.0.0")
-        assertThat(found.status).isEqualTo(ReleaseStatus.PUBLISHED)
-    }
-
-    @Test
-    fun `findAllByPlugin returns releases ordered by createdAt desc`() {
-        val d1 = PlugwerkDescriptor(id = "order-plugin", version = "1.0.0", name = "Plugin")
-        val d2 = PlugwerkDescriptor(id = "order-plugin", version = "2.0.0", name = "Plugin")
-        whenever(descriptorResolver.resolve(any())).thenReturn(d1).thenReturn(d2)
-
-        releaseService.upload("rel-int-ns", ByteArrayInputStream("fake".toByteArray()), 4)
-        releaseService.upload("rel-int-ns", ByteArrayInputStream("fake".toByteArray()), 4)
-
-        val releases = releaseService.findAllByPlugin("rel-int-ns", "order-plugin")
-        assertThat(releases).hasSize(2)
-        assertThat(releases.first().version).isEqualTo("2.0.0")
+        assertThat(downloadEventRepository.findAll()).isEmpty()
     }
 }

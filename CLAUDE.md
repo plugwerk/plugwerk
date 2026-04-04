@@ -12,7 +12,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Namespace (slug, owner_org, settings JSON)
   └── Plugin (plugin_id unique per ns, tags[], status)
         └── PluginRelease (SemVer version, artifact_sha256, requires_system_version,
-                          plugin_dependencies JSON, status: draft/published/deprecated/yanked)
+        │                   plugin_dependencies JSON, status: draft/published/deprecated/yanked)
+        └── DownloadEvent (release FK, downloaded_at, client_ip, user_agent)
 
 User → Organization → Namespace → Role (RBAC)
 ```
@@ -128,6 +129,10 @@ Required environment variables (server refuses to start without them):
 
 Optional:
 - `PLUGWERK_AUTH_ADMIN_PASSWORD` — fixed initial admin password (random if absent)
+- `PLUGWERK_TRACKING_ENABLED` — enable/disable download event audit log (default: `true`)
+- `PLUGWERK_TRACKING_CAPTURE_IP` — capture client IP in download events (default: `true`)
+- `PLUGWERK_TRACKING_ANONYMIZE_IP` — anonymize IP to /24 IPv4 or /48 IPv6 (default: `true`)
+- `PLUGWERK_TRACKING_CAPTURE_USER_AGENT` — capture User-Agent header (default: `true`)
 
 See `.env.example` for a complete template.
 

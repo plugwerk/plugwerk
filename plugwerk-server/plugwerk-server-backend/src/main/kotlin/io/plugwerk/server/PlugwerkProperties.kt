@@ -44,6 +44,7 @@ data class PlugwerkProperties(
     val server: ServerProperties = ServerProperties(),
     @field:Valid val auth: AuthProperties = AuthProperties(),
     val upload: UploadProperties = UploadProperties(),
+    val tracking: TrackingProperties = TrackingProperties(),
 ) {
     /**
      * Artifact storage configuration (`plugwerk.storage.*`).
@@ -196,4 +197,40 @@ data class PlugwerkProperties(
      *   ```
      */
     data class UploadProperties(val maxFileSizeMb: Int = 100)
+
+    /**
+     * Download tracking configuration (`plugwerk.tracking.*`).
+     *
+     * Controls whether and how download events are recorded in the `download_event` audit
+     * log table. All options are privacy-oriented: IP anonymisation is enabled by default,
+     * and individual data fields can be suppressed entirely.
+     *
+     * @property enabled Master switch for download event recording. When `false`, no rows
+     *   are written to `download_event` (the atomic `download_count` counter on
+     *   `plugin_release` is still incremented regardless).
+     *
+     *   Environment variable: `PLUGWERK_TRACKING_ENABLED`
+     *
+     * @property captureIp Whether to store the client IP address. When `false`, the
+     *   `client_ip` column is always set to `null`.
+     *
+     *   Environment variable: `PLUGWERK_TRACKING_CAPTURE_IP`
+     *
+     * @property anonymizeIp Whether to anonymize the client IP before storage. When `true`
+     *   (default), IPv4 addresses are truncated to /24 (last octet zeroed) and IPv6
+     *   addresses are truncated to /48 (last 80 bits zeroed).
+     *
+     *   Environment variable: `PLUGWERK_TRACKING_ANONYMIZE_IP`
+     *
+     * @property captureUserAgent Whether to store the HTTP User-Agent header. When `false`,
+     *   the `user_agent` column is always set to `null`.
+     *
+     *   Environment variable: `PLUGWERK_TRACKING_CAPTURE_USER_AGENT`
+     */
+    data class TrackingProperties(
+        val enabled: Boolean = true,
+        val captureIp: Boolean = true,
+        val anonymizeIp: Boolean = true,
+        val captureUserAgent: Boolean = true,
+    )
 }

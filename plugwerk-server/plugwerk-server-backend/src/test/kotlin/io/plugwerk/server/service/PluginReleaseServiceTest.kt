@@ -59,6 +59,8 @@ class PluginReleaseServiceTest {
 
     @Mock lateinit var descriptorResolver: DescriptorResolver
 
+    @Mock lateinit var downloadEventService: DownloadEventService
+
     lateinit var releaseService: PluginReleaseService
 
     private val namespaceId = UUID.fromString("00000000-0000-0000-0000-000000000001")
@@ -83,6 +85,7 @@ class PluginReleaseServiceTest {
             descriptorResolver,
             ObjectMapper(),
             properties,
+            downloadEventService,
         )
     }
 
@@ -323,6 +326,27 @@ class PluginReleaseServiceTest {
         releaseService.downloadArtifact("acme", "my-plugin", "1.0.0")
 
         verify(releaseRepository).incrementDownloadCount(releaseId)
+        verify(downloadEventService).record(release, null, null)
+    }
+
+    @Test
+    fun `downloadArtifact forwards clientIp and userAgent to event service`() {
+        val releaseId = UUID.randomUUID()
+        val release = PluginReleaseEntity(
+            id = releaseId,
+            plugin = plugin,
+            version = "1.0.0",
+            artifactSha256 = "sha",
+            artifactKey = "00000000-0000-0000-0000-000000000001:my-plugin:1.0.0:jar",
+        )
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.findByPluginAndVersion(plugin, "1.0.0")).thenReturn(Optional.of(release))
+        whenever(storageService.retrieve(release.artifactKey)).thenReturn(ByteArrayInputStream(ByteArray(0)))
+
+        releaseService.downloadArtifact("acme", "my-plugin", "1.0.0", "10.0.0.1", "curl/7.88")
+
+        verify(downloadEventService).record(release, "10.0.0.1", "curl/7.88")
     }
 
     @Test

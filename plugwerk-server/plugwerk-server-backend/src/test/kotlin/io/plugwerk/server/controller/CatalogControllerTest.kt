@@ -215,7 +215,7 @@ class CatalogControllerTest {
             artifactKey = "acme/my-plugin/1.0.0.jar",
         )
         whenever(releaseService.findByVersion("acme", "my-plugin", "1.0.0")).thenReturn(release)
-        whenever(releaseService.downloadArtifact("acme", "my-plugin", "1.0.0"))
+        whenever(releaseService.downloadArtifact(eq("acme"), eq("my-plugin"), eq("1.0.0"), anyOrNull(), anyOrNull()))
             .thenReturn(ByteArrayInputStream("fake-jar-content".toByteArray()))
 
         mockMvc.get("/api/v1/namespaces/acme/plugins/my-plugin/releases/1.0.0/download")
