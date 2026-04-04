@@ -32,6 +32,7 @@ import io.plugwerk.server.service.FileTooLargeException
 import io.plugwerk.server.service.PluginNotFoundException
 import io.plugwerk.server.service.PluginReleaseService
 import io.plugwerk.server.service.PluginService
+import io.plugwerk.server.service.ReleaseNotFoundException
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
@@ -48,6 +49,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.test.context.support.WithMockUser
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.multipart
 import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
@@ -220,6 +222,44 @@ class ManagementControllerTest {
             jsonPath("$.status") { value(422) }
             jsonPath("$.message") { value("Invalid plugin.id in MANIFEST.MF") }
         }
+    }
+
+    @Test
+    fun `DELETE plugin returns 204`() {
+        mockMvc.delete("/api/v1/namespaces/acme/plugins/my-plugin")
+            .andExpect {
+                status { isNoContent() }
+            }
+    }
+
+    @Test
+    fun `DELETE plugin returns 404 when not found`() {
+        whenever(pluginService.delete(any(), any())).thenThrow(PluginNotFoundException("acme", "missing"))
+
+        mockMvc.delete("/api/v1/namespaces/acme/plugins/missing")
+            .andExpect {
+                status { isNotFound() }
+            }
+    }
+
+    @Test
+    fun `DELETE release returns 204`() {
+        mockMvc.delete("/api/v1/namespaces/acme/plugins/my-plugin/releases/1.0.0")
+            .andExpect {
+                status { isNoContent() }
+            }
+    }
+
+    @Test
+    fun `DELETE release returns 404 when not found`() {
+        whenever(releaseService.delete(any(), any(), any())).thenThrow(
+            ReleaseNotFoundException("my-plugin", "9.9.9"),
+        )
+
+        mockMvc.delete("/api/v1/namespaces/acme/plugins/my-plugin/releases/9.9.9")
+            .andExpect {
+                status { isNotFound() }
+            }
     }
 
     private fun buildPluginDto() = io.plugwerk.api.model.PluginDto(

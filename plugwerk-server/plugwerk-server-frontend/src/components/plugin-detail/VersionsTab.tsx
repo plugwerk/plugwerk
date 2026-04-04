@@ -13,13 +13,14 @@ import {
   Snackbar,
   Alert,
 } from '@mui/material'
-import { Download, CheckCircle } from 'lucide-react'
+import { Download, CheckCircle, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Badge } from '../common/Badge'
+import { ConfirmDeleteDialog } from '../common/ConfirmDeleteDialog'
 import type { PluginReleaseDto } from '../../api/generated/model'
 import { tokens } from '../../theme/tokens'
 import type { BadgeVariant } from '../common/Badge'
-import { reviewsApi } from '../../api/config'
+import { managementApi, reviewsApi } from '../../api/config'
 import { formatFileSize } from '../../utils/formatFileSize'
 
 interface VersionsTabProps {
@@ -28,6 +29,7 @@ interface VersionsTabProps {
   pluginId: string
   currentVersion?: string
   canApprove?: boolean
+  onReleaseDeleted?: (version: string) => void
 }
 
 const statusToBadge: Record<string, BadgeVariant> = {
@@ -37,8 +39,10 @@ const statusToBadge: Record<string, BadgeVariant> = {
   yanked:     'yanked',
 }
 
-export function VersionsTab({ releases, namespace, pluginId, currentVersion, canApprove }: VersionsTabProps) {
+export function VersionsTab({ releases, namespace, pluginId, currentVersion, canApprove, onReleaseDeleted }: VersionsTabProps) {
   const [approvingId, setApprovingId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<PluginReleaseDto | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [toast, setToast] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
 
   async function handleApprove(rel: PluginReleaseDto) {
@@ -53,6 +57,21 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
       setToast({ message: `Failed to approve v${rel.version}.`, severity: 'error' })
     } finally {
       setApprovingId(null)
+    }
+  }
+
+  async function handleDeleteRelease() {
+    if (!deleteTarget?.version) return
+    setIsDeleting(true)
+    try {
+      await managementApi.deleteRelease({ ns: namespace, pluginId, version: deleteTarget.version })
+      setToast({ message: `v${deleteTarget.version} deleted.`, severity: 'success' })
+      onReleaseDeleted?.(deleteTarget.version)
+    } catch {
+      setToast({ message: `Failed to delete v${deleteTarget.version}.`, severity: 'error' })
+    } finally {
+      setIsDeleting(false)
+      setDeleteTarget(null)
     }
   }
 
@@ -117,40 +136,65 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
                   </Typography>
                 </TableCell>
                 <TableCell>
-                  {isDraft && canApprove ? (
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      color="success"
-                      startIcon={<CheckCircle size={14} />}
-                      loading={approvingId === rel.id}
-                      onClick={() => handleApprove(rel)}
-                    >
-                      Approve
-                    </Button>
-                  ) : isDraft ? (
-                    <Tooltip title="Awaiting review — download not available yet">
-                      <Typography variant="caption" color="text.disabled">Pending review</Typography>
-                    </Tooltip>
-                  ) : isYanked ? (
-                    <Typography variant="caption" color="text.disabled">Unavailable</Typography>
-                  ) : (
-                    <Button
-                      variant="text"
-                      size="small"
-                      startIcon={<Download size={14} />}
-                      href={`/api/v1/namespaces/${namespace}/plugins/${pluginId}/releases/${rel.version}/download`}
-                      download
-                    >
-                      .jar
-                    </Button>
-                  )}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {isDraft && canApprove ? (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        color="success"
+                        startIcon={<CheckCircle size={14} />}
+                        loading={approvingId === rel.id}
+                        onClick={() => handleApprove(rel)}
+                      >
+                        Approve
+                      </Button>
+                    ) : isDraft ? (
+                      <Tooltip title="Awaiting review — download not available yet">
+                        <Typography variant="caption" color="text.disabled">Pending review</Typography>
+                      </Tooltip>
+                    ) : isYanked ? (
+                      <Typography variant="caption" color="text.disabled">Unavailable</Typography>
+                    ) : (
+                      <Button
+                        variant="text"
+                        size="small"
+                        startIcon={<Download size={14} />}
+                        href={`/api/v1/namespaces/${namespace}/plugins/${pluginId}/releases/${rel.version}/download`}
+                        download
+                      >
+                        .jar
+                      </Button>
+                    )}
+                    {canApprove && (
+                      <Tooltip title="Delete release">
+                        <Button
+                          variant="text"
+                          size="small"
+                          color="error"
+                          aria-label={`delete release ${rel.version}`}
+                          onClick={() => setDeleteTarget(rel)}
+                          sx={{ minWidth: 'auto', p: 0.5 }}
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </Tooltip>
+                    )}
+                  </Box>
                 </TableCell>
               </TableRow>
             )
           })}
         </TableBody>
       </Table>
+
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        title="Delete Release"
+        message={`Are you sure you want to delete v${deleteTarget?.version ?? ''}? This action cannot be undone.`}
+        onConfirm={handleDeleteRelease}
+        onCancel={() => setDeleteTarget(null)}
+        loading={isDeleting}
+      />
 
       <Snackbar
         open={!!toast}

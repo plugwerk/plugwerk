@@ -20,6 +20,7 @@ package io.plugwerk.server.service
 import io.plugwerk.server.domain.PluginEntity
 import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
+import io.plugwerk.server.service.storage.ArtifactStorageService
 import io.plugwerk.spi.model.PluginStatus
 import io.plugwerk.spi.model.ReleaseStatus
 import org.springframework.data.domain.Page
@@ -33,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional
 class PluginService(
     private val pluginRepository: PluginRepository,
     private val releaseRepository: PluginReleaseRepository,
+    private val storageService: ArtifactStorageService,
     private val namespaceService: NamespaceService,
 ) {
 
@@ -173,6 +175,11 @@ class PluginService(
     @Transactional
     fun delete(namespaceSlug: String, pluginId: String) {
         val entity = findByNamespaceAndPluginId(namespaceSlug, pluginId)
+        val releases = releaseRepository.findAllByPluginOrderByCreatedAtDesc(entity)
+        releases.forEach { release ->
+            storageService.delete(release.artifactKey)
+            releaseRepository.delete(release)
+        }
         pluginRepository.delete(entity)
     }
 }
