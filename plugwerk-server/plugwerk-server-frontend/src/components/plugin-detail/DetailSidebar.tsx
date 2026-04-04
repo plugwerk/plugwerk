@@ -3,7 +3,6 @@
 import { Box, Typography, Link } from '@mui/material'
 import { ExternalLink } from 'lucide-react'
 import { Badge } from '../common/Badge'
-import { CodeBlock } from '../common/CodeBlock'
 import type { PluginDto, PluginReleaseDto } from '../../api/generated/model'
 import { tokens } from '../../theme/tokens'
 import { formatFileSize } from '../../utils/formatFileSize'
@@ -62,11 +61,6 @@ export function DetailSidebar({ plugin, release }: DetailSidebarProps) {
         gap: 2,
       }}
     >
-      {/* Install command */}
-      <SidebarBox title="Install">
-        <CodeBlock code={`plugwerk install ${plugin.pluginId}`} />
-      </SidebarBox>
-
       {/* Details */}
       <SidebarBox title="Details">
         {plugin.license && (

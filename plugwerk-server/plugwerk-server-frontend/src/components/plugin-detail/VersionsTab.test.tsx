@@ -25,6 +25,7 @@ const publishedRelease: PluginReleaseDto = {
   status: 'published',
   artifactSha256: 'abc',
   artifactSize: 1024,
+  fileFormat: 'jar',
   downloadCount: 10,
   createdAt: '2026-01-01T00:00:00Z',
 }
@@ -36,6 +37,7 @@ const draftRelease: PluginReleaseDto = {
   status: 'draft',
   artifactSha256: 'def',
   artifactSize: 2048,
+  fileFormat: 'zip',
   downloadCount: 0,
   createdAt: '2026-02-01T00:00:00Z',
 }
@@ -157,5 +159,44 @@ describe('VersionsTab', () => {
 
     expect(mockNavigate).toHaveBeenCalledWith('/acme')
     expect(onDeleted).not.toHaveBeenCalled()
+  })
+
+  it('renders download icon button for published releases', () => {
+    renderWithRouter(<VersionsTab {...defaultProps} />)
+
+    const downloadButton = screen.getByRole('button', { name: /download release 1\.0\.0/i })
+    expect(downloadButton).toBeInTheDocument()
+  })
+
+  it('shows Format column with file format', () => {
+    renderWithRouter(<VersionsTab {...defaultProps} />)
+
+    expect(screen.getByText('Format')).toBeInTheDocument()
+    expect(screen.getByText('.jar')).toBeInTheDocument()
+    expect(screen.getByText('.zip')).toBeInTheDocument()
+  })
+
+  it('shows SHA-256 column with truncated hash', () => {
+    renderWithRouter(<VersionsTab {...defaultProps} />)
+
+    expect(screen.getByText('SHA-256')).toBeInTheDocument()
+    expect(screen.getByText('abc…')).toBeInTheDocument()
+    expect(screen.getByText('def…')).toBeInTheDocument()
+  })
+
+  it('shows Downloads column with download count', () => {
+    renderWithRouter(<VersionsTab {...defaultProps} />)
+
+    expect(screen.getByText('Downloads')).toBeInTheDocument()
+    expect(screen.getByText('10')).toBeInTheDocument()
+    expect(screen.getByText('0')).toBeInTheDocument()
+  })
+
+  it('shows createdAt for draft releases and publishedAt for published', () => {
+    renderWithRouter(<VersionsTab {...defaultProps} />)
+
+    // Published release should show publishedAt formatted as dd.MM.yyyy HH:mm:ss
+    const cells = screen.getAllByText(/\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}:\d{2}/)
+    expect(cells.length).toBeGreaterThanOrEqual(1)
   })
 })

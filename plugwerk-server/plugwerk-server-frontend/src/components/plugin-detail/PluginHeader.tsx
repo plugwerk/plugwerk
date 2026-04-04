@@ -1,19 +1,23 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Copyright (C) 2026 devtank42 GmbH
 import { Box, Typography, Button } from '@mui/material'
-import { Download, Calendar, Scale, Puzzle } from 'lucide-react'
+import { Download, Calendar, Scale, Puzzle, Trash2 } from 'lucide-react'
 import { Badge } from '../common/Badge'
 import type { PluginDto, PluginReleaseDto } from '../../api/generated/model'
 import { tokens } from '../../theme/tokens'
-import { formatFileSize } from '../../utils/formatFileSize'
+import { formatDateTime } from '../../utils/formatDateTime'
+import { downloadArtifact } from '../../utils/downloadArtifact'
 
 interface PluginHeaderProps {
   plugin: PluginDto
   latestRelease: PluginReleaseDto | null
   namespace: string
+  isAdmin?: boolean
+  onDeletePlugin?: () => void
+  onError?: (message: string) => void
 }
 
-export function PluginHeader({ plugin, latestRelease, namespace }: PluginHeaderProps) {
+export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDeletePlugin, onError }: PluginHeaderProps) {
   const downloadUrl = latestRelease
     ? `/api/v1/namespaces/${namespace}/plugins/${plugin.pluginId}/releases/${latestRelease.version}/download`
     : '#'
@@ -84,7 +88,7 @@ export function PluginHeader({ plugin, latestRelease, namespace }: PluginHeaderP
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled' }}>
               <Calendar size={14} aria-hidden="true" />
               <Typography variant="caption">
-                Updated {new Date(plugin.updatedAt).toLocaleDateString()}
+                Updated {formatDateTime(plugin.updatedAt)}
               </Typography>
             </Box>
           )}
@@ -95,28 +99,50 @@ export function PluginHeader({ plugin, latestRelease, namespace }: PluginHeaderP
             </Box>
           )}
         </Box>
+
+        {plugin.tags && plugin.tags.length > 0 && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', mt: 1.5 }}>
+            {plugin.tags.map((tag) => (
+              <Badge key={tag} variant="tag">{tag}</Badge>
+            ))}
+          </Box>
+        )}
       </Box>
 
       {/* Actions */}
-      {latestRelease && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1, flexShrink: 0 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+        {latestRelease && (
           <Button
-            variant="contained"
-            size="large"
-            startIcon={<Download size={18} />}
-            href={downloadUrl}
-            download
+            variant="outlined"
+            size="medium"
+            color="primary"
+            startIcon={<Download size={15} />}
             aria-label={`Download v${latestRelease.version}`}
+            sx={{ borderRadius: tokens.radius.btn }}
+            onClick={() => {
+              downloadArtifact(
+                downloadUrl,
+                `${plugin.pluginId}-${latestRelease.version}.${latestRelease.fileFormat ?? 'jar'}`,
+              ).catch((err: Error) => onError?.(err.message))
+            }}
           >
-            Download v{latestRelease.version}
+            Download
           </Button>
-          {latestRelease.artifactSize && (
-            <Typography variant="caption" color="text.disabled">
-              {formatFileSize(latestRelease.artifactSize)} · .jar
-            </Typography>
-          )}
-        </Box>
-      )}
+        )}
+        {isAdmin && onDeletePlugin && (
+          <Button
+            variant="outlined"
+            size="medium"
+            color="error"
+            startIcon={<Trash2 size={15} />}
+            aria-label="delete plugin"
+            onClick={onDeletePlugin}
+            sx={{ borderRadius: tokens.radius.btn }}
+          >
+            Delete
+          </Button>
+        )}
+      </Box>
     </Box>
   )
 }

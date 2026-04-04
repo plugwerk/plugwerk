@@ -103,7 +103,7 @@ class ManagementControllerTest {
                 anyOrNull(), anyOrNull(), anyOrNull(),
             ),
         ).thenReturn(plugin)
-        whenever(pluginMapper.toDto(any(), any(), anyOrNull())).thenReturn(buildPluginDto())
+        whenever(pluginMapper.toDto(any(), any(), anyOrNull(), any())).thenReturn(buildPluginDto())
 
         mockMvc.patch("/api/v1/namespaces/acme/plugins/my-plugin") {
             contentType = MediaType.APPLICATION_JSON

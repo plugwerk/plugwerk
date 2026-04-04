@@ -1679,10 +1679,6 @@ components:
             - `published` — visible in catalog and eligible for update checks
             - `deprecated` — still downloadable but no longer recommended for new installations
             - `yanked` — hidden from catalog; typically used for releases with critical issues
-        publishedAt:
-          type: string
-          format: date-time
-          description: Timestamp when the release was transitioned to `published` status
         downloadCount:
           type: integer
           format: int64

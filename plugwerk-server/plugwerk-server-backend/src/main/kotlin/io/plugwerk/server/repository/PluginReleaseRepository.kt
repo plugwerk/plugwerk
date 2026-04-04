@@ -62,6 +62,20 @@ interface PluginReleaseRepository : JpaRepository<PluginReleaseEntity, UUID> {
     fun findByIdWithPlugin(@Param("id") id: UUID): Optional<PluginReleaseEntity>
 
     /**
+     * Returns the total download count per plugin for a given set of plugin IDs.
+     * Each result row is [pluginId, sumDownloadCount].
+     */
+    @Query(
+        """
+        SELECT r.plugin.id, SUM(r.downloadCount)
+        FROM PluginReleaseEntity r
+        WHERE r.plugin.id IN :pluginIds
+        GROUP BY r.plugin.id
+        """,
+    )
+    fun sumDownloadCountsByPluginIds(@Param("pluginIds") pluginIds: Collection<UUID>): List<Array<Any>>
+
+    /**
      * Returns the full latest published release entity per plugin for a given set of plugin IDs.
      * Replaces the three individual queries for version, draft version, and artifact size.
      * One DB round-trip for the entire page.

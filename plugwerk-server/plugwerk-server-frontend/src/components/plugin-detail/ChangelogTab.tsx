@@ -4,6 +4,7 @@ import { Box, Typography } from '@mui/material'
 import ReactMarkdown from 'react-markdown'
 import rehypeSanitize from 'rehype-sanitize'
 import type { PluginReleaseDto } from '../../api/generated/model'
+import { formatDateTime } from '../../utils/formatDateTime'
 
 interface ChangelogTabProps {
   releases: PluginReleaseDto[]
@@ -14,7 +15,9 @@ export function ChangelogTab({ releases }: ChangelogTabProps) {
 
   if (withChangelog.length === 0) {
     return (
-      <Typography variant="body2" color="text.secondary">No changelog available.</Typography>
+      <Typography variant="body2" color="text.secondary">
+        No changelog available. Add release notes when publishing a new version.
+      </Typography>
     )
   }
 
@@ -31,9 +34,9 @@ export function ChangelogTab({ releases }: ChangelogTabProps) {
         <Box key={rel.id}>
           <Typography variant="h3" sx={{ mt: 3, mb: 1 }}>
             v{rel.version}
-            {rel.publishedAt && (
+            {rel.createdAt && (
               <Box component="span" sx={{ fontWeight: 400, fontSize: '0.875rem', color: 'text.disabled', ml: 1 }}>
-                – {new Date(rel.publishedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                – {formatDateTime(rel.createdAt)}
               </Box>
             )}
           </Typography>

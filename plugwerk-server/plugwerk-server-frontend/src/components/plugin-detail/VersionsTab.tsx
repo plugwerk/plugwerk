@@ -23,6 +23,8 @@ import { tokens } from '../../theme/tokens'
 import type { BadgeVariant } from '../common/Badge'
 import { managementApi, reviewsApi } from '../../api/config'
 import { formatFileSize } from '../../utils/formatFileSize'
+import { formatDateTime } from '../../utils/formatDateTime'
+import { downloadArtifact } from '../../utils/downloadArtifact'
 
 interface VersionsTabProps {
   releases: PluginReleaseDto[]
@@ -89,11 +91,13 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
         <TableHead>
           <TableRow>
             <TableCell>Version</TableCell>
-            <TableCell>Released</TableCell>
+            <TableCell>Uploaded</TableCell>
             <TableCell>Status</TableCell>
+            <TableCell>Format</TableCell>
             <TableCell>Size</TableCell>
-            <TableCell>Changelog</TableCell>
-            <TableCell>Actions</TableCell>
+            <TableCell>SHA-256</TableCell>
+            <TableCell align="right">Downloads</TableCell>
+            <TableCell sx={{ width: 120 }}>Actions</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -125,7 +129,7 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
                 </TableCell>
                 <TableCell>
                   <Typography variant="caption" color="text.disabled">
-                    {rel.publishedAt ? new Date(rel.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                    {formatDateTime(rel.createdAt)}
                   </Typography>
                 </TableCell>
                 <TableCell>
@@ -135,12 +139,24 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
                 </TableCell>
                 <TableCell>
                   <Typography variant="caption" color="text.disabled">
+                    .{rel.fileFormat ?? 'jar'}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption" color="text.disabled">
                     {rel.artifactSize ? formatFileSize(rel.artifactSize) : '—'}
                   </Typography>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="caption" color="text.secondary">
-                    {rel.changelog ? rel.changelog.slice(0, 60) + (rel.changelog.length > 60 ? '…' : '') : '—'}
+                  <Tooltip title={rel.artifactSha256 ?? ''}>
+                    <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.disabled' }}>
+                      {rel.artifactSha256 ? rel.artifactSha256.slice(0, 12) + '…' : '—'}
+                    </Typography>
+                  </Tooltip>
+                </TableCell>
+                <TableCell align="right">
+                  <Typography variant="caption" color="text.disabled">
+                    {rel.downloadCount ?? 0}
                   </Typography>
                 </TableCell>
                 <TableCell>
@@ -153,6 +169,7 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
                         startIcon={<CheckCircle size={14} />}
                         loading={approvingId === rel.id}
                         onClick={() => handleApprove(rel)}
+                        sx={{ borderRadius: tokens.radius.btn }}
                       >
                         Approve
                       </Button>
@@ -163,15 +180,22 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
                     ) : isYanked ? (
                       <Typography variant="caption" color="text.disabled">Unavailable</Typography>
                     ) : (
-                      <Button
-                        variant="text"
-                        size="small"
-                        startIcon={<Download size={14} />}
-                        href={`/api/v1/namespaces/${namespace}/plugins/${pluginId}/releases/${rel.version}/download`}
-                        download
-                      >
-                        .jar
-                      </Button>
+                      <Tooltip title={`Download .${rel.fileFormat ?? 'jar'}`}>
+                        <Button
+                          variant="text"
+                          size="small"
+                          aria-label={`download release ${rel.version}`}
+                          sx={{ minWidth: 'auto', p: 0.5, borderRadius: tokens.radius.btn }}
+                          onClick={() => {
+                            downloadArtifact(
+                              `/api/v1/namespaces/${namespace}/plugins/${pluginId}/releases/${rel.version}/download`,
+                              `${pluginId}-${rel.version}.${rel.fileFormat ?? 'jar'}`,
+                            ).catch(() => setToast({ message: 'Download failed.', severity: 'error' }))
+                          }}
+                        >
+                          <Download size={14} />
+                        </Button>
+                      </Tooltip>
                     )}
                     {canApprove && (
                       <Tooltip title="Delete release">
@@ -181,7 +205,7 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
                           color="error"
                           aria-label={`delete release ${rel.version}`}
                           onClick={() => setDeleteTarget(rel)}
-                          sx={{ minWidth: 'auto', p: 0.5 }}
+                          sx={{ minWidth: 'auto', p: 0.5, borderRadius: tokens.radius.btn }}
                         >
                           <Trash2 size={14} />
                         </Button>
