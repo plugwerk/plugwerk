@@ -52,46 +52,40 @@ Never skip these checks — even for "small" renames or refactors (longer class 
 
 ## License Header (MANDATORY)
 
-### Kotlin files (`src/**/*.kt`)
+Every source file — Kotlin and TypeScript — **must** begin with the same AGPL-3.0 license header.
+The canonical text lives in **`license-header.txt`** at the project root (single source of truth):
 
-Every Kotlin source file **must** begin with the AGPL-3.0 license header. This is enforced automatically
-by Spotless — running `./gradlew spotlessApply` adds the header to any file missing it.
-
-```kotlin
+```
 /*
- * Plugwerk — Plugin Marketplace for the PF4J Ecosystem
- * Copyright (C) 2026 devtank42 GmbH
+ * Copyright (c) 2025-present devtank42 GmbH
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * This file is part of Plugwerk.
  *
- * This program is distributed in the hope that it will be useful,
+ * Plugwerk is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Plugwerk is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Affero General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 ```
 
-- **Never omit** the header from new files — `spotlessCheck` in CI will fail without it.
-- Do **not** modify the header text — the exact wording is controlled in the root `build.gradle.kts` `licenseHeader` block.
-- Generated files under `build/generated/` are excluded from this rule (not in `src/`).
+### Enforcement
 
-### TypeScript / TSX files (`src/**/*.ts`, `src/**/*.tsx`)
+| Language | Check | Fix | Scope |
+|---|---|---|---|
+| Kotlin (`src/**/*.kt`) | `./gradlew spotlessCheck` | `./gradlew spotlessApply` | Spotless reads `license-header.txt` via `licenseHeaderFile()` |
+| TypeScript (`src/**/*.ts`, `src/**/*.tsx`) | `npm run license:check` | `npm run license:add` | Shell script in `scripts/license-check.sh` |
 
-Every frontend source file **must** begin with the two-line SPDX header:
-
-```typescript
-// SPDX-License-Identifier: AGPL-3.0
-// Copyright (C) 2026 devtank42 GmbH
-```
-
-- Not enforced by Spotless (frontend uses ESLint), but **required** by convention.
-- Auto-generated files under `src/api/generated/` are excluded.
+- **Never omit** the header from new files — CI enforces both checks.
+- Do **not** modify the header text directly in `build.gradle.kts` — edit `license-header.txt` instead.
+- Generated files are excluded: `build/generated/` (Kotlin), `src/api/generated/` and `vite-env.d.ts` (TypeScript).
 
 ## Issue Management
 
@@ -173,3 +167,137 @@ plugwerk/
 - **API-First** – OpenAPI 3.1 spec in `plugwerk-api` is the single source of truth
 - **Transactional installation** – no partial state on failure; rollback requires retaining previous version
 - **Namespace isolation** – all resources are scoped to a namespace; one server serves multiple products/organizations
+
+### Core Data Model
+
+```
+Namespace (slug, owner_org, settings JSON)
+  └── Plugin (plugin_id unique per ns, tags[], status)
+        └── PluginRelease (SemVer version, artifact_sha256, requires_system_version,
+        │                   plugin_dependencies JSON, status: draft/published/deprecated/yanked)
+        └── DownloadEvent (release FK, downloaded_at, client_ip, user_agent)
+
+User → Organization → Namespace → Role (RBAC)
+```
+
+### API Structure
+
+All namespace-scoped endpoints: `/api/v1/namespaces/{ns}/...`
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/plugins` | Catalog with filters (status, category, tag, search) |
+| `GET` | `/plugins/{id}` | Plugin details with embedded `latestRelease` |
+| `GET` | `/plugins/{id}/releases/{version}/download` | Artifact download |
+| `GET` | `/plugins.json` | pf4j-update compatible drop-in |
+| `POST` | `/plugin-releases` | Upload new release — plugin auto-created from descriptor |
+| `PATCH` | `/plugins/{id}/releases/{version}` | Update release status (publish, deprecate, yank) |
+| `POST` | `/updates/check` | Body: installed plugins+versions → available updates |
+| `GET` | `/reviews/pending` | Admin review queue |
+| `POST` | `/reviews/{releaseId}/approve` | Approve release |
+| `POST` | `/reviews/{releaseId}/reject` | Reject release |
+| `GET` | `/members/me` | Current user's namespace role |
+| `GET/POST` | `/members` | List / add namespace members |
+
+Auth & admin endpoints (under `/api/v1/`):
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/auth/login` | Local login → JWT |
+| `POST` | `/auth/change-password` | Change own password |
+| `GET/POST` | `/admin/users` | User management (superadmin) |
+| `GET/POST` | `/admin/oidc-providers` | OIDC provider management |
+
+### Client SDK Core Classes
+
+```kotlin
+PlugwerkConfig           // Builder pattern or properties file
+PlugwerkClient           // OkHttp-based HTTP client
+PlugwerkCatalog          // Catalog queries (ExtensionPoint)
+PlugwerkInstaller        // Download + SHA-256 verification + transactional install (ExtensionPoint)
+PlugwerkUpdateChecker    // Update polling (ExtensionPoint)
+PlugwerkMarketplace      // Facade combining all three (ExtensionPoint)
+PlugwerkUpdateRepository // Implements pf4j-update UpdateRepository (drop-in replacement)
+```
+
+### Plugin Descriptor (`MANIFEST.MF`)
+
+Plugin metadata is read from the standard Java `MANIFEST.MF` inside the plugin JAR. Plugwerk extends the PF4J-standard attributes with custom `Plugin-*` headers:
+
+| MANIFEST.MF Attribute | Purpose | Required | PF4J Standard |
+|---|---|---|---|
+| `Plugin-Id` | Unique plugin identifier | **Yes** | Yes |
+| `Plugin-Version` | SemVer version | **Yes** | Yes |
+| `Plugin-Class` | Plugin class name | No | Yes |
+| `Plugin-Provider` | Provider/organisation | No | Yes |
+| `Plugin-Description` | Short description | No | Yes |
+| `Plugin-Dependencies` | Comma-separated deps | No | Yes |
+| `Plugin-Requires` | SemVer range for host | No | Yes |
+| `Plugin-License` | SPDX license | No | Yes |
+| `Plugin-Name` | Display name | No | No (custom) |
+| `Plugin-Tags` | Comma-separated tags | No | No (custom) |
+| `Plugin-Icon` | Icon URL/path | No | No (custom) |
+| `Plugin-Screenshots` | Comma-separated URLs | No | No (custom) |
+| `Plugin-Homepage` | Project URL | No | No (custom) |
+| `Plugin-Repository` | Source code URL | No | No (custom) |
+
+If `MANIFEST.MF` is absent, the server falls back to `plugin.properties`.
+
+## Build Commands
+
+### Backend (run from repo root)
+
+```bash
+./gradlew build                                   # Build all modules + run all tests
+./gradlew build -x test                           # Build without tests
+./gradlew :plugwerk-api:plugwerk-api-endpoint:openApiGenerate :plugwerk-api:plugwerk-api-model:openApiGenerate  # Regenerate backend DTOs/interfaces from OpenAPI YAML
+./gradlew :plugwerk-server:plugwerk-server-backend:bootRun
+docker compose up -d postgres                     # Start dev database
+```
+
+### Frontend (run from `plugwerk-server/plugwerk-server-frontend/`)
+
+```bash
+npm install                  # Install dependencies
+npm run dev                  # Vite dev server (port 5173, proxies /api → localhost:8080)
+npm run build                # TypeScript check + production build → build/dist/
+npm run generate:api         # Regenerate TypeScript client from OpenAPI YAML
+npm run test:run             # Vitest single run (CI)
+npm run test:coverage        # Vitest with V8 coverage report
+npm run lint                 # ESLint
+npm run license:check        # Verify license headers on all TS/TSX files
+npm run license:add          # Add missing license headers
+```
+
+**Important**: Frontend tests must be run from `plugwerk-server/plugwerk-server-frontend/` — running
+`npx vitest` from the repo root uses the wrong config and picks up unrelated test files.
+
+## Implementation Phases
+
+- **Phase 1 (Core):** REST API, PostgreSQL, filesystem storage, JWT auth, Web UI (React + MUI), `plugins.json` endpoint, Client SDK as pf4j-update drop-in — **completed**
+- **Phase 2 (Enterprise):** Multi-namespace, RBAC with namespace roles (ADMIN/MEMBER/READ_ONLY), OIDC multi-issuer auth, review/approval workflow, catalog visibility (status filter, pending review banner) — **in progress**
+- **Phase 3 (Ecosystem):** Embeddable UI component, webhooks, vulnerability scanning, Gradle/Maven CI/CD plugin, code signing, S3/MinIO storage, SaaS multi-tenancy
+
+## Deployment (Self-Hosted Minimal)
+
+```
+Docker Compose:
+├── plugwerk-server  (Spring Boot)
+├── postgres         (PostgreSQL 18)
+└── nginx            (reverse proxy, TLS – optional)
+```
+
+Required environment variables (server refuses to start without them):
+- `PLUGWERK_JWT_SECRET` — HMAC signing key, min 32 chars
+- `PLUGWERK_ENCRYPTION_KEY` — AES key for OIDC secrets, exactly 16 chars
+
+Optional:
+- `PLUGWERK_AUTH_ADMIN_PASSWORD` — fixed initial admin password (random if absent)
+- `PLUGWERK_TRACKING_ENABLED` — enable/disable download event audit log (default: `true`)
+- `PLUGWERK_TRACKING_CAPTURE_IP` — capture client IP in download events (default: `true`)
+- `PLUGWERK_TRACKING_ANONYMIZE_IP` — anonymize IP to /24 IPv4 or /48 IPv6 (default: `true`)
+- `PLUGWERK_TRACKING_CAPTURE_USER_AGENT` — capture User-Agent header (default: `true`)
+
+See `.env.example` for a complete template.
+
+Health: `/actuator/health` | Metrics: Prometheus | Logging: structured JSON

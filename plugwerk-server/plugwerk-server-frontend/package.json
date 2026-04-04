@@ -11,7 +11,9 @@
     "generate:api": "openapi-generator-cli generate",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "license:check": "bash scripts/license-check.sh",
+    "license:add": "bash scripts/license-check.sh --fix"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
