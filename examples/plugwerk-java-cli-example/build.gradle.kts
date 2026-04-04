@@ -1,5 +1,9 @@
 // Shared conventions for all modules of the CLI example.
 
+plugins {
+    id("com.diffplug.spotless") version "7.1.0" apply false
+}
+
 // Lifecycle tasks on the root project — needed for composite build delegation
 // from the examples/ aggregator (e.g. `cd examples && ./gradlew build`).
 val lifecycleTasks = listOf("build", "clean", "assemble", "check")
@@ -39,10 +43,19 @@ allprojects {
 
 subprojects {
     apply(plugin = "java-library")
+    apply(plugin = "com.diffplug.spotless")
 
     extensions.configure<JavaPluginExtension> {
         toolchain {
             languageVersion.set(JavaLanguageVersion.of(21))
+        }
+    }
+
+    extensions.configure<com.diffplug.gradle.spotless.SpotlessExtension> {
+        java {
+            target("src/**/*.java")
+            licenseHeaderFile(rootProject.file("../../license-header.txt"))
+            googleJavaFormat()
         }
     }
 

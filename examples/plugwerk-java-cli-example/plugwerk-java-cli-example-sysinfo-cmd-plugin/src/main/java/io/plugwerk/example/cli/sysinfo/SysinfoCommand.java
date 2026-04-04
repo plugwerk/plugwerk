@@ -1,3 +1,21 @@
+/*
+ * Copyright (c) 2025-present devtank42 GmbH
+ *
+ * This file is part of Plugwerk.
+ *
+ * Plugwerk is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Plugwerk is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
+ */
 package io.plugwerk.example.cli.sysinfo;
 
 import io.plugwerk.example.cli.api.CliCommand;
@@ -9,9 +27,9 @@ import picocli.CommandLine.Option;
 /**
  * Example CLI command contributed dynamically via the Plugwerk server.
  *
- * <p>After uploading {@code sysinfo-cli-plugin-<version>.zip} to the server and
- * installing it via {@code cli install sysinfo-cli-plugin <version>}, this
- * subcommand becomes available in the host application:
+ * <p>After uploading {@code sysinfo-cli-plugin-<version>.zip} to the server and installing it via
+ * {@code cli install sysinfo-cli-plugin <version>}, this subcommand becomes available in the host
+ * application:
  *
  * <pre>
  *   cli sysinfo
@@ -22,48 +40,48 @@ import picocli.CommandLine.Option;
  */
 @Extension
 @Command(
-        name = "sysinfo",
-        description = "Displays Java runtime and operating system information.",
-        mixinStandardHelpOptions = true
-)
+    name = "sysinfo",
+    description = "Displays Java runtime and operating system information.",
+    mixinStandardHelpOptions = true)
 public class SysinfoCommand implements CliCommand, Runnable {
 
-    @Option(
-            names = {"--all", "-a"},
-            description = "Include all available system properties"
-    )
-    private boolean all;
+  @Option(
+      names = {"--all", "-a"},
+      description = "Include all available system properties")
+  private boolean all;
 
-    @Override
-    public CommandLine toCommandLine() {
-        return new CommandLine(this);
+  @Override
+  public CommandLine toCommandLine() {
+    return new CommandLine(this);
+  }
+
+  @Override
+  public void run() {
+    Runtime rt = Runtime.getRuntime();
+    long freeHeapMb = rt.freeMemory() / (1024 * 1024);
+    long totalHeapMb = rt.totalMemory() / (1024 * 1024);
+    long maxHeapMb = rt.maxMemory() / (1024 * 1024);
+
+    System.out.printf(
+        "Java:       %s (%s)%n",
+        System.getProperty("java.version"), System.getProperty("java.vendor"));
+    System.out.printf(
+        "OS:         %s %s (%s)%n",
+        System.getProperty("os.name"),
+        System.getProperty("os.version"),
+        System.getProperty("os.arch"));
+    System.out.printf(
+        "Heap:       %d MB free / %d MB allocated / %d MB max%n",
+        freeHeapMb, totalHeapMb, maxHeapMb);
+    System.out.printf("Processors: %d%n", rt.availableProcessors());
+
+    if (all) {
+      System.out.println();
+      System.out.println("--- All System Properties ---");
+      System.getProperties().entrySet().stream()
+          .sorted(
+              java.util.Map.Entry.comparingByKey(java.util.Comparator.comparing(Object::toString)))
+          .forEach(e -> System.out.printf("  %-40s = %s%n", e.getKey(), e.getValue()));
     }
-
-    @Override
-    public void run() {
-        Runtime rt = Runtime.getRuntime();
-        long freeHeapMb  = rt.freeMemory()  / (1024 * 1024);
-        long totalHeapMb = rt.totalMemory() / (1024 * 1024);
-        long maxHeapMb   = rt.maxMemory()   / (1024 * 1024);
-
-        System.out.printf("Java:       %s (%s)%n",
-                System.getProperty("java.version"),
-                System.getProperty("java.vendor"));
-        System.out.printf("OS:         %s %s (%s)%n",
-                System.getProperty("os.name"),
-                System.getProperty("os.version"),
-                System.getProperty("os.arch"));
-        System.out.printf("Heap:       %d MB free / %d MB allocated / %d MB max%n",
-                freeHeapMb, totalHeapMb, maxHeapMb);
-        System.out.printf("Processors: %d%n", rt.availableProcessors());
-
-        if (all) {
-            System.out.println();
-            System.out.println("--- All System Properties ---");
-            System.getProperties().entrySet().stream()
-                    .sorted(java.util.Map.Entry.comparingByKey(
-                            java.util.Comparator.comparing(Object::toString)))
-                    .forEach(e -> System.out.printf("  %-40s = %s%n", e.getKey(), e.getValue()));
-        }
-    }
+  }
 }
