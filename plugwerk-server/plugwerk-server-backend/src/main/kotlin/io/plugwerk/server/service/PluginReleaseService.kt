@@ -49,6 +49,7 @@ class PluginReleaseService(
     private val descriptorResolver: DescriptorResolver,
     private val objectMapper: ObjectMapper,
     private val properties: PlugwerkProperties,
+    private val downloadEventService: DownloadEventService,
 ) {
 
     fun findAllByPlugin(namespaceSlug: String, pluginId: String): List<PluginReleaseEntity> {
@@ -98,10 +99,17 @@ class PluginReleaseService(
     }
 
     @Transactional
-    fun downloadArtifact(namespaceSlug: String, pluginId: String, version: String): InputStream {
+    fun downloadArtifact(
+        namespaceSlug: String,
+        pluginId: String,
+        version: String,
+        clientIp: String? = null,
+        userAgent: String? = null,
+    ): InputStream {
         val release = findByVersion(namespaceSlug, pluginId, version)
         val stream = storageService.retrieve(release.artifactKey)
         releaseRepository.incrementDownloadCount(release.id!!)
+        downloadEventService.record(release, clientIp, userAgent)
         return stream
     }
 

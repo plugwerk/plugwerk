@@ -33,6 +33,7 @@ import io.plugwerk.server.service.PluginReleaseService
 import io.plugwerk.server.service.PluginService
 import io.plugwerk.spi.model.PluginStatus
 import io.plugwerk.spi.model.ReleaseStatus
+import jakarta.servlet.http.HttpServletRequest
 import org.springframework.core.io.InputStreamResource
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
@@ -54,6 +55,7 @@ class CatalogController(
     private val pf4jService: Pf4jCompatibilityService,
     private val pluginMapper: PluginMapper,
     private val releaseMapper: PluginReleaseMapper,
+    private val httpServletRequest: HttpServletRequest,
 ) : CatalogApi {
 
     override fun listPlugins(
@@ -137,7 +139,11 @@ class CatalogController(
     ): ResponseEntity<org.springframework.core.io.Resource> {
         val release = releaseService.findByVersion(ns, pluginId, version)
         val extension = release.fileFormat.name.lowercase()
-        val stream = releaseService.downloadArtifact(ns, pluginId, version)
+        val clientIp = httpServletRequest.getHeader("X-Forwarded-For")
+            ?.split(",")?.firstOrNull()?.trim()
+            ?: httpServletRequest.remoteAddr
+        val userAgent = httpServletRequest.getHeader("User-Agent")
+        val stream = releaseService.downloadArtifact(ns, pluginId, version, clientIp, userAgent)
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"$pluginId-$version.$extension\"")
             .contentType(MediaType.APPLICATION_OCTET_STREAM)

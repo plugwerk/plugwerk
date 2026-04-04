@@ -1,0 +1,62 @@
+# Download event audit log table.
+# Privacy: IP addresses are anonymized to /24 (IPv4) or /48 (IPv6) by default.
+# Operators can disable IP/user-agent capture entirely via plugwerk.tracking.* config.
+# Note: No retention policy in this migration — operators should implement data retention
+# based on their compliance requirements (e.g. periodic DELETE WHERE downloaded_at < ...).
+
+databaseChangeLog:
+  - changeSet:
+      id: 0003-create-download-event
+      author: plugwerk
+      changes:
+        - createTable:
+            tableName: download_event
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: release_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_download_event_release
+                    references: plugin_release(id)
+                    deleteCascade: true
+              - column:
+                  name: downloaded_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: client_ip
+                  type: varchar(45)
+              - column:
+                  name: user_agent
+                  type: text
+
+  - changeSet:
+      id: 0003-idx-download-event-release
+      author: plugwerk
+      changes:
+        - createIndex:
+            tableName: download_event
+            indexName: idx_download_event_release_id
+            columns:
+              - column:
+                  name: release_id
+
+  - changeSet:
+      id: 0003-idx-download-event-downloaded-at
+      author: plugwerk
+      changes:
+        - createIndex:
+            tableName: download_event
+            indexName: idx_download_event_downloaded_at
+            columns:
+              - column:
+                  name: downloaded_at

@@ -61,6 +61,23 @@ plugwerk:
   upload:
     max-file-size-mb: ${PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB:100}
 
+  # Download event tracking (audit log).
+  # Records individual download events in the download_event table.
+  # The atomic download_count counter on plugin_release is always incremented regardless.
+  tracking:
+    # Master switch — set to false to disable event recording entirely.
+    # Env: PLUGWERK_TRACKING_ENABLED
+    enabled: ${PLUGWERK_TRACKING_ENABLED:true}
+    # Whether to capture the client IP address. Default: true.
+    # Env: PLUGWERK_TRACKING_CAPTURE_IP
+    capture-ip: ${PLUGWERK_TRACKING_CAPTURE_IP:true}
+    # Anonymize IPs to /24 (IPv4) or /48 (IPv6) before storage. Default: true.
+    # Env: PLUGWERK_TRACKING_ANONYMIZE_IP
+    anonymize-ip: ${PLUGWERK_TRACKING_ANONYMIZE_IP:true}
+    # Whether to capture the HTTP User-Agent header. Default: true.
+    # Env: PLUGWERK_TRACKING_CAPTURE_USER_AGENT
+    capture-user-agent: ${PLUGWERK_TRACKING_CAPTURE_USER_AGENT:true}
+
 server:
   port: 8080
 
