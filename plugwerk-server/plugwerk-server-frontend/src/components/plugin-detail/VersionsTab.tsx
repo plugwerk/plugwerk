@@ -90,7 +90,7 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
         <TableHead>
           <TableRow>
             <TableCell>Version</TableCell>
-            <TableCell>Released</TableCell>
+            <TableCell>Uploaded</TableCell>
             <TableCell>Status</TableCell>
             <TableCell>Format</TableCell>
             <TableCell>Size</TableCell>
