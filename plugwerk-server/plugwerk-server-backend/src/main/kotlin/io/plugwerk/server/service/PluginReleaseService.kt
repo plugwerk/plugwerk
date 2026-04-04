@@ -162,11 +162,23 @@ class PluginReleaseService(
         return releaseRepository.save(release)
     }
 
+    /**
+     * Deletes a release and its stored artifact.
+     *
+     * @return `true` if this was the last release and the plugin was also deleted
+     */
     @Transactional
-    fun delete(namespaceSlug: String, pluginId: String, version: String) {
+    fun delete(namespaceSlug: String, pluginId: String, version: String): Boolean {
         val release = findByVersion(namespaceSlug, pluginId, version)
         storageService.delete(release.artifactKey)
         releaseRepository.delete(release)
+
+        val remaining = releaseRepository.findAllByPluginOrderByCreatedAtDesc(release.plugin)
+        if (remaining.isEmpty()) {
+            pluginRepository.delete(release.plugin)
+            return true
+        }
+        return false
     }
 
     private fun resolvePlugin(namespaceSlug: String, pluginId: String): PluginEntity {

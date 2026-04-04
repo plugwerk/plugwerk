@@ -36,6 +36,7 @@ import io.plugwerk.server.service.ReleaseNotFoundException
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration
@@ -243,10 +244,24 @@ class ManagementControllerTest {
     }
 
     @Test
-    fun `DELETE release returns 204`() {
+    fun `DELETE release returns 204 with X-Plugin-Deleted false when other releases exist`() {
+        whenever(releaseService.delete(eq("acme"), eq("my-plugin"), eq("1.0.0"))).thenReturn(false)
+
         mockMvc.delete("/api/v1/namespaces/acme/plugins/my-plugin/releases/1.0.0")
             .andExpect {
                 status { isNoContent() }
+                header { string("X-Plugin-Deleted", "false") }
+            }
+    }
+
+    @Test
+    fun `DELETE release returns 204 with X-Plugin-Deleted true when last release`() {
+        whenever(releaseService.delete(eq("acme"), eq("my-plugin"), eq("1.0.0"))).thenReturn(true)
+
+        mockMvc.delete("/api/v1/namespaces/acme/plugins/my-plugin/releases/1.0.0")
+            .andExpect {
+                status { isNoContent() }
+                header { string("X-Plugin-Deleted", "true") }
             }
     }
 

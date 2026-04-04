@@ -37,6 +37,7 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import tools.jackson.databind.ObjectMapper
@@ -257,7 +258,34 @@ class PluginReleaseServiceTest {
     }
 
     @Test
-    fun `delete removes artifact and release entity`() {
+    fun `delete removes artifact and release entity but keeps plugin when other releases exist`() {
+        val release = PluginReleaseEntity(
+            plugin = plugin,
+            version = "1.0.0",
+            artifactSha256 = "sha",
+            artifactKey = "00000000-0000-0000-0000-000000000001:my-plugin:1.0.0:jar",
+        )
+        val otherRelease = PluginReleaseEntity(
+            plugin = plugin,
+            version = "2.0.0",
+            artifactSha256 = "sha2",
+            artifactKey = "00000000-0000-0000-0000-000000000001:my-plugin:2.0.0:jar",
+        )
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.findByPluginAndVersion(plugin, "1.0.0")).thenReturn(Optional.of(release))
+        whenever(releaseRepository.findAllByPluginOrderByCreatedAtDesc(plugin)).thenReturn(listOf(otherRelease))
+
+        val pluginDeleted = releaseService.delete("acme", "my-plugin", "1.0.0")
+
+        assertThat(pluginDeleted).isFalse()
+        verify(storageService).delete("00000000-0000-0000-0000-000000000001:my-plugin:1.0.0:jar")
+        verify(releaseRepository).delete(release)
+        verify(pluginRepository, never()).delete(any<PluginEntity>())
+    }
+
+    @Test
+    fun `delete removes plugin when last release is deleted`() {
         val release = PluginReleaseEntity(
             plugin = plugin,
             version = "1.0.0",
@@ -267,11 +295,14 @@ class PluginReleaseServiceTest {
         whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
         whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
         whenever(releaseRepository.findByPluginAndVersion(plugin, "1.0.0")).thenReturn(Optional.of(release))
+        whenever(releaseRepository.findAllByPluginOrderByCreatedAtDesc(plugin)).thenReturn(emptyList())
 
-        releaseService.delete("acme", "my-plugin", "1.0.0")
+        val pluginDeleted = releaseService.delete("acme", "my-plugin", "1.0.0")
 
+        assertThat(pluginDeleted).isTrue()
         verify(storageService).delete("00000000-0000-0000-0000-000000000001:my-plugin:1.0.0:jar")
         verify(releaseRepository).delete(release)
+        verify(pluginRepository).delete(plugin)
     }
 
     @Test

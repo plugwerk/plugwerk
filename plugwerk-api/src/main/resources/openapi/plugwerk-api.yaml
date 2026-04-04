@@ -634,7 +634,8 @@ paths:
       summary: Delete a single release
       description: |
         Permanently deletes a single plugin release and its stored artifact.
-        This action is irreversible. Requires `ADMIN` role in the namespace.
+        If this is the last remaining release of the plugin, the plugin itself
+        is also deleted. This action is irreversible. Requires `ADMIN` role in the namespace.
       operationId: deleteRelease
       security:
         - ApiKeyAuth: []
@@ -644,7 +645,16 @@ paths:
         - $ref: '#/components/parameters/VersionPath'
       responses:
         '204':
-          description: Release and artifact deleted
+          description: |
+            Release and artifact deleted. If this was the last remaining release,
+            the plugin itself is also deleted.
+          headers:
+            X-Plugin-Deleted:
+              schema:
+                type: boolean
+              description: >
+                `true` if the plugin was also deleted because this was its
+                last remaining release; `false` otherwise.
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':

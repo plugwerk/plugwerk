@@ -15,6 +15,7 @@ import {
 } from '@mui/material'
 import { Download, CheckCircle, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Badge } from '../common/Badge'
 import { ConfirmDeleteDialog } from '../common/ConfirmDeleteDialog'
 import type { PluginReleaseDto } from '../../api/generated/model'
@@ -40,6 +41,7 @@ const statusToBadge: Record<string, BadgeVariant> = {
 }
 
 export function VersionsTab({ releases, namespace, pluginId, currentVersion, canApprove, onReleaseDeleted }: VersionsTabProps) {
+  const navigate = useNavigate()
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<PluginReleaseDto | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -64,9 +66,15 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
     if (!deleteTarget?.version) return
     setIsDeleting(true)
     try {
-      await managementApi.deleteRelease({ ns: namespace, pluginId, version: deleteTarget.version })
-      setToast({ message: `v${deleteTarget.version} deleted.`, severity: 'success' })
-      onReleaseDeleted?.(deleteTarget.version)
+      const response = await managementApi.deleteRelease({ ns: namespace, pluginId, version: deleteTarget.version })
+      const pluginDeleted = response.headers?.['x-plugin-deleted'] === 'true'
+      if (pluginDeleted) {
+        setToast({ message: 'Plugin and release deleted.', severity: 'success' })
+        navigate(`/${namespace}`)
+      } else {
+        setToast({ message: `v${deleteTarget.version} deleted.`, severity: 'success' })
+        onReleaseDeleted?.(deleteTarget.version)
+      }
     } catch {
       setToast({ message: `Failed to delete v${deleteTarget.version}.`, severity: 'error' })
     } finally {
@@ -190,7 +198,9 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
       <ConfirmDeleteDialog
         open={!!deleteTarget}
         title="Delete Release"
-        message={`Are you sure you want to delete v${deleteTarget?.version ?? ''}? This action cannot be undone.`}
+        message={releases.length === 1
+          ? `Are you sure you want to delete v${deleteTarget?.version ?? ''}? This is the last release — the entire plugin will also be removed. This action cannot be undone.`
+          : `Are you sure you want to delete v${deleteTarget?.version ?? ''}? This action cannot be undone.`}
         onConfirm={handleDeleteRelease}
         onCancel={() => setDeleteTarget(null)}
         loading={isDeleting}

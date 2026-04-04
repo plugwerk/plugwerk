@@ -7,6 +7,12 @@ import { renderWithRouter } from '../../test/renderWithTheme'
 import { VersionsTab } from './VersionsTab'
 import type { PluginReleaseDto } from '../../api/generated/model'
 
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return { ...actual, useNavigate: () => mockNavigate }
+})
+
 vi.mock('../../api/config', () => ({
   reviewsApi: { approveRelease: vi.fn() },
   managementApi: { deleteRelease: vi.fn() },
@@ -44,6 +50,7 @@ const defaultProps = {
 describe('VersionsTab', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockNavigate.mockReset()
   })
 
   it('shows delete buttons when canApprove is true (ADMIN)', () => {
@@ -74,13 +81,15 @@ describe('VersionsTab', () => {
     const deleteButtons = screen.getAllByRole('button', { name: /delete release/i })
     await user.click(deleteButtons[0])
 
-    expect(screen.getByText(/are you sure you want to delete/i)).toBeInTheDocument()
-    expect(screen.getByText(/v1.0.0/)).toBeInTheDocument()
+    expect(screen.getByText(/are you sure you want to delete v1\.0\.0\?/i)).toBeInTheDocument()
   })
 
   it('calls managementApi.deleteRelease on confirm', async () => {
     const { managementApi } = await import('../../api/config')
-    const mockDelete = vi.mocked(managementApi.deleteRelease).mockResolvedValue({} as never)
+    const mockDelete = vi.mocked(managementApi.deleteRelease).mockResolvedValue({
+      data: undefined, status: 204, statusText: 'No Content',
+      headers: { 'x-plugin-deleted': 'false' }, config: {} as never,
+    })
     const onDeleted = vi.fn()
     const user = userEvent.setup()
 
@@ -99,5 +108,54 @@ describe('VersionsTab', () => {
 
     expect(screen.getByText('v1.0.0')).toBeInTheDocument()
     expect(screen.getByText('v2.0.0')).toBeInTheDocument()
+  })
+
+  it('shows plugin deletion warning when deleting the last release', async () => {
+    const user = userEvent.setup()
+    renderWithRouter(
+      <VersionsTab
+        releases={[publishedRelease]}
+        namespace="acme"
+        pluginId="my-plugin"
+        currentVersion="1.0.0"
+        canApprove={true}
+      />,
+    )
+
+    const deleteButton = screen.getByRole('button', { name: /delete release/i })
+    await user.click(deleteButton)
+
+    expect(screen.getByText(/the entire plugin will also be removed/i)).toBeInTheDocument()
+  })
+
+  it('navigates to catalog page when X-Plugin-Deleted header is true', async () => {
+    const { managementApi } = await import('../../api/config')
+    vi.mocked(managementApi.deleteRelease).mockResolvedValue({
+      data: undefined,
+      status: 204,
+      statusText: 'No Content',
+      headers: { 'x-plugin-deleted': 'true' },
+      config: {} as never,
+    })
+    const onDeleted = vi.fn()
+    const user = userEvent.setup()
+
+    renderWithRouter(
+      <VersionsTab
+        releases={[publishedRelease]}
+        namespace="acme"
+        pluginId="my-plugin"
+        currentVersion="1.0.0"
+        canApprove={true}
+        onReleaseDeleted={onDeleted}
+      />,
+    )
+
+    const deleteButton = screen.getByRole('button', { name: /delete release/i })
+    await user.click(deleteButton)
+    await user.click(screen.getByRole('button', { name: /confirm-delete/i }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/acme')
+    expect(onDeleted).not.toHaveBeenCalled()
   })
 })

@@ -120,8 +120,10 @@ class ManagementController(
             SecurityContextHolder.getContext().authentication!!,
             NamespaceRole.ADMIN,
         )
-        releaseService.delete(ns, pluginId, version)
-        return ResponseEntity.noContent().build()
+        val pluginDeleted = releaseService.delete(ns, pluginId, version)
+        return ResponseEntity.noContent()
+            .header("X-Plugin-Deleted", pluginDeleted.toString())
+            .build()
     }
 
     private fun ReleaseStatusUpdateRequest.Status.toServiceStatus(): ReleaseStatus = when (this) {
