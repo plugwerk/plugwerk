@@ -129,6 +129,7 @@ export function PluginDetailPage() {
           namespace={namespace}
           isAdmin={isAdmin}
           onDeletePlugin={() => setShowDeletePlugin(true)}
+          onError={(message) => setToast({ message, severity: 'error' })}
         />
 
         {/* Tabs + Content */}

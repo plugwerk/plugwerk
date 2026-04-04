@@ -14,9 +14,10 @@ interface PluginHeaderProps {
   namespace: string
   isAdmin?: boolean
   onDeletePlugin?: () => void
+  onError?: (message: string) => void
 }
 
-export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDeletePlugin }: PluginHeaderProps) {
+export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDeletePlugin, onError }: PluginHeaderProps) {
   const downloadUrl = latestRelease
     ? `/api/v1/namespaces/${namespace}/plugins/${plugin.pluginId}/releases/${latestRelease.version}/download`
     : '#'
@@ -122,7 +123,7 @@ export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDele
               downloadArtifact(
                 downloadUrl,
                 `${plugin.pluginId}-${latestRelease.version}.${latestRelease.fileFormat ?? 'jar'}`,
-              ).catch(() => { /* errors handled silently — server may return 401 on expired token */ })
+              ).catch((err: Error) => onError?.(err.message))
             }}
           >
             Download

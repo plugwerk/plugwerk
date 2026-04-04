@@ -13,7 +13,12 @@ export async function downloadArtifact(url: string, filename: string): Promise<v
   }
   const response = await fetch(url, { headers })
   if (!response.ok) {
-    throw new Error(`Download failed: ${response.status}`)
+    let message = `Download failed (${response.status})`
+    try {
+      const body = await response.json()
+      if (body.message) message = body.message
+    } catch { /* response may not be JSON */ }
+    throw new Error(message)
   }
   const blob = await response.blob()
   const blobUrl = URL.createObjectURL(blob)
