@@ -5,6 +5,7 @@ import { Box, Button, InputBase, MenuItem, ToggleButton, ToggleButtonGroup, useT
 import { LayoutGrid, List, Search } from 'lucide-react'
 import { usePluginStore } from '../../stores/pluginStore'
 import { useUiStore } from '../../stores/uiStore'
+import { FilterAutocomplete } from '../common/FilterAutocomplete'
 import { FilterSelect } from '../common/FilterSelect'
 import { tokens } from '../../theme/tokens'
 
@@ -61,17 +62,14 @@ export function FilterBar({ view, onViewChange, namespace }: FilterBarProps) {
         mb: 3,
       }}
     >
-      <FilterSelect
+      <FilterAutocomplete
+        options={availableTags}
         value={filters.tag}
         onChange={(v) => handleChange('tag', v)}
+        placeholder="All Tags"
         aria-label="Filter by tag"
-        minWidth={140}
-      >
-        <MenuItem value="">All Tags</MenuItem>
-        {availableTags.map((t) => (
-          <MenuItem key={t} value={t}>{t}</MenuItem>
-        ))}
-      </FilterSelect>
+        minWidth={180}
+      />
 
       <FilterSelect
         value={filters.status}
