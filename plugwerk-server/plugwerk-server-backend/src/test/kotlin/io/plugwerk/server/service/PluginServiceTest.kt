@@ -19,8 +19,10 @@ package io.plugwerk.server.service
 
 import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.PluginEntity
+import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
+import io.plugwerk.server.service.storage.ArtifactStorageService
 import io.plugwerk.spi.model.PluginStatus
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -43,6 +45,9 @@ class PluginServiceTest {
 
     @Mock
     lateinit var releaseRepository: PluginReleaseRepository
+
+    @Mock
+    lateinit var storageService: ArtifactStorageService
 
     @Mock
     lateinit var namespaceService: NamespaceService
@@ -138,13 +143,42 @@ class PluginServiceTest {
     }
 
     @Test
-    fun `delete removes plugin`() {
+    fun `delete removes plugin with no releases`() {
         val plugin = PluginEntity(namespace = namespace, pluginId = "p1", name = "Plugin 1")
         whenever(namespaceService.findBySlug("acme")).thenReturn(namespace)
         whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "p1")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.findAllByPluginOrderByCreatedAtDesc(plugin)).thenReturn(emptyList())
 
         pluginService.delete("acme", "p1")
 
+        verify(pluginRepository).delete(plugin)
+    }
+
+    @Test
+    fun `delete cascades to releases and artifacts`() {
+        val plugin = PluginEntity(namespace = namespace, pluginId = "p1", name = "Plugin 1")
+        val release1 = PluginReleaseEntity(
+            plugin = plugin,
+            version = "1.0.0",
+            artifactSha256 = "sha1",
+            artifactKey = "acme:p1:1.0.0:jar",
+        )
+        val release2 = PluginReleaseEntity(
+            plugin = plugin,
+            version = "2.0.0",
+            artifactSha256 = "sha2",
+            artifactKey = "acme:p1:2.0.0:jar",
+        )
+        whenever(namespaceService.findBySlug("acme")).thenReturn(namespace)
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "p1")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.findAllByPluginOrderByCreatedAtDesc(plugin)).thenReturn(listOf(release1, release2))
+
+        pluginService.delete("acme", "p1")
+
+        verify(storageService).delete("acme:p1:1.0.0:jar")
+        verify(storageService).delete("acme:p1:2.0.0:jar")
+        verify(releaseRepository).delete(release1)
+        verify(releaseRepository).delete(release2)
         verify(pluginRepository).delete(plugin)
     }
 }

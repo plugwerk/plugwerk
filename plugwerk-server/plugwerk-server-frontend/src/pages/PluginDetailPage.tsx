@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Copyright (C) 2026 devtank42 GmbH
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Box,
+  Button,
   Container,
   Tabs,
   Tab,
@@ -10,29 +11,38 @@ import {
   Alert,
   CircularProgress,
   Link as MuiLink,
+  Snackbar,
 } from '@mui/material'
-import { ChevronRight } from 'lucide-react'
-import { Link, useParams } from 'react-router-dom'
+import { ChevronRight, Trash2 } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { PluginHeader } from '../components/plugin-detail/PluginHeader'
 import { DetailSidebar } from '../components/plugin-detail/DetailSidebar'
 import { OverviewTab } from '../components/plugin-detail/OverviewTab'
 import { VersionsTab } from '../components/plugin-detail/VersionsTab'
 import { ChangelogTab } from '../components/plugin-detail/ChangelogTab'
 import { DependenciesTab } from '../components/plugin-detail/DependenciesTab'
-import { catalogApi } from '../api/config'
+import { catalogApi, managementApi } from '../api/config'
 import type { PluginDto, PluginReleaseDto } from '../api/generated/model'
+import { ConfirmDeleteDialog } from '../components/common/ConfirmDeleteDialog'
 import { useAuthStore } from '../stores/authStore'
 
 const TAB_IDS = ['overview', 'versions', 'changelog', 'dependencies']
 
 export function PluginDetailPage() {
   const { namespace = 'default', pluginId = '' } = useParams<{ namespace: string; pluginId: string }>()
+  const navigate = useNavigate()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const namespaceRole = useAuthStore((s) => s.namespaceRole)
+  const fetchNamespaceRole = useAuthStore((s) => s.fetchNamespaceRole)
+  const isAdmin = namespaceRole === 'ADMIN'
   const [plugin, setPlugin] = useState<PluginDto | null>(null)
   const [releases, setReleases] = useState<PluginReleaseDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState(0)
+  const [showDeletePlugin, setShowDeletePlugin] = useState(false)
+  const [isDeletingPlugin, setIsDeletingPlugin] = useState(false)
+  const [toast, setToast] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -53,6 +63,28 @@ export function PluginDetailPage() {
     }
     if (pluginId) load()
   }, [namespace, pluginId])
+
+  useEffect(() => {
+    if (isAuthenticated) fetchNamespaceRole(namespace)
+  }, [isAuthenticated, namespace, fetchNamespaceRole])
+
+  const handleReleaseDeleted = useCallback((version: string) => {
+    setReleases((prev) => prev.filter((r) => r.version !== version))
+  }, [])
+
+  async function handleDeletePlugin() {
+    setIsDeletingPlugin(true)
+    try {
+      await managementApi.deletePlugin({ ns: namespace, pluginId })
+      setToast({ message: `Plugin ${pluginId} deleted.`, severity: 'success' })
+      setTimeout(() => navigate(`/${namespace}`), 1000)
+    } catch {
+      setToast({ message: `Failed to delete plugin ${pluginId}.`, severity: 'error' })
+    } finally {
+      setIsDeletingPlugin(false)
+      setShowDeletePlugin(false)
+    }
+  }
 
   const latestRelease = releases.find((r) => r.status === 'published') ?? releases[0] ?? null
 
@@ -93,7 +125,22 @@ export function PluginDetailPage() {
         </Box>
 
         {/* Plugin Header */}
-        <PluginHeader plugin={plugin} latestRelease={latestRelease} namespace={namespace} />
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <PluginHeader plugin={plugin} latestRelease={latestRelease} namespace={namespace} />
+          {isAdmin && (
+            <Button
+              variant="outlined"
+              color="error"
+              size="small"
+              startIcon={<Trash2 size={14} />}
+              aria-label="delete plugin"
+              onClick={() => setShowDeletePlugin(true)}
+              sx={{ mt: 1, flexShrink: 0 }}
+            >
+              Delete
+            </Button>
+          )}
+        </Box>
 
         {/* Tabs + Content */}
         <Box sx={{ mt: 2 }}>
@@ -134,7 +181,8 @@ export function PluginDetailPage() {
                       namespace={namespace}
                       pluginId={pluginId}
                       currentVersion={latestRelease?.version}
-                      canApprove={isAuthenticated}
+                      canApprove={isAdmin}
+                      onReleaseDeleted={handleReleaseDeleted}
                     />
                   )}
                   {tab === 2 && i === 2 && <ChangelogTab releases={releases} />}
@@ -150,6 +198,26 @@ export function PluginDetailPage() {
           </Box>
         </Box>
       </Container>
+
+      <ConfirmDeleteDialog
+        open={showDeletePlugin}
+        title="Delete Plugin"
+        message={`Are you sure you want to delete "${plugin.name}" and all its releases? This action cannot be undone.`}
+        onConfirm={handleDeletePlugin}
+        onCancel={() => setShowDeletePlugin(false)}
+        loading={isDeletingPlugin}
+      />
+
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={4000}
+        onClose={() => setToast(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={toast?.severity} onClose={() => setToast(null)} sx={{ width: '100%' }}>
+          {toast?.message}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

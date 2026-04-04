@@ -105,6 +105,26 @@ class ManagementController(
         return ResponseEntity.ok(releaseMapper.toDto(release, pluginId))
     }
 
+    override fun deletePlugin(ns: String, pluginId: String): ResponseEntity<Unit> {
+        namespaceAuthorizationService.requireRole(
+            ns,
+            SecurityContextHolder.getContext().authentication!!,
+            NamespaceRole.ADMIN,
+        )
+        pluginService.delete(ns, pluginId)
+        return ResponseEntity.noContent().build()
+    }
+
+    override fun deleteRelease(ns: String, pluginId: String, version: String): ResponseEntity<Unit> {
+        namespaceAuthorizationService.requireRole(
+            ns,
+            SecurityContextHolder.getContext().authentication!!,
+            NamespaceRole.ADMIN,
+        )
+        releaseService.delete(ns, pluginId, version)
+        return ResponseEntity.noContent().build()
+    }
+
     private fun ReleaseStatusUpdateRequest.Status.toServiceStatus(): ReleaseStatus = when (this) {
         ReleaseStatusUpdateRequest.Status.PUBLISHED -> ReleaseStatus.PUBLISHED
         ReleaseStatusUpdateRequest.Status.DEPRECATED -> ReleaseStatus.DEPRECATED

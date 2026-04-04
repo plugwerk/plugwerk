@@ -416,6 +416,28 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Management
+      summary: Delete plugin and all releases
+      description: |
+        Permanently deletes a plugin together with all its releases and stored artifacts.
+        This action is irreversible. Requires `ADMIN` role in the namespace.
+      operationId: deletePlugin
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/NamespaceSlug'
+        - $ref: '#/components/parameters/PluginIdPath'
+      responses:
+        '204':
+          description: Plugin and all releases deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /namespaces/{ns}/plugin-releases:
     post:
@@ -587,6 +609,29 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Management
+      summary: Delete a single release
+      description: |
+        Permanently deletes a single plugin release and its stored artifact.
+        This action is irreversible. Requires `ADMIN` role in the namespace.
+      operationId: deleteRelease
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/NamespaceSlug'
+        - $ref: '#/components/parameters/PluginIdPath'
+        - $ref: '#/components/parameters/VersionPath'
+      responses:
+        '204':
+          description: Release and artifact deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -2151,6 +2196,12 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
       description: Authentication credentials are missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions for this operation
       content:
         application/json:
           schema:
