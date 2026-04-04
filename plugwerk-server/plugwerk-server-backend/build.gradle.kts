@@ -24,6 +24,8 @@ dependencies {
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.jackson.module.kotlin)
     implementation(libs.spring.boot.starter.liquibase)
+    implementation(libs.bucket4j.core)
+    implementation(libs.caffeine)
 
     runtimeOnly(libs.yasson)
     runtimeOnly(libs.postgresql)

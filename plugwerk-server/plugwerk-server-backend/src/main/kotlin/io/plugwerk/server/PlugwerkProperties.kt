@@ -178,7 +178,35 @@ data class PlugwerkProperties(
          * Environment variable: `PLUGWERK_AUTH_ADMIN_PASSWORD`
          */
         val adminPassword: String? = null,
-    )
+        val rateLimit: RateLimitProperties = RateLimitProperties(),
+    ) {
+        /**
+         * Login rate limiting configuration (`plugwerk.auth.rate-limit.*`).
+         *
+         * Controls IP-based brute-force protection on the login endpoint. Uses an in-memory
+         * token-bucket algorithm (Bucket4j) with per-IP buckets that auto-expire after the
+         * configured window.
+         *
+         * @property maxAttempts Maximum number of login attempts allowed per IP address within
+         *   the configured time window. Requests exceeding this limit receive HTTP 429.
+         *
+         *   Environment variable: `PLUGWERK_AUTH_RATE_LIMIT_MAX_ATTEMPTS`
+         *
+         *   ```yaml
+         *   plugwerk.auth.rate-limit.max-attempts: 10
+         *   ```
+         *
+         * @property windowSeconds Duration of the rate limit window in seconds. After this
+         *   period, the token bucket refills completely for the given IP.
+         *
+         *   Environment variable: `PLUGWERK_AUTH_RATE_LIMIT_WINDOW_SECONDS`
+         *
+         *   ```yaml
+         *   plugwerk.auth.rate-limit.window-seconds: 60
+         *   ```
+         */
+        data class RateLimitProperties(val maxAttempts: Int = 10, val windowSeconds: Long = 60)
+    }
 
     /**
      * Upload configuration (`plugwerk.upload.*`).

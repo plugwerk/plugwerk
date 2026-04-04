@@ -18,6 +18,7 @@
 package io.plugwerk.server.controller
 
 import io.plugwerk.server.domain.UserEntity
+import io.plugwerk.server.security.LoginRateLimitFilter
 import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
 import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.security.PasswordChangeRequiredFilter
@@ -56,6 +57,7 @@ import java.util.UUID
     AdminUserController::class,
     excludeAutoConfiguration = [SecurityAutoConfiguration::class, ServletWebSecurityAutoConfiguration::class],
     excludeFilters = [
+        ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [LoginRateLimitFilter::class]),
         ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [NamespaceAccessKeyAuthFilter::class]),
         ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [PublicNamespaceFilter::class]),
         ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [PasswordChangeRequiredFilter::class]),

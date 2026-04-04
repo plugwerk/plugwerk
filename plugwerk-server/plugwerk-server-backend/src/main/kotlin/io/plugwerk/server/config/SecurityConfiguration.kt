@@ -19,6 +19,7 @@ package io.plugwerk.server.config
 
 import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.security.DelegatingJwtDecoder
+import io.plugwerk.server.security.LoginRateLimitFilter
 import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
 import io.plugwerk.server.security.OidcProviderRegistry
 import io.plugwerk.server.security.PasswordChangeRequiredFilter
@@ -42,6 +43,7 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 @Configuration
 @EnableWebSecurity
 class SecurityConfiguration(
+    private val loginRateLimitFilter: LoginRateLimitFilter,
     private val apiKeyAuthFilter: NamespaceAccessKeyAuthFilter,
     private val publicNamespaceFilter: PublicNamespaceFilter,
     private val passwordChangeRequiredFilter: PasswordChangeRequiredFilter,
@@ -130,8 +132,10 @@ class SecurityConfiguration(
                     // (public namespace GET requests are handled by PublicNamespaceFilter)
                     .anyRequest().authenticated()
             }
-            // PublicNamespaceFilter runs first — sets AnonymousAuth for public namespace GETs
-            .addFilterBefore(publicNamespaceFilter, UsernamePasswordAuthenticationFilter::class.java)
+            // LoginRateLimitFilter runs first �� blocks brute-force login attempts before any auth processing
+            .addFilterBefore(loginRateLimitFilter, UsernamePasswordAuthenticationFilter::class.java)
+            // PublicNamespaceFilter runs second — sets AnonymousAuth for public namespace GETs
+            .addFilterAfter(publicNamespaceFilter, LoginRateLimitFilter::class.java)
             // NamespaceAccessKeyAuthFilter runs after — handles machine-to-machine auth via X-Api-Key
             .addFilterAfter(apiKeyAuthFilter, PublicNamespaceFilter::class.java)
             // PasswordChangeRequiredFilter runs last — blocks all API access when passwordChangeRequired = true

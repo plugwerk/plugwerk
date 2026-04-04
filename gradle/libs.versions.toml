@@ -19,6 +19,8 @@ jakarta-validation = "3.1.1"
 jakarta-annotation = "3.0.0"
 semver4j = "6.0.0"
 yasson = "3.0.4"
+bucket4j = "8.17.0"
+caffeine = "3.2.0"
 spotless = "7.0.4"
 
 [libraries]
@@ -66,6 +68,10 @@ yasson = { module = "org.eclipse:yasson", version.ref = "yasson" }
 swagger-annotations = { module = "io.swagger.core.v3:swagger-annotations", version.ref = "swagger-annotations" }
 jakarta-validation-api = { module = "jakarta.validation:jakarta.validation-api", version.ref = "jakarta-validation" }
 jakarta-annotation-api = { module = "jakarta.annotation:jakarta.annotation-api", version.ref = "jakarta-annotation" }
+
+# Rate Limiting
+bucket4j-core = { module = "com.bucket4j:bucket4j_jdk17-core", version.ref = "bucket4j" }
+caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
 
 # Logging
 # SemVer

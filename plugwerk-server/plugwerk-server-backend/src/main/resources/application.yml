@@ -55,6 +55,17 @@ plugwerk:
     # No environment variable override — change this value directly when needed.
     token-validity-hours: 8
 
+    # IP-based brute-force protection for the login endpoint.
+    # Uses an in-memory token bucket (Bucket4j + Caffeine).
+    # Exceeding the limit returns HTTP 429 with a Retry-After header.
+    rate-limit:
+      # Maximum login attempts per IP within the time window.
+      # Env: PLUGWERK_AUTH_RATE_LIMIT_MAX_ATTEMPTS
+      max-attempts: ${PLUGWERK_AUTH_RATE_LIMIT_MAX_ATTEMPTS:10}
+      # Time window in seconds. Buckets auto-expire after this period.
+      # Env: PLUGWERK_AUTH_RATE_LIMIT_WINDOW_SECONDS
+      window-seconds: ${PLUGWERK_AUTH_RATE_LIMIT_WINDOW_SECONDS:60}
+
   # Maximum allowed plugin artifact file size in MB.
   # Files exceeding this limit are rejected with HTTP 413 (Payload Too Large).
   # Env: PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB
