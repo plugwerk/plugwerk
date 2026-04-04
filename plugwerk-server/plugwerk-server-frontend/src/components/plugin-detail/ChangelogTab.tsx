@@ -34,9 +34,9 @@ export function ChangelogTab({ releases }: ChangelogTabProps) {
         <Box key={rel.id}>
           <Typography variant="h3" sx={{ mt: 3, mb: 1 }}>
             v{rel.version}
-            {(rel.publishedAt ?? rel.createdAt) && (
+            {rel.createdAt && (
               <Box component="span" sx={{ fontWeight: 400, fontSize: '0.875rem', color: 'text.disabled', ml: 1 }}>
-                – {formatDateTime(rel.status === 'draft' ? rel.createdAt : rel.publishedAt)}
+                – {formatDateTime(rel.createdAt)}
               </Box>
             )}
           </Typography>

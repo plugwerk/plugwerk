@@ -128,7 +128,7 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
                 </TableCell>
                 <TableCell>
                   <Typography variant="caption" color="text.disabled">
-                    {formatDateTime(rel.status === 'draft' ? rel.createdAt : rel.publishedAt)}
+                    {formatDateTime(rel.createdAt)}
                   </Typography>
                 </TableCell>
                 <TableCell>
