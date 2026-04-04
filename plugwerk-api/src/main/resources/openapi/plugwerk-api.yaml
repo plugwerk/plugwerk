@@ -264,6 +264,8 @@ paths:
 
         Superadmins see all namespaces. Regular users see only namespaces in which they
         hold a membership. Access-key principals see only the namespace the key was issued for.
+
+        Requires authentication.
       operationId: listNamespaces
       security:
         - BearerAuth: []
@@ -279,6 +281,8 @@ paths:
                   $ref: '#/components/schemas/NamespaceSummary'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
     post:
       tags:
         - Namespaces
@@ -291,6 +295,8 @@ paths:
         2 characters long (pattern: `^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$`).
 
         If a namespace with the same slug already exists, `409 Conflict` is returned.
+
+        Requires superadmin privileges.
       operationId: createNamespace
       security:
         - BearerAuth: []
@@ -313,6 +319,8 @@ paths:
                 $ref: '#/components/schemas/NamespaceSummary'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '409':
           description: A namespace with this slug already exists
 
@@ -389,6 +397,8 @@ paths:
         omitted fields retain their current values.
 
         Note: `pluginId` and `namespace` cannot be changed after creation.
+
+        Requires at least `MEMBER` role in the namespace.
       operationId: updatePlugin
       security:
         - ApiKeyAuth: []
@@ -412,6 +422,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
     delete:
@@ -487,6 +499,8 @@ paths:
 
         Returns `413 Payload Too Large` if the artifact exceeds the file size limit.
         Returns `422 Unprocessable Entity` if the descriptor is missing or invalid.
+
+        Requires at least `MEMBER` role in the namespace.
       operationId: uploadPluginRelease
       security:
         - ApiKeyAuth: []
@@ -509,6 +523,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '413':
           $ref: '#/components/responses/PayloadTooLarge'
         '422':
@@ -580,6 +596,8 @@ paths:
         - `deprecated` → `yanked` — same as above.
 
         Note: `draft` → `yanked` is not allowed. Publish first, then yank if needed.
+
+        Requires `ADMIN` role in the namespace.
       operationId: updateReleaseStatus
       security:
         - ApiKeyAuth: []
@@ -606,6 +624,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
     delete:
@@ -771,6 +791,8 @@ paths:
 
         Releases approved via `POST /reviews/{releaseId}/approve` are automatically
         transitioned to `published` and removed from this queue.
+
+        Requires at least `MEMBER` role in the namespace.
       operationId: listPendingReviews
       security:
         - ApiKeyAuth: []
@@ -787,6 +809,8 @@ paths:
                   $ref: '#/components/schemas/ReviewItemDto'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   /namespaces/{ns}/reviews/{releaseId}/approve:
     post:
@@ -800,6 +824,8 @@ paths:
         An optional `comment` can be included in the request body (e.g. review notes).
 
         Returns `404 Not Found` if the release does not exist or is not in `draft` status.
+
+        Requires `ADMIN` role in the namespace.
       operationId: approveRelease
       security:
         - ApiKeyAuth: []
@@ -822,6 +848,8 @@ paths:
                 $ref: '#/components/schemas/PluginReleaseDto'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -838,6 +866,8 @@ paths:
 
         A `comment` explaining the rejection reason is strongly recommended so the
         publisher understands what needs to be fixed.
+
+        Requires `ADMIN` role in the namespace.
       operationId: rejectRelease
       security:
         - ApiKeyAuth: []
@@ -860,6 +890,8 @@ paths:
                 $ref: '#/components/schemas/PluginReleaseDto'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -874,6 +906,8 @@ paths:
         After a successful change, `passwordChangeRequired` is set to `false` on the user account.
         This endpoint must be called before accessing any other resource when the login response
         contains `passwordChangeRequired: true`.
+
+        Requires authentication (Bearer token).
       operationId: changePassword
       security:
         - BearerAuth: []
@@ -888,12 +922,15 @@ paths:
           description: Password changed successfully
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   /admin/users:
     get:
       tags:
         - AdminUsers
       summary: List all users
+      description: Returns all registered users. Requires superadmin privileges.
       operationId: listUsers
       security:
         - BearerAuth: []
@@ -908,10 +945,13 @@ paths:
                   $ref: '#/components/schemas/UserDto'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
     post:
       tags:
         - AdminUsers
       summary: Create a new user
+      description: Creates a local user account. Requires superadmin privileges.
       operationId: createUser
       security:
         - BearerAuth: []
@@ -932,6 +972,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '409':
           description: Username already taken
           content:
@@ -944,6 +986,7 @@ paths:
       tags:
         - AdminUsers
       summary: Update user (enable/disable or reset password)
+      description: Updates a user account (enable, disable, reset password). Requires superadmin privileges.
       operationId: updateUser
       security:
         - BearerAuth: []
@@ -969,6 +1012,8 @@ paths:
                 $ref: '#/components/schemas/UserDto'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
     delete:
@@ -1066,6 +1111,7 @@ paths:
       tags:
         - NamespaceMembers
       summary: Add a member to the namespace
+      description: Grants a user a role in the namespace. Requires `ADMIN` role in the namespace.
       operationId: addNamespaceMember
       security:
         - BearerAuth: []
@@ -1087,6 +1133,8 @@ paths:
                 $ref: '#/components/schemas/NamespaceMemberDto'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '409':
           description: Subject already has a role in this namespace
           content:
@@ -1099,6 +1147,7 @@ paths:
       tags:
         - NamespaceMembers
       summary: Update a member's role
+      description: Changes a member's role in the namespace. Requires `ADMIN` role in the namespace.
       operationId: updateNamespaceMember
       security:
         - BearerAuth: []
@@ -1125,12 +1174,15 @@ paths:
                 $ref: '#/components/schemas/NamespaceMemberDto'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
     delete:
       tags:
         - NamespaceMembers
       summary: Remove a member from the namespace
+      description: Revokes a member's access to the namespace. Requires `ADMIN` role in the namespace.
       operationId: removeNamespaceMember
       security:
         - BearerAuth: []
@@ -1147,6 +1199,8 @@ paths:
           description: Member removed
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -1155,6 +1209,7 @@ paths:
       tags:
         - OidcProviders
       summary: List all OIDC providers
+      description: Returns all configured OIDC identity providers. Requires superadmin privileges.
       operationId: listOidcProviders
       security:
         - BearerAuth: []
@@ -1169,10 +1224,13 @@ paths:
                   $ref: '#/components/schemas/OidcProviderDto'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
     post:
       tags:
         - OidcProviders
       summary: Create a new OIDC provider
+      description: Registers a new OIDC identity provider. Requires superadmin privileges.
       operationId: createOidcProvider
       security:
         - BearerAuth: []
@@ -1193,12 +1251,15 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   /admin/oidc-providers/{providerId}:
     patch:
       tags:
         - OidcProviders
       summary: Enable or disable an OIDC provider
+      description: Updates an OIDC provider configuration. Requires superadmin privileges.
       operationId: updateOidcProvider
       security:
         - BearerAuth: []
@@ -1224,12 +1285,15 @@ paths:
                 $ref: '#/components/schemas/OidcProviderDto'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
     delete:
       tags:
         - OidcProviders
       summary: Delete an OIDC provider
+      description: Permanently removes an OIDC provider. Requires superadmin privileges.
       operationId: deleteOidcProvider
       security:
         - BearerAuth: []
@@ -1245,6 +1309,8 @@ paths:
           description: Provider deleted
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
 
