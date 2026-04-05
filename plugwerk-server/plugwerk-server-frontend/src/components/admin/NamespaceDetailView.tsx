@@ -41,6 +41,8 @@ import {
   DialogActions,
   FormControl,
   InputLabel,
+  Tabs,
+  Tab,
 } from '@mui/material'
 import { ArrowLeft, Plus, Trash2, Copy, Check } from 'lucide-react'
 import { accessKeysApi, namespaceMembersApi, namespacesApi } from '../../api/config'
@@ -61,9 +63,13 @@ const ROLE_COLORS: Record<string, 'primary' | 'default' | 'secondary'> = {
   READ_ONLY: 'default',
 }
 
+const TAB_IDS = ['settings', 'members', 'api-keys'] as const
+
 export function NamespaceDetailView({ slug, onBack, onToast }: NamespaceDetailViewProps) {
+  const [tab, setTab] = useState(0)
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <Box>
         <Button
           size="small"
@@ -74,14 +80,32 @@ export function NamespaceDetailView({ slug, onBack, onToast }: NamespaceDetailVi
           Back to Namespaces
         </Button>
         <Typography variant="h2" gutterBottom>{slug}</Typography>
-        <Divider />
       </Box>
 
-      <SettingsSection slug={slug} onToast={onToast} />
-      <Divider />
-      <MembersSection slug={slug} onToast={onToast} />
-      <Divider />
-      <ApiKeysSection slug={slug} onToast={onToast} />
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        aria-label="Namespace settings tabs"
+        sx={{ borderBottom: 1, borderColor: 'divider' }}
+      >
+        <Tab label="Settings"  id="ns-tab-settings"  aria-controls="ns-panel-settings" />
+        <Tab label="Members"   id="ns-tab-members"   aria-controls="ns-panel-members" />
+        <Tab label="API Keys"  id="ns-tab-api-keys"  aria-controls="ns-panel-api-keys" />
+      </Tabs>
+
+      {TAB_IDS.map((id, i) => (
+        <Box
+          key={id}
+          role="tabpanel"
+          id={`ns-panel-${id}`}
+          aria-labelledby={`ns-tab-${id}`}
+          hidden={tab !== i}
+        >
+          {tab === 0 && i === 0 && <SettingsSection slug={slug} onToast={onToast} />}
+          {tab === 1 && i === 1 && <MembersSection slug={slug} onToast={onToast} />}
+          {tab === 2 && i === 2 && <ApiKeysSection slug={slug} onToast={onToast} />}
+        </Box>
+      ))}
     </Box>
   )
 }
