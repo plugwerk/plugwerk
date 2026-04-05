@@ -32,7 +32,6 @@ import org.springframework.http.ResponseEntity
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import tools.jackson.databind.ObjectMapper
 import java.net.URI
 
 @RestController
@@ -40,7 +39,6 @@ import java.net.URI
 class NamespaceController(
     private val namespaceService: NamespaceService,
     private val namespaceAuthorizationService: NamespaceAuthorizationService,
-    private val objectMapper: ObjectMapper,
 ) : NamespacesApi {
 
     override fun listNamespaces(): ResponseEntity<List<NamespaceSummary>> {
@@ -73,12 +71,11 @@ class NamespaceController(
         val auth = SecurityContextHolder.getContext().authentication
             ?: throw UnauthorizedException("Not authenticated")
         namespaceAuthorizationService.requireRole(ns, auth, NamespaceRole.ADMIN)
-        val settingsJson = namespaceUpdateRequest.settings?.let { objectMapper.writeValueAsString(it) }
         val entity = namespaceService.update(
             slug = ns,
             ownerOrg = namespaceUpdateRequest.ownerOrg,
             publicCatalog = namespaceUpdateRequest.publicCatalog,
-            settings = settingsJson,
+            autoApproveReleases = namespaceUpdateRequest.autoApproveReleases,
         )
         return ResponseEntity.ok(entity.toSummary())
     }
@@ -91,12 +88,11 @@ class NamespaceController(
         return ResponseEntity.noContent().build()
     }
 
-    @Suppress("UNCHECKED_CAST")
     private fun NamespaceEntity.toSummary(): NamespaceSummary = NamespaceSummary(
         slug = slug,
         ownerOrg = ownerOrg,
         publicCatalog = publicCatalog,
-        settings = settings?.let { objectMapper.readValue(it, Map::class.java) as Map<String, Any> },
+        autoApproveReleases = autoApproveReleases,
         createdAt = createdAt,
     )
 }

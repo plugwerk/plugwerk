@@ -125,8 +125,7 @@ function SettingsSection({ slug, onToast }: { slug: string; onToast: NamespaceDe
         if (ns) {
           setOwnerOrg(ns.ownerOrg ?? '')
           setPublicCatalog(ns.publicCatalog ?? false)
-          const settings = ns.settings as Record<string, unknown> | undefined
-          setAutoApprove(settings?.autoApprove === true)
+          setAutoApprove(ns.autoApproveReleases ?? false)
         }
       } catch { /* ignore */ }
       setLoaded(true)
@@ -142,7 +141,7 @@ function SettingsSection({ slug, onToast }: { slug: string; onToast: NamespaceDe
         namespaceUpdateRequest: {
           ownerOrg: ownerOrg.trim() || undefined,
           publicCatalog,
-          settings: { autoApprove },
+          autoApproveReleases: autoApprove,
         },
       })
       onToast({ message: 'Namespace settings saved.', severity: 'success' })

@@ -103,15 +103,15 @@ class NamespaceServiceTest {
     }
 
     @Test
-    fun `update changes ownerOrg and settings`() {
+    fun `update changes ownerOrg and autoApproveReleases`() {
         val entity = NamespaceEntity(slug = "acme", ownerOrg = "Old Org")
         whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(entity))
         whenever(namespaceRepository.save(any<NamespaceEntity>())).thenReturn(entity)
 
-        namespaceService.update("acme", ownerOrg = "New Org", settings = """{"key":"val"}""")
+        namespaceService.update("acme", ownerOrg = "New Org", autoApproveReleases = true)
 
         assertThat(entity.ownerOrg).isEqualTo("New Org")
-        assertThat(entity.settings).isEqualTo("""{"key":"val"}""")
+        assertThat(entity.autoApproveReleases).isTrue()
     }
 
     @Test

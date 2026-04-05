@@ -339,7 +339,7 @@ paths:
         - Namespaces
       summary: Update a namespace
       description: |
-        Updates namespace properties such as owner organisation, public catalog flag, or settings.
+        Updates namespace properties such as owner organisation, public catalog flag, or auto-approve setting.
 
         Requires superadmin privileges or ADMIN role in the namespace.
       operationId: updateNamespace
@@ -1651,10 +1651,9 @@ components:
         publicCatalog:
           type: boolean
           description: Whether the catalog is publicly browsable without authentication
-        settings:
-          type: object
-          additionalProperties: true
-          description: Namespace-specific settings (e.g. auto-approve)
+        autoApproveReleases:
+          type: boolean
+          description: Whether new plugin releases are auto-approved without manual review
         createdAt:
           type: string
           format: date-time
@@ -1691,10 +1690,9 @@ components:
         publicCatalog:
           type: boolean
           description: Whether the catalog is publicly browsable without authentication
-        settings:
-          type: object
-          additionalProperties: true
-          description: Namespace-specific settings (e.g. auto-approve)
+        autoApproveReleases:
+          type: boolean
+          description: Whether new plugin releases are auto-approved without manual review
 
     ErrorResponse:
       type: object

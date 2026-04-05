@@ -25,8 +25,11 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
-                  name: settings
-                  type: jsonb
+                  name: auto_approve_releases
+                  type: boolean
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
               - column:
                   name: created_at
                   type: timestamptz

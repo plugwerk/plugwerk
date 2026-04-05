@@ -44,9 +44,11 @@ class NamespaceService(
     fun findAll(): List<NamespaceEntity> = namespaceRepository.findAll()
 
     @Transactional
-    fun create(slug: String, ownerOrg: String, settings: String? = null): NamespaceEntity {
+    fun create(slug: String, ownerOrg: String, autoApproveReleases: Boolean = false): NamespaceEntity {
         if (namespaceRepository.existsBySlug(slug)) throw NamespaceAlreadyExistsException(slug)
-        return namespaceRepository.save(NamespaceEntity(slug = slug, ownerOrg = ownerOrg, settings = settings))
+        return namespaceRepository.save(
+            NamespaceEntity(slug = slug, ownerOrg = ownerOrg, autoApproveReleases = autoApproveReleases),
+        )
     }
 
     @Transactional
@@ -54,12 +56,12 @@ class NamespaceService(
         slug: String,
         ownerOrg: String? = null,
         publicCatalog: Boolean? = null,
-        settings: String? = null,
+        autoApproveReleases: Boolean? = null,
     ): NamespaceEntity {
         val entity = findBySlug(slug)
         ownerOrg?.let { entity.ownerOrg = it }
         publicCatalog?.let { entity.publicCatalog = it }
-        settings?.let { entity.settings = it }
+        autoApproveReleases?.let { entity.autoApproveReleases = it }
         return namespaceRepository.save(entity)
     }
 

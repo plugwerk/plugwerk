@@ -61,19 +61,19 @@ open class NamespaceRepositoryTest : AbstractRepositoryTest() {
     }
 
     @Test
-    fun `save persists settings as JSON`() {
+    fun `save persists autoApproveReleases`() {
         val namespace =
             namespaceRepository.save(
                 NamespaceEntity(
-                    slug = "ns-with-settings",
+                    slug = "ns-with-auto-approve",
                     ownerOrg = "Org",
-                    settings = """{"maxPlugins": 100}""",
+                    autoApproveReleases = true,
                 ),
             )
 
         val found = namespaceRepository.findById(namespace.id!!).orElseThrow()
 
-        assertThat(found.settings).contains("maxPlugins")
+        assertThat(found.autoApproveReleases).isTrue()
     }
 
     @Test
