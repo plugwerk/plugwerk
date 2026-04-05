@@ -17,7 +17,7 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 import { Box, Typography } from '@mui/material'
-import { Settings, Key, Users, Shield, FileCheck, Trash2 } from 'lucide-react'
+import { Settings, Key, Users, Shield, FileCheck, Trash2, Globe } from 'lucide-react'
 import { tokens } from '../../theme/tokens'
 
 export interface AdminSection {
@@ -29,6 +29,7 @@ export interface AdminSection {
 
 export const ADMIN_SECTIONS: AdminSection[] = [
   { id: 'general',   label: 'General',          icon: <Settings size={16} /> },
+  { id: 'namespaces', label: 'Namespaces',      icon: <Globe size={16} /> },
   { id: 'api-keys',  label: 'API Keys',          icon: <Key size={16} /> },
   { id: 'users',          label: 'Users',             icon: <Users size={16} /> },
   { id: 'oidc-providers', label: 'OIDC Providers',    icon: <Shield size={16} /> },

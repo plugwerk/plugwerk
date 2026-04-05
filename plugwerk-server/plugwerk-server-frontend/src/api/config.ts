@@ -23,6 +23,7 @@ import { AuthApi } from './generated/api/auth-api'
 import { CatalogApi } from './generated/api/catalog-api'
 import { ManagementApi } from './generated/api/management-api'
 import { NamespaceMembersApi } from './generated/api/namespace-members-api'
+import { NamespacesApi } from './generated/api/namespaces-api'
 import { OidcProvidersApi } from './generated/api/oidc-providers-api'
 import { ReviewsApi } from './generated/api/reviews-api'
 import { UpdatesApi } from './generated/api/updates-api'
@@ -60,6 +61,7 @@ export const adminUsersApi = new AdminUsersApi(apiConfig, BASE_PATH, axiosInstan
 export const catalogApi = new CatalogApi(apiConfig, BASE_PATH, axiosInstance)
 export const managementApi = new ManagementApi(apiConfig, BASE_PATH, axiosInstance)
 export const namespaceMembersApi = new NamespaceMembersApi(apiConfig, BASE_PATH, axiosInstance)
+export const namespacesApi = new NamespacesApi(apiConfig, BASE_PATH, axiosInstance)
 export const oidcProvidersApi = new OidcProvidersApi(apiConfig, BASE_PATH, axiosInstance)
 export const reviewsApi = new ReviewsApi(apiConfig, BASE_PATH, axiosInstance)
 export const updatesApi = new UpdatesApi(apiConfig, BASE_PATH, axiosInstance)
