@@ -7,7 +7,7 @@
 -- Creates:
 --   2 namespaces (acme-corp, community) — 'default' already exists from migration
 --   30 plugins per namespace (90 total)
---   1 PUBLISHED release per plugin (90 total) with artifact sizes & download counts
+--   1–3 PUBLISHED releases per plugin (~180 total) with artifact sizes & download counts
 --   5 users (admin, alice, bob, charlie, diana)
 --   10 namespace memberships
 --   3 namespace access keys
@@ -180,7 +180,7 @@ INSERT INTO plugin (id, namespace_id, plugin_id, name, description, provider, li
 ON CONFLICT (namespace_id, plugin_id) DO NOTHING;
 
 -- ============================================================
--- Releases — one PUBLISHED release per plugin
+-- Releases — current version per plugin
 -- ============================================================
 INSERT INTO plugin_release (id, plugin_id, version, artifact_sha256, artifact_key, artifact_size, file_format, requires_system_version, plugin_dependencies, download_count, status, created_at, updated_at)
 SELECT gen_random_uuid(), p.id, rel.version, rel.sha, (rel.ns_id || ':' || rel.plugin_id_str || ':' || rel.version || ':' || lower(rel.fmt)),
@@ -281,5 +281,62 @@ JOIN (VALUES
   ('org.community.file-browser',       '00000000-0000-0000-0000-000000000003','1.4.0','e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0','artifacts/community/file-browser/1.4.0.jar',       1048576,NULL,NULL,11800,'25 days','JAR'),
   ('org.community.gantt-chart',        '00000000-0000-0000-0000-000000000003','0.7.0','f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1','artifacts/community/gantt-chart/0.7.0.jar',        3145728,NULL,NULL,420,'100 days','JAR')
 ) AS rel(plugin_id_str, ns_id, version, sha, key, artifact_size, req, deps, downloads, ago, fmt)
+ON p.plugin_id = rel.plugin_id_str AND p.namespace_id = rel.ns_id::uuid
+ON CONFLICT (plugin_id, version) DO NOTHING;
+
+-- ============================================================
+-- Releases — older versions for ~half the plugins
+-- ============================================================
+INSERT INTO plugin_release (id, plugin_id, version, artifact_sha256, artifact_key, artifact_size, file_format, requires_system_version, plugin_dependencies, download_count, status, created_at, updated_at)
+SELECT gen_random_uuid(), p.id, rel.version, rel.sha, (rel.ns_id || ':' || rel.plugin_id_str || ':' || rel.version || ':' || lower(rel.fmt)),
+       rel.artifact_size, rel.fmt, rel.req, rel.deps::jsonb, rel.downloads, rel.st::varchar, now()-rel.ago::interval, now()-rel.ago::interval
+FROM plugin p
+JOIN (VALUES
+  -- default namespace — older versions
+  ('io.plugwerk.auth-sso',           (SELECT id FROM namespace WHERE slug = 'default'),'1.2.0','aa01aa01aa01aa01aa01aa01aa01aa01aa01aa01aa01aa01aa01aa01aa01aa01','artifacts/default/auth-sso/1.2.0.jar',           2300000,'>=2.0.0',NULL,35100,'60 days','JAR','PUBLISHED'),
+  ('io.plugwerk.auth-sso',           (SELECT id FROM namespace WHERE slug = 'default'),'1.0.0','aa02aa02aa02aa02aa02aa02aa02aa02aa02aa02aa02aa02aa02aa02aa02aa02','artifacts/default/auth-sso/1.0.0.jar',           2100000,'>=1.0.0',NULL,12400,'180 days','JAR','DEPRECATED'),
+  ('io.plugwerk.cache-redis',        (SELECT id FROM namespace WHERE slug = 'default'),'2.1.0','ab01ab01ab01ab01ab01ab01ab01ab01ab01ab01ab01ab01ab01ab01ab01ab01','artifacts/default/cache-redis/2.1.0.jar',         980000,'>=2.0.0',NULL,28700,'90 days','JAR','PUBLISHED'),
+  ('io.plugwerk.cache-redis',        (SELECT id FROM namespace WHERE slug = 'default'),'1.0.0','ab02ab02ab02ab02ab02ab02ab02ab02ab02ab02ab02ab02ab02ab02ab02ab02','artifacts/default/cache-redis/1.0.0.jar',         850000,NULL,NULL,8200,'200 days','JAR','DEPRECATED'),
+  ('io.plugwerk.feature-flags',      (SELECT id FROM namespace WHERE slug = 'default'),'3.0.0','ac01ac01ac01ac01ac01ac01ac01ac01ac01ac01ac01ac01ac01ac01ac01ac01','artifacts/default/feature-flags/3.0.0.jar',       1500000,'>=2.0.0',NULL,41200,'45 days','JAR','PUBLISHED'),
+  ('io.plugwerk.feature-flags',      (SELECT id FROM namespace WHERE slug = 'default'),'2.0.0','ac02ac02ac02ac02ac02ac02ac02ac02ac02ac02ac02ac02ac02ac02ac02ac02','artifacts/default/feature-flags/2.0.0.jar',       1400000,'>=1.5.0',NULL,22100,'120 days','JAR','DEPRECATED'),
+  ('io.plugwerk.job-scheduler',      (SELECT id FROM namespace WHERE slug = 'default'),'3.1.0','ad01ad01ad01ad01ad01ad01ad01ad01ad01ad01ad01ad01ad01ad01ad01ad01','artifacts/default/job-scheduler/3.1.0.jar',       4100000,'>=2.5.0',NULL,18500,'30 days','JAR','PUBLISHED'),
+  ('io.plugwerk.job-scheduler',      (SELECT id FROM namespace WHERE slug = 'default'),'2.0.0','ad02ad02ad02ad02ad02ad02ad02ad02ad02ad02ad02ad02ad02ad02ad02ad02','artifacts/default/job-scheduler/2.0.0.jar',       3800000,'>=2.0.0',NULL,14200,'150 days','JAR','DEPRECATED'),
+  ('io.plugwerk.dashboard-widgets',  (SELECT id FROM namespace WHERE slug = 'default'),'2.2.0','ae01ae01ae01ae01ae01ae01ae01ae01ae01ae01ae01ae01ae01ae01ae01ae01','artifacts/default/dashboard-widgets/2.2.0.zip',   3000000,NULL,NULL,19400,'40 days','ZIP','PUBLISHED'),
+  ('io.plugwerk.notification-hub',   (SELECT id FROM namespace WHERE slug = 'default'),'1.0.0','af01af01af01af01af01af01af01af01af01af01af01af01af01af01af01af01','artifacts/default/notification-hub/1.0.0.jar',    1800000,NULL,NULL,11200,'100 days','JAR','PUBLISHED'),
+  ('io.plugwerk.oauth2-provider',    (SELECT id FROM namespace WHERE slug = 'default'),'1.5.0','ag01ag01ag01ag01ag01ag01ag01ag01ag01ag01ag01ag01ag01ag01ag01ag01','artifacts/default/oauth2-provider/1.5.0.jar',     3500000,'>=2.0.0',NULL,28300,'50 days','JAR','PUBLISHED'),
+  ('io.plugwerk.rate-limiter',       (SELECT id FROM namespace WHERE slug = 'default'),'2.0.0','ah01ah01ah01ah01ah01ah01ah01ah01ah01ah01ah01ah01ah01ah01ah01ah01','artifacts/default/rate-limiter/2.0.0.jar',        380000,NULL,NULL,21400,'35 days','JAR','PUBLISHED'),
+  ('io.plugwerk.rate-limiter',       (SELECT id FROM namespace WHERE slug = 'default'),'1.0.0','ah02ah02ah02ah02ah02ah02ah02ah02ah02ah02ah02ah02ah02ah02ah02ah02','artifacts/default/rate-limiter/1.0.0.jar',        320000,NULL,NULL,9800,'160 days','JAR','DEPRECATED'),
+  ('io.plugwerk.health-checks',     (SELECT id FROM namespace WHERE slug = 'default'),'1.0.0','ai01ai01ai01ai01ai01ai01ai01ai01ai01ai01ai01ai01ai01ai01ai01ai01','artifacts/default/health-checks/1.0.0.jar',       180000,NULL,NULL,25600,'90 days','JAR','PUBLISHED'),
+  ('io.plugwerk.webhook-router',    (SELECT id FROM namespace WHERE slug = 'default'),'2.0.0','aj01aj01aj01aj01aj01aj01aj01aj01aj01aj01aj01aj01aj01aj01aj01aj01','artifacts/default/webhook-router/2.0.0.jar',      520000,NULL,NULL,10300,'45 days','JAR','PUBLISHED'),
+  ('io.plugwerk.yaml-config',       (SELECT id FROM namespace WHERE slug = 'default'),'1.0.0','ak01ak01ak01ak01ak01ak01ak01ak01ak01ak01ak01ak01ak01ak01ak01ak01','artifacts/default/yaml-config/1.0.0.jar',         210000,NULL,NULL,7400,'120 days','JAR','DEPRECATED'),
+  -- acme-corp namespace — older versions
+  ('com.acme.crm-connector',        '00000000-0000-0000-0000-000000000002','2.0.0','ba01ba01ba01ba01ba01ba01ba01ba01ba01ba01ba01ba01ba01ba01ba01ba01','artifacts/acme-corp/crm-connector/2.0.0.jar',     4500000,'>=2.0.0',NULL,24800,'30 days','JAR','PUBLISHED'),
+  ('com.acme.crm-connector',        '00000000-0000-0000-0000-000000000002','1.0.0','ba02ba02ba02ba02ba02ba02ba02ba02ba02ba02ba02ba02ba02ba02ba02ba02','artifacts/acme-corp/crm-connector/1.0.0.jar',     4200000,NULL,NULL,15600,'120 days','JAR','DEPRECATED'),
+  ('com.acme.erp-bridge',           '00000000-0000-0000-0000-000000000002','4.0.0','bb01bb01bb01bb01bb01bb01bb01bb01bb01bb01bb01bb01bb01bb01bb01bb01','artifacts/acme-corp/erp-bridge/4.0.0.zip',        12000000,'>=3.0.0',NULL,18200,'25 days','ZIP','PUBLISHED'),
+  ('com.acme.erp-bridge',           '00000000-0000-0000-0000-000000000002','3.0.0','bb02bb02bb02bb02bb02bb02bb02bb02bb02bb02bb02bb02bb02bb02bb02bb02','artifacts/acme-corp/erp-bridge/3.0.0.zip',        11500000,'>=2.0.0',NULL,11400,'90 days','ZIP','DEPRECATED'),
+  ('com.acme.contract-vault',       '00000000-0000-0000-0000-000000000002','1.0.0','bc01bc01bc01bc01bc01bc01bc01bc01bc01bc01bc01bc01bc01bc01bc01bc01','artifacts/acme-corp/contract-vault/1.0.0.jar',    4800000,NULL,NULL,12100,'75 days','JAR','PUBLISHED'),
+  ('com.acme.helpdesk-ai',          '00000000-0000-0000-0000-000000000002','1.0.0','bd01bd01bd01bd01bd01bd01bd01bd01bd01bd01bd01bd01bd01bd01bd01bd01','artifacts/acme-corp/helpdesk-ai/1.0.0.jar',       7800000,'>=2.0.0',NULL,14300,'60 days','JAR','PUBLISHED'),
+  ('com.acme.jira-sync',            '00000000-0000-0000-0000-000000000002','1.0.0','be01be01be01be01be01be01be01be01be01be01be01be01be01be01be01be01','artifacts/acme-corp/jira-sync/1.0.0.jar',         1400000,NULL,NULL,16800,'80 days','JAR','PUBLISHED'),
+  ('com.acme.mfa-enforcer',         '00000000-0000-0000-0000-000000000002','2.0.0','bf01bf01bf01bf01bf01bf01bf01bf01bf01bf01bf01bf01bf01bf01bf01bf01','artifacts/acme-corp/mfa-enforcer/2.0.0.jar',      790000,'>=2.0.0',NULL,22100,'20 days','JAR','PUBLISHED'),
+  ('com.acme.mfa-enforcer',         '00000000-0000-0000-0000-000000000002','1.0.0','bf02bf02bf02bf02bf02bf02bf02bf02bf02bf02bf02bf02bf02bf02bf02bf02','artifacts/acme-corp/mfa-enforcer/1.0.0.jar',      680000,NULL,NULL,9800,'100 days','JAR','DEPRECATED'),
+  ('com.acme.warehouse-wms',        '00000000-0000-0000-0000-000000000002','2.0.0','bg01bg01bg01bg01bg01bg01bg01bg01bg01bg01bg01bg01bg01bg01bg01bg01','artifacts/acme-corp/warehouse-wms/2.0.0.jar',     8000000,'>=2.0.0',NULL,11600,'50 days','JAR','PUBLISHED'),
+  ('com.acme.zero-trust-net',       '00000000-0000-0000-0000-000000000002','2.0.0','bh01bh01bh01bh01bh01bh01bh01bh01bh01bh01bh01bh01bh01bh01bh01bh01','artifacts/acme-corp/zero-trust-net/2.0.0.jar',    1500000,'>=2.0.0',NULL,15700,'30 days','JAR','PUBLISHED'),
+  ('com.acme.approval-workflow',    '00000000-0000-0000-0000-000000000002','1.0.0','bi01bi01bi01bi01bi01bi01bi01bi01bi01bi01bi01bi01bi01bi01bi01bi01','artifacts/acme-corp/approval-workflow/1.0.0.jar', 1800000,NULL,NULL,6400,'80 days','JAR','PUBLISHED'),
+  -- community namespace — older versions
+  ('org.community.markdown-renderer','00000000-0000-0000-0000-000000000003','1.0.0','ca01ca01ca01ca01ca01ca01ca01ca01ca01ca01ca01ca01ca01ca01ca01ca01','artifacts/community/markdown-renderer/1.0.0.jar', 480000,NULL,NULL,31200,'90 days','JAR','PUBLISHED'),
+  ('org.community.form-builder',     '00000000-0000-0000-0000-000000000003','2.0.0','cb01cb01cb01cb01cb01cb01cb01cb01cb01cb01cb01cb01cb01cb01cb01cb01','artifacts/community/form-builder/2.0.0.jar',      1900000,NULL,NULL,22400,'25 days','JAR','PUBLISHED'),
+  ('org.community.form-builder',     '00000000-0000-0000-0000-000000000003','1.0.0','cb02cb02cb02cb02cb02cb02cb02cb02cb02cb02cb02cb02cb02cb02cb02cb02','artifacts/community/form-builder/1.0.0.jar',      1600000,NULL,NULL,14800,'100 days','JAR','DEPRECATED'),
+  ('org.community.image-optimizer',  '00000000-0000-0000-0000-000000000003','2.0.0','cc01cc01cc01cc01cc01cc01cc01cc01cc01cc01cc01cc01cc01cc01cc01cc01','artifacts/community/image-optimizer/2.0.0.jar',   4200000,NULL,NULL,18700,'50 days','JAR','PUBLISHED'),
+  ('org.community.quick-search',     '00000000-0000-0000-0000-000000000003','2.0.0','cd01cd01cd01cd01cd01cd01cd01cd01cd01cd01cd01cd01cd01cd01cd01cd01','artifacts/community/quick-search/2.0.0.jar',      580000,NULL,NULL,24600,'30 days','JAR','PUBLISHED'),
+  ('org.community.quick-search',     '00000000-0000-0000-0000-000000000003','1.0.0','cd02cd02cd02cd02cd02cd02cd02cd02cd02cd02cd02cd02cd02cd02cd02cd02','artifacts/community/quick-search/1.0.0.jar',      450000,NULL,NULL,11200,'130 days','JAR','DEPRECATED'),
+  ('org.community.rich-text-editor', '00000000-0000-0000-0000-000000000003','1.0.0','ce01ce01ce01ce01ce01ce01ce01ce01ce01ce01ce01ce01ce01ce01ce01ce01','artifacts/community/rich-text-editor/1.0.0.jar',  2800000,NULL,NULL,19500,'70 days','JAR','PUBLISHED'),
+  ('org.community.virtualized-list', '00000000-0000-0000-0000-000000000003','3.0.0','cf01cf01cf01cf01cf01cf01cf01cf01cf01cf01cf01cf01cf01cf01cf01cf01','artifacts/community/virtualized-list/3.0.0.jar',  290000,NULL,NULL,32100,'20 days','JAR','PUBLISHED'),
+  ('org.community.virtualized-list', '00000000-0000-0000-0000-000000000003','2.0.0','cf02cf02cf02cf02cf02cf02cf02cf02cf02cf02cf02cf02cf02cf02cf02cf02','artifacts/community/virtualized-list/2.0.0.jar',  260000,NULL,NULL,18400,'80 days','JAR','DEPRECATED'),
+  ('org.community.log-viewer',      '00000000-0000-0000-0000-000000000003','2.0.0','cg01cg01cg01cg01cg01cg01cg01cg01cg01cg01cg01cg01cg01cg01cg01cg01','artifacts/community/log-viewer/2.0.0.jar',        1400000,NULL,NULL,14800,'35 days','JAR','PUBLISHED'),
+  ('org.community.api-tester',      '00000000-0000-0000-0000-000000000003','2.0.0','ch01ch01ch01ch01ch01ch01ch01ch01ch01ch01ch01ch01ch01ch01ch01ch01','artifacts/community/api-tester/2.0.0.jar',        1400000,NULL,NULL,20100,'15 days','JAR','PUBLISHED'),
+  ('org.community.api-tester',      '00000000-0000-0000-0000-000000000003','1.0.0','ch02ch02ch02ch02ch02ch02ch02ch02ch02ch02ch02ch02ch02ch02ch02ch02','artifacts/community/api-tester/1.0.0.jar',        1200000,NULL,NULL,8600,'110 days','JAR','DEPRECATED'),
+  ('org.community.websocket-client','00000000-0000-0000-0000-000000000003','1.0.0','ci01ci01ci01ci01ci01ci01ci01ci01ci01ci01ci01ci01ci01ci01ci01ci01','artifacts/community/websocket-client/1.0.0.jar',  720000,NULL,NULL,9800,'70 days','JAR','PUBLISHED'),
+  ('org.community.xss-sanitizer',   '00000000-0000-0000-0000-000000000003','1.0.0','cj01cj01cj01cj01cj01cj01cj01cj01cj01cj01cj01cj01cj01cj01cj01cj01','artifacts/community/xss-sanitizer/1.0.0.jar',    220000,NULL,NULL,15400,'60 days','JAR','PUBLISHED')
+) AS rel(plugin_id_str, ns_id, version, sha, key, artifact_size, req, deps, downloads, ago, fmt, st)
 ON p.plugin_id = rel.plugin_id_str AND p.namespace_id = rel.ns_id::uuid
 ON CONFLICT (plugin_id, version) DO NOTHING;
