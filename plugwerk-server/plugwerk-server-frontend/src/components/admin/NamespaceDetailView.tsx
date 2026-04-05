@@ -47,6 +47,7 @@ import {
 } from '@mui/material'
 import { ArrowLeft, Plus, Trash2, Copy, Check } from 'lucide-react'
 import { accessKeysApi, adminUsersApi, namespaceMembersApi, namespacesApi } from '../../api/config'
+import { isAxiosError } from 'axios'
 import type { AccessKeyDto, NamespaceMemberDto, NamespaceRole } from '../../api/generated/model'
 import { NamespaceRole as NamespaceRoleEnum } from '../../api/generated/model'
 import { tokens } from '../../theme/tokens'
@@ -210,6 +211,7 @@ function MembersSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
   const [newSubject, setNewSubject] = useState('')
   const [newRole, setNewRole] = useState<NamespaceRole>(NamespaceRoleEnum.Member)
   const [addSaving, setAddSaving] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
   const [userOptions, setUserOptions] = useState<string[]>([])
 
   const loadMembers = useCallback(async () => {
@@ -272,6 +274,7 @@ function MembersSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
   async function handleAdd() {
     if (!newSubject.trim()) return
     setAddSaving(true)
+    setAddError(null)
     try {
       const res = await namespaceMembersApi.addNamespaceMember({
         ns: slug,
@@ -282,8 +285,12 @@ function MembersSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
       setAddOpen(false)
       setNewSubject('')
       setNewRole(NamespaceRoleEnum.Member)
-    } catch {
-      onToast({ message: 'Failed to add member.', severity: 'error' })
+    } catch (error: unknown) {
+      if (isAxiosError(error) && error.response?.status === 409) {
+        setAddError(error.response.data?.message ?? `User "${newSubject.trim()}" is already a member of this namespace.`)
+      } else {
+        setAddError('Failed to add member.')
+      }
     } finally {
       setAddSaving(false)
     }
@@ -356,15 +363,16 @@ function MembersSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
         </Table>
       )}
 
-      <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={addOpen} onClose={() => { setAddOpen(false); setAddError(null) }} maxWidth="xs" fullWidth>
         <DialogTitle>Add Member</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            {addError && <Alert severity="error">{addError}</Alert>}
             <Autocomplete
               freeSolo
               options={userOptions}
               inputValue={newSubject}
-              onInputChange={(_, value) => setNewSubject(value)}
+              onInputChange={(_, value) => { setNewSubject(value); setAddError(null) }}
               renderInput={(params) => (
                 <TextField
                   {...params}
