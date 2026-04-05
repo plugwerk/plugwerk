@@ -57,9 +57,13 @@ class PluginReleaseMapper(private val objectMapper: ObjectMapper) {
     )
 
     private fun parseDependencies(json: String?): List<PluginDependencyDto>? {
-        if (json == null) return null
+        if (json.isNullOrBlank()) return null
         val raw: List<Map<String, String>> = objectMapper.readValue(json, dependencyListType)
-        return raw.map { PluginDependencyDto(id = it["id"]!!, version = it["version"]!!) }
+        return raw.mapNotNull { entry ->
+            val id = entry["id"] ?: return@mapNotNull null
+            val version = entry["version"] ?: return@mapNotNull null
+            PluginDependencyDto(id = id, version = version)
+        }.takeIf { it.isNotEmpty() }
     }
 
     private fun FileFormat.toDto(): PluginReleaseDto.FileFormat = when (this) {
