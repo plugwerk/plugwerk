@@ -20,12 +20,23 @@ package io.plugwerk.server.service
 
 import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.repository.NamespaceRepository
+import io.plugwerk.server.repository.PluginReleaseRepository
+import io.plugwerk.server.repository.PluginRepository
+import io.plugwerk.server.service.storage.ArtifactStorageService
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 @Transactional(readOnly = true)
-class NamespaceService(private val namespaceRepository: NamespaceRepository) {
+class NamespaceService(
+    private val namespaceRepository: NamespaceRepository,
+    private val pluginRepository: PluginRepository,
+    private val pluginReleaseRepository: PluginReleaseRepository,
+    private val storageService: ArtifactStorageService,
+) {
+
+    private val log = LoggerFactory.getLogger(NamespaceService::class.java)
 
     fun findBySlug(slug: String): NamespaceEntity = namespaceRepository.findBySlug(slug)
         .orElseThrow { NamespaceNotFoundException(slug) }
@@ -55,6 +66,27 @@ class NamespaceService(private val namespaceRepository: NamespaceRepository) {
     @Transactional
     fun delete(slug: String) {
         val entity = findBySlug(slug)
+        deleteStorageArtifacts(entity)
         namespaceRepository.delete(entity)
+    }
+
+    private fun deleteStorageArtifacts(namespace: NamespaceEntity) {
+        val plugins = pluginRepository.findAllByNamespace(namespace)
+        for (plugin in plugins) {
+            val releases = pluginReleaseRepository.findAllByPluginOrderByCreatedAtDesc(plugin)
+            for (release in releases) {
+                try {
+                    storageService.delete(release.artifactKey)
+                } catch (ex: Exception) {
+                    log.warn(
+                        "Failed to delete artifact '{}' for plugin '{}' in namespace '{}': {}",
+                        release.artifactKey,
+                        plugin.pluginId,
+                        namespace.slug,
+                        ex.message,
+                    )
+                }
+            }
+        }
     }
 }

@@ -66,6 +66,7 @@ databaseChangeLog:
                     nullable: false
                     foreignKeyName: fk_plugin_namespace
                     references: namespace(id)
+                    deleteCascade: true
               - column:
                   name: plugin_id
                   type: varchar(255)
@@ -143,6 +144,7 @@ databaseChangeLog:
                     nullable: false
                     foreignKeyName: fk_plugin_release_plugin
                     references: plugin(id)
+                    deleteCascade: true
               - column:
                   name: version
                   type: varchar(100)
@@ -225,6 +227,7 @@ databaseChangeLog:
                     nullable: false
                     foreignKeyName: fk_namespace_access_key_namespace
                     references: namespace(id)
+                    deleteCascade: true
               - column:
                   name: key_hash
                   type: varchar(64)

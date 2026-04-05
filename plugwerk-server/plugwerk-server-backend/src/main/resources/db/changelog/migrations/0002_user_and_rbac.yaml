@@ -81,6 +81,7 @@ databaseChangeLog:
                     nullable: false
                     foreignKeyName: fk_namespace_member_namespace
                     references: namespace(id)
+                    deleteCascade: true
               - column:
                   name: user_subject
                   type: text
