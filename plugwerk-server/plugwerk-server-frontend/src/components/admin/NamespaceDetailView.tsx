@@ -42,12 +42,12 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material'
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
-import { axiosInstance, namespaceMembersApi } from '../../api/config'
-import { isAxiosError } from 'axios'
-import type { NamespaceMemberDto, NamespaceRole } from '../../api/generated/model'
+import { ArrowLeft, Plus, Trash2, Copy, Check } from 'lucide-react'
+import { accessKeysApi, namespaceMembersApi, namespacesApi } from '../../api/config'
+import type { AccessKeyDto, NamespaceMemberDto, NamespaceRole } from '../../api/generated/model'
 import { NamespaceRole as NamespaceRoleEnum } from '../../api/generated/model'
 import { tokens } from '../../theme/tokens'
+import { formatDateTime } from '../../utils/formatDateTime'
 
 interface NamespaceDetailViewProps {
   slug: string
@@ -81,7 +81,7 @@ export function NamespaceDetailView({ slug, onBack, onToast }: NamespaceDetailVi
       <Divider />
       <MembersSection slug={slug} onToast={onToast} />
       <Divider />
-      <ApiKeysSection />
+      <ApiKeysSection slug={slug} onToast={onToast} />
     </Box>
   )
 }
@@ -91,28 +91,45 @@ function SettingsSection({ slug, onToast }: { slug: string; onToast: NamespaceDe
   const [publicCatalog, setPublicCatalog] = useState(false)
   const [autoApprove, setAutoApprove] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await namespacesApi.listNamespaces()
+        const ns = res.data.find((n) => n.slug === slug)
+        if (ns) {
+          setOwnerOrg(ns.ownerOrg ?? '')
+          setPublicCatalog(ns.publicCatalog ?? false)
+          const settings = ns.settings as Record<string, unknown> | undefined
+          setAutoApprove(settings?.autoApprove === true)
+        }
+      } catch { /* ignore */ }
+      setLoaded(true)
+    }
+    load()
+  }, [slug])
 
   async function handleSave() {
     setSaving(true)
     try {
-      await axiosInstance.patch(`/namespaces/${encodeURIComponent(slug)}`, {
-        ownerOrg: ownerOrg.trim() || null,
-        settings: {
+      await namespacesApi.updateNamespace({
+        ns: slug,
+        namespaceUpdateRequest: {
+          ownerOrg: ownerOrg.trim() || undefined,
           publicCatalog,
-          autoApprove,
+          settings: { autoApprove },
         },
       })
       onToast({ message: 'Namespace settings saved.', severity: 'success' })
-    } catch (error: unknown) {
-      if (isAxiosError(error) && (error.response?.status === 404 || error.response?.status === 405)) {
-        onToast({ message: 'Namespace update is not yet supported by the server.', severity: 'error' })
-      } else {
-        onToast({ message: 'Failed to save namespace settings.', severity: 'error' })
-      }
+    } catch {
+      onToast({ message: 'Failed to save namespace settings.', severity: 'error' })
     } finally {
       setSaving(false)
     }
   }
+
+  if (!loaded) return <CircularProgress size={24} />
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -336,16 +353,174 @@ function MembersSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
   )
 }
 
-function ApiKeysSection() {
+function ApiKeysSection({ slug, onToast }: { slug: string; onToast: NamespaceDetailViewProps['onToast'] }) {
+  const [keys, setKeys] = useState<AccessKeyDto[]>([])
+  const [loading, setLoading] = useState(true)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [description, setDescription] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [newKey, setNewKey] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const loadKeys = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await accessKeysApi.listAccessKeys({ ns: slug })
+      setKeys(res.data)
+    } catch {
+      setKeys([])
+    } finally {
+      setLoading(false)
+    }
+  }, [slug])
+
+  useEffect(() => {
+    loadKeys()
+  }, [loadKeys])
+
+  async function handleCreate() {
+    setCreating(true)
+    try {
+      const res = await accessKeysApi.createAccessKey({
+        ns: slug,
+        accessKeyCreateRequest: { description: description.trim() || undefined },
+      })
+      setNewKey(res.data.key)
+      setDescription('')
+      setCreateOpen(false)
+      loadKeys()
+    } catch {
+      onToast({ message: 'Failed to create API key.', severity: 'error' })
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  async function handleRevoke(keyId: string) {
+    try {
+      await accessKeysApi.revokeAccessKey({ ns: slug, keyId })
+      setKeys((prev) => prev.filter((k) => k.id !== keyId))
+      onToast({ message: 'API key revoked.', severity: 'success' })
+    } catch {
+      onToast({ message: 'Failed to revoke API key.', severity: 'error' })
+    }
+  }
+
+  function handleCopyKey() {
+    if (!newKey) return
+    navigator.clipboard.writeText(newKey)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Typography variant="h6">API Keys</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="h6">API Keys</Typography>
+        <Button variant="outlined" size="small" startIcon={<Plus size={14} />} onClick={() => setCreateOpen(true)}>
+          Generate Key
+        </Button>
+      </Box>
+
       <Alert severity="info">
-        API keys provide programmatic access. The key is shown only once after creation.
+        API keys provide programmatic access for CI/CD pipelines and the SDK. The key is shown only once after creation.
       </Alert>
-      <Alert severity="warning" sx={{ bgcolor: `${tokens.badge.draft.bg}`, color: tokens.badge.draft.text }}>
-        API key management coming soon.
-      </Alert>
+
+      {newKey && (
+        <Alert
+          severity="success"
+          action={
+            <Button size="small" startIcon={copied ? <Check size={14} /> : <Copy size={14} />} onClick={handleCopyKey}>
+              {copied ? 'Copied' : 'Copy'}
+            </Button>
+          }
+          onClose={() => setNewKey(null)}
+        >
+          <Typography variant="caption" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
+            {newKey}
+          </Typography>
+        </Alert>
+      )}
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress size={24} />
+        </Box>
+      ) : keys.length === 0 ? (
+        <Typography variant="body2" color="text.secondary">No API keys configured.</Typography>
+      ) : (
+        <Table size="small" aria-label="API keys">
+          <TableHead>
+            <TableRow>
+              <TableCell>Description</TableCell>
+              <TableCell>Key Prefix</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Created</TableCell>
+              <TableCell />
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {keys.map((key) => (
+              <TableRow key={key.id} sx={{ opacity: key.revoked ? 0.5 : 1 }}>
+                <TableCell>
+                  <Typography variant="body2">{key.description || '—'}</Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
+                    {key.keyPrefix ?? '—'}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={key.revoked ? 'revoked' : 'active'}
+                    size="small"
+                    color={key.revoked ? 'default' : 'success'}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption" color="text.disabled">
+                    {formatDateTime(key.createdAt)}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  {!key.revoked && (
+                    <Button
+                      size="small"
+                      color="error"
+                      startIcon={<Trash2 size={14} />}
+                      onClick={() => handleRevoke(key.id)}
+                    >
+                      Revoke
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+
+      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Generate API Key</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              label="Description (optional)"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              size="small"
+              autoFocus
+              helperText="A label to identify this key (e.g. 'CI pipeline')."
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleCreate} disabled={creating}>
+            {creating ? 'Generating\u2026' : 'Generate'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

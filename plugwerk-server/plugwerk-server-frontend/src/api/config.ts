@@ -18,6 +18,7 @@
  */
 import axios from 'axios'
 import { Configuration } from './generated/configuration'
+import { AccessKeysApi } from './generated/api/access-keys-api'
 import { AdminUsersApi } from './generated/api/admin-users-api'
 import { AuthApi } from './generated/api/auth-api'
 import { CatalogApi } from './generated/api/catalog-api'
@@ -56,6 +57,7 @@ axiosInstance.interceptors.response.use(
 
 const apiConfig = new Configuration({ basePath: BASE_PATH })
 
+export const accessKeysApi = new AccessKeysApi(apiConfig, BASE_PATH, axiosInstance)
 export const authApi = new AuthApi(apiConfig, BASE_PATH, axiosInstance)
 export const adminUsersApi = new AdminUsersApi(apiConfig, BASE_PATH, axiosInstance)
 export const catalogApi = new CatalogApi(apiConfig, BASE_PATH, axiosInstance)

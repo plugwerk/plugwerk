@@ -27,8 +27,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { axiosInstance } from '../../api/config'
-import { isAxiosError } from 'axios'
+import { namespacesApi } from '../../api/config'
 import type { NamespaceSummary } from '../../api/generated/model'
 import { tokens } from '../../theme/tokens'
 
@@ -55,15 +54,11 @@ export function DeleteNamespaceDialog({ namespace, onClose, onDeleted, onError }
     if (!matches) return
     setDeleting(true)
     try {
-      await axiosInstance.delete(`/namespaces/${encodeURIComponent(slug)}`)
+      await namespacesApi.deleteNamespace({ ns: slug })
       onDeleted(slug)
       handleClose()
-    } catch (error: unknown) {
-      if (isAxiosError(error) && (error.response?.status === 404 || error.response?.status === 405)) {
-        onError('Namespace deletion is not yet supported by the server.')
-      } else {
-        onError(`Failed to delete namespace "${slug}".`)
-      }
+    } catch {
+      onError(`Failed to delete namespace "${slug}".`)
     } finally {
       setDeleting(false)
     }
