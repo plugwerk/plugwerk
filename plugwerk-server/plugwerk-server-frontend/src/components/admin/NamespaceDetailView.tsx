@@ -437,15 +437,14 @@ function ApiKeysSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mb: 2 }}>
-        <Button variant="outlined" size="small" startIcon={<Plus size={14} />} onClick={() => setCreateOpen(true)}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+          API keys provide programmatic access for CI/CD pipelines and the SDK. The key is shown only once after creation.
+        </Typography>
+        <Button variant="outlined" size="small" startIcon={<Plus size={14} />} onClick={() => setCreateOpen(true)} sx={{ flexShrink: 0 }}>
           Generate Key
         </Button>
       </Box>
-
-      <Alert severity="info">
-        API keys provide programmatic access for CI/CD pipelines and the SDK. The key is shown only once after creation.
-      </Alert>
 
       {newKey && (
         <Alert
