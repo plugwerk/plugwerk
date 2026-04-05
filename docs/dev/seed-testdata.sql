@@ -30,9 +30,9 @@ ON CONFLICT (username) DO NOTHING;
 -- ============================================================
 -- Namespaces
 -- ============================================================
-INSERT INTO namespace (id, slug, owner_org, settings, public_catalog) VALUES
-  ('00000000-0000-0000-0000-000000000002', 'acme-corp',  'ACME Corporation',       '{"maxPlugins": 100}', false),
-  ('00000000-0000-0000-0000-000000000003', 'community',  'Community Contributors', NULL,                  true)
+INSERT INTO namespace (id, slug, owner_org, public_catalog) VALUES
+  ('00000000-0000-0000-0000-000000000002', 'acme-corp',  'ACME Corporation',       false),
+  ('00000000-0000-0000-0000-000000000003', 'community',  'Community Contributors', true)
 ON CONFLICT (slug) DO NOTHING;
 
 -- ============================================================
