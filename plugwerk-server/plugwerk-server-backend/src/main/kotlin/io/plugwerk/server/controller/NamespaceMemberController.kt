@@ -27,6 +27,7 @@ import io.plugwerk.api.model.NamespaceRole
 import io.plugwerk.server.domain.NamespaceMemberEntity
 import io.plugwerk.server.repository.NamespaceMemberRepository
 import io.plugwerk.server.repository.NamespaceRepository
+import io.plugwerk.server.repository.UserRepository
 import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.service.ConflictException
 import io.plugwerk.server.service.EntityNotFoundException
@@ -45,6 +46,7 @@ import io.plugwerk.server.domain.NamespaceRole as DomainRole
 class NamespaceMemberController(
     private val namespaceRepository: NamespaceRepository,
     private val namespaceMemberRepository: NamespaceMemberRepository,
+    private val userRepository: UserRepository,
     private val namespaceAuthorizationService: NamespaceAuthorizationService,
 ) : NamespaceMembersApi {
 
@@ -89,6 +91,10 @@ class NamespaceMemberController(
             DomainRole.ADMIN,
         )
         val namespace = namespaceRepository.findBySlug(ns).orElseThrow { NamespaceNotFoundException(ns) }
+        val subject = namespaceMemberCreateRequest.userSubject
+        if (!userRepository.existsByUsername(subject)) {
+            throw EntityNotFoundException("User", subject)
+        }
         val exists = namespaceMemberRepository.findByNamespaceIdAndUserSubject(
             namespace.id!!,
             namespaceMemberCreateRequest.userSubject,

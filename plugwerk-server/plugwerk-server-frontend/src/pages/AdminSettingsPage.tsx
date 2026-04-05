@@ -45,6 +45,7 @@ import {
 } from '@mui/material'
 import { CheckCircle, Plus, Shield, Trash2 } from 'lucide-react'
 import { AdminSidebar } from '../components/admin/AdminSidebar'
+import { NamespacesSection } from '../components/admin/NamespacesSection'
 import { adminUsersApi, oidcProvidersApi, reviewsApi } from '../api/config'
 import { useAuthStore } from '../stores/authStore'
 import type { OidcProviderDto, OidcProviderType, ReviewItemDto, UserDto } from '../api/generated/model'
@@ -671,6 +672,7 @@ function DangerSection() {
 
 const sectionMap: Record<string, React.ReactNode> = {
   general: <GeneralSection />,
+  namespaces: <NamespacesSection />,
   'api-keys': <ApiKeysSection />,
   users: <UsersSection />,
   'oidc-providers': <OidcProvidersSection />,
