@@ -174,6 +174,15 @@ tags:
       The `userSubject` is either a local username or an OIDC `sub` claim.
 
       Requires `ADMIN` role on the namespace.
+  - name: AccessKeys
+    description: |
+      Manage namespace-scoped API access keys.
+
+      Access keys are long-lived credentials suitable for CI/CD pipelines and service accounts.
+      They grant implicit ADMIN access to their namespace. The plain-text key is returned only
+      once at creation time — only the SHA-256 hash is stored on the server.
+
+      All endpoints require `ADMIN` role on the namespace.
   - name: ServerConfig
     description: |
       Public, unauthenticated endpoint exposing non-sensitive server configuration.
@@ -1207,6 +1216,92 @@ paths:
       responses:
         '204':
           description: Member removed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /namespaces/{ns}/access-keys:
+    get:
+      tags:
+        - AccessKeys
+      summary: List access keys
+      description: Lists all access keys for the namespace. Key values are never returned — only metadata. Requires ADMIN role.
+      operationId: listAccessKeys
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/NamespaceSlug'
+      responses:
+        '200':
+          description: List of access keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AccessKeyDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - AccessKeys
+      summary: Generate a new access key
+      description: |
+        Generates a new access key for the namespace. The plain-text key is returned
+        only in this response and cannot be retrieved later. Store it securely.
+        Requires ADMIN role.
+      operationId: createAccessKey
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/NamespaceSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessKeyCreateRequest'
+      responses:
+        '201':
+          description: Access key created. The plain key is included only in this response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessKeyCreateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /namespaces/{ns}/access-keys/{keyId}:
+    delete:
+      tags:
+        - AccessKeys
+      summary: Revoke an access key
+      description: Permanently revokes an access key. Requires ADMIN role.
+      operationId: revokeAccessKey
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/NamespaceSlug'
+        - name: keyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Access key revoked
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2259,6 +2354,65 @@ components:
             - maxFileSizeMb
       required:
         - upload
+
+    AccessKeyDto:
+      type: object
+      description: Metadata for a namespace access key (the key value is never returned)
+      properties:
+        id:
+          type: string
+          format: uuid
+        description:
+          type: string
+        keyPrefix:
+          type: string
+          description: First 8 characters of the key hash for identification
+        revoked:
+          type: boolean
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - revoked
+        - createdAt
+
+    AccessKeyCreateRequest:
+      type: object
+      description: Request body for generating a new namespace access key
+      properties:
+        description:
+          type: string
+          description: Optional human-readable description
+        expiresAt:
+          type: string
+          format: date-time
+          description: Optional expiry date
+
+    AccessKeyCreateResponse:
+      type: object
+      description: |
+        Response returned when a new access key is created. The plain-text key is included
+        only in this response and cannot be retrieved later.
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+          description: The plain-text access key. Only returned once — store it securely.
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - key
+        - createdAt
 
   responses:
     BadRequest:
