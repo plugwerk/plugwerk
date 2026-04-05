@@ -57,8 +57,6 @@ function GeneralSection() {
         <Typography variant="h2" gutterBottom>General Settings</Typography>
         <Divider sx={{ mb: 3 }} />
       </Box>
-      <TextField label="Instance Name" defaultValue="ACME Corp Plugin Hub" size="small" />
-      <TextField label="Default Namespace" defaultValue="default" size="small" />
       <TextField label="Max Upload Size (MB)" type="number" defaultValue={50} size="small" />
       <FormControl size="small" sx={{ minWidth: 200 }}>
         <InputLabel>Default Language</InputLabel>
@@ -68,21 +66,6 @@ function GeneralSection() {
         </Select>
       </FormControl>
       <Button variant="contained" sx={{ alignSelf: 'flex-start' }}>Save Changes</Button>
-    </Box>
-  )
-}
-
-function ApiKeysSection() {
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Box>
-        <Typography variant="h2" gutterBottom>API Keys</Typography>
-        <Divider sx={{ mb: 3 }} />
-      </Box>
-      <Alert severity="info">
-        API keys are used to authenticate requests from the CLI and CI/CD pipelines.
-      </Alert>
-      <Button variant="outlined" sx={{ alignSelf: 'flex-start' }}>Generate New API Key</Button>
     </Box>
   )
 }
@@ -649,35 +632,12 @@ function ReviewsSection() {
   )
 }
 
-function DangerSection() {
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Box>
-        <Typography variant="h2" gutterBottom color="error">Danger Zone</Typography>
-        <Divider sx={{ mb: 3 }} />
-      </Box>
-      <Alert severity="warning">
-        Actions in this section are irreversible. Proceed with caution.
-      </Alert>
-      <Box sx={{ border: '1px solid', borderColor: 'error.main', borderRadius: 1, p: 2 }}>
-        <Typography variant="body2" fontWeight={600} gutterBottom>Reset namespace</Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-          Delete all plugins and releases in the default namespace. This cannot be undone.
-        </Typography>
-        <Button variant="outlined" color="error" size="small">Reset namespace</Button>
-      </Box>
-    </Box>
-  )
-}
-
 const sectionMap: Record<string, React.ReactNode> = {
   general: <GeneralSection />,
   namespaces: <NamespacesSection />,
-  'api-keys': <ApiKeysSection />,
   users: <UsersSection />,
   'oidc-providers': <OidcProvidersSection />,
   reviews: <ReviewsSection />,
-  danger: <DangerSection />,
 }
 
 export function AdminSettingsPage() {
@@ -687,7 +647,7 @@ export function AdminSettingsPage() {
     <Box component="main" id="main-content" sx={{ flex: 1, display: 'flex' }}>
       <AdminSidebar activeSection={activeSection} onSelect={setActiveSection} />
       <Box sx={{ flex: 1, overflow: 'auto' }}>
-        <Container maxWidth="md" sx={{ py: 4, maxWidth: 800 }}>
+        <Container maxWidth="lg" sx={{ py: 4 }}>
           {sectionMap[activeSection]}
         </Container>
       </Box>
