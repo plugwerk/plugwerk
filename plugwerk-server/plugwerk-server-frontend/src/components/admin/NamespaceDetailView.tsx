@@ -21,7 +21,6 @@ import {
   Box,
   Typography,
   Button,
-  Divider,
   TextField,
   Switch,
   FormControlLabel,
@@ -50,7 +49,6 @@ import { accessKeysApi, adminUsersApi, namespaceMembersApi, namespacesApi } from
 import { isAxiosError } from 'axios'
 import type { AccessKeyDto, NamespaceMemberDto, NamespaceRole } from '../../api/generated/model'
 import { NamespaceRole as NamespaceRoleEnum } from '../../api/generated/model'
-import { tokens } from '../../theme/tokens'
 import { formatDateTime } from '../../utils/formatDateTime'
 
 interface NamespaceDetailViewProps {
@@ -63,12 +61,6 @@ const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Admin',
   MEMBER: 'Member',
   READ_ONLY: 'Read Only',
-}
-
-const ROLE_COLORS: Record<string, 'primary' | 'default' | 'secondary'> = {
-  ADMIN: 'primary',
-  MEMBER: 'secondary',
-  READ_ONLY: 'default',
 }
 
 const TAB_IDS = ['settings', 'members', 'api-keys'] as const
