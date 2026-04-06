@@ -123,30 +123,42 @@ runs. Only re-copy if you update the SDK version (and delete the extracted direc
 
 ## Authentication
 
-The Plugwerk server requires a JWT Bearer token for write operations (upload,
+The Plugwerk server requires authentication for write operations (upload,
 approve) and for namespaces configured as non-public.
 
-### Obtaining an access token
+The recommended authentication method for the CLI is a **namespace-scoped API key**.
+API keys are long-lived, do not expire (unless configured), and are scoped to a
+single namespace. See [ADR-0011](../../docs/adrs/0011-client-auth-api-key-strategy.md).
+
+### Generating an API key
+
+Generate a key via the Plugwerk Web UI (Admin → Namespaces → select namespace → API Keys → Generate Key) or via the API:
 
 ```bash
+# Log in to get a JWT (one-time, for key generation only)
 TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"<your-admin-password>"}' | jq -r .accessToken)
 
-echo $TOKEN   # eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+# Generate a namespace-scoped API key
+API_KEY=$(curl -s -X POST http://localhost:8080/api/v1/namespaces/default/access-keys \
+  -H "X-Api-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"CLI example"}' | jq -r .key)
+
+echo $API_KEY   # pwk_...
 ```
 
-> The admin password is auto-generated on first startup and logged once at INFO level.
-> Set `PLUGWERK_AUTH_ADMIN_PASSWORD` to use a fixed password (e.g. for CI/CD).
+> **Important:** The plain-text key is shown only once. Store it securely.
 
-### Passing the token to the CLI
+### Passing the API key to the CLI
 
 ```bash
 # Option A: inline flag
-java -jar *-fat.jar --server=http://localhost:8080 --access-token=$TOKEN list
+java -jar *-fat.jar --server=http://localhost:8080 --api-key=$API_KEY list
 
 # Option B: environment variable (persists in the shell session)
-export PLUGWERK_ACCESS_TOKEN=$TOKEN
+export PLUGWERK_API_KEY=$API_KEY
 java -jar *-fat.jar --server=http://localhost:8080 list
 ```
 
@@ -170,7 +182,7 @@ Artifacts are written to each module's `build/pf4j/` directory:
 
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/namespaces \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Api-Key: $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"slug":"default","ownerOrg":"default"}'
 ```
@@ -186,13 +198,13 @@ The server reads the `MANIFEST.MF` metadata embedded inside the JAR
 # Upload hello-cmd-plugin
 curl -s -X POST \
   "http://localhost:8080/api/v1/namespaces/default/plugin-releases" \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Api-Key: $API_KEY" \
   -F "artifact=@plugwerk-java-cli-example-hello-cmd-plugin/build/pf4j/io.plugwerk.example.cli.hello-0.1.0-SNAPSHOT.zip"
 
 # Upload sysinfo-cmd-plugin
 curl -s -X POST \
   "http://localhost:8080/api/v1/namespaces/default/plugin-releases" \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Api-Key: $API_KEY" \
   -F "artifact=@plugwerk-java-cli-example-sysinfo-cmd-plugin/build/pf4j/io.plugwerk.example.cli.sysinfo-0.1.0-SNAPSHOT.zip"
 ```
 
@@ -206,12 +218,12 @@ until explicitly published. Use the management API to approve them:
 ```bash
 # Get the release ID from the upload response, or look it up:
 curl -s "http://localhost:8080/api/v1/namespaces/default/plugins/io.plugwerk.example.cli.hello/releases/0.1.0-SNAPSHOT" \
-  -H "Authorization: Bearer $TOKEN" | jq .id
+  -H "X-Api-Key: $API_KEY" | jq .id
 
 # Approve (DRAFT → PUBLISHED) — replace <release-id> with the UUID from above
 curl -s -X POST \
   "http://localhost:8080/api/v1/namespaces/default/reviews/<release-id>/approve" \
-  -H "Authorization: Bearer $TOKEN"
+  -H "X-Api-Key: $API_KEY"
 ```
 
 Repeat for `sysinfo-cmd-plugin`. After approval both plugins appear in `list` and
@@ -228,7 +240,7 @@ curl -s "http://localhost:8080/api/v1/namespaces/default/plugins/io.plugwerk.exa
 
 # Show the release detail (includes the release ID needed for approval)
 curl -s "http://localhost:8080/api/v1/namespaces/default/plugins/io.plugwerk.example.cli.hello/releases/0.1.0-SNAPSHOT" \
-  -H "Authorization: Bearer $TOKEN" | jq .
+  -H "X-Api-Key: $API_KEY" | jq .
 ```
 
 ---
@@ -252,7 +264,7 @@ cd examples/plugwerk-java-cli-example/
 JAR=plugwerk-java-cli-example-app/build/libs/*-fat.jar
 
 # List published plugins
-java -jar $JAR --server=http://localhost:8080 --access-token=$TOKEN list
+java -jar $JAR --server=http://localhost:8080 --api-key=$API_KEY list
 
 # Search by category
 java -jar $JAR --server=http://localhost:8080 search --category=utilities
@@ -261,23 +273,23 @@ java -jar $JAR --server=http://localhost:8080 search --category=utilities
 java -jar $JAR --server=http://localhost:8080 search hello
 
 # Check for updates (compares installed plugins against the server)
-java -jar $JAR --server=http://localhost:8080 --access-token=$TOKEN update
+java -jar $JAR --server=http://localhost:8080 --api-key=$API_KEY update
 
 # Apply all available updates
-java -jar $JAR --server=http://localhost:8080 --access-token=$TOKEN update --apply
+java -jar $JAR --server=http://localhost:8080 --api-key=$API_KEY update --apply
 ```
 
 ### Installing and using a dynamic plugin command
 
 ```bash
 # Install hello-cmd-plugin from the server
-java -jar $JAR --server=http://localhost:8080 --access-token=$TOKEN \
+java -jar $JAR --server=http://localhost:8080 --api-key=$API_KEY \
     install io.plugwerk.example.cli.hello 0.1.0-SNAPSHOT
 # -> Successfully installed io.plugwerk.example.cli.hello@0.1.0-SNAPSHOT
 # -> [plugin] Registered dynamic command: hello
 
 # Install sysinfo-cmd-plugin
-java -jar $JAR --server=http://localhost:8080 --access-token=$TOKEN \
+java -jar $JAR --server=http://localhost:8080 --api-key=$API_KEY \
     install io.plugwerk.example.cli.sysinfo 0.1.0-SNAPSHOT
 # -> Successfully installed io.plugwerk.example.cli.sysinfo@0.1.0-SNAPSHOT
 # -> [plugin] Registered dynamic command: sysinfo
@@ -307,7 +319,7 @@ java -jar $JAR uninstall io.plugwerk.example.cli.hello
 cd examples/plugwerk-java-cli-example/
 
 ./gradlew :plugwerk-java-cli-example-app:run \
-    --args="--server=http://localhost:8080 --access-token=$TOKEN list"
+    --args="--server=http://localhost:8080 --api-key=$API_KEY list"
 
 ./gradlew :plugwerk-java-cli-example-app:run \
     --args="install io.plugwerk.example.cli.hello 0.1.0-SNAPSHOT"
@@ -322,7 +334,8 @@ cd examples/plugwerk-java-cli-example/
 | `--server` | `-s` | `PLUGWERK_SERVER_URL` | `http://localhost:8080` | Plugwerk server base URL |
 | `--namespace` | `-n` | `PLUGWERK_NAMESPACE` | `default` | Namespace slug |
 | `--plugins-dir` | | `PLUGWERK_PLUGINS_DIR` | `./plugins` | PF4J plugins directory |
-| `--access-token` | `-t` | `PLUGWERK_ACCESS_TOKEN` | _(none)_ | JWT Bearer token |
+| `--api-key` | `-k` | `PLUGWERK_API_KEY` | _(none)_ | Namespace-scoped API key (recommended) |
+| `--access-token` | `-t` | `PLUGWERK_ACCESS_TOKEN` | _(none)_ | JWT Bearer token (fallback for OIDC) |
 
 The `--plugins-dir` path is resolved relative to the **current working directory**.
 Use an absolute path when invoking the JAR from a different directory:
