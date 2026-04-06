@@ -31,11 +31,6 @@ import {
   InputLabel,
   Snackbar,
   CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Chip,
   Switch,
   Dialog,
@@ -44,6 +39,8 @@ import {
   DialogActions,
 } from '@mui/material'
 import { CheckCircle, Plus, Shield, Trash2 } from 'lucide-react'
+import { DataTable } from '../components/common/DataTable'
+import type { DataColumn } from '../components/common/DataTable'
 import { AdminSidebar } from '../components/admin/AdminSidebar'
 import { NamespacesSection } from '../components/admin/NamespacesSection'
 import { adminUsersApi, oidcProvidersApi, reviewsApi } from '../api/config'
@@ -134,6 +131,87 @@ function UsersSection() {
     }
   }
 
+  const userColumns: DataColumn<UserDto>[] = [
+    {
+      key: 'username',
+      header: 'Username',
+      render: (user) => (
+        <>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+            <Typography variant="body2" fontWeight={500}>{user.username}</Typography>
+            {user.isSuperadmin && (
+              <Chip
+                icon={<Shield size={12} />}
+                label="superadmin"
+                size="small"
+                color="primary"
+                sx={{ height: 18, fontSize: '0.65rem' }}
+              />
+            )}
+          </Box>
+          {user.passwordChangeRequired && (
+            <Chip label="pw change required" size="small" color="warning" sx={{ mt: 0.5 }} />
+          )}
+        </>
+      ),
+    },
+    {
+      key: 'email',
+      header: 'Email',
+      render: (user) => (
+        <Typography variant="caption" color="text.secondary">{user.email ?? '—'}</Typography>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (user) => (
+        <Chip
+          label={user.enabled ? 'active' : 'disabled'}
+          size="small"
+          color={user.enabled ? 'success' : 'default'}
+        />
+      ),
+    },
+    {
+      key: 'created',
+      header: 'Created',
+      render: (user) => (
+        <Typography variant="caption" color="text.disabled">
+          {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+        </Typography>
+      ),
+    },
+    {
+      key: 'enabled',
+      header: 'Enabled',
+      render: (user) => (
+        <Switch
+          checked={user.enabled}
+          size="small"
+          onChange={() => handleToggleEnabled(user)}
+          disabled={user.isSuperadmin}
+          inputProps={{ 'aria-label': `Toggle ${user.username}` }}
+        />
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (user) => (
+        <Button
+          size="small"
+          color="error"
+          startIcon={<Trash2 size={14} />}
+          onClick={() => handleDelete(user)}
+          disabled={user.isSuperadmin}
+        >
+          Delete
+        </Button>
+      ),
+    },
+  ]
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -153,76 +231,12 @@ function UsersSection() {
       ) : users.length === 0 ? (
         <Typography variant="body2" color="text.secondary">No users found.</Typography>
       ) : (
-        <Table size="small" aria-label="Users">
-          <TableHead>
-            <TableRow>
-              <TableCell>Username</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Created</TableCell>
-              <TableCell>Enabled</TableCell>
-              <TableCell />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                    <Typography variant="body2" fontWeight={500}>{user.username}</Typography>
-                    {user.isSuperadmin && (
-                      <Chip
-                        icon={<Shield size={12} />}
-                        label="superadmin"
-                        size="small"
-                        color="primary"
-                        sx={{ height: 18, fontSize: '0.65rem' }}
-                      />
-                    )}
-                  </Box>
-                  {user.passwordChangeRequired && (
-                    <Chip label="pw change required" size="small" color="warning" sx={{ mt: 0.5 }} />
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Typography variant="caption" color="text.secondary">{user.email ?? '—'}</Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={user.enabled ? 'active' : 'disabled'}
-                    size="small"
-                    color={user.enabled ? 'success' : 'default'}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Typography variant="caption" color="text.disabled">
-                    {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Switch
-                    checked={user.enabled}
-                    size="small"
-                    onChange={() => handleToggleEnabled(user)}
-                    disabled={user.isSuperadmin}
-                    inputProps={{ 'aria-label': `Toggle ${user.username}` }}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Button
-                    size="small"
-                    color="error"
-                    startIcon={<Trash2 size={14} />}
-                    onClick={() => handleDelete(user)}
-                    disabled={user.isSuperadmin}
-                  >
-                    Delete
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataTable<UserDto>
+          columns={userColumns}
+          rows={users}
+          keyFn={(user) => user.id}
+          ariaLabel="Users"
+        />
       )}
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="xs" fullWidth>
@@ -369,6 +383,59 @@ function OidcProvidersSection() {
 
   const issuerRequired = ISSUER_REQUIRED_TYPES.has(providerType)
 
+  const oidcColumns: DataColumn<OidcProviderDto>[] = [
+    {
+      key: 'name',
+      header: 'Name',
+      render: (provider) => (
+        <Typography variant="body2" fontWeight={500}>{provider.name}</Typography>
+      ),
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      render: (provider) => (
+        <Chip label={PROVIDER_TYPE_LABELS[provider.providerType] ?? provider.providerType} size="small" />
+      ),
+    },
+    {
+      key: 'issuer',
+      header: 'Issuer / Client ID',
+      render: (provider) =>
+        provider.issuerUri ? (
+          <Typography variant="caption" color="text.secondary">{provider.issuerUri}</Typography>
+        ) : (
+          <Typography variant="caption" color="text.disabled">{provider.clientId}</Typography>
+        ),
+    },
+    {
+      key: 'enabled',
+      header: 'Enabled',
+      render: (provider) => (
+        <Switch
+          checked={provider.enabled}
+          size="small"
+          onChange={() => handleToggleEnabled(provider)}
+          inputProps={{ 'aria-label': `Toggle ${provider.name}` }}
+        />
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (provider) => (
+        <Button
+          size="small"
+          color="error"
+          startIcon={<Trash2 size={14} />}
+          onClick={() => handleDelete(provider)}
+        >
+          Delete
+        </Button>
+      ),
+    },
+  ]
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -392,54 +459,12 @@ function OidcProvidersSection() {
       ) : providers.length === 0 ? (
         <Typography variant="body2" color="text.secondary">No OIDC providers configured.</Typography>
       ) : (
-        <Table size="small" aria-label="OIDC providers">
-          <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Issuer / Client ID</TableCell>
-              <TableCell>Enabled</TableCell>
-              <TableCell />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {providers.map((provider) => (
-              <TableRow key={provider.id}>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>{provider.name}</Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip label={PROVIDER_TYPE_LABELS[provider.providerType] ?? provider.providerType} size="small" />
-                </TableCell>
-                <TableCell>
-                  {provider.issuerUri ? (
-                    <Typography variant="caption" color="text.secondary">{provider.issuerUri}</Typography>
-                  ) : (
-                    <Typography variant="caption" color="text.disabled">{provider.clientId}</Typography>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Switch
-                    checked={provider.enabled}
-                    size="small"
-                    onChange={() => handleToggleEnabled(provider)}
-                    inputProps={{ 'aria-label': `Toggle ${provider.name}` }}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Button
-                    size="small"
-                    color="error"
-                    startIcon={<Trash2 size={14} />}
-                    onClick={() => handleDelete(provider)}
-                  >
-                    Delete
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataTable<OidcProviderDto>
+          columns={oidcColumns}
+          rows={providers}
+          keyFn={(provider) => provider.id}
+          ariaLabel="OIDC providers"
+        />
       )}
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -562,6 +587,49 @@ function ReviewsSection() {
     }
   }
 
+  const reviewColumns: DataColumn<ReviewItemDto>[] = [
+    {
+      key: 'plugin',
+      header: 'Plugin',
+      render: (item) => (
+        <>
+          <Typography variant="body2" fontWeight={500}>{item.pluginName}</Typography>
+          <Typography variant="caption" color="text.secondary">{item.pluginId}</Typography>
+        </>
+      ),
+    },
+    {
+      key: 'version',
+      header: 'Version',
+      render: (item) => <>v{item.version}</>,
+    },
+    {
+      key: 'submitted',
+      header: 'Submitted',
+      render: (item) => (
+        <Typography variant="caption" color="text.disabled">
+          {new Date(item.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+        </Typography>
+      ),
+    },
+    {
+      key: 'action',
+      header: 'Action',
+      render: (item) => (
+        <Button
+          variant="outlined"
+          size="small"
+          color="success"
+          startIcon={<CheckCircle size={14} />}
+          loading={approvingId === item.releaseId}
+          onClick={() => handleApprove(item)}
+        >
+          Approve
+        </Button>
+      ),
+    },
+  ]
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <Box>
@@ -578,44 +646,12 @@ function ReviewsSection() {
           No releases awaiting review.
         </Typography>
       ) : (
-        <Table size="small" aria-label="Pending reviews">
-          <TableHead>
-            <TableRow>
-              <TableCell>Plugin</TableCell>
-              <TableCell>Version</TableCell>
-              <TableCell>Submitted</TableCell>
-              <TableCell>Action</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {items.map((item) => (
-              <TableRow key={item.releaseId}>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>{item.pluginName}</Typography>
-                  <Typography variant="caption" color="text.secondary">{item.pluginId}</Typography>
-                </TableCell>
-                <TableCell>v{item.version}</TableCell>
-                <TableCell>
-                  <Typography variant="caption" color="text.disabled">
-                    {new Date(item.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    color="success"
-                    startIcon={<CheckCircle size={14} />}
-                    loading={approvingId === item.releaseId}
-                    onClick={() => handleApprove(item)}
-                  >
-                    Approve
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataTable<ReviewItemDto>
+          columns={reviewColumns}
+          rows={items}
+          keyFn={(item) => item.releaseId}
+          ariaLabel="Pending reviews"
+        />
       )}
 
       <Snackbar

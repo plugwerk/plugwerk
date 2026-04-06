@@ -16,9 +16,11 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Box, Table, TableBody, TableCell, TableHead, TableRow, Typography, Link } from '@mui/material'
+import { Box, Typography, Link } from '@mui/material'
 import { Badge } from '../common/Badge'
-import type { PluginReleaseDto } from '../../api/generated/model'
+import { DataTable } from '../common/DataTable'
+import type { DataColumn } from '../common/DataTable'
+import type { PluginDependencyDto, PluginReleaseDto } from '../../api/generated/model'
 
 interface DependenciesTabProps {
   release: PluginReleaseDto | null
@@ -34,37 +36,40 @@ export function DependenciesTab({ release, namespace }: DependenciesTabProps) {
     )
   }
 
+  const depColumns: DataColumn<PluginDependencyDto>[] = [
+    {
+      key: 'pluginId',
+      header: 'Plugin ID',
+      render: (dep) => (
+        <Link
+          href={`/${namespace}/plugins/${dep.id}`}
+          sx={{ fontFamily: 'monospace', fontSize: '0.8125rem', color: 'primary.main' }}
+        >
+          {dep.id}
+        </Link>
+      ),
+    },
+    {
+      key: 'version',
+      header: 'Required Version',
+      render: (dep) => (
+        <Badge variant="version">{dep.version}</Badge>
+      ),
+    },
+  ]
+
   return (
     <Box>
       <Typography variant="body2" color="text.disabled" sx={{ mb: 2 }}>
         Required plugins that must be installed alongside this plugin.
       </Typography>
       <Box sx={{ overflowX: 'auto' }}>
-        <Table aria-label="Plugin dependencies" size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Plugin ID</TableCell>
-              <TableCell>Required Version</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {deps.map((dep) => (
-              <TableRow key={dep.id}>
-                <TableCell>
-                  <Link
-                    href={`/${namespace}/plugins/${dep.id}`}
-                    sx={{ fontFamily: 'monospace', fontSize: '0.8125rem', color: 'primary.main' }}
-                  >
-                    {dep.id}
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="version">{dep.version}</Badge>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataTable<PluginDependencyDto>
+          columns={depColumns}
+          rows={deps}
+          keyFn={(dep) => dep.id}
+          ariaLabel="Plugin dependencies"
+        />
       </Box>
     </Box>
   )

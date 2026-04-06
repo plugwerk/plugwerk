@@ -26,11 +26,6 @@ import {
   FormControlLabel,
   Alert,
   CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Chip,
   Select,
   MenuItem,
@@ -45,6 +40,8 @@ import {
   Autocomplete,
 } from '@mui/material'
 import { ArrowLeft, Plus, Trash2, Copy, Check } from 'lucide-react'
+import { DataTable } from '../common/DataTable'
+import type { DataColumn } from '../common/DataTable'
 import { accessKeysApi, adminUsersApi, namespaceMembersApi, namespacesApi } from '../../api/config'
 import { isAxiosError } from 'axios'
 import type { AccessKeyDto, NamespaceMemberDto, NamespaceRole } from '../../api/generated/model'
@@ -287,6 +284,59 @@ function MembersSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
     }
   }
 
+  const memberColumns: DataColumn<NamespaceMemberDto>[] = [
+    {
+      key: 'subject',
+      header: 'Subject',
+      render: (member) => (
+        <Typography variant="body2" fontWeight={500}>{member.userSubject}</Typography>
+      ),
+    },
+    {
+      key: 'role',
+      header: 'Role',
+      render: (member) => (
+        <Select
+          value={member.role}
+          size="small"
+          variant="standard"
+          onChange={(e) => handleRoleChange(member, e.target.value as NamespaceRole)}
+          sx={{ fontSize: '0.875rem' }}
+          disableUnderline
+        >
+          {Object.values(NamespaceRoleEnum).map((role) => (
+            <MenuItem key={role} value={role}>
+              {ROLE_LABELS[role] ?? role}
+            </MenuItem>
+          ))}
+        </Select>
+      ),
+    },
+    {
+      key: 'created',
+      header: 'Created',
+      render: (member) => (
+        <Typography variant="caption" color="text.disabled">
+          {new Date(member.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+        </Typography>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (member) => (
+        <Button
+          size="small"
+          color="error"
+          startIcon={<Trash2 size={14} />}
+          onClick={() => handleRemove(member)}
+        >
+          Remove
+        </Button>
+      ),
+    },
+  ]
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mb: 2 }}>
@@ -302,56 +352,12 @@ function MembersSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
       ) : members.length === 0 ? (
         <Typography variant="body2" color="text.secondary">No members found.</Typography>
       ) : (
-        <Table size="small" aria-label="Namespace members">
-          <TableHead>
-            <TableRow>
-              <TableCell>Subject</TableCell>
-              <TableCell>Role</TableCell>
-              <TableCell>Created</TableCell>
-              <TableCell />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {members.map((member) => (
-              <TableRow key={member.userSubject}>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>{member.userSubject}</Typography>
-                </TableCell>
-                <TableCell>
-                  <Select
-                    value={member.role}
-                    size="small"
-                    variant="standard"
-                    onChange={(e) => handleRoleChange(member, e.target.value as NamespaceRole)}
-                    sx={{ fontSize: '0.875rem' }}
-                    disableUnderline
-                  >
-                    {Object.values(NamespaceRoleEnum).map((role) => (
-                      <MenuItem key={role} value={role}>
-                        {ROLE_LABELS[role] ?? role}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="caption" color="text.disabled">
-                    {new Date(member.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Button
-                    size="small"
-                    color="error"
-                    startIcon={<Trash2 size={14} />}
-                    onClick={() => handleRemove(member)}
-                  >
-                    Remove
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataTable<NamespaceMemberDto>
+          columns={memberColumns}
+          rows={members}
+          keyFn={(member) => member.userSubject}
+          ariaLabel="Namespace members"
+        />
       )}
 
       <Dialog open={addOpen} onClose={() => { setAddOpen(false); setAddError(null) }} maxWidth="xs" fullWidth>
@@ -480,6 +486,69 @@ function ApiKeysSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const apiKeyColumns: DataColumn<AccessKeyDto>[] = [
+    {
+      key: 'name',
+      header: 'Name',
+      render: (key) => (
+        <Typography variant="body2">{key.name || '—'}</Typography>
+      ),
+    },
+    {
+      key: 'keyPrefix',
+      header: 'Key Prefix',
+      render: (key) => (
+        <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
+          {key.keyPrefix ?? '—'}
+        </Typography>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (key) => (
+        <Chip
+          label={key.revoked ? 'revoked' : 'active'}
+          size="small"
+          color={key.revoked ? 'default' : 'success'}
+        />
+      ),
+    },
+    {
+      key: 'expires',
+      header: 'Expires',
+      render: (key) => (
+        <Typography variant="caption" color="text.disabled">
+          {key.expiresAt ? formatDateTime(key.expiresAt) : 'Never'}
+        </Typography>
+      ),
+    },
+    {
+      key: 'created',
+      header: 'Created',
+      render: (key) => (
+        <Typography variant="caption" color="text.disabled">
+          {formatDateTime(key.createdAt)}
+        </Typography>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (key) =>
+        !key.revoked ? (
+          <Button
+            size="small"
+            color="error"
+            startIcon={<Trash2 size={14} />}
+            onClick={() => handleRevoke(key.id)}
+          >
+            Revoke
+          </Button>
+        ) : null,
+    },
+  ]
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
@@ -514,61 +583,13 @@ function ApiKeysSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
       ) : keys.length === 0 ? (
         <Typography variant="body2" color="text.secondary">No API keys configured.</Typography>
       ) : (
-        <Table size="small" aria-label="API keys">
-          <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Key Prefix</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Expires</TableCell>
-              <TableCell>Created</TableCell>
-              <TableCell />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {keys.map((key) => (
-              <TableRow key={key.id} sx={{ opacity: key.revoked ? 0.5 : 1 }}>
-                <TableCell>
-                  <Typography variant="body2">{key.name || '—'}</Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
-                    {key.keyPrefix ?? '—'}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={key.revoked ? 'revoked' : 'active'}
-                    size="small"
-                    color={key.revoked ? 'default' : 'success'}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Typography variant="caption" color="text.disabled">
-                    {key.expiresAt ? formatDateTime(key.expiresAt) : 'Never'}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="caption" color="text.disabled">
-                    {formatDateTime(key.createdAt)}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  {!key.revoked && (
-                    <Button
-                      size="small"
-                      color="error"
-                      startIcon={<Trash2 size={14} />}
-                      onClick={() => handleRevoke(key.id)}
-                    >
-                      Revoke
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataTable<AccessKeyDto>
+          columns={apiKeyColumns}
+          rows={keys}
+          keyFn={(key) => key.id}
+          ariaLabel="API keys"
+          rowSx={(key) => key.revoked ? { opacity: 0.5 } : undefined}
+        />
       )}
 
       <Dialog open={createOpen} onClose={() => { setCreateOpen(false); setCreateError(null) }} maxWidth="xs" fullWidth>

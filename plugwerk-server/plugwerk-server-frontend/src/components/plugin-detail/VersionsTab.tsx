@@ -17,11 +17,6 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Button,
   Box,
   Typography,
@@ -30,6 +25,8 @@ import {
   Alert,
 } from '@mui/material'
 import { Download, CheckCircle, Trash2 } from 'lucide-react'
+import { DataTable } from '../common/DataTable'
+import type { DataColumn } from '../common/DataTable'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '../common/Badge'
@@ -101,139 +98,166 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
     }
   }
 
+  const releaseColumns: DataColumn<PluginReleaseDto>[] = [
+    {
+      key: 'version',
+      header: 'Version',
+      render: (rel) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Badge variant="version">v{rel.version}</Badge>
+          {rel.version === currentVersion && rel.status !== 'draft' && (
+            <Typography variant="caption" sx={{ color: tokens.color.primary, fontWeight: 600 }}>
+              current
+            </Typography>
+          )}
+        </Box>
+      ),
+    },
+    {
+      key: 'uploaded',
+      header: 'Uploaded',
+      render: (rel) => (
+        <Typography variant="caption" color="text.disabled">
+          {formatDateTime(rel.createdAt)}
+        </Typography>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (rel) => (
+        <Badge variant={statusToBadge[rel.status] ?? 'draft'}>
+          {rel.status.charAt(0).toUpperCase() + rel.status.slice(1)}
+        </Badge>
+      ),
+    },
+    {
+      key: 'format',
+      header: 'Format',
+      render: (rel) => (
+        <Typography variant="caption" color="text.disabled">
+          .{rel.fileFormat ?? 'jar'}
+        </Typography>
+      ),
+    },
+    {
+      key: 'size',
+      header: 'Size',
+      render: (rel) => (
+        <Typography variant="caption" color="text.disabled">
+          {rel.artifactSize ? formatFileSize(rel.artifactSize) : '—'}
+        </Typography>
+      ),
+    },
+    {
+      key: 'sha256',
+      header: 'SHA-256',
+      render: (rel) => (
+        <Tooltip title={rel.artifactSha256 ?? ''}>
+          <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.disabled' }}>
+            {rel.artifactSha256 ? rel.artifactSha256.slice(0, 12) + '…' : '—'}
+          </Typography>
+        </Tooltip>
+      ),
+    },
+    {
+      key: 'downloads',
+      header: 'Downloads',
+      align: 'right',
+      render: (rel) => (
+        <Typography variant="caption" color="text.disabled">
+          {rel.downloadCount ?? 0}
+        </Typography>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      width: 120,
+      render: (rel) => {
+        const isDraft = rel.status === 'draft'
+        const isYanked = rel.status === 'yanked'
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            {isDraft && canApprove ? (
+              <Button
+                variant="outlined"
+                size="small"
+                color="success"
+                startIcon={<CheckCircle size={14} />}
+                loading={approvingId === rel.id}
+                onClick={() => handleApprove(rel)}
+                sx={{ borderRadius: tokens.radius.btn }}
+              >
+                Approve
+              </Button>
+            ) : isDraft ? (
+              <Tooltip title="Awaiting review — download not available yet">
+                <Typography variant="caption" color="text.disabled">Pending review</Typography>
+              </Tooltip>
+            ) : isYanked ? (
+              <Typography variant="caption" color="text.disabled">Unavailable</Typography>
+            ) : (
+              <Tooltip title={`Download .${rel.fileFormat ?? 'jar'}`}>
+                <Button
+                  variant="text"
+                  size="small"
+                  aria-label={`download release ${rel.version}`}
+                  sx={{ minWidth: 'auto', p: 0.5, borderRadius: tokens.radius.btn }}
+                  onClick={() => {
+                    downloadArtifact(
+                      `/api/v1/namespaces/${namespace}/plugins/${pluginId}/releases/${rel.version}/download`,
+                      `${pluginId}-${rel.version}.${rel.fileFormat ?? 'jar'}`,
+                    ).catch(() => setToast({ message: 'Download failed.', severity: 'error' }))
+                  }}
+                >
+                  <Download size={14} />
+                </Button>
+              </Tooltip>
+            )}
+            {canApprove && (
+              <Tooltip title="Delete release">
+                <Button
+                  variant="text"
+                  size="small"
+                  color="error"
+                  aria-label={`delete release ${rel.version}`}
+                  onClick={() => setDeleteTarget(rel)}
+                  sx={{ minWidth: 'auto', p: 0.5, borderRadius: tokens.radius.btn }}
+                >
+                  <Trash2 size={14} />
+                </Button>
+              </Tooltip>
+            )}
+          </Box>
+        )
+      },
+    },
+  ]
+
   return (
     <Box sx={{ overflowX: 'auto' }}>
-      <Table aria-label="Release versions" size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Version</TableCell>
-            <TableCell>Uploaded</TableCell>
-            <TableCell>Status</TableCell>
-            <TableCell>Format</TableCell>
-            <TableCell>Size</TableCell>
-            <TableCell>SHA-256</TableCell>
-            <TableCell align="right">Downloads</TableCell>
-            <TableCell sx={{ width: 120 }}>Actions</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {releases.map((rel) => {
-            const isCurrent = rel.version === currentVersion
-            const isDraft = rel.status === 'draft'
-            const isYanked = rel.status === 'yanked'
-            return (
-              <TableRow
-                key={rel.id}
-                sx={{
-                  opacity: isDraft ? 0.7 : 1,
-                  ...(isDraft && {
-                    borderLeft: `3px solid ${tokens.badge.draft.text}`,
-                    background: tokens.badge.draft.bg + '55',
-                  }),
-                  ...(isCurrent && !isDraft && { background: tokens.color.primaryLight + '33' }),
-                }}
-              >
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Badge variant="version">v{rel.version}</Badge>
-                    {isCurrent && !isDraft && (
-                      <Typography variant="caption" sx={{ color: tokens.color.primary, fontWeight: 600 }}>
-                        current
-                      </Typography>
-                    )}
-                  </Box>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="caption" color="text.disabled">
-                    {formatDateTime(rel.createdAt)}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={statusToBadge[rel.status] ?? 'draft'}>
-                    {rel.status.charAt(0).toUpperCase() + rel.status.slice(1)}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="caption" color="text.disabled">
-                    .{rel.fileFormat ?? 'jar'}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="caption" color="text.disabled">
-                    {rel.artifactSize ? formatFileSize(rel.artifactSize) : '—'}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Tooltip title={rel.artifactSha256 ?? ''}>
-                    <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.disabled' }}>
-                      {rel.artifactSha256 ? rel.artifactSha256.slice(0, 12) + '…' : '—'}
-                    </Typography>
-                  </Tooltip>
-                </TableCell>
-                <TableCell align="right">
-                  <Typography variant="caption" color="text.disabled">
-                    {rel.downloadCount ?? 0}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    {isDraft && canApprove ? (
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        color="success"
-                        startIcon={<CheckCircle size={14} />}
-                        loading={approvingId === rel.id}
-                        onClick={() => handleApprove(rel)}
-                        sx={{ borderRadius: tokens.radius.btn }}
-                      >
-                        Approve
-                      </Button>
-                    ) : isDraft ? (
-                      <Tooltip title="Awaiting review — download not available yet">
-                        <Typography variant="caption" color="text.disabled">Pending review</Typography>
-                      </Tooltip>
-                    ) : isYanked ? (
-                      <Typography variant="caption" color="text.disabled">Unavailable</Typography>
-                    ) : (
-                      <Tooltip title={`Download .${rel.fileFormat ?? 'jar'}`}>
-                        <Button
-                          variant="text"
-                          size="small"
-                          aria-label={`download release ${rel.version}`}
-                          sx={{ minWidth: 'auto', p: 0.5, borderRadius: tokens.radius.btn }}
-                          onClick={() => {
-                            downloadArtifact(
-                              `/api/v1/namespaces/${namespace}/plugins/${pluginId}/releases/${rel.version}/download`,
-                              `${pluginId}-${rel.version}.${rel.fileFormat ?? 'jar'}`,
-                            ).catch(() => setToast({ message: 'Download failed.', severity: 'error' }))
-                          }}
-                        >
-                          <Download size={14} />
-                        </Button>
-                      </Tooltip>
-                    )}
-                    {canApprove && (
-                      <Tooltip title="Delete release">
-                        <Button
-                          variant="text"
-                          size="small"
-                          color="error"
-                          aria-label={`delete release ${rel.version}`}
-                          onClick={() => setDeleteTarget(rel)}
-                          sx={{ minWidth: 'auto', p: 0.5, borderRadius: tokens.radius.btn }}
-                        >
-                          <Trash2 size={14} />
-                        </Button>
-                      </Tooltip>
-                    )}
-                  </Box>
-                </TableCell>
-              </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
+      <DataTable<PluginReleaseDto>
+        columns={releaseColumns}
+        rows={releases}
+        keyFn={(rel) => rel.id ?? rel.version}
+        ariaLabel="Release versions"
+        rowSx={(rel) => {
+          const isDraft = rel.status === 'draft'
+          const isCurrent = rel.version === currentVersion
+          if (isDraft) {
+            return {
+              opacity: 0.7,
+              borderLeft: `3px solid ${tokens.badge.draft.text}`,
+              background: tokens.badge.draft.bg + '55',
+            }
+          }
+          if (isCurrent) {
+            return { background: tokens.color.primaryLight + '33' }
+          }
+          return undefined
+        }}
+      />
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
