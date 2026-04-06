@@ -18,29 +18,26 @@
  */
 import { Box, Typography } from '@mui/material'
 import { Settings, Users, Shield, FileCheck, Globe } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
 import { tokens } from '../../theme/tokens'
 
-export interface AdminSection {
-  id: string
+interface AdminSection {
+  path: string
   label: string
   icon: React.ReactNode
-  danger?: boolean
 }
 
-export const ADMIN_SECTIONS: AdminSection[] = [
-  { id: 'general',   label: 'General',          icon: <Settings size={16} /> },
-  { id: 'namespaces', label: 'Namespaces',      icon: <Globe size={16} /> },
-  { id: 'users',          label: 'Users',             icon: <Users size={16} /> },
-  { id: 'oidc-providers', label: 'OIDC Providers',    icon: <Shield size={16} /> },
-  { id: 'reviews',        label: 'Pending Reviews',   icon: <FileCheck size={16} /> },
+const ADMIN_SECTIONS: AdminSection[] = [
+  { path: 'global-settings',  label: 'General',         icon: <Settings size={16} /> },
+  { path: 'namespaces',       label: 'Namespaces',      icon: <Globe size={16} /> },
+  { path: 'users',            label: 'Users',            icon: <Users size={16} /> },
+  { path: 'oidc-providers',   label: 'OIDC Providers',   icon: <Shield size={16} /> },
+  { path: 'reviews',          label: 'Pending Reviews',  icon: <FileCheck size={16} /> },
 ]
 
-interface AdminSidebarProps {
-  activeSection: string
-  onSelect: (id: string) => void
-}
+export function AdminSidebar() {
+  const location = useLocation()
 
-export function AdminSidebar({ activeSection, onSelect }: AdminSidebarProps) {
   return (
     <Box
       component="nav"
@@ -75,12 +72,12 @@ export function AdminSidebar({ activeSection, onSelect }: AdminSidebarProps) {
       </Typography>
 
       {ADMIN_SECTIONS.map((section) => {
-        const isActive = activeSection === section.id
+        const isActive = location.pathname === `/admin/${section.path}` || location.pathname.startsWith(`/admin/${section.path}/`)
         return (
           <Box
-            key={section.id}
-            component="button"
-            onClick={() => onSelect(section.id)}
+            key={section.path}
+            component={Link}
+            to={`/admin/${section.path}`}
             aria-current={isActive ? 'page' : undefined}
             sx={{
               display: 'flex',
@@ -90,13 +87,9 @@ export function AdminSidebar({ activeSection, onSelect }: AdminSidebarProps) {
               py: 1,
               mx: 1,
               borderRadius: tokens.radius.btn,
-              border: 'none',
-              background: isActive
-                ? (section.danger ? 'rgba(218,30,40,0.08)' : tokens.color.primaryLight)
-                : 'transparent',
-              color: isActive
-                ? (section.danger ? tokens.color.danger : tokens.color.primary)
-                : section.danger ? tokens.color.danger : 'text.secondary',
+              textDecoration: 'none',
+              background: isActive ? tokens.color.primaryLight : 'transparent',
+              color: isActive ? tokens.color.primary : 'text.secondary',
               fontWeight: isActive ? 600 : 400,
               fontSize: '0.875rem',
               cursor: 'pointer',
@@ -104,10 +97,8 @@ export function AdminSidebar({ activeSection, onSelect }: AdminSidebarProps) {
               width: 'calc(100% - 16px)',
               transition: 'background 0.15s, color 0.15s',
               '&:hover': {
-                background: section.danger
-                  ? 'rgba(218,30,40,0.08)'
-                  : isActive ? tokens.color.primaryLight : 'background.default',
-                color: section.danger ? tokens.color.danger : 'text.primary',
+                background: isActive ? tokens.color.primaryLight : 'background.default',
+                color: 'text.primary',
               },
               '&:focus-visible': { outline: `2px solid ${tokens.color.primary}`, outlineOffset: -2 },
             }}

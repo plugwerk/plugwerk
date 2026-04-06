@@ -17,6 +17,7 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 import { useState, useEffect } from 'react'
+import { Outlet } from 'react-router-dom'
 import {
   Box,
   Container,
@@ -42,7 +43,6 @@ import { CheckCircle, Plus, Shield, Trash2 } from 'lucide-react'
 import { DataTable } from '../components/common/DataTable'
 import type { DataColumn } from '../components/common/DataTable'
 import { AdminSidebar } from '../components/admin/AdminSidebar'
-import { NamespacesSection } from '../components/admin/NamespacesSection'
 import { adminUsersApi, oidcProvidersApi, reviewsApi } from '../api/config'
 import { useAuthStore } from '../stores/authStore'
 import type { OidcProviderDto, OidcProviderType, ReviewItemDto, UserDto } from '../api/generated/model'
@@ -668,23 +668,15 @@ function ReviewsSection() {
   )
 }
 
-const sectionMap: Record<string, React.ReactNode> = {
-  general: <GeneralSection />,
-  namespaces: <NamespacesSection />,
-  users: <UsersSection />,
-  'oidc-providers': <OidcProvidersSection />,
-  reviews: <ReviewsSection />,
-}
+export { GeneralSection, UsersSection, OidcProvidersSection, ReviewsSection }
 
 export function AdminSettingsPage() {
-  const [activeSection, setActiveSection] = useState('general')
-
   return (
     <Box component="main" id="main-content" sx={{ flex: 1, display: 'flex' }}>
-      <AdminSidebar activeSection={activeSection} onSelect={setActiveSection} />
+      <AdminSidebar />
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         <Container maxWidth="lg" sx={{ py: 4 }}>
-          {sectionMap[activeSection]}
+          <Outlet />
         </Container>
       </Box>
     </Box>

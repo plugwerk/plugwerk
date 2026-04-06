@@ -25,7 +25,8 @@ import { LoginPage } from '../pages/LoginPage'
 import { RegisterPage } from '../pages/RegisterPage'
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage'
 import { ResetPasswordPage } from '../pages/ResetPasswordPage'
-import { AdminSettingsPage } from '../pages/AdminSettingsPage'
+import { AdminSettingsPage, GeneralSection, UsersSection, OidcProvidersSection, ReviewsSection } from '../pages/AdminSettingsPage'
+import { NamespacesSection } from '../components/admin/NamespacesSection'
 import { ChangePasswordPage } from '../pages/ChangePasswordPage'
 import { ProfileSettingsPage } from '../pages/ProfileSettingsPage'
 import { Error404Page } from '../pages/errors/Error404Page'
@@ -49,7 +50,18 @@ export const router = createBrowserRouter([
       { index: true,                                                    element: <ProtectedRoute><CatalogRedirect /></ProtectedRoute> },
       { path: 'namespaces/:namespace/plugins',                          element: <ProtectedRoute><CatalogPage /></ProtectedRoute> },
       { path: 'namespaces/:namespace/plugins/:pluginId',                element: <ProtectedRoute><PluginDetailPage /></ProtectedRoute> },
-      { path: 'admin/*',                                                element: <ProtectedRoute><AdminSettingsPage /></ProtectedRoute> },
+      {
+        path: 'admin',
+        element: <ProtectedRoute><AdminSettingsPage /></ProtectedRoute>,
+        children: [
+          { index: true,              element: <Navigate to="namespaces" replace /> },
+          { path: 'global-settings',  element: <GeneralSection /> },
+          { path: 'namespaces',       element: <NamespacesSection /> },
+          { path: 'users',            element: <UsersSection /> },
+          { path: 'oidc-providers',   element: <OidcProvidersSection /> },
+          { path: 'reviews',          element: <ReviewsSection /> },
+        ],
+      },
       { path: 'change-password',                                        element: <ProtectedRoute><ChangePasswordPage /></ProtectedRoute> },
       { path: 'profile',                                                element: <ProtectedRoute><ProfileSettingsPage /></ProtectedRoute> },
 
