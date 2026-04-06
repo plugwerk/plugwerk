@@ -56,11 +56,14 @@ class NamespaceMemberController(
         val namespace = namespaceRepository.findBySlug(ns)
             .orElseThrow { NamespaceNotFoundException(ns) }
 
-        // Superadmin and access keys have implicit ADMIN — no member entry needed
-        if (namespaceAuthorizationService.isSuperadmin(authentication) ||
-            authentication.name.startsWith("key:")
-        ) {
+        // Superadmin has implicit ADMIN — no member entry needed
+        if (namespaceAuthorizationService.isSuperadmin(authentication)) {
             return ResponseEntity.ok(NamespaceMembershipDto(role = NamespaceRole.ADMIN))
+        }
+
+        // Access keys have READ_ONLY access to their namespace
+        if (authentication.name.startsWith("key:")) {
+            return ResponseEntity.ok(NamespaceMembershipDto(role = NamespaceRole.READ_ONLY))
         }
 
         val member = namespaceMemberRepository.findByNamespaceIdAndUserSubject(

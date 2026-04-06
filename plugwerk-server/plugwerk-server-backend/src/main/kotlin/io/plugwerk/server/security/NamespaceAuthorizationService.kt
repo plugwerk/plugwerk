@@ -36,8 +36,9 @@ import org.springframework.stereotype.Service
  * username; for OIDC tokens this is the provider's `sub` claim.
  *
  * The [namespace_access_key] auth filter sets the principal's name to the namespace slug
- * prefixed with `key:` — access keys are treated as implicit ADMIN for their namespace and
- * bypass the member table check (they are already namespace-scoped by design).
+ * prefixed with `key:` — access keys have READ_ONLY access to their namespace. They can
+ * list, search, and download plugins but cannot perform write operations (upload, delete,
+ * approve, manage members/keys). Write operations require a JWT Bearer token.
  *
  * **Superadmin:** A user with [isSuperadmin = true] implicitly holds ADMIN rights in every
  * namespace and does not need a [NamespaceMemberEntity] entry. Use [requireSuperadmin] to
@@ -76,19 +77,24 @@ class NamespaceAuthorizationService(
      *
      * Superadmin users bypass the member-table check and implicitly hold ADMIN in every namespace.
      *
-     * Namespace Access Key principals (name starts with `key:`) are treated as ADMIN for
-     * the namespace they were issued for — the filter already validated namespace scope.
+     * Namespace Access Key principals (name starts with `key:`) have READ_ONLY access to
+     * the namespace they were issued for. Write operations require a JWT Bearer token.
      *
      * @throws NamespaceNotFoundException if the namespace does not exist.
      * @throws ForbiddenException if the principal lacks the required role.
      */
     fun requireRole(namespaceSlug: String, authentication: Authentication, minimumRole: NamespaceRole) {
-        // Access keys are namespace-scoped and implicitly ADMIN — but only for their own namespace
+        // Access keys are namespace-scoped and have READ_ONLY access to their namespace
         if (authentication.name.startsWith("key:")) {
             val keyNamespaceSlug = authentication.name.removePrefix("key:")
             if (keyNamespaceSlug != namespaceSlug) {
                 throw ForbiddenException(
                     "Access key is not valid for namespace '$namespaceSlug'",
+                )
+            }
+            if (minimumRole != NamespaceRole.READ_ONLY) {
+                throw ForbiddenException(
+                    "Access keys have read-only access. This operation requires $minimumRole role.",
                 )
             }
             return

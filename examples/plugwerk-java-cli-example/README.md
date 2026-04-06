@@ -185,20 +185,22 @@ java -jar *-fat.jar --server=http://localhost:8080 list
 
 ### API key vs. JWT scope
 
-| Operation | API Key (`X-Api-Key`) | JWT (`Authorization: Bearer`) |
-|-----------|:---:|:---:|
-| List / search / download plugins | ✅ | ✅ |
-| Upload plugin releases | ✅ | ✅ |
-| Approve / reject releases | ✅ | ✅ |
-| Delete plugins / releases | ✅ | ✅ |
-| Manage namespace members | ✅ | ✅ |
-| Manage access keys | ✅ | ✅ |
-| **Create / delete namespaces** | ❌ (requires superadmin) | ✅ (if superadmin) |
-| **Manage users / OIDC** | ❌ (requires superadmin) | ✅ (if superadmin) |
+API keys grant **read-only** access. Write and admin operations require a JWT.
 
-> API keys are scoped to **one namespace** and grant implicit ADMIN within that
-> namespace. Server-level administration (namespaces, users, OIDC) always requires
-> a JWT from a superadmin account.
+| Operation | API Key (`X-Api-Key`) | JWT (MEMBER+) | JWT (ADMIN) |
+|-----------|:---:|:---:|:---:|
+| List / search / download plugins | ✅ | ✅ | ✅ |
+| Check for updates / `plugins.json` | ✅ | ✅ | ✅ |
+| Upload plugin releases | ❌ | ✅ | ✅ |
+| Approve / reject releases | ❌ | ❌ | ✅ |
+| Delete plugins / releases | ❌ | ❌ | ✅ |
+| Manage namespace members | ❌ | ❌ | ✅ |
+| Manage access keys | ❌ | ❌ | ✅ |
+| Create / delete namespaces | ❌ | ❌ | ✅ (superadmin) |
+| Manage users / OIDC | ❌ | ❌ | ✅ (superadmin) |
+
+> API keys are designed for **SDK polling and plugin discovery**. All management
+> operations (upload, delete, approve, members) require a JWT Bearer token.
 
 ---
 
@@ -232,21 +234,19 @@ If the namespace already exists the server returns HTTP 409 — that is fine.
 
 ### 3. Upload the plugin releases
 
-Upload and all subsequent namespace-scoped operations can use the API key.
-The server reads the `MANIFEST.MF` metadata embedded inside the JAR
-(within the ZIP) automatically. No manual metadata entry is required.
+Uploading requires **MEMBER** or **ADMIN** role — use a JWT Bearer token:
 
 ```bash
 # Upload hello-cmd-plugin
 curl -s -X POST \
   "http://localhost:8080/api/v1/namespaces/default/plugin-releases" \
-  -H "X-Api-Key: $API_KEY" \
+  -H "Authorization: Bearer $TOKEN" \
   -F "artifact=@plugwerk-java-cli-example-hello-cmd-plugin/build/pf4j/io.plugwerk.example.cli.hello-0.1.0-SNAPSHOT.zip"
 
 # Upload sysinfo-cmd-plugin
 curl -s -X POST \
   "http://localhost:8080/api/v1/namespaces/default/plugin-releases" \
-  -H "X-Api-Key: $API_KEY" \
+  -H "Authorization: Bearer $TOKEN" \
   -F "artifact=@plugwerk-java-cli-example-sysinfo-cmd-plugin/build/pf4j/io.plugwerk.example.cli.sysinfo-0.1.0-SNAPSHOT.zip"
 ```
 
@@ -255,17 +255,17 @@ A successful upload returns HTTP 201 with the release details in JSON.
 ### 4. Publish the releases (DRAFT → PUBLISHED)
 
 Newly uploaded releases have status `DRAFT` and are not visible in the catalog
-until explicitly published:
+until explicitly published. Approving requires **ADMIN** role — use a JWT:
 
 ```bash
 # Get the release ID from the upload response, or look it up:
 curl -s "http://localhost:8080/api/v1/namespaces/default/plugins/io.plugwerk.example.cli.hello/releases/0.1.0-SNAPSHOT" \
-  -H "X-Api-Key: $API_KEY" | jq .id
+  -H "Authorization: Bearer $TOKEN" | jq .id
 
 # Approve (DRAFT → PUBLISHED) — replace <release-id> with the UUID from above
 curl -s -X POST \
   "http://localhost:8080/api/v1/namespaces/default/reviews/<release-id>/approve" \
-  -H "X-Api-Key: $API_KEY"
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 Repeat for `sysinfo-cmd-plugin`. After approval both plugins appear in `list` and

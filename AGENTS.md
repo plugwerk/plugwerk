@@ -226,19 +226,20 @@ PlugwerkUpdateRepository // Implements pf4j-update UpdateRepository (drop-in rep
 
 Two authentication methods, API key takes precedence:
 
-| Method | Config Field | HTTP Header | Use Case |
-|--------|-------------|-------------|----------|
-| **API Key** (recommended) | `apiKey` | `X-Api-Key` | CI/CD, automated consumers |
-| **Bearer Token** | `accessToken` | `Authorization: Bearer` | OIDC, pre-obtained JWT |
+| Method | Config Field | HTTP Header | Permissions | Use Case |
+|--------|-------------|-------------|-------------|----------|
+| **API Key** (recommended) | `apiKey` | `X-Api-Key` | **READ_ONLY** (list, search, download) | SDK polling, plugin discovery |
+| **Bearer Token** | `accessToken` | `Authorization: Bearer` | Per user role (ADMIN/MEMBER/READ_ONLY) | Management, upload, CI/CD |
 
 ```kotlin
-// Recommended: API Key
+// Recommended: API Key (read-only access for SDK consumers)
 val config = PlugwerkConfig.Builder("https://plugwerk.example.com", "my-namespace")
     .apiKey("pwk_...")
     .build()
 ```
 
 The SDK does **not** implement a login flow — JWTs must be obtained externally.
+API keys grant **read-only** access; write operations (upload, delete, approve) require a JWT.
 
 ### Plugin Descriptor (`MANIFEST.MF`)
 

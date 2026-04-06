@@ -53,15 +53,35 @@ plugwerk.apiKey=pwk_...
 plugwerk.accessToken=eyJhbG...
 ```
 
+## API Key Permissions
+
+API keys grant **READ_ONLY** access to their namespace:
+
+| Operation | API Key | JWT (MEMBER+) | JWT (ADMIN) |
+|-----------|:---:|:---:|:---:|
+| List / search / download plugins | ✅ | ✅ | ✅ |
+| `plugins.json` (pf4j-update) | ✅ | ✅ | ✅ |
+| Check for updates | ✅ | ✅ | ✅ |
+| Upload releases | ❌ | ✅ | ✅ |
+| Approve / reject releases | ❌ | ❌ | ✅ |
+| Delete plugins / releases | ❌ | ❌ | ✅ |
+| Manage members | ❌ | ❌ | ✅ |
+| Manage access keys | ❌ | ❌ | ✅ |
+| Create / delete namespaces | ❌ | ❌ | ✅ (superadmin) |
+
+This is intentional: API keys are designed for **SDK polling and plugin discovery**,
+not for management operations. Write operations require a JWT Bearer token.
+
 ## Consequences
 
 ### Positive
-- Simple, secure authentication for CI/CD pipelines and automated consumers
+- Simple, secure authentication for SDK clients and automated consumers
 - No token refresh logic needed in the SDK (API keys are long-lived)
 - No risk of user credentials leaking into plugin configurations
-- Clear separation: API keys for machines, JWTs for interactive users
+- Clear separation: API keys for read-only machine access, JWTs for management
+- Principle of least privilege: keys cannot modify data
 
 ### Negative
-- Consumers who only have a JWT must pass it via `accessToken` — the SDK won't obtain it automatically
+- CI/CD pipelines that need to upload releases must use JWT, not API keys
 - Two code paths (interceptors) to maintain, though both are trivial
 - Existing consumers using `accessToken` for JWT continue to work unchanged (backwards compatible)
