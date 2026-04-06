@@ -42,6 +42,7 @@ import {
 import { ArrowLeft, Plus, Trash2, Copy, Check } from 'lucide-react'
 import { DataTable } from '../common/DataTable'
 import type { DataColumn } from '../common/DataTable'
+import { ActionIconButton } from '../common/ActionIconButton'
 import { accessKeysApi, adminUsersApi, namespaceMembersApi, namespacesApi } from '../../api/config'
 import { isAxiosError } from 'axios'
 import type { AccessKeyDto, NamespaceMemberDto, NamespaceRole } from '../../api/generated/model'
@@ -156,44 +157,50 @@ function SettingsSection({ slug, onToast }: { slug: string; onToast: NamespaceDe
   if (!loaded) return <CircularProgress size={24} />
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <TextField
-        label="Name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        required
-        size="small"
-        sx={{ maxWidth: 400 }}
-      />
-      <TextField
-        label="Description"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        size="small"
-        multiline
-        minRows={2}
-        sx={{ maxWidth: 400 }}
-      />
-      <FormControlLabel
-        control={
-          <Switch
-            checked={publicCatalog}
-            onChange={(e) => setPublicCatalog(e.target.checked)}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 3 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            label="Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
             size="small"
+            fullWidth
           />
-        }
-        label="Public Catalog"
-      />
-      <FormControlLabel
-        control={
-          <Switch
-            checked={autoApprove}
-            onChange={(e) => setAutoApprove(e.target.checked)}
+          <TextField
+            label="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
             size="small"
+            multiline
+            minRows={2}
+            fullWidth
           />
-        }
-        label="Auto-Approve Releases"
-      />
+        </Box>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={publicCatalog}
+                onChange={(e) => setPublicCatalog(e.target.checked)}
+                size="small"
+              />
+            }
+            label="Public Catalog"
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={autoApprove}
+                onChange={(e) => setAutoApprove(e.target.checked)}
+                size="small"
+              />
+            }
+            label="Auto-Approve Releases"
+          />
+        </Box>
+      </Box>
       <Button
         variant="contained"
         onClick={handleSave}
@@ -338,15 +345,9 @@ function MembersSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
     {
       key: 'actions',
       header: '',
+      align: 'right',
       render: (member) => (
-        <Button
-          size="small"
-          color="error"
-          startIcon={<Trash2 size={14} />}
-          onClick={() => handleRemove(member)}
-        >
-          Remove
-        </Button>
+        <ActionIconButton icon={Trash2} tooltip="Remove member" color="error" onClick={() => handleRemove(member)} />
       ),
     },
   ]
@@ -549,16 +550,10 @@ function ApiKeysSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
     {
       key: 'actions',
       header: '',
+      align: 'right',
       render: (key) =>
         !key.revoked ? (
-          <Button
-            size="small"
-            color="error"
-            startIcon={<Trash2 size={14} />}
-            onClick={() => handleRevoke(key.id)}
-          >
-            Revoke
-          </Button>
+          <ActionIconButton icon={Trash2} tooltip="Revoke key" color="error" onClick={() => handleRevoke(key.id)} />
         ) : null,
     },
   ]

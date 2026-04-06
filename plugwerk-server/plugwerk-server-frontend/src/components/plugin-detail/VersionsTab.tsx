@@ -17,21 +17,24 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 import {
-  Button,
   Box,
   Typography,
   Tooltip,
   Snackbar,
   Alert,
+  Menu,
+  MenuItem,
 } from '@mui/material'
-import { Download, CheckCircle, Trash2 } from 'lucide-react'
+import { Download, CheckCircle, Trash2, ArrowRightLeft } from 'lucide-react'
 import { DataTable } from '../common/DataTable'
 import type { DataColumn } from '../common/DataTable'
-import { useState } from 'react'
+import { ActionIconButton } from '../common/ActionIconButton'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '../common/Badge'
 import { ConfirmDeleteDialog } from '../common/ConfirmDeleteDialog'
 import type { PluginReleaseDto } from '../../api/generated/model'
+import type { ReleaseStatusUpdateRequestStatusEnum } from '../../api/generated/model/release-status-update-request'
 import { tokens } from '../../theme/tokens'
 import type { BadgeVariant } from '../common/Badge'
 import { managementApi, reviewsApi } from '../../api/config'
@@ -43,9 +46,9 @@ interface VersionsTabProps {
   releases: PluginReleaseDto[]
   namespace: string
   pluginId: string
-  currentVersion?: string
   canApprove?: boolean
   onReleaseDeleted?: (version: string) => void
+  onReleasesChanged?: (releases: PluginReleaseDto[]) => void
 }
 
 const statusToBadge: Record<string, BadgeVariant> = {
@@ -55,12 +58,37 @@ const statusToBadge: Record<string, BadgeVariant> = {
   yanked:     'yanked',
 }
 
-export function VersionsTab({ releases, namespace, pluginId, currentVersion, canApprove, onReleaseDeleted }: VersionsTabProps) {
+const STATUS_TRANSITIONS: Record<string, ReleaseStatusUpdateRequestStatusEnum[]> = {
+  published: ['deprecated', 'yanked'],
+  deprecated: ['published', 'yanked'],
+  yanked: ['published', 'deprecated'],
+}
+
+function getLatestPublishedVersion(rels: PluginReleaseDto[]): string | undefined {
+  return rels.find((r) => r.status === 'published')?.version
+}
+
+export function VersionsTab({ releases, namespace, pluginId, canApprove, onReleaseDeleted, onReleasesChanged }: VersionsTabProps) {
   const navigate = useNavigate()
+  const [localReleases, setLocalReleases] = useState(releases)
+  const latestVersion = getLatestPublishedVersion(localReleases)
   const [approvingId, setApprovingId] = useState<string | null>(null)
+
+  useEffect(() => { setLocalReleases(releases) }, [releases])
+
+  function updateReleaseLocally(releaseId: string, newStatus: string) {
+    setLocalReleases((prev) => {
+      const updated = prev.map((r) => r.id === releaseId ? { ...r, status: newStatus as PluginReleaseDto['status'] } : r)
+      onReleasesChanged?.(updated)
+      return updated
+    })
+  }
   const [deleteTarget, setDeleteTarget] = useState<PluginReleaseDto | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [toast, setToast] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
+  const [statusMenuAnchor, setStatusMenuAnchor] = useState<HTMLElement | null>(null)
+  const [statusMenuRelease, setStatusMenuRelease] = useState<PluginReleaseDto | null>(null)
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
 
   async function handleApprove(rel: PluginReleaseDto) {
     if (!rel.id) return
@@ -68,8 +96,7 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
     try {
       await reviewsApi.approveRelease({ ns: namespace, releaseId: rel.id })
       setToast({ message: `v${rel.version} approved and published.`, severity: 'success' })
-      // Update status locally to avoid full reload
-      rel.status = 'published'
+      updateReleaseLocally(rel.id!, 'published')
     } catch {
       setToast({ message: `Failed to approve v${rel.version}.`, severity: 'error' })
     } finally {
@@ -98,6 +125,26 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
     }
   }
 
+  async function handleStatusChange(rel: PluginReleaseDto, newStatus: ReleaseStatusUpdateRequestStatusEnum) {
+    setStatusMenuAnchor(null)
+    setStatusMenuRelease(null)
+    setUpdatingStatusId(rel.id ?? null)
+    try {
+      await managementApi.updateReleaseStatus({
+        ns: namespace,
+        pluginId,
+        version: rel.version,
+        releaseStatusUpdateRequest: { status: newStatus },
+      })
+      updateReleaseLocally(rel.id!, newStatus)
+      setToast({ message: `v${rel.version} status changed to ${newStatus}.`, severity: 'success' })
+    } catch {
+      setToast({ message: `Failed to change status of v${rel.version}.`, severity: 'error' })
+    } finally {
+      setUpdatingStatusId(null)
+    }
+  }
+
   const releaseColumns: DataColumn<PluginReleaseDto>[] = [
     {
       key: 'version',
@@ -105,9 +152,9 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
       render: (rel) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Badge variant="version">v{rel.version}</Badge>
-          {rel.version === currentVersion && rel.status !== 'draft' && (
+          {rel.version === latestVersion && (
             <Typography variant="caption" sx={{ color: tokens.color.primary, fontWeight: 600 }}>
-              current
+              latest
             </Typography>
           )}
         </Box>
@@ -173,61 +220,35 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
     {
       key: 'actions',
       header: 'Actions',
-      width: 120,
+      width: 140,
       render: (rel) => {
         const isDraft = rel.status === 'draft'
-        const isYanked = rel.status === 'yanked'
+        const transitions = STATUS_TRANSITIONS[rel.status] ?? []
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            {isDraft && canApprove ? (
-              <Button
-                variant="outlined"
-                size="small"
-                color="success"
-                startIcon={<CheckCircle size={14} />}
-                loading={approvingId === rel.id}
-                onClick={() => handleApprove(rel)}
-                sx={{ borderRadius: tokens.radius.btn }}
-              >
-                Approve
-              </Button>
-            ) : isDraft ? (
-              <Tooltip title="Awaiting review — download not available yet">
-                <Typography variant="caption" color="text.disabled">Pending review</Typography>
-              </Tooltip>
-            ) : isYanked ? (
-              <Typography variant="caption" color="text.disabled">Unavailable</Typography>
-            ) : (
-              <Tooltip title={`Download .${rel.fileFormat ?? 'jar'}`}>
-                <Button
-                  variant="text"
-                  size="small"
-                  aria-label={`download release ${rel.version}`}
-                  sx={{ minWidth: 'auto', p: 0.5, borderRadius: tokens.radius.btn }}
-                  onClick={() => {
-                    downloadArtifact(
-                      `/api/v1/namespaces/${namespace}/plugins/${pluginId}/releases/${rel.version}/download`,
-                      `${pluginId}-${rel.version}.${rel.fileFormat ?? 'jar'}`,
-                    ).catch(() => setToast({ message: 'Download failed.', severity: 'error' }))
-                  }}
-                >
-                  <Download size={14} />
-                </Button>
-              </Tooltip>
+            <ActionIconButton
+              icon={Download}
+              tooltip={`Download .${rel.fileFormat ?? 'jar'}`}
+              onClick={() => {
+                downloadArtifact(
+                  `/api/v1/namespaces/${namespace}/plugins/${pluginId}/releases/${rel.version}/download`,
+                  `${pluginId}-${rel.version}.${rel.fileFormat ?? 'jar'}`,
+                ).catch(() => setToast({ message: 'Download failed.', severity: 'error' }))
+              }}
+            />
+            {isDraft && canApprove && (
+              <ActionIconButton icon={CheckCircle} tooltip="Approve" color="success" loading={approvingId === rel.id} onClick={() => handleApprove(rel)} />
+            )}
+            {canApprove && transitions.length > 0 && (
+              <ActionIconButton
+                icon={ArrowRightLeft}
+                tooltip="Change release status"
+                loading={updatingStatusId === rel.id}
+                onClick={(e) => { setStatusMenuAnchor(e.currentTarget as HTMLElement); setStatusMenuRelease(rel) }}
+              />
             )}
             {canApprove && (
-              <Tooltip title="Delete release">
-                <Button
-                  variant="text"
-                  size="small"
-                  color="error"
-                  aria-label={`delete release ${rel.version}`}
-                  onClick={() => setDeleteTarget(rel)}
-                  sx={{ minWidth: 'auto', p: 0.5, borderRadius: tokens.radius.btn }}
-                >
-                  <Trash2 size={14} />
-                </Button>
-              </Tooltip>
+              <ActionIconButton icon={Trash2} tooltip="Delete release" color="error" onClick={() => setDeleteTarget(rel)} />
             )}
           </Box>
         )
@@ -239,30 +260,27 @@ export function VersionsTab({ releases, namespace, pluginId, currentVersion, can
     <Box sx={{ overflowX: 'auto' }}>
       <DataTable<PluginReleaseDto>
         columns={releaseColumns}
-        rows={releases}
+        rows={localReleases}
         keyFn={(rel) => rel.id ?? rel.version}
         ariaLabel="Release versions"
-        rowSx={(rel) => {
-          const isDraft = rel.status === 'draft'
-          const isCurrent = rel.version === currentVersion
-          if (isDraft) {
-            return {
-              opacity: 0.7,
-              borderLeft: `3px solid ${tokens.badge.draft.text}`,
-              background: tokens.badge.draft.bg + '55',
-            }
-          }
-          if (isCurrent) {
-            return { background: tokens.color.primaryLight + '33' }
-          }
-          return undefined
-        }}
       />
+
+      <Menu
+        anchorEl={statusMenuAnchor}
+        open={!!statusMenuAnchor && !!statusMenuRelease}
+        onClose={() => { setStatusMenuAnchor(null); setStatusMenuRelease(null) }}
+      >
+        {(STATUS_TRANSITIONS[statusMenuRelease?.status ?? ''] ?? []).map((target) => (
+          <MenuItem key={target} onClick={() => statusMenuRelease && handleStatusChange(statusMenuRelease, target)}>
+            {target.charAt(0).toUpperCase() + target.slice(1)}
+          </MenuItem>
+        ))}
+      </Menu>
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
         title="Delete Release"
-        message={releases.length === 1
+        message={localReleases.length === 1
           ? `Are you sure you want to delete v${deleteTarget?.version ?? ''}? This is the last release — the entire plugin will also be removed. This action cannot be undone.`
           : `Are you sure you want to delete v${deleteTarget?.version ?? ''}? This action cannot be undone.`}
         onConfirm={handleDeleteRelease}

@@ -29,6 +29,7 @@ import {
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { DataTable } from '../common/DataTable'
 import type { DataColumn } from '../common/DataTable'
+import { ActionIconButton } from '../common/ActionIconButton'
 import { namespacesApi } from '../../api/config'
 import type { NamespaceSummary } from '../../api/generated/model'
 import { CreateNamespaceDialog } from './CreateNamespaceDialog'
@@ -86,13 +87,9 @@ export function NamespacesSection() {
       header: '',
       align: 'right',
       render: (ns) => (
-        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-          <Button size="small" startIcon={<Pencil size={14} />} onClick={() => setEditingSlug(ns.slug)}>
-            Edit
-          </Button>
-          <Button size="small" color="error" startIcon={<Trash2 size={14} />} onClick={() => setDeleteTarget(ns)}>
-            Delete
-          </Button>
+        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+          <ActionIconButton icon={Pencil} tooltip="Edit" onClick={() => setEditingSlug(ns.slug)} />
+          <ActionIconButton icon={Trash2} tooltip="Delete" color="error" onClick={() => setDeleteTarget(ns)} />
         </Box>
       ),
     },
