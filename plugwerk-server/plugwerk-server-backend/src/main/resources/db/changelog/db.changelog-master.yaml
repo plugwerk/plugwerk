@@ -5,3 +5,5 @@ databaseChangeLog:
       file: db/changelog/migrations/0002_user_and_rbac.yaml
   - include:
       file: db/changelog/migrations/0003_download_event.yaml
+  - include:
+      file: db/changelog/migrations/0004_token_revocation.yaml

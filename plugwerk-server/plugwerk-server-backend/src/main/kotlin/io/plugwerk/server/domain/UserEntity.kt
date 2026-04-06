@@ -77,6 +77,9 @@ class UserEntity(
     @Column(name = "is_superadmin", nullable = false)
     var isSuperadmin: Boolean = false,
 
+    @Column(name = "password_invalidated_before")
+    var passwordInvalidatedBefore: OffsetDateTime? = null,
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     var createdAt: OffsetDateTime = OffsetDateTime.now(),

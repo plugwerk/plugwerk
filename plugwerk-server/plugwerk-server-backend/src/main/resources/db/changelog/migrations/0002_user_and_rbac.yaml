@@ -49,6 +49,11 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
+                  name: password_invalidated_before
+                  type: timestamptz
+                  constraints:
+                    nullable: true
+              - column:
                   name: created_at
                   type: timestamptz
                   defaultValueComputed: now()

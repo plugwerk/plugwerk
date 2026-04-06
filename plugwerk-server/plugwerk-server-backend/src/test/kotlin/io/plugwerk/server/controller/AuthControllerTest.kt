@@ -26,6 +26,7 @@ import io.plugwerk.server.security.PasswordChangeRequiredFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.security.UserCredentialValidator
 import io.plugwerk.server.service.JwtTokenService
+import io.plugwerk.server.service.TokenRevocationService
 import io.plugwerk.server.service.UnauthorizedException
 import io.plugwerk.server.service.UserService
 import org.junit.jupiter.api.Test
@@ -64,6 +65,8 @@ class AuthControllerTest {
     @MockitoBean lateinit var jwtTokenService: JwtTokenService
 
     @MockitoBean lateinit var userRepository: UserRepository
+
+    @MockitoBean lateinit var tokenRevocationService: TokenRevocationService
 
     @MockitoBean lateinit var userService: UserService
 

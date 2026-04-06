@@ -1,0 +1,43 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0004-create-revoked-token
+      author: plugwerk
+      changes:
+        - createTable:
+            tableName: revoked_token
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: jti
+                  type: varchar(36)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uq_revoked_token_jti
+              - column:
+                  name: username
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: expires_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+              - column:
+                  name: revoked_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: revoked_token
+            indexName: idx_revoked_token_expires_at
+            columns:
+              - column:
+                  name: expires_at

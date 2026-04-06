@@ -78,6 +78,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout() {
+    const token = localStorage.getItem('pw-access-token')
+    if (token) {
+      fetch('/api/v1/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {})
+    }
     localStorage.removeItem('pw-access-token')
     localStorage.removeItem('pw-username')
     localStorage.removeItem('pw-password-change-required')

@@ -25,10 +25,12 @@ import io.plugwerk.api.model.LoginResponse
 import io.plugwerk.server.repository.UserRepository
 import io.plugwerk.server.security.UserCredentialValidator
 import io.plugwerk.server.service.JwtTokenService
+import io.plugwerk.server.service.TokenRevocationService
 import io.plugwerk.server.service.UnauthorizedException
 import io.plugwerk.server.service.UserService
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.context.SecurityContextHolder
+import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -37,6 +39,7 @@ import org.springframework.web.bind.annotation.RestController
 class AuthController(
     private val credentialValidator: UserCredentialValidator,
     private val jwtTokenService: JwtTokenService,
+    private val tokenRevocationService: TokenRevocationService,
     private val userRepository: UserRepository,
     private val userService: UserService,
 ) : AuthApi {
@@ -58,10 +61,22 @@ class AuthController(
         )
     }
 
+    override fun logout(): ResponseEntity<Unit> {
+        val authentication = SecurityContextHolder.getContext().authentication
+            ?: throw UnauthorizedException("Authentication required")
+        val jwt = authentication.credentials as? Jwt
+            ?: throw UnauthorizedException("Bearer token required for logout")
+        val jti = jwt.id ?: throw UnauthorizedException("Token missing jti claim")
+        val expiresAt = jwt.expiresAt ?: throw UnauthorizedException("Token missing exp claim")
+        tokenRevocationService.revokeToken(jti, jwt.subject, expiresAt)
+        return ResponseEntity.noContent().build()
+    }
+
     override fun changePassword(changePasswordRequest: ChangePasswordRequest): ResponseEntity<Unit> {
         val username = SecurityContextHolder.getContext().authentication?.name
             ?: throw UnauthorizedException("Authentication required to change password")
         userService.changePassword(username, changePasswordRequest.currentPassword, changePasswordRequest.newPassword)
+        tokenRevocationService.revokeAllForUser(username)
         return ResponseEntity.noContent().build()
     }
 }

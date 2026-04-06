@@ -124,6 +124,8 @@ class SecurityConfiguration(
             }
             .authorizeHttpRequests { auth ->
                 auth
+                    // Logout requires a valid Bearer token — must be listed before the auth wildcard
+                    .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated()
                     // Auth endpoints are always public (login + change-password requires auth but handled in controller)
                     .requestMatchers("/api/v1/auth/**").permitAll()
                     // Update check is public (used by client SDK without auth)

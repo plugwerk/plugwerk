@@ -94,4 +94,20 @@ class JwtTokenServiceTest {
         val parts = token.split(".")
         assertThat(parts).hasSize(3)
     }
+
+    @Test
+    fun `token contains a jti claim`() {
+        val token = service.generateToken("alice")
+        val jwt = decoder.decode(token)
+        assertThat(jwt.id).isNotBlank()
+    }
+
+    @Test
+    fun `each token has a unique jti`() {
+        val token1 = service.generateToken("alice")
+        val token2 = service.generateToken("alice")
+        val jti1 = decoder.decode(token1).id
+        val jti2 = decoder.decode(token2).id
+        assertThat(jti1).isNotEqualTo(jti2)
+    }
 }

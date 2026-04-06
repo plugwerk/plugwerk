@@ -27,7 +27,11 @@ import java.util.UUID
 
 @Service
 @Transactional
-class UserService(private val userRepository: UserRepository, private val passwordEncoder: PasswordEncoder) {
+class UserService(
+    private val userRepository: UserRepository,
+    private val passwordEncoder: PasswordEncoder,
+    private val tokenRevocationService: TokenRevocationService,
+) {
 
     @Transactional(readOnly = true)
     fun findAll(): List<UserEntity> = userRepository.findAll()
@@ -63,7 +67,9 @@ class UserService(private val userRepository: UserRepository, private val passwo
         val user = findById(id)
         user.passwordHash = passwordEncoder.encode(newPassword)!!
         user.passwordChangeRequired = true
-        return userRepository.save(user)
+        val saved = userRepository.save(user)
+        tokenRevocationService.revokeAllForUser(user.username)
+        return saved
     }
 
     fun delete(id: UUID) {

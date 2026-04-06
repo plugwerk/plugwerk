@@ -51,9 +51,30 @@ Both token types are handled by separate Spring Security filters that run in ord
 - Multi-issuer JWT validation: locally issued tokens + externally issued OIDC tokens
 - OIDC `sub` claim as user identity key (compatible with `namespace_member.user_subject`)
 
+### Token Revocation (see issue #34) — implemented
+
+Self-issued JWTs now include a `jti` (JWT ID) claim — a UUID that uniquely identifies each token.
+Two complementary revocation mechanisms are in place:
+
+| Mechanism | Trigger | Scope | Storage |
+|---|---|---|---|
+| Explicit revocation | `POST /api/v1/auth/logout` | Single token (by `jti`) | `revoked_token` table + Caffeine cache |
+| Bulk invalidation | Password change or admin password reset | All tokens for a user | `password_invalidated_before` column on `plugwerk_user` |
+
+**Revocation check flow (per authenticated request):**
+1. `DelegatingJwtDecoder` validates the JWT signature (local HMAC or OIDC provider).
+2. For locally issued tokens only: checks `jti` against the Caffeine cache (hit) or `revoked_token` table (miss).
+3. Checks if `iat` (issued-at) is before the user's `password_invalidated_before` timestamp.
+4. If either check matches, the token is rejected with HTTP 401.
+
+**OIDC tokens are not subject to local revocation** — they are managed by the external identity provider.
+
+A scheduled cleanup job purges expired entries from `revoked_token` hourly to bound table size.
+
 ## Consequences
 
 - **Easier:** Zero external dependencies in Phase 1 — no identity provider to run or configure
 - **Easier:** Namespace Access Key flow is simple and CI/CD-friendly; easy to configure in PF4J host app properties
 - **Easier:** Clear separation of concerns — human sessions vs. machine identity
+- **Easier:** Stolen tokens can now be invalidated immediately via logout or password change
 - **Risk:** `jwt-secret` must be rotated if exposed; enforced via startup validation and documented warning

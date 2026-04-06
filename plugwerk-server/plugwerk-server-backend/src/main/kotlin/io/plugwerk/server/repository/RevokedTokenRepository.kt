@@ -16,18 +16,20 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-package io.plugwerk.server
+package io.plugwerk.server.repository
 
-import org.springframework.boot.autoconfigure.SpringBootApplication
-import org.springframework.boot.context.properties.EnableConfigurationProperties
-import org.springframework.boot.runApplication
-import org.springframework.scheduling.annotation.EnableScheduling
+import io.plugwerk.server.domain.RevokedTokenEntity
+import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
+import org.springframework.data.jpa.repository.Query
+import java.time.OffsetDateTime
+import java.util.UUID
 
-@SpringBootApplication
-@EnableConfigurationProperties(PlugwerkProperties::class)
-@EnableScheduling
-class PlugwerkApplication
+interface RevokedTokenRepository : JpaRepository<RevokedTokenEntity, UUID> {
 
-fun main(args: Array<String>) {
-    runApplication<PlugwerkApplication>(*args)
+    fun existsByJti(jti: String): Boolean
+
+    @Modifying
+    @Query("DELETE FROM RevokedTokenEntity r WHERE r.expiresAt < :cutoff")
+    fun deleteExpiredBefore(cutoff: OffsetDateTime): Int
 }

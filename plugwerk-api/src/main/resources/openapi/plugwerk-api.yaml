@@ -971,6 +971,28 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Logout (revoke current token)
+      description: |
+        Revokes the JWT used to authenticate this request. The token becomes immediately
+        invalid and any subsequent request using it will receive `401 Unauthorized`.
+
+        This is a best-effort operation — the server persists the token's `jti` claim in a
+        revocation list that is checked on every authenticated request.
+
+        Requires authentication (Bearer token).
+      operationId: logout
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Token revoked successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /auth/change-password:
     post:
       tags:

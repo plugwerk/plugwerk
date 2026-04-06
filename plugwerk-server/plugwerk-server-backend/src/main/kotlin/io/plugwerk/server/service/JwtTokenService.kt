@@ -26,6 +26,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoder
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters
 import org.springframework.stereotype.Service
 import java.time.Instant
+import java.util.UUID
 
 @Service
 class JwtTokenService(private val jwtEncoder: JwtEncoder, private val props: PlugwerkProperties) {
@@ -33,6 +34,7 @@ class JwtTokenService(private val jwtEncoder: JwtEncoder, private val props: Plu
     fun generateToken(username: String): String {
         val now = Instant.now()
         val claims = JwtClaimsSet.builder()
+            .id(UUID.randomUUID().toString())
             .issuer(props.server.baseUrl)
             .issuedAt(now)
             .expiresAt(now.plusSeconds(props.auth.tokenValidityHours * 3600L))
