@@ -43,11 +43,16 @@ export function LoginPage() {
     setLoading(true)
     try {
       await login(username.trim(), password)
-      const { passwordChangeRequired } = useAuthStore.getState()
+      await useAuthStore.getState().initNamespace()
+      const { passwordChangeRequired, namespace } = useAuthStore.getState()
       if (passwordChangeRequired) {
         navigate('/change-password', { replace: true })
+      } else if (!namespace) {
+        navigate('/onboarding', { replace: true })
       } else {
-        navigate(from, { replace: true })
+        // Only use the saved return URL if it doesn't contain a stale namespace
+        const safeFrom = from.startsWith('/namespaces/') ? '/' : from
+        navigate(safeFrom, { replace: true })
       }
     } catch {
       setError('Invalid username or password.')
