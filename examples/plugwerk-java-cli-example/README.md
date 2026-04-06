@@ -142,7 +142,7 @@ TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
 
 # Generate a namespace-scoped API key
 API_KEY=$(curl -s -X POST http://localhost:8080/api/v1/namespaces/default/access-keys \
-  -H "X-Api-Key: $API_KEY" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"name":"CLI example"}' | jq -r .key)
 
@@ -334,8 +334,7 @@ cd examples/plugwerk-java-cli-example/
 | `--server` | `-s` | `PLUGWERK_SERVER_URL` | `http://localhost:8080` | Plugwerk server base URL |
 | `--namespace` | `-n` | `PLUGWERK_NAMESPACE` | `default` | Namespace slug |
 | `--plugins-dir` | | `PLUGWERK_PLUGINS_DIR` | `./plugins` | PF4J plugins directory |
-| `--api-key` | `-k` | `PLUGWERK_API_KEY` | _(none)_ | Namespace-scoped API key (recommended) |
-| `--access-token` | `-t` | `PLUGWERK_ACCESS_TOKEN` | _(none)_ | JWT Bearer token (fallback for OIDC) |
+| `--api-key` | `-k` | `PLUGWERK_API_KEY` | _(none)_ | Namespace-scoped API key |
 
 The `--plugins-dir` path is resolved relative to the **current working directory**.
 Use an absolute path when invoking the JAR from a different directory:

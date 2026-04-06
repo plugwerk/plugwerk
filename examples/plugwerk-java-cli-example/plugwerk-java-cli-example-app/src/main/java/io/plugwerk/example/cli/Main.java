@@ -82,7 +82,7 @@ public class Main {
             : System.getenv().getOrDefault("PLUGWERK_NAMESPACE", "default");
 
     org.pf4j.PluginManager pm =
-        PluginManagerFactory.create(pluginsDir, serverUrl, namespace, cli.apiKey, cli.accessToken);
+        PluginManagerFactory.create(pluginsDir, serverUrl, namespace, cli.apiKey);
     cli.setPluginManager(pm);
     DynamicCommandLoader.loadAll(commandLine, pm);
 
