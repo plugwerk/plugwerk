@@ -91,8 +91,6 @@ public class ListCommand implements Runnable {
       if (p.getProvider() != null) System.out.printf("  Provider: %s%n", p.getProvider());
       if (p.getLicense() != null) System.out.printf("  License:  %s%n", p.getLicense());
       if (p.getHomepage() != null) System.out.printf("  Homepage: %s%n", p.getHomepage());
-      if (!p.getCategories().isEmpty())
-        System.out.printf("  Categories: %s%n", String.join(", ", p.getCategories()));
       if (!p.getTags().isEmpty())
         System.out.printf("  Tags:     %s%n", String.join(", ", p.getTags()));
     }
