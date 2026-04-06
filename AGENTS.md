@@ -14,7 +14,7 @@ Project concept: `docs/concepts/concept-pf4j-marketplace-en.md`
 
 ## Project Status
 
-Phase 1 (Core) is **complete**. Phase 2 (Enterprise) is **in active development** — multi-namespace RBAC, OIDC authentication, and review workflows are implemented. Tracking issue: [#7](https://github.com/devtank42gmbh/plugwerk/issues/7).
+Phase 1 (Core) is **complete**. Phase 2 (Enterprise) is **in active development** — multi-namespace RBAC, OIDC authentication, and review workflows are implemented. Tracking issue: [#7](https://github.com/plugwerk/plugwerk/issues/7).
 
 ## Naming
 

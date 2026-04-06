@@ -29,7 +29,7 @@ Your signature is recorded automatically. You only need to sign once.
 ### Setup
 
 ```bash
-git clone https://github.com/devtank42gmbh/plugwerk.git
+git clone https://github.com/plugwerk/plugwerk.git
 cd plugwerk
 docker compose up -d postgres
 ./gradlew build
