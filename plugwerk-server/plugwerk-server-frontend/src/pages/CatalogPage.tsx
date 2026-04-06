@@ -32,7 +32,7 @@ import { useUiStore } from '../stores/uiStore'
 import { useNamespaceStore } from '../stores/namespaceStore'
 
 export function CatalogPage() {
-  const { namespace = 'default' } = useParams<{ namespace: string }>()
+  const { namespace = '' } = useParams<{ namespace: string }>()
   const { setNamespace, namespaceRole, fetchNamespaceRole, isAuthenticated } = useAuthStore()
   const { plugins, loading, error, totalElements, pendingReviewPluginCount, resetFilters, fetchPlugins, fetchTags } = usePluginStore()
   const { searchQuery } = useUiStore()

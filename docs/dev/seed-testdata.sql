@@ -5,7 +5,7 @@
 --   PGPASSWORD=plugwerk psql -h localhost -U plugwerk -d plugwerk -f docs/dev/seed-testdata.sql
 --
 -- Creates:
---   2 namespaces (acme-corp, community) — 'default' already exists from migration
+--   3 namespaces (default, acme-corp, community)
 --   30 plugins per namespace (90 total)
 --   1–3 PUBLISHED releases per plugin (~180 total) with artifact sizes & download counts
 --   5 users (admin, alice, bob, charlie, diana)
@@ -31,6 +31,7 @@ ON CONFLICT (username) DO NOTHING;
 -- Namespaces
 -- ============================================================
 INSERT INTO namespace (id, slug, owner_org, public_catalog) VALUES
+  ('00000000-0000-0000-0000-000000000001', 'default',    'Plugwerk',               true),
   ('00000000-0000-0000-0000-000000000002', 'acme-corp',  'ACME Corporation',       false),
   ('00000000-0000-0000-0000-000000000003', 'community',  'Community Contributors', true)
 ON CONFLICT (slug) DO NOTHING;

@@ -17,13 +17,13 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 import { create } from 'zustand'
-import { namespaceMembersApi } from '../api/config'
+import { namespaceMembersApi, namespacesApi } from '../api/config'
 import type { NamespaceRole } from '../api/generated/model'
 
 interface AuthState {
   accessToken: string | null
   username: string | null
-  namespace: string
+  namespace: string | null
   isAuthenticated: boolean
   passwordChangeRequired: boolean
   namespaceRole: NamespaceRole | null
@@ -31,6 +31,7 @@ interface AuthState {
   login: (username: string, password: string) => Promise<void>
   logout: () => void
   setNamespace: (ns: string) => void
+  initNamespace: () => Promise<void>
   clearPasswordChangeRequired: () => void
   fetchNamespaceRole: (ns: string) => Promise<void>
 
@@ -41,7 +42,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => ({
   accessToken: localStorage.getItem('pw-access-token'),
   username: localStorage.getItem('pw-username'),
-  namespace: localStorage.getItem('pw-namespace') ?? 'default',
+  namespace: localStorage.getItem('pw-namespace'),
   isAuthenticated: !!localStorage.getItem('pw-access-token'),
   passwordChangeRequired: localStorage.getItem('pw-password-change-required') === 'true',
   namespaceRole: null,
@@ -86,6 +87,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setNamespace(ns) {
     localStorage.setItem('pw-namespace', ns)
     set({ namespace: ns, namespaceRole: null })
+  },
+
+  async initNamespace() {
+    const stored = localStorage.getItem('pw-namespace')
+    if (stored) {
+      set({ namespace: stored })
+      return
+    }
+    try {
+      const res = await namespacesApi.listNamespaces()
+      if (res.data.length > 0) {
+        const first = res.data[0].slug
+        localStorage.setItem('pw-namespace', first)
+        set({ namespace: first })
+      } else {
+        set({ namespace: null })
+      }
+    } catch {
+      set({ namespace: null })
+    }
   },
 
   clearPasswordChangeRequired() {

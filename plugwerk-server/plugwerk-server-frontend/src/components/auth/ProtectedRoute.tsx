@@ -16,6 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
+import { useEffect } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { useAuthStore } from '../../stores/authStore'
@@ -25,8 +26,14 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, passwordChangeRequired } = useAuthStore()
+  const { isAuthenticated, passwordChangeRequired, namespace, initNamespace } = useAuthStore()
   const location = useLocation()
+
+  useEffect(() => {
+    if (isAuthenticated && namespace === null) {
+      initNamespace()
+    }
+  }, [isAuthenticated, namespace, initNamespace])
 
   if (!isAuthenticated) {
     return <Navigate to={`/login?from=${encodeURIComponent(location.pathname)}`} replace />

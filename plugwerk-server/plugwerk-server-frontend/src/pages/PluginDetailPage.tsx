@@ -43,7 +43,7 @@ import { useAuthStore } from '../stores/authStore'
 const TAB_IDS = ['overview', 'versions', 'changelog', 'dependencies']
 
 export function PluginDetailPage() {
-  const { namespace = 'default', pluginId = '' } = useParams<{ namespace: string; pluginId: string }>()
+  const { namespace = '', pluginId = '' } = useParams<{ namespace: string; pluginId: string }>()
   const navigate = useNavigate()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const namespaceRole = useAuthStore((s) => s.namespaceRole)

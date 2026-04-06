@@ -35,9 +35,11 @@ import { Error500Page } from '../pages/errors/Error500Page'
 import { Error503Page } from '../pages/errors/Error503Page'
 import { useAuthStore } from '../stores/authStore'
 import { ApiDocsPage } from '../pages/ApiDocsPage'
+import { OnboardingPage } from '../pages/OnboardingPage'
 
 function CatalogRedirect() {
   const namespace = useAuthStore((s) => s.namespace)
+  if (!namespace) return <Navigate to="/onboarding" replace />
   return <Navigate to={`/namespaces/${namespace}/plugins`} replace />
 }
 
@@ -62,6 +64,7 @@ export const router = createBrowserRouter([
           { path: 'reviews',          element: <ReviewsSection /> },
         ],
       },
+      { path: 'onboarding',                                              element: <ProtectedRoute><OnboardingPage /></ProtectedRoute> },
       { path: 'change-password',                                        element: <ProtectedRoute><ChangePasswordPage /></ProtectedRoute> },
       { path: 'profile',                                                element: <ProtectedRoute><ProfileSettingsPage /></ProtectedRoute> },
 
