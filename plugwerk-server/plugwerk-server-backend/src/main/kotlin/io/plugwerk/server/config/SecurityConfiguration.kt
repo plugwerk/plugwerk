@@ -40,6 +40,7 @@ import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter
+import java.security.MessageDigest
 
 @Configuration
 @EnableWebSecurity
@@ -60,14 +61,20 @@ class SecurityConfiguration(
      * AES text encryptor for OIDC provider client secrets stored in the database.
      *
      * Uses the 16-character [PlugwerkProperties.AuthProperties.encryptionKey].
-     * Spring's [Encryptors.text] applies PKCS5 padding + PBKDF2 key derivation with a
-     * random salt per encrypted value, so two encryptions of the same secret produce
-     * different ciphertexts.
+     * The salt is derived deterministically from the encryption key (SHA-256 of the key,
+     * first 8 bytes hex-encoded) so that it is unique per deployment but stable across
+     * restarts — existing encrypted values remain decryptable.
      *
      * Environment variable: `PLUGWERK_ENCRYPTION_KEY`
      */
     @Bean
-    fun textEncryptor(): TextEncryptor = Encryptors.text(props.auth.encryptionKey, "deadbeefcafe0000")
+    fun textEncryptor(): TextEncryptor {
+        val salt = MessageDigest.getInstance("SHA-256")
+            .digest(props.auth.encryptionKey.toByteArray())
+            .take(8)
+            .joinToString("") { "%02x".format(it) }
+        return Encryptors.text(props.auth.encryptionKey, salt)
+    }
 
     companion object {
         /**
