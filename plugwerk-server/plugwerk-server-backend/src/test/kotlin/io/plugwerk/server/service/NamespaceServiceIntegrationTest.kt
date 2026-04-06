@@ -185,7 +185,7 @@ class NamespaceServiceIntegrationTest {
             NamespaceAccessKeyEntity(
                 namespace = namespace,
                 keyHash = "cascade-test-key-hash",
-                description = "Test key",
+                name = "Test key",
             ),
         )
 
