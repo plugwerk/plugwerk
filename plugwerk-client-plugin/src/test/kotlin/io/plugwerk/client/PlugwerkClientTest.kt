@@ -128,13 +128,51 @@ class PlugwerkClientTest {
     }
 
     @Test
-    fun `no auth header when accessToken is null`() {
+    fun `get sends X-Api-Key header when apiKey is configured`() {
+        val apiKeyClient =
+            PlugwerkClient(
+                PlugwerkConfig(
+                    serverUrl = server.url("/").toString().trimEnd('/'),
+                    namespace = "test-ns",
+                    apiKey = "pwk_my-api-key",
+                ),
+            )
+        server.enqueue(MockResponse().setBody("""{}""").setResponseCode(200))
+
+        apiKeyClient.get<Map<String, String>>("plugins")
+
+        val request = server.takeRequest()
+        assertEquals("pwk_my-api-key", request.headers["X-Api-Key"])
+        assertNull(request.headers["Authorization"])
+    }
+
+    @Test
+    fun `apiKey takes precedence over accessToken`() {
+        val dualAuthClient =
+            PlugwerkClient(
+                PlugwerkConfig(
+                    serverUrl = server.url("/").toString().trimEnd('/'),
+                    namespace = "test-ns",
+                    apiKey = "pwk_key",
+                    accessToken = "tok-jwt",
+                ),
+            )
+        server.enqueue(MockResponse().setBody("""{}""").setResponseCode(200))
+
+        dualAuthClient.get<Map<String, String>>("plugins")
+
+        val request = server.takeRequest()
+        assertEquals("pwk_key", request.headers["X-Api-Key"])
+        assertNull(request.headers["Authorization"])
+    }
+
+    @Test
+    fun `no auth header when neither apiKey nor accessToken is set`() {
         val anonymousClient =
             PlugwerkClient(
                 PlugwerkConfig(
                     serverUrl = server.url("/").toString().trimEnd('/'),
                     namespace = "public-ns",
-                    accessToken = null,
                 ),
             )
         server.enqueue(MockResponse().setBody("""{}""").setResponseCode(200))
@@ -143,6 +181,7 @@ class PlugwerkClientTest {
 
         val request = server.takeRequest()
         assertNull(request.headers["Authorization"])
+        assertNull(request.headers["X-Api-Key"])
     }
 
     @Test

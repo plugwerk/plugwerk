@@ -56,8 +56,12 @@ class PlugwerkClient(internal val config: PlugwerkConfig) {
             .connectTimeout(config.connectionTimeoutMs, TimeUnit.MILLISECONDS)
             .readTimeout(config.readTimeoutMs, TimeUnit.MILLISECONDS)
             .apply {
-                config.accessToken?.let { token ->
-                    addInterceptor(BearerTokenInterceptor(token))
+                // API key takes precedence over Bearer token
+                val key = config.apiKey
+                val token = config.accessToken
+                when {
+                    key != null -> addInterceptor(ApiKeyInterceptor(key))
+                    token != null -> addInterceptor(BearerTokenInterceptor(token))
                 }
             }
             .build()
@@ -155,6 +159,16 @@ class PlugwerkClient(internal val config: PlugwerkConfig) {
     companion object {
         @PublishedApi
         internal val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+    }
+}
+
+private class ApiKeyInterceptor(private val key: String) : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val request =
+            chain.request().newBuilder()
+                .header("X-Api-Key", key)
+                .build()
+        return chain.proceed(request)
     }
 }
 

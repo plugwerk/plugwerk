@@ -29,8 +29,16 @@ import kotlin.io.path.inputStream
  * Use [Builder] for programmatic construction or [fromProperties] to load from a
  * `.properties` file.
  *
- * **Security:** Never pass sensitive values (e.g. access tokens) as JVM system properties
- * (`-Dplugwerk.accessToken=…`) — they are visible in `ps aux` and `/proc/PID/cmdline`.
+ * **Authentication priority:** If both [apiKey] and [accessToken] are set, the API key
+ * takes precedence (sent as `X-Api-Key` header). The [accessToken] is sent as
+ * `Authorization: Bearer` and is intended for pre-obtained OIDC/JWT tokens.
+ * The SDK does **not** implement a login flow — tokens must be obtained externally.
+ *
+ * **Recommended:** Use [apiKey] for CI/CD pipelines and automated consumers. API keys
+ * are long-lived, namespace-scoped, and do not expire unless explicitly configured.
+ *
+ * **Security:** Never pass sensitive values (e.g. API keys, tokens) as JVM system properties
+ * (`-Dplugwerk.apiKey=…`) — they are visible in `ps aux` and `/proc/PID/cmdline`.
  * Use [Builder] or a `.properties` file with restricted filesystem permissions instead.
  *
  * The SDK constructs API URLs as:
@@ -39,6 +47,7 @@ import kotlin.io.path.inputStream
 data class PlugwerkConfig(
     val serverUrl: String,
     val namespace: String,
+    val apiKey: String? = null,
     val accessToken: String? = null,
     val connectionTimeoutMs: Long = DEFAULT_CONNECTION_TIMEOUT_MS,
     val readTimeoutMs: Long = DEFAULT_READ_TIMEOUT_MS,
@@ -51,8 +60,9 @@ data class PlugwerkConfig(
         require(readTimeoutMs > 0) { "readTimeoutMs must be positive" }
     }
 
-    override fun toString(): String =
-        "PlugwerkConfig(serverUrl=$serverUrl, namespace=$namespace, accessToken=${if (accessToken != null) "<set>" else "<none>"})"
+    override fun toString(): String = "PlugwerkConfig(serverUrl=$serverUrl, namespace=$namespace" +
+        ", apiKey=${if (apiKey != null) "<set>" else "<none>"}" +
+        ", accessToken=${if (accessToken != null) "<set>" else "<none>"})"
 
     companion object {
         const val DEFAULT_CONNECTION_TIMEOUT_MS: Long = 10_000
@@ -60,6 +70,7 @@ data class PlugwerkConfig(
 
         private const val PROP_SERVER_URL = "plugwerk.serverUrl"
         private const val PROP_NAMESPACE = "plugwerk.namespace"
+        private const val PROP_API_KEY = "plugwerk.apiKey"
         private const val PROP_ACCESS_TOKEN = "plugwerk.accessToken"
         private const val PROP_CONNECTION_TIMEOUT_MS = "plugwerk.connectionTimeoutMs"
         private const val PROP_READ_TIMEOUT_MS = "plugwerk.readTimeoutMs"
@@ -75,6 +86,7 @@ data class PlugwerkConfig(
                 serverUrl = props.requireProperty(PROP_SERVER_URL),
                 namespace = props.requireProperty(PROP_NAMESPACE),
             ).apply {
+                props.getProperty(PROP_API_KEY)?.let { apiKey(it) }
                 props.getProperty(PROP_ACCESS_TOKEN)?.let { accessToken(it) }
                 props.getProperty(PROP_CONNECTION_TIMEOUT_MS)?.let { connectionTimeoutMs(it.toLong()) }
                 props.getProperty(PROP_READ_TIMEOUT_MS)?.let { readTimeoutMs(it.toLong()) }
@@ -88,10 +100,13 @@ data class PlugwerkConfig(
 
     /** Fluent builder for [PlugwerkConfig]. */
     class Builder(private val serverUrl: String, private val namespace: String) {
+        private var apiKey: String? = null
         private var accessToken: String? = null
         private var connectionTimeoutMs: Long = DEFAULT_CONNECTION_TIMEOUT_MS
         private var readTimeoutMs: Long = DEFAULT_READ_TIMEOUT_MS
         private var pluginDirectory: Path? = null
+
+        fun apiKey(key: String) = apply { this.apiKey = key }
 
         fun accessToken(token: String) = apply { this.accessToken = token }
 
@@ -104,6 +119,7 @@ data class PlugwerkConfig(
         fun build(): PlugwerkConfig = PlugwerkConfig(
             serverUrl = serverUrl,
             namespace = namespace,
+            apiKey = apiKey,
             accessToken = accessToken,
             connectionTimeoutMs = connectionTimeoutMs,
             readTimeoutMs = readTimeoutMs,

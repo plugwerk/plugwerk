@@ -32,6 +32,7 @@ class PlugwerkConfigTest {
     fun `builder creates config with all fields`() {
         val config =
             PlugwerkConfig.Builder("https://plugins.example.com", "acme")
+                .apiKey("pwk_secret-key")
                 .accessToken("tok-secret")
                 .connectionTimeoutMs(5_000)
                 .readTimeoutMs(15_000)
@@ -39,6 +40,7 @@ class PlugwerkConfigTest {
 
         assertEquals("https://plugins.example.com", config.serverUrl)
         assertEquals("acme", config.namespace)
+        assertEquals("pwk_secret-key", config.apiKey)
         assertEquals("tok-secret", config.accessToken)
         assertEquals(5_000, config.connectionTimeoutMs)
         assertEquals(15_000, config.readTimeoutMs)
@@ -48,6 +50,7 @@ class PlugwerkConfigTest {
     fun `builder uses defaults for optional fields`() {
         val config = PlugwerkConfig.Builder("https://plugins.example.com", "acme").build()
 
+        assertNull(config.apiKey)
         assertNull(config.accessToken)
         assertNull(config.pluginDirectory)
         assertEquals(PlugwerkConfig.DEFAULT_CONNECTION_TIMEOUT_MS, config.connectionTimeoutMs)
@@ -55,17 +58,22 @@ class PlugwerkConfigTest {
     }
 
     @Test
-    fun `toString masks access token`() {
-        val config = PlugwerkConfig.Builder("https://plugins.example.com", "acme").accessToken("secret").build()
+    fun `toString masks api key and access token`() {
+        val config = PlugwerkConfig.Builder("https://plugins.example.com", "acme")
+            .apiKey("pwk_secret").accessToken("tok-secret").build()
         val str = config.toString()
-        assert("secret" !in str) { "Access token must not appear in toString(): $str" }
-        assert("<set>" in str) { "toString() must indicate token is set: $str" }
+        assert("pwk_secret" !in str) { "API key must not appear in toString(): $str" }
+        assert("tok-secret" !in str) { "Access token must not appear in toString(): $str" }
+        assert(str.contains("apiKey=<set>")) { "toString() must indicate apiKey is set: $str" }
+        assert(str.contains("accessToken=<set>")) { "toString() must indicate accessToken is set: $str" }
     }
 
     @Test
-    fun `toString shows none when no access token`() {
+    fun `toString shows none when no credentials`() {
         val config = PlugwerkConfig.Builder("https://plugins.example.com", "acme").build()
-        assert("<none>" in config.toString())
+        val str = config.toString()
+        assert(str.contains("apiKey=<none>")) { "toString() must indicate apiKey is none: $str" }
+        assert(str.contains("accessToken=<none>")) { "toString() must indicate accessToken is none: $str" }
     }
 
     @Test
@@ -75,6 +83,7 @@ class PlugwerkConfigTest {
             """
             plugwerk.serverUrl=https://example.com
             plugwerk.namespace=myns
+            plugwerk.apiKey=pwk_test-key
             plugwerk.accessToken=tok-123
             plugwerk.connectionTimeoutMs=3000
             plugwerk.readTimeoutMs=20000
@@ -85,6 +94,7 @@ class PlugwerkConfigTest {
 
         assertEquals("https://example.com", config.serverUrl)
         assertEquals("myns", config.namespace)
+        assertEquals("pwk_test-key", config.apiKey)
         assertEquals("tok-123", config.accessToken)
         assertEquals(3_000, config.connectionTimeoutMs)
         assertEquals(20_000, config.readTimeoutMs)

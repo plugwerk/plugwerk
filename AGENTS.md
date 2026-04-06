@@ -124,6 +124,7 @@ PRs without labels or milestone are non-compliant. Set them via `gh pr edit <num
   - [ADR-0002](docs/adrs/0002-issue-management-guidelines.md) — Issue management guidelines
   - [ADR-0003](docs/adrs/0003-spring-boot-4-backend-conventions.md) — Spring Boot 4.x backend conventions
   - [ADR-0004](docs/adrs/0004-frontend-conventions.md) — Frontend conventions (React + TypeScript + MUI + Zustand)
+  - [ADR-0011](docs/adrs/0011-client-auth-api-key-strategy.md) — Client SDK authentication (API key primary)
 - Feature specifications: `docs/features/` — GitHub Issues link to their corresponding spec file
 - Project concept: `docs/concepts/`
 - Design system: `docs/design/` — HTML prototypes and design tokens (`tokens.css`)
@@ -220,6 +221,24 @@ PlugwerkUpdateChecker    // Update polling (ExtensionPoint)
 PlugwerkMarketplace      // Facade combining all three (ExtensionPoint)
 PlugwerkUpdateRepository // Implements pf4j-update UpdateRepository (drop-in replacement)
 ```
+
+### Client SDK Authentication ([ADR-0011](docs/adrs/0011-client-auth-api-key-strategy.md))
+
+Two authentication methods, API key takes precedence:
+
+| Method | Config Field | HTTP Header | Use Case |
+|--------|-------------|-------------|----------|
+| **API Key** (recommended) | `apiKey` | `X-Api-Key` | CI/CD, automated consumers |
+| **Bearer Token** | `accessToken` | `Authorization: Bearer` | OIDC, pre-obtained JWT |
+
+```kotlin
+// Recommended: API Key
+val config = PlugwerkConfig.Builder("https://plugwerk.example.com", "my-namespace")
+    .apiKey("pwk_...")
+    .build()
+```
+
+The SDK does **not** implement a login flow — JWTs must be obtained externally.
 
 ### Plugin Descriptor (`MANIFEST.MF`)
 
