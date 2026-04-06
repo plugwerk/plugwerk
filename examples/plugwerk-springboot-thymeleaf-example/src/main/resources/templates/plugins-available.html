@@ -60,7 +60,8 @@
                     </div>
                 </td>
                 <td>
-                    <form th:if="${plugin.latestVersion != null}" th:action="@{/plugins/install}" method="post" style="display:inline">
+                    <span th:if="${installedIds.contains(plugin.pluginId)}" class="badge badge-installed">Installed</span>
+                    <form th:if="${plugin.latestVersion != null and !installedIds.contains(plugin.pluginId)}" th:action="@{/plugins/install}" method="post" style="display:inline">
                         <input type="hidden" name="pluginId" th:value="${plugin.pluginId}"/>
                         <input type="hidden" name="version" th:value="${plugin.latestVersion}"/>
                         <button type="submit" class="btn btn-primary">Install</button>

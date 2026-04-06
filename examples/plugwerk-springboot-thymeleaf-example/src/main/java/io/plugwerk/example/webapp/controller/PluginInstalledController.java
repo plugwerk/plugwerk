@@ -104,6 +104,10 @@ public class PluginInstalledController {
     }
 
     try {
+      // Stop and unload the plugin from PF4J before removing the file
+      pluginManager.stopPlugin(pluginId);
+      pluginManager.unloadPlugin(pluginId);
+
       InstallResult result = marketplace.installer().uninstall(pluginId);
       if (result instanceof InstallResult.Success s) {
         registry.refresh();
@@ -136,6 +140,8 @@ public class PluginInstalledController {
       marketplace.installer().uninstall(pluginId);
       InstallResult result = marketplace.installer().install(pluginId, version);
       if (result instanceof InstallResult.Success s) {
+        pluginManager.loadPlugins();
+        pluginManager.startPlugins();
         registry.refresh();
         redirectAttributes.addFlashAttribute(
             "successMessage", "Successfully updated " + s.getPluginId() + " to " + s.getVersion());

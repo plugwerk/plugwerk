@@ -137,6 +137,7 @@
         }
         .btn-primary   { background: #0F62FE; color: #fff; }
         .btn-primary:hover { background: #0353e9; }
+        .badge-installed { background: #198038; color: #fff; padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.85rem; }
         .btn-danger    { background: #da1e28; color: #fff; }
         .btn-danger:hover  { background: #ba1b23; }
         .btn-outline   { background: transparent; color: #0F62FE; border: 1px solid #0F62FE; }
@@ -179,6 +180,11 @@
         </div>
     </div>
 
-    <footer>Plugwerk Example App</footer>
+    <footer>
+        Plugwerk Example App &mdash;
+        Plugwerk-Server: <code th:text="${plugwerkServerUrl}">http://localhost:8080</code> |
+        Namespace: <code th:text="${plugwerkNamespace}">default</code>
+        <span th:if="${plugwerkApiKey != null and !plugwerkApiKey.isEmpty()}">| API Key: <code th:text="${plugwerkApiKey}">-</code></span>
+    </footer>
 </body>
 </html>

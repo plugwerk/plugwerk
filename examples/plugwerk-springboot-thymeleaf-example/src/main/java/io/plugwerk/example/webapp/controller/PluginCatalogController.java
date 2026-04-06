@@ -23,6 +23,10 @@ import io.plugwerk.spi.extension.PlugwerkMarketplace;
 import io.plugwerk.spi.model.InstallResult;
 import io.plugwerk.spi.model.PluginInfo;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.pf4j.PluginManager;
+import org.pf4j.PluginWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.lang.Nullable;
@@ -41,11 +45,15 @@ public class PluginCatalogController {
 
   private static final Logger log = LoggerFactory.getLogger(PluginCatalogController.class);
 
+  private final PluginManager pluginManager;
   private final @Nullable PlugwerkMarketplace marketplace;
   private final PluginContributionRegistry registry;
 
   public PluginCatalogController(
-      @Nullable PlugwerkMarketplace marketplace, PluginContributionRegistry registry) {
+      PluginManager pluginManager,
+      @Nullable PlugwerkMarketplace marketplace,
+      PluginContributionRegistry registry) {
+    this.pluginManager = pluginManager;
     this.marketplace = marketplace;
     this.registry = registry;
   }
@@ -53,6 +61,12 @@ public class PluginCatalogController {
   @GetMapping("/available")
   public String available(Model model) {
     model.addAttribute("contributions", registry.getContributions());
+
+    Set<String> installedIds =
+        pluginManager.getPlugins().stream()
+            .map(PluginWrapper::getPluginId)
+            .collect(Collectors.toSet());
+    model.addAttribute("installedIds", installedIds);
 
     if (marketplace == null) {
       model.addAttribute("plugins", List.of());
@@ -88,6 +102,9 @@ public class PluginCatalogController {
     try {
       InstallResult result = marketplace.installer().install(pluginId, version);
       if (result instanceof InstallResult.Success s) {
+        // Load and start the newly downloaded plugin so PF4J recognises it
+        pluginManager.loadPlugins();
+        pluginManager.startPlugins();
         registry.refresh();
         redirectAttributes.addFlashAttribute(
             "successMessage", "Successfully installed " + s.getPluginId() + "@" + s.getVersion());
