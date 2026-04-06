@@ -239,7 +239,7 @@ databaseChangeLog:
                     unique: true
                     uniqueConstraintName: uq_namespace_access_key_hash
               - column:
-                  name: description
+                  name: name
                   type: varchar(255)
               - column:
                   name: revoked

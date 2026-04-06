@@ -56,7 +56,7 @@ import java.util.UUID
  * @property namespace The [NamespaceEntity] this key grants access to (lazy-loaded).
  * @property keyHash SHA-256 hash of the API key (hex-encoded, 64 chars).
  *   Compared against incoming requests for authentication.
- * @property description Optional free-text description of the intended use
+ * @property name Optional human-readable name to identify the key
  *   (e.g. `CI/CD Pipeline`).
  * @property revoked `true` if the key has been manually revoked and no longer permits
  *   authentication.
@@ -79,8 +79,8 @@ class NamespaceAccessKeyEntity(
     @Column(name = "key_hash", nullable = false, unique = true, length = 64)
     var keyHash: String,
 
-    @Column(name = "description", length = 255)
-    var description: String? = null,
+    @Column(name = "name", length = 255)
+    var name: String? = null,
 
     @Column(name = "revoked", nullable = false)
     var revoked: Boolean = false,

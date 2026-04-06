@@ -56,7 +56,7 @@ ON CONFLICT DO NOTHING;
 -- ============================================================
 -- Namespace Access Keys
 -- ============================================================
-INSERT INTO namespace_access_key (id, namespace_id, key_hash, description, revoked, expires_at) VALUES
+INSERT INTO namespace_access_key (id, namespace_id, key_hash, name, revoked, expires_at) VALUES
   ('c0000000-0000-0000-0000-000000000001',
    (SELECT id FROM namespace WHERE slug = 'default'),
    'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',

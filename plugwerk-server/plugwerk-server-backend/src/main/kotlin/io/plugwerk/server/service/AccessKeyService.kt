@@ -67,7 +67,7 @@ class AccessKeyService(
     @Transactional
     fun create(
         namespaceSlug: String,
-        description: String?,
+        name: String?,
         expiresAt: OffsetDateTime?,
     ): Pair<NamespaceAccessKeyEntity, String> {
         val namespace = namespaceRepository.findBySlug(namespaceSlug)
@@ -80,7 +80,7 @@ class AccessKeyService(
             NamespaceAccessKeyEntity(
                 namespace = namespace,
                 keyHash = keyHash,
-                description = description,
+                name = name,
                 expiresAt = expiresAt,
             ),
         )

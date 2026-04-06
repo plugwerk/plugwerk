@@ -2443,8 +2443,9 @@ components:
         id:
           type: string
           format: uuid
-        description:
+        name:
           type: string
+          description: Optional human-readable name to identify the key
         keyPrefix:
           type: string
           description: First 8 characters of the key hash for identification
@@ -2465,9 +2466,9 @@ components:
       type: object
       description: Request body for generating a new namespace access key
       properties:
-        description:
+        name:
           type: string
-          description: Optional human-readable description
+          description: Optional human-readable name to identify the key
         expiresAt:
           type: string
           format: date-time
@@ -2485,8 +2486,9 @@ components:
         key:
           type: string
           description: The plain-text access key. Only returned once — store it securely.
-        description:
+        name:
           type: string
+          description: Optional human-readable name to identify the key
         createdAt:
           type: string
           format: date-time

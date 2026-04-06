@@ -85,14 +85,14 @@ open class NamespaceAccessKeyRepositoryTest : AbstractRepositoryTest() {
                 NamespaceAccessKeyEntity(
                     namespace = namespace,
                     keyHash = "full-key-hash",
-                    description = "CI/CD key",
+                    name = "CI/CD key",
                     expiresAt = expiresAt,
                 ),
             )
 
         val found = apiKeyRepository.findById(key.id!!).orElseThrow()
 
-        assertThat(found.description).isEqualTo("CI/CD key")
+        assertThat(found.name).isEqualTo("CI/CD key")
         assertThat(found.expiresAt).isNotNull()
         assertThat(found.revoked).isFalse()
     }

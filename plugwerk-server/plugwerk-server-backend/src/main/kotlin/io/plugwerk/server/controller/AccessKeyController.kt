@@ -61,13 +61,13 @@ class AccessKeyController(
         )
         val (entity, plainKey) = accessKeyService.create(
             namespaceSlug = ns,
-            description = accessKeyCreateRequest.description,
+            name = accessKeyCreateRequest.name,
             expiresAt = accessKeyCreateRequest.expiresAt,
         )
         val response = AccessKeyCreateResponse(
             id = entity.id!!,
             key = plainKey,
-            description = entity.description,
+            name = entity.name,
             createdAt = entity.createdAt,
         )
         return ResponseEntity
@@ -87,7 +87,7 @@ class AccessKeyController(
 
     private fun NamespaceAccessKeyEntity.toDto() = AccessKeyDto(
         id = id!!,
-        description = description,
+        name = name,
         keyPrefix = keyHash.take(8),
         revoked = revoked,
         expiresAt = expiresAt,

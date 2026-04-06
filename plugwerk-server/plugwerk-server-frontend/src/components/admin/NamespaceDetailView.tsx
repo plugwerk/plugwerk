@@ -408,7 +408,8 @@ function ApiKeysSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
   const [keys, setKeys] = useState<AccessKeyDto[]>([])
   const [loading, setLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
-  const [description, setDescription] = useState('')
+  const [keyName, setKeyName] = useState('')
+  const [expiresAt, setExpiresAt] = useState('')
   const [creating, setCreating] = useState(false)
   const [newKey, setNewKey] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -434,10 +435,14 @@ function ApiKeysSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
     try {
       const res = await accessKeysApi.createAccessKey({
         ns: slug,
-        accessKeyCreateRequest: { description: description.trim() || undefined },
+        accessKeyCreateRequest: {
+          name: keyName.trim() || undefined,
+          expiresAt: expiresAt || undefined,
+        },
       })
       setNewKey(res.data.key)
-      setDescription('')
+      setKeyName('')
+      setExpiresAt('')
       setCreateOpen(false)
       loadKeys()
     } catch {
@@ -501,9 +506,10 @@ function ApiKeysSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
         <Table size="small" aria-label="API keys">
           <TableHead>
             <TableRow>
-              <TableCell>Description</TableCell>
+              <TableCell>Name</TableCell>
               <TableCell>Key Prefix</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell>Expires</TableCell>
               <TableCell>Created</TableCell>
               <TableCell />
             </TableRow>
@@ -512,7 +518,7 @@ function ApiKeysSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
             {keys.map((key) => (
               <TableRow key={key.id} sx={{ opacity: key.revoked ? 0.5 : 1 }}>
                 <TableCell>
-                  <Typography variant="body2">{key.description || '—'}</Typography>
+                  <Typography variant="body2">{key.name || '—'}</Typography>
                 </TableCell>
                 <TableCell>
                   <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
@@ -525,6 +531,11 @@ function ApiKeysSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
                     size="small"
                     color={key.revoked ? 'default' : 'success'}
                   />
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption" color="text.disabled">
+                    {key.expiresAt ? formatDateTime(key.expiresAt) : 'Never'}
+                  </Typography>
                 </TableCell>
                 <TableCell>
                   <Typography variant="caption" color="text.disabled">
@@ -554,12 +565,21 @@ function ApiKeysSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             <TextField
-              label="Description (optional)"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              label="Name (optional)"
+              value={keyName}
+              onChange={(e) => setKeyName(e.target.value)}
               size="small"
               autoFocus
               helperText="A label to identify this key (e.g. 'CI pipeline')."
+            />
+            <TextField
+              label="Expires (optional)"
+              type="datetime-local"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+              size="small"
+              slotProps={{ inputLabel: { shrink: true } }}
+              helperText="Leave empty for a key that never expires."
             />
           </Box>
         </DialogContent>
