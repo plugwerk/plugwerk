@@ -6,8 +6,9 @@
 --
 -- Creates:
 --   3 namespaces (default, acme-corp, community)
---   30 plugins per namespace (90 total)
+--   30 plugins per namespace (90 total) + 8 draft-only plugins (98 total)
 --   1–3 PUBLISHED releases per plugin (~180 total) with artifact sizes & download counts
+--   30 DRAFT releases: 22 next-version drafts for existing plugins + 8 sole drafts
 --   5 users (admin, alice, bob, charlie, diana)
 --   10 namespace memberships
 --   3 namespace access keys
@@ -339,5 +340,69 @@ JOIN (VALUES
   ('org.community.websocket-client','00000000-0000-0000-0000-000000000003','1.0.0','ci01ci01ci01ci01ci01ci01ci01ci01ci01ci01ci01ci01ci01ci01ci01ci01','artifacts/community/websocket-client/1.0.0.jar',  720000,NULL,NULL,9800,'70 days','JAR','PUBLISHED'),
   ('org.community.xss-sanitizer',   '00000000-0000-0000-0000-000000000003','1.0.0','cj01cj01cj01cj01cj01cj01cj01cj01cj01cj01cj01cj01cj01cj01cj01cj01','artifacts/community/xss-sanitizer/1.0.0.jar',    220000,NULL,NULL,15400,'60 days','JAR','PUBLISHED')
 ) AS rel(plugin_id_str, ns_id, version, sha, key, artifact_size, req, deps, downloads, ago, fmt, st)
+ON p.plugin_id = rel.plugin_id_str AND p.namespace_id = rel.ns_id::uuid
+ON CONFLICT (plugin_id, version) DO NOTHING;
+
+-- ============================================================
+-- Plugins — draft-only plugins (no published releases)
+-- ============================================================
+INSERT INTO plugin (id, namespace_id, plugin_id, name, description, provider, license, homepage, repository, icon, tags, status) VALUES
+  ('40000000-0000-0000-0000-000000000001',(SELECT id FROM namespace WHERE slug = 'default'),'io.plugwerk.graphql-gateway','GraphQL Gateway','Apollo-based GraphQL federation gateway','devtank42','Apache-2.0','https://github.com/devtank42/graphql-gateway',NULL,NULL,'{graphql,apollo,federation}','ACTIVE'),
+  ('40000000-0000-0000-0000-000000000002',(SELECT id FROM namespace WHERE slug = 'default'),'io.plugwerk.grpc-bridge','gRPC Bridge','gRPC-to-REST transcoding proxy','devtank42','MIT',NULL,NULL,NULL,'{grpc,rest,proxy}','ACTIVE'),
+  ('40000000-0000-0000-0000-000000000003',(SELECT id FROM namespace WHERE slug = 'default'),'io.plugwerk.opentelemetry-exporter','OpenTelemetry Exporter','OTLP trace and metric exporter','devtank42','Apache-2.0','https://github.com/devtank42/otel-exporter',NULL,NULL,'{opentelemetry,tracing,metrics}','ACTIVE'),
+  ('40000000-0000-0000-0000-000000000004','00000000-0000-0000-0000-000000000002','com.acme.ai-classifier','AI Classifier','ML-based document classification engine','ACME Corp','AGPL-3.0',NULL,NULL,NULL,'{ml,classification,documents}','ACTIVE'),
+  ('40000000-0000-0000-0000-000000000005','00000000-0000-0000-0000-000000000002','com.acme.e-signature','E-Signature','Qualified electronic signature integration','ACME Corp','AGPL-3.0','https://github.com/acme-corp/e-signature',NULL,NULL,'{signature,legal,qualified}','ACTIVE'),
+  ('40000000-0000-0000-0000-000000000006','00000000-0000-0000-0000-000000000003','org.community.code-editor','Code Editor','Monaco-based in-browser code editor','community','MIT','https://github.com/community-plugins/code-editor',NULL,NULL,'{editor,monaco,syntax}','ACTIVE'),
+  ('40000000-0000-0000-0000-000000000007','00000000-0000-0000-0000-000000000003','org.community.kanban-board','Kanban Board','Drag-and-drop task board with swimlanes','community','MIT',NULL,NULL,NULL,'{kanban,tasks,drag-drop}','ACTIVE'),
+  ('40000000-0000-0000-0000-000000000008','00000000-0000-0000-0000-000000000003','org.community.diff-viewer','Diff Viewer','Side-by-side text diff visualization','community','MIT',NULL,NULL,NULL,'{diff,compare,text}','ACTIVE')
+ON CONFLICT (namespace_id, plugin_id) DO NOTHING;
+
+-- ============================================================
+-- Releases — DRAFT versions
+-- ============================================================
+-- Mix of:
+--   (a) next-version drafts for existing plugins that already have published releases
+--   (b) sole draft releases for the draft-only plugins above
+INSERT INTO plugin_release (id, plugin_id, version, artifact_sha256, artifact_key, artifact_size, file_format, requires_system_version, plugin_dependencies, download_count, status, created_at, updated_at)
+SELECT gen_random_uuid(), p.id, rel.version, rel.sha, (rel.ns_id || ':' || rel.plugin_id_str || ':' || rel.version || ':' || lower(rel.fmt)),
+       rel.artifact_size, rel.fmt, rel.req, rel.deps::jsonb, 0, 'DRAFT'::varchar, now()-rel.ago::interval, now()-rel.ago::interval
+FROM plugin p
+JOIN (VALUES
+  -- (a) next-version drafts for plugins with existing published releases
+  -- default namespace
+  ('io.plugwerk.auth-sso',             (SELECT id FROM namespace WHERE slug = 'default'),'2.0.0-rc1','da01da01da01da01da01da01da01da01da01da01da01da01da01da01da01da01','artifacts/default/auth-sso/2.0.0-rc1.jar',              2600000,'>=3.0.0',NULL,'1 day','JAR'),
+  ('io.plugwerk.audit-log',            (SELECT id FROM namespace WHERE slug = 'default'),'2.2.0-beta','da02da02da02da02da02da02da02da02da02da02da02da02da02da02da02da02','artifacts/default/audit-log/2.2.0-beta.jar',            1900000,'>=2.0.0',NULL,'2 days','JAR'),
+  ('io.plugwerk.cache-redis',          (SELECT id FROM namespace WHERE slug = 'default'),'3.1.0','da03da03da03da03da03da03da03da03da03da03da03da03da03da03da03da03','artifacts/default/cache-redis/3.1.0.jar',                1100000,'>=3.0.0','[{"pluginId": "io.plugwerk.session-manager", "version": ">=1.0.0"}]','12 hours','JAR'),
+  ('io.plugwerk.feature-flags',        (SELECT id FROM namespace WHERE slug = 'default'),'4.1.0','da04da04da04da04da04da04da04da04da04da04da04da04da04da04da04da04','artifacts/default/feature-flags/4.1.0.jar',              1600000,'>=2.0.0',NULL,'6 hours','JAR'),
+  ('io.plugwerk.job-scheduler',        (SELECT id FROM namespace WHERE slug = 'default'),'4.0.0-alpha','da05da05da05da05da05da05da05da05da05da05da05da05da05da05da05da05','artifacts/default/job-scheduler/4.0.0-alpha.jar',    4500000,'>=3.0.0',NULL,'3 days','JAR'),
+  ('io.plugwerk.kafka-bridge',         (SELECT id FROM namespace WHERE slug = 'default'),'2.5.0','da06da06da06da06da06da06da06da06da06da06da06da06da06da06da06da06','artifacts/default/kafka-bridge/2.5.0.jar',               3800000,'>=2.0.0',NULL,'1 day','JAR'),
+  ('io.plugwerk.dashboard-widgets',    (SELECT id FROM namespace WHERE slug = 'default'),'3.0.0-beta','da07da07da07da07da07da07da07da07da07da07da07da07da07da07da07da07','artifacts/default/dashboard-widgets/3.0.0-beta.zip',3400000,NULL,NULL,'4 days','ZIP'),
+  ('io.plugwerk.notification-hub',     (SELECT id FROM namespace WHERE slug = 'default'),'2.0.0','da08da08da08da08da08da08da08da08da08da08da08da08da08da08da08da08','artifacts/default/notification-hub/2.0.0.jar',           2100000,NULL,NULL,'2 days','JAR'),
+  ('io.plugwerk.rate-limiter',         (SELECT id FROM namespace WHERE slug = 'default'),'3.0.0-rc1','da09da09da09da09da09da09da09da09da09da09da09da09da09da09da09da09','artifacts/default/rate-limiter/3.0.0-rc1.jar',       450000,NULL,NULL,'5 days','JAR'),
+  ('io.plugwerk.search-elasticsearch', (SELECT id FROM namespace WHERE slug = 'default'),'2.0.0','da10da10da10da10da10da10da10da10da10da10da10da10da10da10da10da10','artifacts/default/search-elasticsearch/2.0.0.jar',       2800000,'>=3.0.0',NULL,'1 day','JAR'),
+  ('io.plugwerk.tenant-isolation',     (SELECT id FROM namespace WHERE slug = 'default'),'1.5.0','da11da11da11da11da11da11da11da11da11da11da11da11da11da11da11da11','artifacts/default/tenant-isolation/1.5.0.jar',           1700000,NULL,NULL,'3 days','JAR'),
+  -- acme-corp namespace
+  ('com.acme.crm-connector',           '00000000-0000-0000-0000-000000000002','3.0.0-beta','db01db01db01db01db01db01db01db01db01db01db01db01db01db01db01db01','artifacts/acme-corp/crm-connector/3.0.0-beta.jar',       5200000,'>=3.0.0',NULL,'2 days','JAR'),
+  ('com.acme.erp-bridge',              '00000000-0000-0000-0000-000000000002','5.0.0-alpha','db02db02db02db02db02db02db02db02db02db02db02db02db02db02db02db02','artifacts/acme-corp/erp-bridge/5.0.0-alpha.zip',     13000000,'>=3.0.0',NULL,'1 day','ZIP'),
+  ('com.acme.helpdesk-ai',             '00000000-0000-0000-0000-000000000002','3.0.0','db03db03db03db03db03db03db03db03db03db03db03db03db03db03db03db03','artifacts/acme-corp/helpdesk-ai/3.0.0.jar',               8500000,'>=2.0.0',NULL,'4 days','JAR'),
+  ('com.acme.invoice-engine',          '00000000-0000-0000-0000-000000000002','2.0.0-rc1','db04db04db04db04db04db04db04db04db04db04db04db04db04db04db04db04','artifacts/acme-corp/invoice-engine/2.0.0-rc1.jar',   3500000,NULL,NULL,'6 hours','JAR'),
+  ('com.acme.warehouse-wms',           '00000000-0000-0000-0000-000000000002','2.0.0','db05db05db05db05db05db05db05db05db05db05db05db05db05db05db05db05','artifacts/acme-corp/warehouse-wms/2.0.0.jar',             7200000,'>=2.0.0',NULL,'3 days','JAR'),
+  -- community namespace
+  ('org.community.markdown-renderer',  '00000000-0000-0000-0000-000000000003','3.0.0','dc01dc01dc01dc01dc01dc01dc01dc01dc01dc01dc01dc01dc01dc01dc01dc01','artifacts/community/markdown-renderer/3.0.0.jar',        1200000,NULL,NULL,'1 day','JAR'),
+  ('org.community.chart-builder',      '00000000-0000-0000-0000-000000000003','2.0.0-beta','dc02dc02dc02dc02dc02dc02dc02dc02dc02dc02dc02dc02dc02dc02dc02dc02','artifacts/community/chart-builder/2.0.0-beta.jar',  2400000,NULL,NULL,'2 days','JAR'),
+  ('org.community.quick-search',       '00000000-0000-0000-0000-000000000003','3.0.0','dc03dc03dc03dc03dc03dc03dc03dc03dc03dc03dc03dc03dc03dc03dc03dc03','artifacts/community/quick-search/3.0.0.jar',             380000,NULL,NULL,'5 days','JAR'),
+  ('org.community.rich-text-editor',   '00000000-0000-0000-0000-000000000003','2.0.0-alpha','dc04dc04dc04dc04dc04dc04dc04dc04dc04dc04dc04dc04dc04dc04dc04dc04','artifacts/community/rich-text-editor/2.0.0-alpha.jar',3100000,NULL,NULL,'3 days','JAR'),
+  ('org.community.virtualized-list',   '00000000-0000-0000-0000-000000000003','4.0.0','dc05dc05dc05dc05dc05dc05dc05dc05dc05dc05dc05dc05dc05dc05dc05dc05','artifacts/community/virtualized-list/4.0.0.jar',         350000,NULL,NULL,'8 hours','JAR'),
+  ('org.community.websocket-client',   '00000000-0000-0000-0000-000000000003','2.0.0-rc1','dc06dc06dc06dc06dc06dc06dc06dc06dc06dc06dc06dc06dc06dc06dc06dc06','artifacts/community/websocket-client/2.0.0-rc1.jar', 900000,NULL,NULL,'4 days','JAR'),
+  -- (b) sole draft releases for draft-only plugins (no published versions exist)
+  ('io.plugwerk.graphql-gateway',      (SELECT id FROM namespace WHERE slug = 'default'),'0.1.0','dd01dd01dd01dd01dd01dd01dd01dd01dd01dd01dd01dd01dd01dd01dd01dd01','artifacts/default/graphql-gateway/0.1.0.jar',            3200000,'>=3.0.0',NULL,'2 days','JAR'),
+  ('io.plugwerk.grpc-bridge',          (SELECT id FROM namespace WHERE slug = 'default'),'0.1.0-alpha','dd02dd02dd02dd02dd02dd02dd02dd02dd02dd02dd02dd02dd02dd02dd02dd02','artifacts/default/grpc-bridge/0.1.0-alpha.jar',  1800000,NULL,NULL,'5 days','JAR'),
+  ('io.plugwerk.opentelemetry-exporter',(SELECT id FROM namespace WHERE slug = 'default'),'0.2.0','dd03dd03dd03dd03dd03dd03dd03dd03dd03dd03dd03dd03dd03dd03dd03dd03','artifacts/default/otel-exporter/0.2.0.jar',              2400000,'>=3.0.0',NULL,'1 day','JAR'),
+  ('com.acme.ai-classifier',           '00000000-0000-0000-0000-000000000002','0.1.0','dd04dd04dd04dd04dd04dd04dd04dd04dd04dd04dd04dd04dd04dd04dd04dd04','artifacts/acme-corp/ai-classifier/0.1.0.jar',             9500000,'>=2.0.0',NULL,'3 days','JAR'),
+  ('com.acme.e-signature',             '00000000-0000-0000-0000-000000000002','0.1.0-beta','dd05dd05dd05dd05dd05dd05dd05dd05dd05dd05dd05dd05dd05dd05dd05dd05','artifacts/acme-corp/e-signature/0.1.0-beta.jar',     4100000,NULL,NULL,'7 days','JAR'),
+  ('org.community.code-editor',        '00000000-0000-0000-0000-000000000003','0.1.0','dd06dd06dd06dd06dd06dd06dd06dd06dd06dd06dd06dd06dd06dd06dd06dd06','artifacts/community/code-editor/0.1.0.jar',               5600000,NULL,NULL,'4 days','JAR'),
+  ('org.community.kanban-board',       '00000000-0000-0000-0000-000000000003','0.1.0','dd07dd07dd07dd07dd07dd07dd07dd07dd07dd07dd07dd07dd07dd07dd07dd07','artifacts/community/kanban-board/0.1.0.jar',              1400000,NULL,NULL,'6 days','JAR'),
+  ('org.community.diff-viewer',        '00000000-0000-0000-0000-000000000003','0.1.0-alpha','dd08dd08dd08dd08dd08dd08dd08dd08dd08dd08dd08dd08dd08dd08dd08dd08','artifacts/community/diff-viewer/0.1.0-alpha.jar',    800000,NULL,NULL,'10 days','JAR')
+) AS rel(plugin_id_str, ns_id, version, sha, key, artifact_size, req, deps, ago, fmt)
 ON p.plugin_id = rel.plugin_id_str AND p.namespace_id = rel.ns_id::uuid
 ON CONFLICT (plugin_id, version) DO NOTHING;
