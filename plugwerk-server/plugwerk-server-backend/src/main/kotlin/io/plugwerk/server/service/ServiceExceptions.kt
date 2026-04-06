@@ -46,6 +46,8 @@ class UnauthorizedException(message: String) : RuntimeException(message)
 
 class ForbiddenException(message: String) : RuntimeException(message)
 
+class InvalidArtifactException(message: String) : RuntimeException(message)
+
 class FileTooLargeException(actualSizeBytes: Long, maxSizeMb: Int) :
     RuntimeException(
         "File size ${actualSizeBytes / 1_048_576} MB exceeds maximum allowed $maxSizeMb MB",

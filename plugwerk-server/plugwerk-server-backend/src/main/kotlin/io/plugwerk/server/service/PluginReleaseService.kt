@@ -131,6 +131,9 @@ class PluginReleaseService(
         if (bytes.size > maxBytes) {
             throw FileTooLargeException(bytes.size.toLong(), properties.upload.maxFileSizeMb)
         }
+        if (bytes.size < 4 || bytes[0] != 0x50.toByte() || bytes[1] != 0x4B.toByte()) {
+            throw InvalidArtifactException("Uploaded file is not a valid JAR/ZIP archive")
+        }
         val descriptor = descriptorResolver.resolve(ByteArrayInputStream(bytes))
         val sha256 = computeSha256(bytes)
         val plugin = findOrCreatePlugin(namespaceSlug, descriptor)

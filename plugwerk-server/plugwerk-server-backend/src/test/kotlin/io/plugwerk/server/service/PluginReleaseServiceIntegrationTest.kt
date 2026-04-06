@@ -71,6 +71,8 @@ class PluginReleaseServiceIntegrationTest {
     }
 
     companion object {
+        private val FAKE_JAR = byteArrayOf(0x50, 0x4B, 0x03, 0x04) + "fake".toByteArray()
+
         @DynamicPropertySource
         @JvmStatic
         fun configureProperties(registry: DynamicPropertyRegistry) {
@@ -101,7 +103,7 @@ class PluginReleaseServiceIntegrationTest {
         val descriptor = PlugwerkDescriptor(id = "auto-plugin", version = "1.0.0", name = "Auto Plugin")
         whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
 
-        val result = releaseService.upload("rel-int-ns", ByteArrayInputStream("fake".toByteArray()), 4)
+        val result = releaseService.upload("rel-int-ns", ByteArrayInputStream(FAKE_JAR), FAKE_JAR.size.toLong())
 
         assertThat(result.version).isEqualTo("1.0.0")
         assertThat(result.artifactKey).isEqualTo("${testNamespace.id}:auto-plugin:1.0.0:jar")
@@ -113,10 +115,10 @@ class PluginReleaseServiceIntegrationTest {
         val descriptor = PlugwerkDescriptor(id = "dup-plugin", version = "1.0.0", name = "Dup Plugin")
         whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
 
-        releaseService.upload("rel-int-ns", ByteArrayInputStream("fake".toByteArray()), 4)
+        releaseService.upload("rel-int-ns", ByteArrayInputStream(FAKE_JAR), FAKE_JAR.size.toLong())
 
         assertFailsWith<ReleaseAlreadyExistsException> {
-            releaseService.upload("rel-int-ns", ByteArrayInputStream("fake".toByteArray()), 4)
+            releaseService.upload("rel-int-ns", ByteArrayInputStream(FAKE_JAR), FAKE_JAR.size.toLong())
         }
     }
 
@@ -124,7 +126,7 @@ class PluginReleaseServiceIntegrationTest {
     fun `updateStatus transitions release to PUBLISHED`() {
         val descriptor = PlugwerkDescriptor(id = "pub-plugin", version = "1.0.0", name = "Pub Plugin")
         whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
-        releaseService.upload("rel-int-ns", ByteArrayInputStream("fake".toByteArray()), 4)
+        releaseService.upload("rel-int-ns", ByteArrayInputStream(FAKE_JAR), FAKE_JAR.size.toLong())
 
         releaseService.updateStatus("rel-int-ns", "pub-plugin", "1.0.0", ReleaseStatus.PUBLISHED)
 
@@ -138,8 +140,8 @@ class PluginReleaseServiceIntegrationTest {
         val d2 = PlugwerkDescriptor(id = "order-plugin", version = "2.0.0", name = "Plugin")
         whenever(descriptorResolver.resolve(any())).thenReturn(d1).thenReturn(d2)
 
-        releaseService.upload("rel-int-ns", ByteArrayInputStream("fake".toByteArray()), 4)
-        releaseService.upload("rel-int-ns", ByteArrayInputStream("fake".toByteArray()), 4)
+        releaseService.upload("rel-int-ns", ByteArrayInputStream(FAKE_JAR), FAKE_JAR.size.toLong())
+        releaseService.upload("rel-int-ns", ByteArrayInputStream(FAKE_JAR), FAKE_JAR.size.toLong())
 
         val releases = releaseService.findAllByPlugin("rel-int-ns", "order-plugin")
         assertThat(releases).hasSize(2)

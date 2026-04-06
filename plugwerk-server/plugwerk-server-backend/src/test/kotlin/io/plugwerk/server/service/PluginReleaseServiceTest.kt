@@ -90,9 +90,12 @@ class PluginReleaseServiceTest {
         )
     }
 
+    private fun fakeJarBytes(content: String = "fake-jar-content"): ByteArray =
+        byteArrayOf(0x50, 0x4B, 0x03, 0x04) + content.toByteArray()
+
     @Test
     fun `upload creates release from descriptor and stores artifact`() {
-        val jarBytes = "fake-jar-content".toByteArray()
+        val jarBytes = fakeJarBytes()
         val descriptor = PlugwerkDescriptor(id = "my-plugin", version = "1.0.0", name = "My Plugin")
 
         whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
@@ -121,7 +124,7 @@ class PluginReleaseServiceTest {
 
     @Test
     fun `upload stores artifact size in bytes`() {
-        val jarBytes = "fake-jar-content".toByteArray()
+        val jarBytes = fakeJarBytes()
         val descriptor = PlugwerkDescriptor(id = "my-plugin", version = "1.0.0", name = "My Plugin")
 
         whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
@@ -140,7 +143,7 @@ class PluginReleaseServiceTest {
 
     @Test
     fun `upload sets fileFormat to JAR for jar uploads`() {
-        val jarBytes = "fake-jar-content".toByteArray()
+        val jarBytes = fakeJarBytes()
         val descriptor = PlugwerkDescriptor(id = "my-plugin", version = "1.0.0", name = "My Plugin")
 
         whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
@@ -157,7 +160,7 @@ class PluginReleaseServiceTest {
 
     @Test
     fun `upload sets fileFormat to ZIP for zip uploads`() {
-        val zipBytes = "fake-zip-content".toByteArray()
+        val zipBytes = fakeJarBytes("fake-zip-content")
         val descriptor = PlugwerkDescriptor(id = "my-plugin", version = "1.0.0", name = "My Plugin")
 
         whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
@@ -174,7 +177,7 @@ class PluginReleaseServiceTest {
 
     @Test
     fun `upload defaults fileFormat to JAR when no filename provided`() {
-        val jarBytes = "fake-jar-content".toByteArray()
+        val jarBytes = fakeJarBytes()
         val descriptor = PlugwerkDescriptor(id = "my-plugin", version = "1.0.0", name = "My Plugin")
 
         whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
@@ -191,7 +194,7 @@ class PluginReleaseServiceTest {
 
     @Test
     fun `upload throws ReleaseAlreadyExistsException when version exists`() {
-        val jarBytes = "fake-jar-content".toByteArray()
+        val jarBytes = fakeJarBytes()
         val descriptor = PlugwerkDescriptor(id = "my-plugin", version = "1.0.0", name = "My Plugin")
 
         whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
@@ -206,7 +209,7 @@ class PluginReleaseServiceTest {
 
     @Test
     fun `upload auto-creates plugin when it does not exist`() {
-        val jarBytes = "fake-jar-content".toByteArray()
+        val jarBytes = fakeJarBytes()
         val descriptor = PlugwerkDescriptor(id = "new-plugin", version = "1.0.0", name = "New Plugin")
         val newPlugin = PluginEntity(namespace = namespace, pluginId = "new-plugin", name = "New Plugin")
 
@@ -404,8 +407,26 @@ class PluginReleaseServiceTest {
     }
 
     @Test
+    fun `upload throws InvalidArtifactException when magic bytes are not ZIP or JAR`() {
+        val invalidBytes = "this-is-not-a-jar".toByteArray()
+
+        assertFailsWith<InvalidArtifactException> {
+            releaseService.upload("acme", ByteArrayInputStream(invalidBytes), invalidBytes.size.toLong())
+        }
+    }
+
+    @Test
+    fun `upload throws InvalidArtifactException when file is too short for magic bytes`() {
+        val tinyBytes = byteArrayOf(0x50)
+
+        assertFailsWith<InvalidArtifactException> {
+            releaseService.upload("acme", ByteArrayInputStream(tinyBytes), tinyBytes.size.toLong())
+        }
+    }
+
+    @Test
     fun `upload succeeds when file is within size limit`() {
-        val jarBytes = "small-content".toByteArray()
+        val jarBytes = fakeJarBytes("small-content")
         val descriptor = PlugwerkDescriptor(id = "my-plugin", version = "2.0.0", name = "My Plugin")
 
         whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)

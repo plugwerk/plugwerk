@@ -28,6 +28,7 @@ import io.plugwerk.server.service.ConflictException
 import io.plugwerk.server.service.EntityNotFoundException
 import io.plugwerk.server.service.FileTooLargeException
 import io.plugwerk.server.service.ForbiddenException
+import io.plugwerk.server.service.InvalidArtifactException
 import io.plugwerk.server.service.NamespaceAlreadyExistsException
 import io.plugwerk.server.service.NamespaceNotFoundException
 import io.plugwerk.server.service.PluginAlreadyExistsException
@@ -98,6 +99,10 @@ class GlobalExceptionHandler {
     )
     fun handleDescriptorError(ex: RuntimeException): ResponseEntity<ErrorResponse> =
         errorResponse(HttpStatus.UNPROCESSABLE_ENTITY, ex.message ?: "Plugin descriptor is invalid or missing")
+
+    @ExceptionHandler(InvalidArtifactException::class)
+    fun handleInvalidArtifact(ex: InvalidArtifactException): ResponseEntity<ErrorResponse> =
+        errorResponse(HttpStatus.UNPROCESSABLE_ENTITY, ex.message ?: "Invalid artifact")
 
     @ExceptionHandler(FileTooLargeException::class)
     fun handleFileTooLarge(ex: FileTooLargeException): ResponseEntity<ErrorResponse> =

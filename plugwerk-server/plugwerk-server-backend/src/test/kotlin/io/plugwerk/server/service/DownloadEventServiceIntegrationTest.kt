@@ -71,6 +71,8 @@ class DownloadEventServiceIntegrationTest {
     }
 
     companion object {
+        private val FAKE_JAR = byteArrayOf(0x50, 0x4B, 0x03, 0x04) + "fake".toByteArray()
+
         @DynamicPropertySource
         @JvmStatic
         fun configureProperties(registry: DynamicPropertyRegistry) {
@@ -101,7 +103,7 @@ class DownloadEventServiceIntegrationTest {
     fun `record persists download event with correct release FK`() {
         val descriptor = PlugwerkDescriptor(id = "evt-plugin", version = "1.0.0", name = "Event Plugin")
         whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
-        val release = releaseService.upload("dl-event-ns", ByteArrayInputStream("fake".toByteArray()), 4)
+        val release = releaseService.upload("dl-event-ns", ByteArrayInputStream(FAKE_JAR), FAKE_JAR.size.toLong())
 
         downloadEventService.record(release, "10.20.30.40", "curl/7.88")
 
@@ -117,7 +119,7 @@ class DownloadEventServiceIntegrationTest {
     fun `cascade delete removes events when release is deleted`() {
         val descriptor = PlugwerkDescriptor(id = "cascade-plugin", version = "1.0.0", name = "Cascade Plugin")
         whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
-        val release = releaseService.upload("dl-event-ns", ByteArrayInputStream("fake".toByteArray()), 4)
+        val release = releaseService.upload("dl-event-ns", ByteArrayInputStream(FAKE_JAR), FAKE_JAR.size.toLong())
 
         downloadEventService.record(release, "1.2.3.4", null)
         downloadEventService.record(release, "5.6.7.8", null)
