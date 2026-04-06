@@ -167,6 +167,7 @@ plugwerk/
 - **API-First** – OpenAPI 3.1 spec in `plugwerk-api` is the single source of truth
 - **Transactional installation** – no partial state on failure; rollback requires retaining previous version
 - **Namespace isolation** – all resources are scoped to a namespace; one server serves multiple products/organizations
+- **Shared `DataTable` component** – all tabular views use `src/components/common/DataTable.tsx` for consistent styling (see [ADR-0004](docs/adrs/0004-frontend-conventions.md) § Tables)
 
 ### Core Data Model
 

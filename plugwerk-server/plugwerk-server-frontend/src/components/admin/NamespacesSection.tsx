@@ -25,13 +25,10 @@ import {
   Snackbar,
   Alert,
   CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
 } from '@mui/material'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { DataTable } from '../common/DataTable'
+import type { DataColumn } from '../common/DataTable'
 import { namespacesApi } from '../../api/config'
 import type { NamespaceSummary } from '../../api/generated/model'
 import { CreateNamespaceDialog } from './CreateNamespaceDialog'
@@ -73,6 +70,34 @@ export function NamespacesSection() {
     setToast({ message: `Namespace "${slug}" deleted.`, severity: 'success' })
   }
 
+  const namespaceCols: DataColumn<NamespaceSummary>[] = [
+    {
+      key: 'slug',
+      header: 'Slug',
+      render: (ns) => <Typography variant="body2" fontWeight={500}>{ns.slug}</Typography>,
+    },
+    {
+      key: 'owner',
+      header: 'Owner',
+      render: (ns) => <Typography variant="caption" color="text.secondary">{ns.ownerOrg || '\u2014'}</Typography>,
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      render: (ns) => (
+        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+          <Button size="small" startIcon={<Pencil size={14} />} onClick={() => setEditingSlug(ns.slug)}>
+            Edit
+          </Button>
+          <Button size="small" color="error" startIcon={<Trash2 size={14} />} onClick={() => setDeleteTarget(ns)}>
+            Delete
+          </Button>
+        </Box>
+      ),
+    },
+  ]
+
   if (editingSlug) {
     return (
       <NamespaceDetailView
@@ -102,46 +127,12 @@ export function NamespacesSection() {
       ) : namespaces.length === 0 ? (
         <Typography variant="body2" color="text.secondary">No namespaces found.</Typography>
       ) : (
-        <Table size="small" aria-label="Namespaces">
-          <TableHead>
-            <TableRow>
-              <TableCell>Slug</TableCell>
-              <TableCell>Owner</TableCell>
-              <TableCell />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {namespaces.map((ns) => (
-              <TableRow key={ns.slug}>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>{ns.slug}</Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="caption" color="text.secondary">{ns.ownerOrg || '\u2014'}</Typography>
-                </TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                    <Button
-                      size="small"
-                      startIcon={<Pencil size={14} />}
-                      onClick={() => setEditingSlug(ns.slug)}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      size="small"
-                      color="error"
-                      startIcon={<Trash2 size={14} />}
-                      onClick={() => setDeleteTarget(ns)}
-                    >
-                      Delete
-                    </Button>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataTable<NamespaceSummary>
+          ariaLabel="Namespaces"
+          rows={namespaces}
+          keyFn={(ns) => ns.slug}
+          columns={namespaceCols}
+        />
       )}
 
       <CreateNamespaceDialog

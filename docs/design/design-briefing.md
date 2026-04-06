@@ -234,11 +234,17 @@ The plugin card is the central UI element of the catalog.
 
 ### 4.5 Tables
 
-- **Header:** `#F4F4F4` background, Bold (600), left-aligned text
-- **Rows:** Alternating row colors (`#FFFFFF` / `#F9F9F9`)
-- **Hover:** Row highlighted with `#E8E8E8`
-- **Sortable Columns:** Chevron icon in header
-- **Pagination:** At table footer, compact (< 1 2 3 ... 12 >)
+All tabular data uses the shared `DataTable` component (`src/components/common/DataTable.tsx`) for consistent styling across the application.
+
+- **Header:** No background color. Uppercase, 12px, 600 weight, `text.disabled` color, `0.04em` letter-spacing
+- **Rows:** No alternating colors. Uniform `background.paper` with `1px solid divider` bottom border
+- **Hover:** Subtle `background.default` on hover (150ms transition)
+- **Padding:** `px: 2, py: 1.5` per cell (matching the catalog list row style)
+- **Last Row:** No bottom border (`&:last-child td { borderBottom: none }`)
+- **Actions Column:** Right-aligned, consistent icon size (14px in buttons)
+- **Empty State:** Inline text message when no rows (e.g. "No members found.")
+- **Conditional Row Styling:** Via `rowSx` prop (e.g. draft highlighting, revoked opacity)
+- **Pagination:** At table footer, compact (< 1 2 3 ... 12 >) — when applicable
 
 ---
 

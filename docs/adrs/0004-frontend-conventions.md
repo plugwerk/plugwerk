@@ -186,17 +186,36 @@ The frontend uses JWT Bearer tokens issued by `POST /api/v1/auth/login`.
 ### Component Conventions
 
 - **Named exports only** — no default exports from component files.
-- **License header** on every `.tsx`/`.ts` file:
-  ```typescript
-  // SPDX-License-Identifier: AGPL-3.0
-  // Copyright (C) 2026 devtank42 GmbH
-  ```
+- **License header** on every `.tsx`/`.ts` file — full AGPL block comment from `license-header.txt`.
 - **MUI `sx` prop** for styling — no CSS files, no inline `style={{}}` for complex rules.
 - **Design tokens** from `src/theme/tokens.ts` for colors, radii, and spacing constants.
   Do not hardcode hex values or pixel values that exist in `tokens`.
 - **lucide-react** for all icons. Icon size `15` in buttons, `16–18` in toolbars, `20–36` in content areas.
 - **Accessibility**: every interactive element needs an `aria-label`. Use semantic roles
   (`role="list"`, `role="search"`, `role="banner"`, `role="alert"`). Provide skip links on layout shells.
+
+### Tables
+
+All tabular data **must** use the shared `DataTable` component (`src/components/common/DataTable.tsx`).
+Do not use MUI `<Table>` directly — use `DataTable` with declarative column definitions.
+
+```tsx
+import { DataTable } from '../common/DataTable'
+import type { DataColumn } from '../common/DataTable'
+
+const columns: DataColumn<MyRow>[] = [
+  { key: 'name', header: 'Name', render: (row) => <Typography>{row.name}</Typography> },
+  { key: 'actions', header: '', align: 'right', render: (row) => <Button>Edit</Button> },
+]
+
+<DataTable columns={columns} rows={data} keyFn={(r) => r.id} ariaLabel="My table" />
+```
+
+**Rules:**
+- Column definitions inside the component function (closures over handlers).
+- Actions column: `align: 'right'`, empty header string.
+- Conditional row styling via `rowSx` prop, not per-cell hacks.
+- Empty state via `emptyMessage` prop.
 
 ### Error Handling in Components
 
