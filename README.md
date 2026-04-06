@@ -37,7 +37,7 @@ A **namespace** scopes all plugins for one product (e.g. `acme-crm`). Plugin met
 ### Start with Docker Compose
 
 ```bash
-git clone https://github.com/devtank42gmbh/plugwerk.git
+git clone https://github.com/plugwerk/plugwerk.git
 cd plugwerk
 docker compose up -d
 ```

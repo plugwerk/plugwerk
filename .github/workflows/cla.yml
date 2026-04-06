@@ -23,7 +23,7 @@ jobs:
           PERSONAL_ACCESS_TOKEN: ${{ secrets.CLA_TOKEN }}
         with:
           path-to-signatures: signatures/cla.json
-          path-to-document: https://github.com/devtank42gmbh/plugwerk/blob/main/CLA.md
+          path-to-document: https://github.com/plugwerk/plugwerk/blob/main/CLA.md
           branch: cla-signatures
           allowlist: bigpuritz,devtank42,*[bot]
           create-file-commit-message: "chore: initialize CLA signatures file"
@@ -34,7 +34,7 @@ jobs:
             Before we can merge this PR, you need to sign the **Contributor License Agreement (CLA)**.
             This is required to allow PlugWerk to offer commercial licensing alongside its open-source license.
 
-            Please read [CLA.md](https://github.com/devtank42gmbh/plugwerk/blob/main/CLA.md) — it is short and written in plain language.
+            Please read [CLA.md](https://github.com/plugwerk/plugwerk/blob/main/CLA.md) — it is short and written in plain language.
 
             Then post the following comment **in this PR**:
 
