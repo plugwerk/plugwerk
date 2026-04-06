@@ -67,14 +67,14 @@ describe('ChangePasswordPage', () => {
     await user.type(screen.getByLabelText(/confirm new password/i), 'short')
     await user.click(screen.getByRole('button', { name: /set new password/i }))
 
-    expect(screen.getByText(/must be at least 8 characters/i)).toBeInTheDocument()
+    expect(screen.getByText(/must be at least 12 characters/i)).toBeInTheDocument()
   })
 
   it('shows validation error when passwords do not match', async () => {
     const user = userEvent.setup()
     renderWithRouter(<ChangePasswordPage />)
     await user.type(screen.getByLabelText(/current password/i), 'oldpassword')
-    await user.type(screen.getByLabelText(/^new password/i), 'newpassword1')
+    await user.type(screen.getByLabelText(/^new password/i), 'newpassword12')
     await user.type(screen.getByLabelText(/confirm new password/i), 'different123')
     await user.click(screen.getByRole('button', { name: /set new password/i }))
 
@@ -88,12 +88,12 @@ describe('ChangePasswordPage', () => {
     const user = userEvent.setup()
     renderWithRouter(<ChangePasswordPage />)
     await user.type(screen.getByLabelText(/current password/i), 'oldpassword')
-    await user.type(screen.getByLabelText(/^new password/i), 'newpassword1')
-    await user.type(screen.getByLabelText(/confirm new password/i), 'newpassword1')
+    await user.type(screen.getByLabelText(/^new password/i), 'newpassword12')
+    await user.type(screen.getByLabelText(/confirm new password/i), 'newpassword12')
     await user.click(screen.getByRole('button', { name: /set new password/i }))
 
     await waitFor(() => {
-      expect(mockChange).toHaveBeenCalledWith({ changePasswordRequest: { currentPassword: 'oldpassword', newPassword: 'newpassword1' } })
+      expect(mockChange).toHaveBeenCalledWith({ changePasswordRequest: { currentPassword: 'oldpassword', newPassword: 'newpassword12' } })
     })
   })
 
@@ -103,8 +103,8 @@ describe('ChangePasswordPage', () => {
     const user = userEvent.setup()
     renderWithRouter(<ChangePasswordPage />)
     await user.type(screen.getByLabelText(/current password/i), 'wrongold')
-    await user.type(screen.getByLabelText(/^new password/i), 'newpassword1')
-    await user.type(screen.getByLabelText(/confirm new password/i), 'newpassword1')
+    await user.type(screen.getByLabelText(/^new password/i), 'newpassword12')
+    await user.type(screen.getByLabelText(/confirm new password/i), 'newpassword12')
     await user.click(screen.getByRole('button', { name: /set new password/i }))
 
     await waitFor(() => {

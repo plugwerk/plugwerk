@@ -165,7 +165,7 @@ class AdminUserControllerTest {
 
         mockMvc.post("/api/v1/admin/users") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"username":"bob","password":"secret123"}"""
+            content = """{"username":"bob","password":"secret123long"}"""
         }.andExpect {
             status { isCreated() }
             jsonPath("$.username") { value("bob") }
@@ -178,7 +178,7 @@ class AdminUserControllerTest {
 
         mockMvc.post("/api/v1/admin/users") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"username":"alice","password":"password123"}"""
+            content = """{"username":"alice","password":"password12345"}"""
         }.andExpect {
             status { isConflict() }
         }
@@ -260,7 +260,7 @@ class AdminUserControllerTest {
 
         mockMvc.post("/api/v1/admin/users") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"username":"eve","password":"password123"}"""
+            content = """{"username":"eve","password":"password12345"}"""
         }.andExpect {
             status { isForbidden() }
         }

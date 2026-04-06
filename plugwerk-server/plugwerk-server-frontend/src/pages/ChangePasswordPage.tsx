@@ -35,8 +35,8 @@ export function ChangePasswordPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (newPassword.length < 8) {
-      setError('New password must be at least 8 characters.')
+    if (newPassword.length < 12) {
+      setError('New password must be at least 12 characters.')
       return
     }
     if (newPassword !== confirmPassword) {
@@ -85,7 +85,7 @@ export function ChangePasswordPage() {
           required
           size="small"
           autoComplete="new-password"
-          helperText="At least 8 characters"
+          helperText="At least 12 characters"
         />
         <TextField
           label="Confirm New Password"
