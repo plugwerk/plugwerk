@@ -1,0 +1,8 @@
+server:
+  port: ${SERVER_PORT:8081}  # different from Plugwerk server (8080)
+
+plugwerk:
+  server-url: ${PLUGWERK_SERVER_URL:http://localhost:8080}
+  namespace: ${PLUGWERK_NAMESPACE:default}
+  api-key: ${PLUGWERK_API_KEY:}
+  plugins-dir: ${PLUGWERK_PLUGINS_DIR:./plugins}

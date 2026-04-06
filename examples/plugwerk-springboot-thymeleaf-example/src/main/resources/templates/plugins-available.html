@@ -1,0 +1,75 @@
+<!--
+  ~ Copyright (c) 2025-present devtank42 GmbH
+  ~
+  ~ This file is part of Plugwerk.
+  ~
+  ~ Plugwerk is free software: you can redistribute it and/or modify
+  ~ it under the terms of the GNU Affero General Public License as published by
+  ~ the Free Software Foundation, either version 3 of the License, or
+  ~ (at your option) any later version.
+  ~
+  ~ Plugwerk is distributed in the hope that it will be useful,
+  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
+  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  ~ GNU Affero General Public License for more details.
+  ~
+  ~ You should have received a copy of the GNU Affero General Public License
+  ~ along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
+  -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+<head>
+    <title>Available Plugins</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <h1>Available Plugins</h1>
+
+    <div th:if="${serverUnavailable}" class="empty-state">
+        <h2>Server Unavailable</h2>
+        <p>Could not connect to the Plugwerk server. Make sure the server is running and the configuration is correct.</p>
+    </div>
+
+    <div th:if="${!serverUnavailable and #lists.isEmpty(plugins)}" class="empty-state">
+        <h2>No Plugins Available</h2>
+        <p>The plugin catalog is empty. Upload plugins to the Plugwerk server to see them here.</p>
+    </div>
+
+    <table th:if="${!serverUnavailable and !#lists.isEmpty(plugins)}">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Plugin ID</th>
+                <th>Version</th>
+                <th>Description</th>
+                <th>Tags</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="plugin : ${plugins}">
+                <td th:text="${plugin.name}">Plugin Name</td>
+                <td><code th:text="${plugin.pluginId}">io.example.plugin</code></td>
+                <td th:text="${plugin.latestVersion ?: '-'}">1.0.0</td>
+                <td th:text="${plugin.description ?: '-'}">A plugin description</td>
+                <td>
+                    <div class="tags">
+                        <span class="tag" th:each="tag : ${plugin.tags}" th:text="${tag}">tag</span>
+                    </div>
+                </td>
+                <td>
+                    <span th:if="${installedIds.contains(plugin.pluginId)}" class="badge badge-installed">Installed</span>
+                    <form th:if="${plugin.latestVersion != null and !installedIds.contains(plugin.pluginId)}" th:action="@{/plugins/install}" method="post" style="display:inline">
+                        <input type="hidden" name="pluginId" th:value="${plugin.pluginId}"/>
+                        <input type="hidden" name="version" th:value="${plugin.latestVersion}"/>
+                        <button type="submit" class="btn btn-primary">Install</button>
+                    </form>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>
