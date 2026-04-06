@@ -563,6 +563,7 @@ function ReviewsSection() {
     async function load() {
       setLoading(true)
       try {
+        if (!namespace) return
         const res = await reviewsApi.listPendingReviews({ ns: namespace })
         setItems(res.data)
       } catch {
@@ -577,7 +578,7 @@ function ReviewsSection() {
   async function handleApprove(item: ReviewItemDto) {
     setApprovingId(item.releaseId)
     try {
-      await reviewsApi.approveRelease({ ns: namespace, releaseId: item.releaseId })
+      await reviewsApi.approveRelease({ ns: namespace!, releaseId: item.releaseId })
       setItems((prev) => prev.filter((i) => i.releaseId !== item.releaseId))
       setToast({ message: `${item.pluginName} v${item.version} approved and published.`, severity: 'success' })
     } catch {

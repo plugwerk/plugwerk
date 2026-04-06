@@ -106,7 +106,7 @@ export function UploadModal() {
         },
       })
       addToast({ type: 'success', title: 'Release uploaded', message: 'Your release is pending review.' })
-      usePluginStore.getState().fetchPlugins(namespace)
+      if (namespace) usePluginStore.getState().fetchPlugins(namespace)
       handleClose()
     } catch (err: unknown) {
       const message = axios.isAxiosError(err)
