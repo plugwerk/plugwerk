@@ -2452,7 +2452,7 @@ components:
           format: uuid
         name:
           type: string
-          description: Optional human-readable name to identify the key
+          description: Human-readable name identifying the key (unique within the namespace)
         keyPrefix:
           type: string
           description: First 8 characters of the key hash for identification
@@ -2466,6 +2466,7 @@ components:
           format: date-time
       required:
         - id
+        - name
         - revoked
         - createdAt
 
@@ -2475,11 +2476,13 @@ components:
       properties:
         name:
           type: string
-          description: Optional human-readable name to identify the key
+          description: Human-readable name identifying the key (must be unique within the namespace)
         expiresAt:
           type: string
           format: date-time
           description: Optional expiry date
+      required:
+        - name
 
     AccessKeyCreateResponse:
       type: object
@@ -2495,13 +2498,14 @@ components:
           description: The plain-text access key. Only returned once — store it securely.
         name:
           type: string
-          description: Optional human-readable name to identify the key
+          description: Human-readable name identifying the key
         createdAt:
           type: string
           format: date-time
       required:
         - id
         - key
+        - name
         - createdAt
 
   responses:

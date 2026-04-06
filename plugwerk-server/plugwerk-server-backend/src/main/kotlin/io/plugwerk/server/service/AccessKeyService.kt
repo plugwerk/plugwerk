@@ -21,6 +21,7 @@ package io.plugwerk.server.service
 import io.plugwerk.server.domain.NamespaceAccessKeyEntity
 import io.plugwerk.server.repository.NamespaceAccessKeyRepository
 import io.plugwerk.server.repository.NamespaceRepository
+import io.plugwerk.server.service.ConflictException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.security.MessageDigest
@@ -67,11 +68,15 @@ class AccessKeyService(
     @Transactional
     fun create(
         namespaceSlug: String,
-        name: String?,
+        name: String,
         expiresAt: OffsetDateTime?,
     ): Pair<NamespaceAccessKeyEntity, String> {
         val namespace = namespaceRepository.findBySlug(namespaceSlug)
             .orElseThrow { NamespaceNotFoundException(namespaceSlug) }
+
+        if (accessKeyRepository.existsByNamespaceAndName(namespace, name)) {
+            throw ConflictException("An access key named '$name' already exists in namespace '$namespaceSlug'")
+        }
 
         val plainKey = generatePlainKey()
         val keyHash = sha256Hex(plainKey)
