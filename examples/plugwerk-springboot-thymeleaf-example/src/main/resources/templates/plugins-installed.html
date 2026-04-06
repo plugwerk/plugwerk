@@ -1,0 +1,67 @@
+<!--
+  ~ Copyright (c) 2025-present devtank42 GmbH
+  ~
+  ~ This file is part of Plugwerk.
+  ~
+  ~ Plugwerk is free software: you can redistribute it and/or modify
+  ~ it under the terms of the GNU Affero General Public License as published by
+  ~ the Free Software Foundation, either version 3 of the License, or
+  ~ (at your option) any later version.
+  ~
+  ~ Plugwerk is distributed in the hope that it will be useful,
+  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
+  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  ~ GNU Affero General Public License for more details.
+  ~
+  ~ You should have received a copy of the GNU Affero General Public License
+  ~ along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
+  -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+<head>
+    <title>Installed Plugins</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <h1>Installed Plugins</h1>
+
+    <div th:if="${#lists.isEmpty(plugins)}" class="empty-state">
+        <h2>No Plugins Installed</h2>
+        <p>Install plugins from the <a th:href="@{/plugins/available}">available plugins</a> catalog.</p>
+    </div>
+
+    <table th:if="${!#lists.isEmpty(plugins)}">
+        <thead>
+            <tr>
+                <th>Plugin ID</th>
+                <th>Version</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="plugin : ${plugins}">
+                <td><code th:text="${plugin.pluginId}">io.example.plugin</code></td>
+                <td th:text="${plugin.descriptor.version}">1.0.0</td>
+                <td th:text="${plugin.pluginState.name()}">STARTED</td>
+                <td>
+                    <form th:action="@{/plugins/uninstall}" method="post" style="display:inline; margin-right:0.5rem">
+                        <input type="hidden" name="pluginId" th:value="${plugin.pluginId}"/>
+                        <button type="submit" class="btn btn-danger">Uninstall</button>
+                    </form>
+                    <form th:if="${updates.containsKey(plugin.pluginId)}"
+                          th:action="@{/plugins/update}" method="post" style="display:inline">
+                        <input type="hidden" name="pluginId" th:value="${plugin.pluginId}"/>
+                        <input type="hidden" name="version" th:value="${updates.get(plugin.pluginId)}"/>
+                        <button type="submit" class="btn btn-outline"
+                                th:text="'Update to ' + ${updates.get(plugin.pluginId)}">Update</button>
+                    </form>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>

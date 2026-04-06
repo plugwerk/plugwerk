@@ -1,0 +1,21 @@
+[versions]
+plugwerk         = "0.1.0-SNAPSHOT"
+pf4j             = "3.15.0"
+slf4j            = "2.0.17"
+logback          = "1.5.18"
+spring-boot      = "4.0.4"
+thymeleaf-layout = "3.4.0"
+
+[libraries]
+# Plugwerk — resolved via composite build (see settings.gradle.kts)
+plugwerk-spi              = { module = "io.plugwerk:plugwerk-spi",                              version.ref = "plugwerk" }
+
+# PF4J
+pf4j                      = { module = "org.pf4j:pf4j",                                        version.ref = "pf4j" }
+
+# Logging
+slf4j-api                 = { module = "org.slf4j:slf4j-api",                                   version.ref = "slf4j" }
+logback-classic            = { module = "ch.qos.logback:logback-classic",                        version.ref = "logback" }
+
+# Thymeleaf Layout Dialect
+thymeleaf-layout-dialect  = { module = "nz.net.ultraq.thymeleaf:thymeleaf-layout-dialect",      version.ref = "thymeleaf-layout" }

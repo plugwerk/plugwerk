@@ -1,0 +1,8 @@
+server:
+  port: 8081  # different from Plugwerk server (8080)
+
+plugwerk:
+  server-url: http://localhost:8080
+  namespace: default
+  api-key: ""
+  plugins-dir: ./plugins
