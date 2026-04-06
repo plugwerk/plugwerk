@@ -30,10 +30,10 @@ ON CONFLICT (username) DO NOTHING;
 -- ============================================================
 -- Namespaces
 -- ============================================================
-INSERT INTO namespace (id, slug, name, description, public_catalog) VALUES
-  ('00000000-0000-0000-0000-000000000001', 'default',    'Plugwerk',               'Default namespace',              true),
-  ('00000000-0000-0000-0000-000000000002', 'acme-corp',  'ACME Corporation',       'ACME Corp plugin namespace',     false),
-  ('00000000-0000-0000-0000-000000000003', 'community',  'Community Contributors', 'Community contributed plugins',  true)
+INSERT INTO namespace (id, slug, name, description, public_catalog, auto_approve_releases) VALUES
+  ('00000000-0000-0000-0000-000000000001', 'default',    'Plugwerk',               'Default namespace',              true,  false),
+  ('00000000-0000-0000-0000-000000000002', 'acme-corp',  'ACME Corporation',       'ACME Corp plugin namespace',     false, true),
+  ('00000000-0000-0000-0000-000000000003', 'community',  'Community Contributors', 'Community contributed plugins',  true,  false)
 ON CONFLICT (slug) DO NOTHING;
 
 -- ============================================================
@@ -52,25 +52,25 @@ INSERT INTO namespace_member (id, namespace_id, user_subject, role) VALUES
   ('b0000000-0000-0000-0000-000000000007', '00000000-0000-0000-0000-000000000003',              'bob',     'MEMBER'),
   -- charlie → acme-corp (MEMBER)
   ('b0000000-0000-0000-0000-000000000008', '00000000-0000-0000-0000-000000000002',              'charlie', 'MEMBER')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (namespace_id, user_subject) DO NOTHING;
 
 -- ============================================================
 -- Namespace Access Keys
 -- ============================================================
-INSERT INTO namespace_access_key (id, namespace_id, key_hash, name, revoked, expires_at) VALUES
+INSERT INTO namespace_access_key (id, namespace_id, key_hash, key_prefix, name, revoked, expires_at) VALUES
   ('c0000000-0000-0000-0000-000000000001',
    (SELECT id FROM namespace WHERE slug = 'default'),
    'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
-   'CI/CD Pipeline', false, now() + interval '365 days'),
+   'plwk_a1b2c3', 'CI/CD Pipeline', false, now() + interval '365 days'),
   ('c0000000-0000-0000-0000-000000000002',
    '00000000-0000-0000-0000-000000000002',
    'b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1',
-   'Development', false, now() + interval '180 days'),
+   'plwk_b2c3d4', 'Development', false, now() + interval '180 days'),
   ('c0000000-0000-0000-0000-000000000003',
    '00000000-0000-0000-0000-000000000003',
    'c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2',
-   'Old key (revoked)', true, now() - interval '30 days')
-ON CONFLICT DO NOTHING;
+   'plwk_c3d4e5', 'Old key (revoked)', true, now() - interval '30 days')
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
 -- Plugins — default namespace
