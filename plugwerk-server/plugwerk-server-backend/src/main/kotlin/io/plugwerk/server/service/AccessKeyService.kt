@@ -67,11 +67,15 @@ class AccessKeyService(
     @Transactional
     fun create(
         namespaceSlug: String,
-        name: String?,
+        name: String,
         expiresAt: OffsetDateTime?,
     ): Pair<NamespaceAccessKeyEntity, String> {
         val namespace = namespaceRepository.findBySlug(namespaceSlug)
             .orElseThrow { NamespaceNotFoundException(namespaceSlug) }
+
+        if (accessKeyRepository.existsByNamespaceAndName(namespace, name)) {
+            throw ConflictException("An access key named '$name' already exists in namespace '$namespaceSlug'")
+        }
 
         val plainKey = generatePlainKey()
         val keyHash = sha256Hex(plainKey)

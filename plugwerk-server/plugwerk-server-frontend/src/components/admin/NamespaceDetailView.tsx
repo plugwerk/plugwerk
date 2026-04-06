@@ -431,13 +431,15 @@ function ApiKeysSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
   }, [loadKeys])
 
   async function handleCreate() {
+    if (!keyName.trim()) return
     setCreating(true)
     try {
+      const parsedExpiry = expiresAt ? new Date(expiresAt).toISOString() : undefined
       const res = await accessKeysApi.createAccessKey({
         ns: slug,
         accessKeyCreateRequest: {
-          name: keyName.trim() || undefined,
-          expiresAt: expiresAt || undefined,
+          name: keyName.trim(),
+          expiresAt: parsedExpiry,
         },
       })
       setNewKey(res.data.key)
@@ -445,8 +447,11 @@ function ApiKeysSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
       setExpiresAt('')
       setCreateOpen(false)
       loadKeys()
-    } catch {
-      onToast({ message: 'Failed to create API key.', severity: 'error' })
+    } catch (error: unknown) {
+      const msg = isAxiosError(error)
+        ? (error.response?.data?.message ?? error.message)
+        : 'Failed to create API key.'
+      onToast({ message: msg, severity: 'error' })
     } finally {
       setCreating(false)
     }
@@ -565,12 +570,13 @@ function ApiKeysSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             <TextField
-              label="Name (optional)"
+              label="Name"
               value={keyName}
               onChange={(e) => setKeyName(e.target.value)}
               size="small"
+              required
               autoFocus
-              helperText="A label to identify this key (e.g. 'CI pipeline')."
+              helperText="Unique name to identify this key (e.g. 'CI pipeline')."
             />
             <TextField
               label="Expires (optional)"
@@ -585,7 +591,7 @@ function ApiKeysSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreate} disabled={creating}>
+          <Button variant="contained" onClick={handleCreate} disabled={creating || !keyName.trim()}>
             {creating ? 'Generating\u2026' : 'Generate'}
           </Button>
         </DialogActions>

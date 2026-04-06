@@ -2466,6 +2466,7 @@ components:
           format: date-time
       required:
         - id
+        - name
         - revoked
         - createdAt
 
@@ -2475,11 +2476,13 @@ components:
       properties:
         name:
           type: string
-          description: Optional human-readable name to identify the key
+          description: Human-readable name identifying the key (must be unique within the namespace)
         expiresAt:
           type: string
           format: date-time
           description: Optional expiry date
+      required:
+        - name
 
     AccessKeyCreateResponse:
       type: object
@@ -2502,6 +2505,7 @@ components:
       required:
         - id
         - key
+        - name
         - createdAt
 
   responses:

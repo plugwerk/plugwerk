@@ -31,4 +31,6 @@ interface NamespaceAccessKeyRepository : JpaRepository<NamespaceAccessKeyEntity,
     fun findAllByNamespace(namespace: NamespaceEntity): List<NamespaceAccessKeyEntity>
 
     fun findAllByNamespaceAndRevokedFalse(namespace: NamespaceEntity): List<NamespaceAccessKeyEntity>
+
+    fun existsByNamespaceAndName(namespace: NamespaceEntity, name: String): Boolean
 }

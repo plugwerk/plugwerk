@@ -241,6 +241,8 @@ databaseChangeLog:
               - column:
                   name: name
                   type: varchar(255)
+                  constraints:
+                    nullable: false
               - column:
                   name: revoked
                   type: boolean

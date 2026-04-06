@@ -25,6 +25,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import org.hibernate.annotations.CreationTimestamp
 import org.hibernate.annotations.UuidGenerator
 import java.time.OffsetDateTime
@@ -65,7 +66,10 @@ import java.util.UUID
  * @property createdAt Creation timestamp (set automatically, immutable).
  */
 @Entity
-@Table(name = "namespace_access_key")
+@Table(
+    name = "namespace_access_key",
+    uniqueConstraints = [UniqueConstraint(columnNames = ["namespace_id", "name"])],
+)
 class NamespaceAccessKeyEntity(
     @Id
     @UuidGenerator(style = UuidGenerator.Style.TIME)
@@ -79,8 +83,8 @@ class NamespaceAccessKeyEntity(
     @Column(name = "key_hash", nullable = false, unique = true, length = 64)
     var keyHash: String,
 
-    @Column(name = "name", length = 255)
-    var name: String? = null,
+    @Column(name = "name", nullable = false, length = 255)
+    var name: String,
 
     @Column(name = "revoked", nullable = false)
     var revoked: Boolean = false,
