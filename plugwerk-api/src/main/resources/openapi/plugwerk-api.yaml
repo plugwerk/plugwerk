@@ -2455,7 +2455,7 @@ components:
           description: Optional human-readable name to identify the key
         keyPrefix:
           type: string
-          description: First 8 characters of the key hash for identification
+          description: First 8 characters of the plaintext key for identification (e.g. pwk_abcd)
         revoked:
           type: boolean
         expiresAt:

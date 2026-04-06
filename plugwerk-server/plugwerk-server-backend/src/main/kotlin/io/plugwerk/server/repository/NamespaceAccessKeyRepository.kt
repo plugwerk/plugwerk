@@ -21,12 +21,11 @@ package io.plugwerk.server.repository
 import io.plugwerk.server.domain.NamespaceAccessKeyEntity
 import io.plugwerk.server.domain.NamespaceEntity
 import org.springframework.data.jpa.repository.JpaRepository
-import java.util.Optional
 import java.util.UUID
 
 interface NamespaceAccessKeyRepository : JpaRepository<NamespaceAccessKeyEntity, UUID> {
 
-    fun findByKeyHash(keyHash: String): Optional<NamespaceAccessKeyEntity>
+    fun findByKeyPrefixAndRevokedFalse(keyPrefix: String): List<NamespaceAccessKeyEntity>
 
     fun findAllByNamespace(namespace: NamespaceEntity): List<NamespaceAccessKeyEntity>
 

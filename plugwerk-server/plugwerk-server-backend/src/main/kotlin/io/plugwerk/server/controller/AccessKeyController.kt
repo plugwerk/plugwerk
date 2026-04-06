@@ -88,7 +88,7 @@ class AccessKeyController(
     private fun NamespaceAccessKeyEntity.toDto() = AccessKeyDto(
         id = id!!,
         name = name,
-        keyPrefix = keyHash.take(8),
+        keyPrefix = keyPrefix,
         revoked = revoked,
         expiresAt = expiresAt,
         createdAt = createdAt,

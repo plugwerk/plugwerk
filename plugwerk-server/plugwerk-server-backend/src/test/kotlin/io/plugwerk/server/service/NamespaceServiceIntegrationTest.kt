@@ -184,7 +184,8 @@ class NamespaceServiceIntegrationTest {
         namespaceAccessKeyRepository.save(
             NamespaceAccessKeyEntity(
                 namespace = namespace,
-                keyHash = "cascade-test-key-hash",
+                keyHash = "\$2a\$10\$cascade-test-bcrypt-hash",
+                keyPrefix = "pwk_casc",
                 name = "Test key",
             ),
         )

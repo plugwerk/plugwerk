@@ -21,9 +21,9 @@ package io.plugwerk.server.service
 import io.plugwerk.server.domain.NamespaceAccessKeyEntity
 import io.plugwerk.server.repository.NamespaceAccessKeyRepository
 import io.plugwerk.server.repository.NamespaceRepository
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.security.MessageDigest
 import java.security.SecureRandom
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -32,7 +32,7 @@ import java.util.UUID
  * Service for managing namespace-scoped API access keys.
  *
  * Access keys are long-lived credentials suitable for CI/CD pipelines and service accounts.
- * The plain-text key is returned exactly once at creation time; only the SHA-256 hash is persisted.
+ * The plain-text key is returned exactly once at creation time; only its BCrypt hash is persisted.
  *
  * Generated keys use the format `pwk_<40 random alphanumeric chars>`.
  */
@@ -41,6 +41,7 @@ import java.util.UUID
 class AccessKeyService(
     private val accessKeyRepository: NamespaceAccessKeyRepository,
     private val namespaceRepository: NamespaceRepository,
+    private val passwordEncoder: PasswordEncoder,
 ) {
 
     companion object {
@@ -78,12 +79,13 @@ class AccessKeyService(
         }
 
         val plainKey = generatePlainKey()
-        val keyHash = sha256Hex(plainKey)
+        val keyHash = requireNotNull(passwordEncoder.encode(plainKey)) { "PasswordEncoder returned null" }
 
         val entity = accessKeyRepository.save(
             NamespaceAccessKeyEntity(
                 namespace = namespace,
                 keyHash = keyHash,
+                keyPrefix = plainKey.take(8),
                 name = name,
                 expiresAt = expiresAt,
             ),
@@ -114,11 +116,5 @@ class AccessKeyService(
             .map { ALPHANUMERIC[SECURE_RANDOM.nextInt(ALPHANUMERIC.size)] }
             .joinToString("")
         return "$KEY_PREFIX$randomPart"
-    }
-
-    private fun sha256Hex(input: String): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        return digest.digest(input.toByteArray(Charsets.UTF_8))
-            .joinToString("") { "%02x".format(it) }
     }
 }

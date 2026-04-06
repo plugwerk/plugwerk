@@ -22,20 +22,24 @@ import io.plugwerk.server.repository.NamespaceAccessKeyRepository
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.springframework.context.annotation.Lazy
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.core.context.SecurityContextHolder
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
-import java.security.MessageDigest
 import java.time.OffsetDateTime
 
 @Component
-class NamespaceAccessKeyAuthFilter(private val apiKeyRepository: NamespaceAccessKeyRepository) :
-    OncePerRequestFilter() {
+class NamespaceAccessKeyAuthFilter(
+    private val apiKeyRepository: NamespaceAccessKeyRepository,
+    @Lazy private val passwordEncoder: PasswordEncoder,
+) : OncePerRequestFilter() {
 
     companion object {
         const val HEADER_NAME = "X-Api-Key"
+        private const val PREFIX_LENGTH = 8
     }
 
     override fun doFilterInternal(
@@ -44,24 +48,24 @@ class NamespaceAccessKeyAuthFilter(private val apiKeyRepository: NamespaceAccess
         filterChain: FilterChain,
     ) {
         val apiKey = request.getHeader(HEADER_NAME)
-        if (apiKey != null && SecurityContextHolder.getContext().authentication == null) {
-            val keyHash = hashApiKey(apiKey)
-            apiKeyRepository.findByKeyHash(keyHash)
-                .filter { !it.revoked && (it.expiresAt == null || it.expiresAt!!.isAfter(OffsetDateTime.now())) }
-                .ifPresent { keyEntity ->
-                    val auth = UsernamePasswordAuthenticationToken(
-                        "key:${keyEntity.namespace.slug}",
-                        null,
-                        listOf(SimpleGrantedAuthority("ROLE_API_CLIENT")),
-                    )
-                    SecurityContextHolder.getContext().authentication = auth
-                }
+        if (apiKey != null && apiKey.length >= PREFIX_LENGTH &&
+            SecurityContextHolder.getContext().authentication == null
+        ) {
+            val prefix = apiKey.take(PREFIX_LENGTH)
+            val candidates = apiKeyRepository.findByKeyPrefixAndRevokedFalse(prefix)
+            for (candidate in candidates) {
+                if (candidate.expiresAt != null && candidate.expiresAt!!.isBefore(OffsetDateTime.now())) continue
+                if (!passwordEncoder.matches(apiKey, candidate.keyHash)) continue
+
+                val auth = UsernamePasswordAuthenticationToken(
+                    "key:${candidate.namespace.slug}",
+                    null,
+                    listOf(SimpleGrantedAuthority("ROLE_API_CLIENT")),
+                )
+                SecurityContextHolder.getContext().authentication = auth
+                break
+            }
         }
         filterChain.doFilter(request, response)
-    }
-
-    private fun hashApiKey(apiKey: String): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        return digest.digest(apiKey.toByteArray()).joinToString("") { "%02x".format(it) }
     }
 }

@@ -25,9 +25,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.dao.DataIntegrityViolationException
 import java.time.OffsetDateTime
-import kotlin.test.assertFailsWith
 
 open class NamespaceAccessKeyRepositoryTest : AbstractRepositoryTest() {
 
@@ -45,40 +43,71 @@ open class NamespaceAccessKeyRepositoryTest : AbstractRepositoryTest() {
     }
 
     @Test
-    fun `findByKeyHash returns key when hash exists`() {
+    fun `findByKeyPrefixAndRevokedFalse returns active keys matching prefix`() {
         apiKeyRepository.save(
-            NamespaceAccessKeyEntity(namespace = namespace, keyHash = "deadbeef01234567", name = "test-key"),
+            NamespaceAccessKeyEntity(
+                namespace = namespace,
+                keyHash = "\$2a\$10\$fakebcrypthash1",
+                keyPrefix = "pwk_abcd",
+                name = "key-1",
+            ),
+        )
+        apiKeyRepository.save(
+            NamespaceAccessKeyEntity(
+                namespace = namespace,
+                keyHash = "\$2a\$10\$fakebcrypthash2",
+                keyPrefix = "pwk_abcd",
+                name = "key-2",
+                revoked = true,
+            ),
         )
 
-        val found = apiKeyRepository.findByKeyHash("deadbeef01234567")
+        val found = apiKeyRepository.findByKeyPrefixAndRevokedFalse("pwk_abcd")
 
-        assertThat(found).isPresent
-        assertThat(found.get().namespace.id).isEqualTo(namespace.id!!)
+        assertThat(found).hasSize(1)
+        assertThat(found[0].name).isEqualTo("key-1")
     }
 
     @Test
-    fun `findByKeyHash returns empty for unknown hash`() {
-        val found = apiKeyRepository.findByKeyHash("unknown-hash")
+    fun `findByKeyPrefixAndRevokedFalse returns empty for unknown prefix`() {
+        val found = apiKeyRepository.findByKeyPrefixAndRevokedFalse("pwk_zzzz")
 
-        assertThat(found).isEmpty
+        assertThat(found).isEmpty()
     }
 
     @Test
     fun `findAllByNamespaceAndRevokedFalse returns only active keys`() {
         apiKeyRepository.save(
-            NamespaceAccessKeyEntity(namespace = namespace, keyHash = "hash-active-1", name = "key-1", revoked = false),
+            NamespaceAccessKeyEntity(
+                namespace = namespace,
+                keyHash = "\$2a\$10\$hashA",
+                keyPrefix = "pwk_aaaa",
+                name = "key-1",
+                revoked = false,
+            ),
         )
         apiKeyRepository.save(
-            NamespaceAccessKeyEntity(namespace = namespace, keyHash = "hash-active-2", name = "key-2", revoked = false),
+            NamespaceAccessKeyEntity(
+                namespace = namespace,
+                keyHash = "\$2a\$10\$hashB",
+                keyPrefix = "pwk_bbbb",
+                name = "key-2",
+                revoked = false,
+            ),
         )
         apiKeyRepository.save(
-            NamespaceAccessKeyEntity(namespace = namespace, keyHash = "hash-revoked", name = "key-3", revoked = true),
+            NamespaceAccessKeyEntity(
+                namespace = namespace,
+                keyHash = "\$2a\$10\$hashC",
+                keyPrefix = "pwk_cccc",
+                name = "key-3",
+                revoked = true,
+            ),
         )
 
         val activeKeys = apiKeyRepository.findAllByNamespaceAndRevokedFalse(namespace)
 
         assertThat(activeKeys).hasSize(2)
-        assertThat(activeKeys.map { it.keyHash }).containsExactlyInAnyOrder("hash-active-1", "hash-active-2")
     }
 
     @Test
@@ -88,7 +117,8 @@ open class NamespaceAccessKeyRepositoryTest : AbstractRepositoryTest() {
             apiKeyRepository.save(
                 NamespaceAccessKeyEntity(
                     namespace = namespace,
-                    keyHash = "full-key-hash",
+                    keyHash = "\$2a\$10\$fullhash",
+                    keyPrefix = "pwk_full",
                     name = "CI/CD key",
                     expiresAt = expiresAt,
                 ),
@@ -97,21 +127,8 @@ open class NamespaceAccessKeyRepositoryTest : AbstractRepositoryTest() {
         val found = apiKeyRepository.findById(key.id!!).orElseThrow()
 
         assertThat(found.name).isEqualTo("CI/CD key")
+        assertThat(found.keyPrefix).isEqualTo("pwk_full")
         assertThat(found.expiresAt).isNotNull()
         assertThat(found.revoked).isFalse()
-    }
-
-    @Test
-    fun `save fails on duplicate key_hash`() {
-        apiKeyRepository.save(
-            NamespaceAccessKeyEntity(namespace = namespace, keyHash = "duplicate-hash", name = "test-key"),
-        )
-        apiKeyRepository.flush()
-
-        assertFailsWith<DataIntegrityViolationException> {
-            apiKeyRepository.saveAndFlush(
-                NamespaceAccessKeyEntity(namespace = namespace, keyHash = "duplicate-hash", name = "test-key"),
-            )
-        }
     }
 }

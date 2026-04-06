@@ -233,11 +233,14 @@ databaseChangeLog:
                     deleteCascade: true
               - column:
                   name: key_hash
-                  type: varchar(64)
+                  type: varchar(72)
                   constraints:
                     nullable: false
-                    unique: true
-                    uniqueConstraintName: uq_namespace_access_key_hash
+              - column:
+                  name: key_prefix
+                  type: varchar(12)
+                  constraints:
+                    nullable: false
               - column:
                   name: name
                   type: varchar(255)
@@ -258,6 +261,17 @@ databaseChangeLog:
                   defaultValueComputed: now()
                   constraints:
                     nullable: false
+
+  - changeSet:
+      id: 0001-idx-access-key-prefix
+      author: plugwerk
+      changes:
+        - createIndex:
+            tableName: namespace_access_key
+            indexName: idx_access_key_prefix
+            columns:
+              - column:
+                  name: key_prefix
 
   - changeSet:
       id: 0001-seed-default-namespace
