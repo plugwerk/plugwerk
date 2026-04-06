@@ -16,13 +16,24 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Box, Typography, Button } from '@mui/material'
-import { Download, Calendar, Scale, Puzzle, Trash2 } from 'lucide-react'
+import { useState } from 'react'
+import { Box, Typography, Button, Menu, MenuItem } from '@mui/material'
+import { Download, Calendar, Scale, Puzzle, Trash2, ArrowRightLeft } from 'lucide-react'
 import { Badge } from '../common/Badge'
+import type { BadgeVariant } from '../common/Badge'
 import type { PluginDto, PluginReleaseDto } from '../../api/generated/model'
 import { tokens } from '../../theme/tokens'
 import { formatDateTime } from '../../utils/formatDateTime'
 import { downloadArtifact } from '../../utils/downloadArtifact'
+import { managementApi } from '../../api/config'
+
+const PLUGIN_STATUSES = ['active', 'suspended', 'archived'] as const
+
+const PLUGIN_STATUS_BADGE: Record<string, BadgeVariant> = {
+  active: 'published',
+  suspended: 'yanked',
+  archived: 'deprecated',
+}
 
 interface PluginHeaderProps {
   plugin: PluginDto
@@ -31,12 +42,33 @@ interface PluginHeaderProps {
   isAdmin?: boolean
   onDeletePlugin?: () => void
   onError?: (message: string) => void
+  onPluginUpdated?: (plugin: PluginDto) => void
 }
 
-export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDeletePlugin, onError }: PluginHeaderProps) {
+export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDeletePlugin, onError, onPluginUpdated }: PluginHeaderProps) {
+  const [statusMenuAnchor, setStatusMenuAnchor] = useState<HTMLElement | null>(null)
+  const [updatingStatus, setUpdatingStatus] = useState(false)
+
   const downloadUrl = latestRelease
     ? `/api/v1/namespaces/${namespace}/plugins/${plugin.pluginId}/releases/${latestRelease.version}/download`
     : '#'
+
+  async function handleStatusChange(newStatus: string) {
+    setStatusMenuAnchor(null)
+    setUpdatingStatus(true)
+    try {
+      const res = await managementApi.updatePlugin({
+        ns: namespace,
+        pluginId: plugin.pluginId!,
+        pluginUpdateRequest: { status: newStatus as 'active' | 'suspended' | 'archived' },
+      })
+      onPluginUpdated?.(res.data)
+    } catch {
+      onError?.(`Failed to change plugin status to ${newStatus}.`)
+    } finally {
+      setUpdatingStatus(false)
+    }
+  }
 
   return (
     <Box
@@ -80,11 +112,10 @@ export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDele
           {latestRelease?.version && (
             <Badge variant="version">v{latestRelease.version}</Badge>
           )}
-          {latestRelease?.status === 'published' && (
-            <Badge variant="published">Published</Badge>
-          )}
-          {latestRelease?.status === 'draft' && (
-            <Badge variant="draft">Draft</Badge>
+          {plugin.status && (
+            <Badge variant={PLUGIN_STATUS_BADGE[plugin.status] ?? 'published'}>
+              {plugin.status.charAt(0).toUpperCase() + plugin.status.slice(1)}
+            </Badge>
           )}
         </Box>
 
@@ -145,13 +176,39 @@ export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDele
             Download
           </Button>
         )}
+        {isAdmin && (
+          <>
+            <Button
+              variant="outlined"
+              size="medium"
+              startIcon={<ArrowRightLeft size={15} />}
+              aria-label="Change plugin status"
+              disabled={updatingStatus}
+              onClick={(e) => setStatusMenuAnchor(e.currentTarget)}
+              sx={{ borderRadius: tokens.radius.btn }}
+            >
+              {updatingStatus ? 'Changing\u2026' : 'Change Status'}
+            </Button>
+            <Menu
+              anchorEl={statusMenuAnchor}
+              open={!!statusMenuAnchor}
+              onClose={() => setStatusMenuAnchor(null)}
+            >
+              {PLUGIN_STATUSES.filter((s) => s !== plugin.status).map((s) => (
+                <MenuItem key={s} onClick={() => handleStatusChange(s)}>
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </MenuItem>
+              ))}
+            </Menu>
+          </>
+        )}
         {isAdmin && onDeletePlugin && (
           <Button
             variant="outlined"
             size="medium"
             color="error"
             startIcon={<Trash2 size={15} />}
-            aria-label="delete plugin"
+            aria-label="Delete plugin"
             onClick={onDeletePlugin}
             sx={{ borderRadius: tokens.radius.btn }}
           >

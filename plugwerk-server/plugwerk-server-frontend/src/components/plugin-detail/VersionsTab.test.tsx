@@ -62,7 +62,7 @@ const defaultProps = {
   releases: [publishedRelease, draftRelease],
   namespace: 'acme',
   pluginId: 'my-plugin',
-  currentVersion: '1.0.0',
+
 }
 
 describe('VersionsTab', () => {
@@ -74,7 +74,7 @@ describe('VersionsTab', () => {
   it('shows delete buttons when canApprove is true (ADMIN)', () => {
     renderWithRouter(<VersionsTab {...defaultProps} canApprove={true} />)
 
-    const deleteButtons = screen.getAllByRole('button', { name: /delete release/i })
+    const deleteButtons = screen.getAllByRole('button', { name: /delete/i })
     expect(deleteButtons).toHaveLength(2)
   })
 
@@ -96,7 +96,7 @@ describe('VersionsTab', () => {
     const user = userEvent.setup()
     renderWithRouter(<VersionsTab {...defaultProps} canApprove={true} />)
 
-    const deleteButtons = screen.getAllByRole('button', { name: /delete release/i })
+    const deleteButtons = screen.getAllByRole('button', { name: /delete/i })
     await user.click(deleteButtons[0])
 
     expect(screen.getByText(/are you sure you want to delete v1\.0\.0\?/i)).toBeInTheDocument()
@@ -113,7 +113,7 @@ describe('VersionsTab', () => {
 
     renderWithRouter(<VersionsTab {...defaultProps} canApprove={true} onReleaseDeleted={onDeleted} />)
 
-    const deleteButtons = screen.getAllByRole('button', { name: /delete release/i })
+    const deleteButtons = screen.getAllByRole('button', { name: /delete/i })
     await user.click(deleteButtons[0])
     await user.click(screen.getByRole('button', { name: /confirm-delete/i }))
 
@@ -135,12 +135,12 @@ describe('VersionsTab', () => {
         releases={[publishedRelease]}
         namespace="acme"
         pluginId="my-plugin"
-        currentVersion="1.0.0"
+
         canApprove={true}
       />,
     )
 
-    const deleteButton = screen.getByRole('button', { name: /delete release/i })
+    const deleteButton = screen.getByRole('button', { name: /delete/i })
     await user.click(deleteButton)
 
     expect(screen.getByText(/the entire plugin will also be removed/i)).toBeInTheDocument()
@@ -163,13 +163,13 @@ describe('VersionsTab', () => {
         releases={[publishedRelease]}
         namespace="acme"
         pluginId="my-plugin"
-        currentVersion="1.0.0"
+
         canApprove={true}
         onReleaseDeleted={onDeleted}
       />,
     )
 
-    const deleteButton = screen.getByRole('button', { name: /delete release/i })
+    const deleteButton = screen.getByRole('button', { name: /delete/i })
     await user.click(deleteButton)
     await user.click(screen.getByRole('button', { name: /confirm-delete/i }))
 
@@ -180,7 +180,7 @@ describe('VersionsTab', () => {
   it('renders download icon button for published releases', () => {
     renderWithRouter(<VersionsTab {...defaultProps} />)
 
-    const downloadButton = screen.getByRole('button', { name: /download release 1\.0\.0/i })
+    const downloadButton = screen.getByRole('button', { name: /download/i })
     expect(downloadButton).toBeInTheDocument()
   })
 

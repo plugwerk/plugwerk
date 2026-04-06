@@ -1960,6 +1960,17 @@ components:
           type: string
           format: uri
           description: New source repository URL
+        status:
+          type: string
+          enum:
+            - active
+            - suspended
+            - archived
+          description: |
+            New lifecycle status for the plugin:
+            - `active` — plugin is visible in the catalog
+            - `suspended` — temporarily hidden (e.g. security review)
+            - `archived` — no longer maintained
 
     ReleaseUploadRequest:
       type: object

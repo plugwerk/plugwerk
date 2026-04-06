@@ -39,9 +39,10 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material'
-import { CheckCircle, Plus, Shield, Trash2 } from 'lucide-react'
+import { CheckCircle, Plus, Shield, Trash2, XCircle } from 'lucide-react'
 import { DataTable } from '../components/common/DataTable'
 import type { DataColumn } from '../components/common/DataTable'
+import { ActionIconButton } from '../components/common/ActionIconButton'
 import { AdminSidebar } from '../components/admin/AdminSidebar'
 import { adminUsersApi, oidcProvidersApi, reviewsApi } from '../api/config'
 import { useAuthStore } from '../stores/authStore'
@@ -136,23 +137,21 @@ function UsersSection() {
       key: 'username',
       header: 'Username',
       render: (user) => (
-        <>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-            <Typography variant="body2" fontWeight={500}>{user.username}</Typography>
-            {user.isSuperadmin && (
-              <Chip
-                icon={<Shield size={12} />}
-                label="superadmin"
-                size="small"
-                color="primary"
-                sx={{ height: 18, fontSize: '0.65rem' }}
-              />
-            )}
-          </Box>
-          {user.passwordChangeRequired && (
-            <Chip label="pw change required" size="small" color="warning" sx={{ mt: 0.5 }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+          <Typography variant="body2" fontWeight={500}>{user.username}</Typography>
+          {user.isSuperadmin && (
+            <Chip
+              icon={<Shield size={12} />}
+              label="superadmin"
+              size="small"
+              color="primary"
+              sx={{ height: 18, fontSize: '0.65rem' }}
+            />
           )}
-        </>
+          {user.passwordChangeRequired && (
+            <Chip label="pw change required" size="small" color="warning" sx={{ height: 18, fontSize: '0.65rem' }} />
+          )}
+        </Box>
       ),
     },
     {
@@ -198,16 +197,9 @@ function UsersSection() {
     {
       key: 'actions',
       header: '',
+      align: 'right',
       render: (user) => (
-        <Button
-          size="small"
-          color="error"
-          startIcon={<Trash2 size={14} />}
-          onClick={() => handleDelete(user)}
-          disabled={user.isSuperadmin}
-        >
-          Delete
-        </Button>
+        <ActionIconButton icon={Trash2} tooltip="Delete" color="error" onClick={() => handleDelete(user)} disabled={user.isSuperadmin} />
       ),
     },
   ]
@@ -423,15 +415,9 @@ function OidcProvidersSection() {
     {
       key: 'actions',
       header: '',
+      align: 'right',
       render: (provider) => (
-        <Button
-          size="small"
-          color="error"
-          startIcon={<Trash2 size={14} />}
-          onClick={() => handleDelete(provider)}
-        >
-          Delete
-        </Button>
+        <ActionIconButton icon={Trash2} tooltip="Delete" color="error" onClick={() => handleDelete(provider)} />
       ),
     },
   ]
@@ -557,6 +543,7 @@ function ReviewsSection() {
   const [items, setItems] = useState<ReviewItemDto[]>([])
   const [loading, setLoading] = useState(true)
   const [approvingId, setApprovingId] = useState<string | null>(null)
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
 
   useEffect(() => {
@@ -588,6 +575,19 @@ function ReviewsSection() {
     }
   }
 
+  async function handleReject(item: ReviewItemDto) {
+    setRejectingId(item.releaseId)
+    try {
+      await reviewsApi.rejectRelease({ ns: namespace!, releaseId: item.releaseId })
+      setItems((prev) => prev.filter((i) => i.releaseId !== item.releaseId))
+      setToast({ message: `${item.pluginName} v${item.version} rejected.`, severity: 'success' })
+    } catch {
+      setToast({ message: `Failed to reject ${item.pluginName} v${item.version}.`, severity: 'error' })
+    } finally {
+      setRejectingId(null)
+    }
+  }
+
   const reviewColumns: DataColumn<ReviewItemDto>[] = [
     {
       key: 'plugin',
@@ -597,6 +597,13 @@ function ReviewsSection() {
           <Typography variant="body2" fontWeight={500}>{item.pluginName}</Typography>
           <Typography variant="caption" color="text.secondary">{item.pluginId}</Typography>
         </>
+      ),
+    },
+    {
+      key: 'namespace',
+      header: 'Namespace',
+      render: () => (
+        <Typography variant="caption" color="text.secondary">{namespace}</Typography>
       ),
     },
     {
@@ -614,19 +621,13 @@ function ReviewsSection() {
       ),
     },
     {
-      key: 'action',
-      header: 'Action',
+      key: 'actions',
+      header: 'Actions',
       render: (item) => (
-        <Button
-          variant="outlined"
-          size="small"
-          color="success"
-          startIcon={<CheckCircle size={14} />}
-          loading={approvingId === item.releaseId}
-          onClick={() => handleApprove(item)}
-        >
-          Approve
-        </Button>
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <ActionIconButton icon={CheckCircle} tooltip="Approve" color="success" loading={approvingId === item.releaseId} onClick={() => handleApprove(item)} />
+          <ActionIconButton icon={XCircle} tooltip="Deny" color="error" loading={rejectingId === item.releaseId} onClick={() => handleReject(item)} />
+        </Box>
       ),
     },
   ]

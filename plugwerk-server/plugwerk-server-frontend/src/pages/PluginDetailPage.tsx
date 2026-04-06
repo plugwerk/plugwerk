@@ -146,6 +146,10 @@ export function PluginDetailPage() {
           isAdmin={isAdmin}
           onDeletePlugin={() => setShowDeletePlugin(true)}
           onError={(message) => setToast({ message, severity: 'error' })}
+          onPluginUpdated={(updated) => {
+            setPlugin(updated)
+            setToast({ message: `Plugin status changed to ${updated.status}.`, severity: 'success' })
+          }}
         />
 
         {/* Tabs + Content */}
@@ -176,9 +180,9 @@ export function PluginDetailPage() {
                   releases={releases}
                   namespace={namespace}
                   pluginId={pluginId}
-                  currentVersion={latestRelease?.version}
                   canApprove={isAdmin}
                   onReleaseDeleted={handleReleaseDeleted}
+                  onReleasesChanged={setReleases}
                 />
               )}
               {tab === 2 && i === 2 && <ChangelogTab releases={releases} />}

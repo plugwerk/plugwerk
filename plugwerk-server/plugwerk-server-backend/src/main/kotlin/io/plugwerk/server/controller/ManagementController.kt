@@ -29,6 +29,7 @@ import io.plugwerk.server.domain.NamespaceRole
 import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.service.PluginReleaseService
 import io.plugwerk.server.service.PluginService
+import io.plugwerk.spi.model.PluginStatus
 import io.plugwerk.spi.model.ReleaseStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.context.SecurityContextHolder
@@ -57,6 +58,13 @@ class ManagementController(
             SecurityContextHolder.getContext().authentication!!,
             NamespaceRole.MEMBER,
         )
+        if (pluginUpdateRequest.status != null) {
+            namespaceAuthorizationService.requireRole(
+                ns,
+                SecurityContextHolder.getContext().authentication!!,
+                NamespaceRole.ADMIN,
+            )
+        }
         val plugin = pluginService.update(
             namespaceSlug = ns,
             pluginId = pluginId,
@@ -67,6 +75,7 @@ class ManagementController(
             repository = pluginUpdateRequest.repository?.toString(),
             icon = pluginUpdateRequest.icon?.toString(),
             tags = pluginUpdateRequest.tags?.toTypedArray(),
+            status = pluginUpdateRequest.status?.toPluginStatus(),
         )
         return ResponseEntity.ok(pluginMapper.toDto(plugin, ns, latestRelease = null))
     }
@@ -131,5 +140,11 @@ class ManagementController(
         ReleaseStatusUpdateRequest.Status.PUBLISHED -> ReleaseStatus.PUBLISHED
         ReleaseStatusUpdateRequest.Status.DEPRECATED -> ReleaseStatus.DEPRECATED
         ReleaseStatusUpdateRequest.Status.YANKED -> ReleaseStatus.YANKED
+    }
+
+    private fun PluginUpdateRequest.Status.toPluginStatus(): PluginStatus = when (this) {
+        PluginUpdateRequest.Status.ACTIVE -> PluginStatus.ACTIVE
+        PluginUpdateRequest.Status.SUSPENDED -> PluginStatus.SUSPENDED
+        PluginUpdateRequest.Status.ARCHIVED -> PluginStatus.ARCHIVED
     }
 }
