@@ -33,5 +33,39 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build and test all modules
+      - name: Build and run unit tests
         run: ./gradlew build
+
+      - name: Pre-pull Docker images (with retry)
+        run: |
+          for i in 1 2 3; do
+            docker pull postgres:18-alpine && break
+            echo "Pull attempt $i failed, retrying in 15s..."
+            sleep 15
+          done
+
+      - name: Run integration tests
+        run: ./gradlew :plugwerk-server:plugwerk-server-backend:integrationTest
+        env:
+          PLUGWERK_JWT_SECRET: ci-integration-test-secret-min-32-characters!!
+          PLUGWERK_ENCRYPTION_KEY: ci-encrypt-16chr
+
+      - name: Upload unit test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: |
+            plugwerk-server/plugwerk-server-backend/build/reports/tests/test/
+            plugwerk-server/plugwerk-server-backend/build/test-results/test/
+          retention-days: 14
+
+      - name: Upload integration test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-reports
+          path: |
+            plugwerk-server/plugwerk-server-backend/build/reports/tests/integrationTest/
+            plugwerk-server/plugwerk-server-backend/build/test-results/integrationTest/
+          retention-days: 14

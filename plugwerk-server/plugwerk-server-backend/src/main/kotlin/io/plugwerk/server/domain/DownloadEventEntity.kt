@@ -26,6 +26,8 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import org.hibernate.annotations.CreationTimestamp
+import org.hibernate.annotations.OnDelete
+import org.hibernate.annotations.OnDeleteAction
 import org.hibernate.annotations.UuidGenerator
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -50,6 +52,7 @@ class DownloadEventEntity(
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "release_id", nullable = false, updatable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     var release: PluginReleaseEntity,
 
     @CreationTimestamp

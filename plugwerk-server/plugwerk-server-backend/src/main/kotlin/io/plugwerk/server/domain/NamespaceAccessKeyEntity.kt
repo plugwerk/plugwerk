@@ -27,6 +27,8 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import org.hibernate.annotations.CreationTimestamp
+import org.hibernate.annotations.OnDelete
+import org.hibernate.annotations.OnDeleteAction
 import org.hibernate.annotations.UuidGenerator
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -80,6 +82,7 @@ class NamespaceAccessKeyEntity(
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "namespace_id", nullable = false, updatable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     var namespace: NamespaceEntity,
 
     @Column(name = "key_hash", nullable = false, length = 72)

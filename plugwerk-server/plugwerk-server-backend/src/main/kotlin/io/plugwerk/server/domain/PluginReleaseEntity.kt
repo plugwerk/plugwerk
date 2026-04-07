@@ -31,6 +31,8 @@ import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import org.hibernate.annotations.CreationTimestamp
 import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.annotations.OnDelete
+import org.hibernate.annotations.OnDeleteAction
 import org.hibernate.annotations.UpdateTimestamp
 import org.hibernate.annotations.UuidGenerator
 import org.hibernate.type.SqlTypes
@@ -99,6 +101,7 @@ class PluginReleaseEntity(
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "plugin_id", nullable = false, updatable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     var plugin: PluginEntity,
 
     @Column(name = "version", nullable = false, length = 100)

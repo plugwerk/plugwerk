@@ -13,3 +13,6 @@ plugwerk:
       root: ${java.io.tmpdir}/plugwerk-smoke-test
   auth:
     admin-password: smoke-test-password
+    rate-limit:
+      max-attempts: 1000
+      window-seconds: 3600

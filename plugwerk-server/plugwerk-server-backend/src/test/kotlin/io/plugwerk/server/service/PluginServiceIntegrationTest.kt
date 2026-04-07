@@ -20,6 +20,7 @@ package io.plugwerk.server.service
 
 import io.plugwerk.server.SharedPostgresContainer
 import io.plugwerk.server.repository.PluginRepository
+import io.plugwerk.server.service.storage.ArtifactStorageService
 import io.plugwerk.spi.model.PluginStatus
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -32,6 +33,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import kotlin.test.assertFailsWith
 
 @DataJpaTest
@@ -50,6 +52,9 @@ class PluginServiceIntegrationTest {
             registry.add("spring.datasource.password") { SharedPostgresContainer.instance.password }
         }
     }
+
+    @MockitoBean
+    lateinit var artifactStorageService: ArtifactStorageService
 
     @Autowired
     lateinit var pluginService: PluginService

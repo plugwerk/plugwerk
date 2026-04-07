@@ -24,6 +24,7 @@ import io.plugwerk.server.SharedPostgresContainer
 import io.plugwerk.server.repository.DownloadEventRepository
 import io.plugwerk.server.service.storage.ArtifactStorageService
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
@@ -33,12 +34,14 @@ import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
+import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
+import org.springframework.transaction.annotation.Propagation
+import org.springframework.transaction.annotation.Transactional
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
 
@@ -53,9 +56,10 @@ import java.io.ByteArrayInputStream
     DownloadEventServiceIntegrationTest.MockConfig::class,
 )
 @Tag("integration")
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
 class DownloadEventServiceIntegrationTest {
 
-    @Configuration
+    @TestConfiguration
     class MockConfig {
         @Bean
         fun artifactStorageService(): ArtifactStorageService = mock(ArtifactStorageService::class.java).also {
@@ -97,6 +101,14 @@ class DownloadEventServiceIntegrationTest {
     @BeforeEach
     fun setUp() {
         testNamespace = namespaceService.create("dl-event-ns", "DL Event Org")
+    }
+
+    @AfterEach
+    fun tearDown() {
+        try {
+            namespaceService.delete("dl-event-ns")
+        } catch (_: Exception) {
+        }
     }
 
     @Test

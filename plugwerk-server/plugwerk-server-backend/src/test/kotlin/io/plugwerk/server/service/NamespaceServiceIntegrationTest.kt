@@ -39,8 +39,9 @@ import org.mockito.kotlin.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
+import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager
+import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
@@ -57,7 +58,7 @@ import kotlin.test.assertFailsWith
 @Tag("integration")
 class NamespaceServiceIntegrationTest {
 
-    @Configuration
+    @TestConfiguration
     class MockConfig {
         @Bean
         fun artifactStorageService(): ArtifactStorageService = mock(ArtifactStorageService::class.java)
@@ -93,6 +94,9 @@ class NamespaceServiceIntegrationTest {
 
     @Autowired
     lateinit var storageService: ArtifactStorageService
+
+    @Autowired
+    lateinit var entityManager: TestEntityManager
 
     @Test
     fun `create persists namespace and findBySlug retrieves it`() {
@@ -191,6 +195,8 @@ class NamespaceServiceIntegrationTest {
         )
 
         namespaceService.delete("cascade-ns")
+        entityManager.flush()
+        entityManager.clear()
 
         assertThat(namespaceRepository.existsBySlug("cascade-ns")).isFalse()
         assertThat(pluginRepository.findById(plugin1.id!!)).isEmpty

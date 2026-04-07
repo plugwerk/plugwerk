@@ -33,8 +33,8 @@ import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
+import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
@@ -56,7 +56,7 @@ import kotlin.test.assertFailsWith
 @Tag("integration")
 class PluginReleaseServiceIntegrationTest {
 
-    @Configuration
+    @TestConfiguration
     class MockConfig {
         @Bean
         fun artifactStorageService(): ArtifactStorageService = mock(ArtifactStorageService::class.java).also {
