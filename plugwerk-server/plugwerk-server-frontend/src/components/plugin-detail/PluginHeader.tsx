@@ -21,6 +21,7 @@ import { Box, Typography, Button, Menu, MenuItem } from '@mui/material'
 import { Download, Calendar, Scale, Puzzle, Trash2, ArrowRightLeft } from 'lucide-react'
 import { Badge } from '../common/Badge'
 import type { BadgeVariant } from '../common/Badge'
+import { CopyablePluginId } from '../common/CopyablePluginId'
 import type { PluginDto, PluginReleaseDto } from '../../api/generated/model'
 import { tokens } from '../../theme/tokens'
 import { formatDateTime } from '../../utils/formatDateTime'
@@ -119,11 +120,14 @@ export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDele
           )}
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
           <Typography variant="caption" color="text.disabled">
             by <strong style={{ color: 'inherit' }}>{plugin.provider ?? namespace}</strong>
             {' · '}Namespace: <code>{namespace}</code>
           </Typography>
+        </Box>
+        <Box sx={{ mb: 1.5 }}>
+          <CopyablePluginId pluginId={plugin.pluginId} />
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>

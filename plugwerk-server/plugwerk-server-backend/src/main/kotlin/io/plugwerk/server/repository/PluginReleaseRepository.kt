@@ -120,4 +120,26 @@ interface PluginReleaseRepository : JpaRepository<PluginReleaseEntity, UUID> {
         """,
     )
     fun countPluginsWithOnlyDraftReleases(@Param("namespaceId") namespaceId: UUID): Long
+
+    /**
+     * Returns the IDs of active plugins in a namespace that have at least one draft release
+     * but no published release. Used to identify "pending review" plugins for catalog display.
+     */
+    @Query(
+        """
+        SELECT DISTINCT p.id
+        FROM PluginEntity p
+        JOIN PluginReleaseEntity r ON r.plugin = p
+        WHERE p.namespace.id = :namespaceId
+          AND p.status = io.plugwerk.spi.model.PluginStatus.ACTIVE
+          AND r.status = io.plugwerk.spi.model.ReleaseStatus.DRAFT
+          AND NOT EXISTS (
+            SELECT 1
+            FROM PluginReleaseEntity r2
+            WHERE r2.plugin = p
+              AND r2.status = io.plugwerk.spi.model.ReleaseStatus.PUBLISHED
+          )
+        """,
+    )
+    fun findPluginIdsWithOnlyDraftReleases(@Param("namespaceId") namespaceId: UUID): Set<UUID>
 }

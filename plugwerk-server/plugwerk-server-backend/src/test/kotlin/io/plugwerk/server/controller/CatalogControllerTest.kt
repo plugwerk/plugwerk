@@ -27,6 +27,7 @@ import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.security.LoginRateLimitFilter
 import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
+import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.security.PasswordChangeRequiredFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.service.NamespaceNotFoundException
@@ -83,6 +84,8 @@ class CatalogControllerTest {
 
     @MockitoBean lateinit var releaseMapper: PluginReleaseMapper
 
+    @MockitoBean lateinit var namespaceAuthService: NamespaceAuthorizationService
+
     @Autowired private lateinit var mockMvc: MockMvc
 
     private val namespace = NamespaceEntity(slug = "acme", name = "ACME Corp")
@@ -103,11 +106,12 @@ class CatalogControllerTest {
                 anyOrNull(),
                 any<Pageable>(),
                 any(),
+                anyOrNull(),
             ),
         )
-            .thenReturn(PageImpl(listOf(plugin)))
+            .thenReturn(PluginService.PagedCatalogResult(PageImpl(listOf(plugin)), emptySet()))
         whenever(
-            pluginMapper.toDto(any(), eq("acme"), anyOrNull(), any()),
+            pluginMapper.toDto(any(), eq("acme"), anyOrNull(), any(), any()),
         ).thenReturn(buildPluginDto())
 
         mockMvc.get("/api/v1/namespaces/acme/plugins")
@@ -129,6 +133,7 @@ class CatalogControllerTest {
                 anyOrNull(),
                 any<Pageable>(),
                 any(),
+                anyOrNull(),
             ),
         )
             .thenThrow(NamespaceNotFoundException("unknown"))
@@ -145,7 +150,7 @@ class CatalogControllerTest {
         whenever(pluginService.findByNamespaceAndPluginId("acme", "my-plugin")).thenReturn(plugin)
         whenever(releaseService.findAllByPlugin("acme", "my-plugin")).thenReturn(emptyList())
         whenever(
-            pluginMapper.toDto(any(), eq("acme"), anyOrNull(), any()),
+            pluginMapper.toDto(any(), eq("acme"), anyOrNull(), any(), any()),
         ).thenReturn(buildPluginDto())
 
         mockMvc.get("/api/v1/namespaces/acme/plugins/my-plugin")

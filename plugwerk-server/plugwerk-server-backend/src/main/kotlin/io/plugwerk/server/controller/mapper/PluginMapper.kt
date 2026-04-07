@@ -40,6 +40,7 @@ class PluginMapper(private val releaseMapper: PluginReleaseMapper) {
         namespaceSlug: String,
         latestRelease: PluginReleaseEntity? = null,
         downloadCount: Long = 0,
+        hasDraftOnly: Boolean = false,
     ): PluginDto = PluginDto(
         id = entity.id!!,
         pluginId = entity.pluginId,
@@ -52,6 +53,7 @@ class PluginMapper(private val releaseMapper: PluginReleaseMapper) {
         tags = entity.tags.toList().takeIf { it.isNotEmpty() },
         latestRelease = latestRelease?.let { releaseMapper.toDto(it, entity.pluginId) },
         downloadCount = downloadCount,
+        hasDraftOnly = hasDraftOnly.takeIf { it },
         icon = entity.icon?.let { URI(it) },
         homepage = entity.homepage?.let { URI(it) },
         repository = entity.repository?.let { URI(it) },

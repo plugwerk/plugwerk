@@ -21,11 +21,20 @@ import { Download, Clock, Puzzle, HardDrive } from 'lucide-react'
 import { useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge } from '../common/Badge'
+import type { BadgeVariant } from '../common/Badge'
+import { ActionIconButton } from '../common/ActionIconButton'
+import { CopyablePluginId } from '../common/CopyablePluginId'
 import type { PluginDto } from '../../api/generated/model'
 import { tokens } from '../../theme/tokens'
 import { useIsOverflowing } from '../../hooks/useIsOverflowing'
 import { formatFileSize } from '../../utils/formatFileSize'
 import { formatDateTime, formatRelativeTime } from '../../utils/formatDateTime'
+import { downloadArtifact } from '../../utils/downloadArtifact'
+
+const STATUS_BADGE: Record<string, BadgeVariant> = {
+  suspended: 'suspended',
+  archived: 'archived',
+}
 
 interface PluginCardProps {
   plugin: PluginDto
@@ -40,8 +49,12 @@ function formatCount(n: number | undefined): string {
 
 
 export function PluginCard({ plugin, namespace }: PluginCardProps) {
-  const isDeprecated = plugin.status === 'archived'
+  const isDraftOnly = plugin.hasDraftOnly === true
+  const statusBadge = plugin.status ? STATUS_BADGE[plugin.status] : undefined
   const latestRelease = plugin.latestRelease
+  const downloadUrl = latestRelease
+    ? `/api/v1/namespaces/${namespace}/plugins/${plugin.pluginId}/releases/${latestRelease.version}/download`
+    : null
 
   const nameRef = useRef<HTMLElement>(null)
   const providerRef = useRef<HTMLElement>(null)
@@ -62,6 +75,7 @@ export function PluginCard({ plugin, namespace }: PluginCardProps) {
         height: '100%',
         textDecoration: 'none',
         transition: 'border-color 0.15s, box-shadow 0.15s',
+        ...(isDraftOnly && { opacity: 0.6, filter: 'saturate(0.5)' }),
         '&:hover': {
           borderColor: tokens.color.primary,
           boxShadow: `0 0 0 1px ${tokens.color.primary}`,
@@ -110,23 +124,29 @@ export function PluginCard({ plugin, namespace }: PluginCardProps) {
                   {plugin.name}
                 </Typography>
               </Tooltip>
+              {isDraftOnly && <Badge variant="pending-review">Pending Review</Badge>}
+              {statusBadge && (
+                <Badge variant={statusBadge}>
+                  {plugin.status!.charAt(0).toUpperCase() + plugin.status!.slice(1)}
+                </Badge>
+              )}
               {latestRelease?.version && (
                 <Badge variant="version">v{latestRelease.version}</Badge>
               )}
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Tooltip title={providerOverflowing ? (plugin.provider ?? namespace) : ''} placement="bottom">
+              <Tooltip title={providerOverflowing ? (plugin.provider ?? '') : ''} placement="bottom">
                 <Typography
                   ref={providerRef}
                   variant="caption"
                   color="text.disabled"
                   sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}
                 >
-                  {plugin.provider ?? namespace}
+                  {plugin.provider ?? ''}
                 </Typography>
               </Tooltip>
-              {isDeprecated && <Badge variant="deprecated">Deprecated</Badge>}
             </Box>
+            <CopyablePluginId pluginId={plugin.pluginId} />
           </Box>
         </Box>
 
@@ -164,6 +184,20 @@ export function PluginCard({ plugin, namespace }: PluginCardProps) {
           sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 'auto' }}
           aria-label="Plugin statistics"
         >
+          {downloadUrl && (
+            <ActionIconButton
+              icon={Download}
+              tooltip="Download latest release"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                downloadArtifact(
+                  downloadUrl,
+                  `${plugin.pluginId}-${latestRelease!.version}.${latestRelease!.fileFormat ?? 'jar'}`,
+                ).catch(() => {})
+              }}
+            />
+          )}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled' }}>
             <Download size={12} aria-hidden="true" />
             <Typography variant="caption">{formatCount(plugin.downloadCount ?? 0)}</Typography>

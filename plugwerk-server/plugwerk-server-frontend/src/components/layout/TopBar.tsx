@@ -39,7 +39,7 @@ export function TopBar() {
   const theme = useTheme()
   const isDark = theme.palette.mode === 'dark'
   const { toggleTheme, openUploadModal } = useUiStore()
-  const { isAuthenticated, logout, namespace, setNamespace } = useAuthStore()
+  const { isAuthenticated, logout, namespace, setNamespace, isSuperadmin, namespaceRole } = useAuthStore()
   const { namespaces } = useNamespaceStore()
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -140,23 +140,27 @@ export function TopBar() {
                 >
                   Catalog
                 </Button>
-                <Button
-                  onClick={openUploadModal}
-                  startIcon={<Upload size={15} />}
-                  sx={{ color: 'text.primary', fontWeight: 500, fontSize: '0.875rem' }}
-                >
-                  Upload
-                </Button>
+                {(isSuperadmin || namespaceRole === 'ADMIN' || namespaceRole === 'MEMBER') && (
+                  <Button
+                    onClick={openUploadModal}
+                    startIcon={<Upload size={15} />}
+                    sx={{ color: 'text.primary', fontWeight: 500, fontSize: '0.875rem' }}
+                  >
+                    Upload
+                  </Button>
+                )}
               </>
             )}
-            <Button
-              component={Link}
-              to="/admin"
-              startIcon={<Settings size={15} color={isActive('/admin') ? tokens.color.primary : undefined} />}
-              sx={{ color: 'text.primary', fontWeight: 500, fontSize: '0.875rem' }}
-            >
-              Admin
-            </Button>
+            {(isSuperadmin || namespaceRole === 'ADMIN') && (
+              <Button
+                component={Link}
+                to="/admin"
+                startIcon={<Settings size={15} color={isActive('/admin') ? tokens.color.primary : undefined} />}
+                sx={{ color: 'text.primary', fontWeight: 500, fontSize: '0.875rem' }}
+              >
+                Admin
+              </Button>
+            )}
           </Box>
         )}
 

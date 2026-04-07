@@ -25,6 +25,7 @@ interface PluginFilters {
   search: string
   tag: string
   status: string
+  version: string
   sort: string
   page: number
   size: number
@@ -50,6 +51,7 @@ const defaultFilters: PluginFilters = {
   search: '',
   tag: '',
   status: '',
+  version: '',
   sort: 'name,asc',
   page: 0,
   size: 24,
@@ -87,6 +89,7 @@ export const usePluginStore = create<PluginState>((set, get) => ({
         q: filters.search || undefined,
         tag: filters.tag || undefined,
         status: (filters.status || undefined) as ListPluginsStatusEnum | undefined,
+        version: filters.version || undefined,
       })
       const data: PluginPagedResponse = response.data
       set({

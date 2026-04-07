@@ -18,6 +18,7 @@
  */
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppShell } from '../AppShell'
+import { AdminRoute } from '../components/auth/AdminRoute'
 import { ProtectedRoute } from '../components/auth/ProtectedRoute'
 import { CatalogPage } from '../pages/CatalogPage'
 import { PluginDetailPage } from '../pages/PluginDetailPage'
@@ -56,7 +57,7 @@ export const router = createBrowserRouter([
       { path: 'namespaces/:namespace/plugins/:pluginId',                element: <ProtectedRoute><PluginDetailPage /></ProtectedRoute> },
       {
         path: 'admin',
-        element: <ProtectedRoute><AdminSettingsPage /></ProtectedRoute>,
+        element: <ProtectedRoute><AdminRoute><AdminSettingsPage /></AdminRoute></ProtectedRoute>,
         children: [
           { index: true,              element: <Navigate to="global-settings" replace /> },
           { path: 'global-settings',  element: <GeneralSection /> },

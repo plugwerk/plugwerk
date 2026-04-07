@@ -50,6 +50,7 @@ class AuthController(
         }
         val user = userRepository.findByUsername(loginRequest.username).orElse(null)
         val passwordChangeRequired = user?.passwordChangeRequired ?: false
+        val isSuperadmin = user?.isSuperadmin ?: false
         val token = jwtTokenService.generateToken(loginRequest.username)
         return ResponseEntity.ok(
             LoginResponse(
@@ -57,6 +58,7 @@ class AuthController(
                 tokenType = "Bearer",
                 expiresIn = jwtTokenService.tokenValiditySeconds(),
                 passwordChangeRequired = passwordChangeRequired,
+                isSuperadmin = isSuperadmin,
             ),
         )
     }

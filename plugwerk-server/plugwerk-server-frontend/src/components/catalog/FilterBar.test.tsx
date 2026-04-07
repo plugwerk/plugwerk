@@ -34,6 +34,7 @@ const defaultFilters = {
   search: '',
   tag: '',
   status: '',
+  version: '',
   sort: 'name,asc',
   page: 0,
   size: 24,

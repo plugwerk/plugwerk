@@ -141,10 +141,7 @@ class NamespaceAuthorizationService(
                 .map { listOf(it) }.orElse(emptyList())
         }
 
-        val memberSlugs = namespaceMemberRepository.findAllByUserSubject(authentication.name)
-            .map { it.namespace.slug }
-            .toSet()
-        return namespaceRepository.findAll().filter { it.slug in memberSlugs }
+        return namespaceMemberRepository.findNamespacesByUserSubject(authentication.name)
     }
 
     private fun isSuperadmin(username: String): Boolean =

@@ -26,12 +26,15 @@ import io.plugwerk.api.model.PluginReleaseDto
 import io.plugwerk.api.model.ReleasePagedResponse
 import io.plugwerk.server.controller.mapper.PluginMapper
 import io.plugwerk.server.controller.mapper.PluginReleaseMapper
+import io.plugwerk.server.domain.NamespaceRole
 import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.PluginReleaseRepository
+import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.service.Pf4jCompatibilityService
 import io.plugwerk.server.service.PluginReleaseService
 import io.plugwerk.server.service.PluginService
+import io.plugwerk.server.service.PluginService.CatalogVisibility
 import io.plugwerk.spi.model.PluginStatus
 import io.plugwerk.spi.model.ReleaseStatus
 import jakarta.servlet.http.HttpServletRequest
@@ -53,6 +56,7 @@ class CatalogController(
     private val releaseService: PluginReleaseService,
     private val releaseRepository: PluginReleaseRepository,
     private val namespaceRepository: NamespaceRepository,
+    private val namespaceAuthService: NamespaceAuthorizationService,
     private val pf4jService: Pf4jCompatibilityService,
     private val pluginMapper: PluginMapper,
     private val releaseMapper: PluginReleaseMapper,
@@ -67,18 +71,22 @@ class CatalogController(
         q: String?,
         tag: String?,
         status: String?,
+        version: String?,
     ): ResponseEntity<PluginPagedResponse> {
-        val pluginStatus = status?.let { parsePluginStatus(it) } ?: PluginStatus.ACTIVE
+        val pluginStatus = status?.let { parsePluginStatus(it) }
+        val visibility = resolveVisibility(ns)
         val pageable = buildPageable(page, size, sort)
-        val resultPage = pluginService.findPagedByNamespace(
-            ns,
-            pluginStatus,
-            tag,
-            q,
-            pageable,
-            publishedOnly = true,
+        val catalogResult = pluginService.findPagedByNamespace(
+            namespaceSlug = ns,
+            status = pluginStatus,
+            tag = tag,
+            q = q,
+            pageable = pageable,
+            visibility = visibility,
+            version = version,
         )
 
+        val resultPage = catalogResult.page
         val pluginIds = resultPage.content.mapNotNull { it.id }
         val latestReleases: Map<UUID, PluginReleaseEntity>
         val downloadCounts: Map<UUID, Long>
@@ -96,7 +104,13 @@ class CatalogController(
 
         val response = PluginPagedResponse(
             content = resultPage.content.map {
-                pluginMapper.toDto(it, ns, latestReleases[it.id], downloadCounts[it.id] ?: 0)
+                pluginMapper.toDto(
+                    it,
+                    ns,
+                    latestReleases[it.id],
+                    downloadCounts[it.id] ?: 0,
+                    hasDraftOnly = it.id in catalogResult.draftOnlyPluginIds,
+                )
             },
             totalElements = resultPage.totalElements,
             page = resultPage.number,
@@ -160,7 +174,7 @@ class CatalogController(
     }
 
     override fun listTags(ns: String): ResponseEntity<List<String>> =
-        ResponseEntity.ok(pluginService.findDistinctTags(ns))
+        ResponseEntity.ok(pluginService.findDistinctTags(ns, resolveVisibility(ns)))
 
     override fun getPluginsJson(ns: String): ResponseEntity<Pf4jPluginsJson> =
         ResponseEntity.ok(pf4jService.buildPluginsJson(ns))
@@ -178,8 +192,33 @@ class CatalogController(
 
     private fun parsePluginStatus(value: String): PluginStatus = when (value.lowercase()) {
         "active" -> PluginStatus.ACTIVE
+        "suspended" -> PluginStatus.SUSPENDED
         "archived" -> PluginStatus.ARCHIVED
         else -> throw IllegalArgumentException("Unknown plugin status: $value")
+    }
+
+    /**
+     * Determines catalog visibility based on the caller's authentication and role.
+     */
+    private fun resolveVisibility(ns: String): CatalogVisibility {
+        val auth = SecurityContextHolder.getContext().authentication ?: return CatalogVisibility.PUBLIC
+        if (!auth.isAuthenticated) return CatalogVisibility.PUBLIC
+        // API key callers (name starts with "key:") are treated as PUBLIC visibility
+        if (auth.name.startsWith("key:")) return CatalogVisibility.PUBLIC
+        // System superadmin sees everything
+        if (namespaceAuthService.isSuperadmin(auth)) return CatalogVisibility.ADMIN
+        // Check namespace-level role
+        return try {
+            namespaceAuthService.requireRole(ns, auth, NamespaceRole.ADMIN)
+            CatalogVisibility.ADMIN
+        } catch (_: Exception) {
+            try {
+                namespaceAuthService.requireRole(ns, auth, NamespaceRole.READ_ONLY)
+                CatalogVisibility.AUTHENTICATED
+            } catch (_: Exception) {
+                CatalogVisibility.PUBLIC
+            }
+        }
     }
 
     private fun buildPageable(page: Int, size: Int, sort: String): org.springframework.data.domain.Pageable {

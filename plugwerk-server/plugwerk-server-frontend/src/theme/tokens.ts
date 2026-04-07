@@ -39,12 +39,15 @@ export const tokens = {
   },
 
   badge: {
-    published: { bg: '#DEFBE6', text: '#198038' },
-    draft:     { bg: '#FFE8CC', text: '#A84400' },
-    deprecated:{ bg: '#FFF1C7', text: '#8A6A00' },
-    yanked:    { bg: '#FFD7D9', text: '#DA1E28' },
-    tag:       { bg: '#D0E2FF', text: '#0043CE' },
-    version:   { bg: '#F4F4F4', text: '#161616' },
+    published:     { bg: '#DEFBE6', text: '#198038' },
+    draft:         { bg: '#FFE8CC', text: '#A84400' },
+    deprecated:    { bg: '#FFF1C7', text: '#8A6A00' },
+    yanked:        { bg: '#FFD7D9', text: '#DA1E28' },
+    tag:           { bg: '#D0E2FF', text: '#0043CE' },
+    version:       { bg: '#F4F4F4', text: '#161616' },
+    suspended:     { bg: '#FFD7D9', text: '#DA1E28' },
+    archived:      { bg: '#FFF1C7', text: '#8A6A00' },
+    pendingReview: { bg: '#FFE8CC', text: '#A84400' },
   },
 
   radius: {

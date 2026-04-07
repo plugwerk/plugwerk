@@ -16,7 +16,6 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useState } from 'react'
 import { Box, Button, InputBase, MenuItem, ToggleButton, ToggleButtonGroup, useTheme, alpha } from '@mui/material'
 import { LayoutGrid, List, Search } from 'lucide-react'
 import { usePluginStore } from '../../stores/pluginStore'
@@ -42,6 +41,8 @@ const COMPATIBILITY_OPTIONS = [
   { value: '>=3.0.0', label: '≥ 3.0.0' },
   { value: '>=2.5.0', label: '≥ 2.5.0' },
   { value: '>=2.0.0', label: '≥ 2.0.0' },
+  { value: '>=1.5.0', label: '≥ 1.5.0' },
+  { value: '>=1.0.0', label: '≥ 1.0.0' },
 ]
 
 export function FilterBar({ view, onViewChange, namespace }: FilterBarProps) {
@@ -49,8 +50,7 @@ export function FilterBar({ view, onViewChange, namespace }: FilterBarProps) {
   const isDark = theme.palette.mode === 'dark'
   const { filters, setFilters, fetchPlugins, availableTags } = usePluginStore()
   const { searchQuery, setSearchQuery } = useUiStore()
-  const [compatibility, setCompatibility] = useState('')
-  const hasActiveFilters = !!(filters.tag || filters.status || compatibility)
+  const hasActiveFilters = !!(filters.tag || filters.status || filters.version)
 
   function handleChange(key: string, value: string) {
     setFilters({ [key]: value, page: 0 })
@@ -58,8 +58,7 @@ export function FilterBar({ view, onViewChange, namespace }: FilterBarProps) {
   }
 
   function handleReset() {
-    setFilters({ tag: '', status: '', sort: 'name,asc', page: 0 })
-    setCompatibility('')
+    setFilters({ tag: '', status: '', version: '', sort: 'name,asc', page: 0 })
     fetchPlugins(namespace)
   }
 
@@ -93,13 +92,15 @@ export function FilterBar({ view, onViewChange, namespace }: FilterBarProps) {
         aria-label="Filter by status"
         minWidth={140}
       >
-        <MenuItem value="">Active</MenuItem>
+        <MenuItem value="">Any Status</MenuItem>
+        <MenuItem value="active">Active</MenuItem>
+        <MenuItem value="suspended">Suspended</MenuItem>
         <MenuItem value="archived">Archived</MenuItem>
       </FilterSelect>
 
       <FilterSelect
-        value={compatibility}
-        onChange={setCompatibility}
+        value={filters.version}
+        onChange={(v) => handleChange('version', v)}
         aria-label="Filter by compatibility"
         minWidth={140}
       >

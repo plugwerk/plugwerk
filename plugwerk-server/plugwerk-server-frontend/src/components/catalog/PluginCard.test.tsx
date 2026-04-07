@@ -99,15 +99,34 @@ describe('PluginCard', () => {
     expect(link).toBeInTheDocument()
   })
 
-  it('shows deprecated badge for archived plugins', () => {
+  it('shows archived badge for archived plugins', () => {
     const plugin = { ...basePlugin, status: 'archived' as const }
     renderWithRouter(<PluginCard plugin={plugin} namespace="acme" />)
-    expect(screen.getByText('Deprecated')).toBeInTheDocument()
+    expect(screen.getByText('Archived')).toBeInTheDocument()
   })
 
-  it('does not show deprecated badge for active plugins', () => {
+  it('shows suspended badge for suspended plugins', () => {
+    const plugin = { ...basePlugin, status: 'suspended' as const }
+    renderWithRouter(<PluginCard plugin={plugin} namespace="acme" />)
+    expect(screen.getByText('Suspended')).toBeInTheDocument()
+  })
+
+  it('shows pending review badge for draft-only plugins', () => {
+    const plugin = { ...basePlugin, hasDraftOnly: true }
+    renderWithRouter(<PluginCard plugin={plugin} namespace="acme" />)
+    expect(screen.getByText('Pending Review')).toBeInTheDocument()
+  })
+
+  it('does not show status badge for active plugins', () => {
     renderWithRouter(<PluginCard plugin={basePlugin} namespace="acme" />)
-    expect(screen.queryByText('Deprecated')).not.toBeInTheDocument()
+    expect(screen.queryByText('Archived')).not.toBeInTheDocument()
+    expect(screen.queryByText('Suspended')).not.toBeInTheDocument()
+  })
+
+  it('renders plugin ID with copy button', () => {
+    renderWithRouter(<PluginCard plugin={basePlugin} namespace="acme" />)
+    expect(screen.getByText('auth-plugin')).toBeInTheDocument()
+    expect(screen.getByLabelText('Copy plugin ID')).toBeInTheDocument()
   })
 
   it('renders "—" when updatedAt is not set', () => {

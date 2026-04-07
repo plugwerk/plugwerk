@@ -18,9 +18,12 @@
  */
 package io.plugwerk.server.repository
 
+import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.NamespaceMemberEntity
 import io.plugwerk.server.domain.NamespaceRole
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 import java.util.Optional
 import java.util.UUID
 
@@ -31,6 +34,18 @@ interface NamespaceMemberRepository : JpaRepository<NamespaceMemberEntity, UUID>
     fun findAllByNamespaceId(namespaceId: UUID): List<NamespaceMemberEntity>
 
     fun findAllByUserSubject(userSubject: String): List<NamespaceMemberEntity>
+
+    /**
+     * Returns the namespaces a user is a member of, eagerly fetching the namespace entity
+     * to avoid LazyInitializationException when accessing namespace properties outside a session.
+     */
+    @Query(
+        """
+        SELECT m.namespace FROM NamespaceMemberEntity m
+        WHERE m.userSubject = :userSubject
+        """,
+    )
+    fun findNamespacesByUserSubject(@Param("userSubject") userSubject: String): List<NamespaceEntity>
 
     fun existsByNamespaceIdAndUserSubjectAndRoleIn(
         namespaceId: UUID,

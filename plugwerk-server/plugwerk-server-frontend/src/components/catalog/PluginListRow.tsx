@@ -20,10 +20,19 @@ import { Box, Tooltip, Typography } from '@mui/material'
 import { Download, Clock, Puzzle, HardDrive } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Badge } from '../common/Badge'
+import type { BadgeVariant } from '../common/Badge'
+import { ActionIconButton } from '../common/ActionIconButton'
+import { CopyablePluginId } from '../common/CopyablePluginId'
 import type { PluginDto } from '../../api/generated/model'
 import { tokens } from '../../theme/tokens'
 import { formatFileSize } from '../../utils/formatFileSize'
 import { formatDateTime, formatRelativeTime } from '../../utils/formatDateTime'
+import { downloadArtifact } from '../../utils/downloadArtifact'
+
+const STATUS_BADGE: Record<string, BadgeVariant> = {
+  suspended: 'suspended',
+  archived: 'archived',
+}
 
 interface PluginListRowProps {
   plugin: PluginDto
@@ -36,10 +45,14 @@ function formatCount(n: number | undefined): string {
   return String(n)
 }
 
-
 export function PluginListRow({ plugin, namespace }: PluginListRowProps) {
-  const isDeprecated = plugin.status === 'archived'
+  const isDraftOnly = plugin.hasDraftOnly === true
+  const statusBadge = plugin.status ? STATUS_BADGE[plugin.status] : undefined
   const latestRelease = plugin.latestRelease
+  const downloadUrl = latestRelease
+    ? `/api/v1/namespaces/${namespace}/plugins/${plugin.pluginId}/releases/${latestRelease.version}/download`
+    : null
+
   return (
     <Box
       component={Link}
@@ -57,6 +70,7 @@ export function PluginListRow({ plugin, namespace }: PluginListRowProps) {
         color: 'inherit',
         bgcolor: 'background.paper',
         transition: 'background-color 0.15s',
+        ...(isDraftOnly && { opacity: 0.6, filter: 'saturate(0.5)' }),
         '&:last-child': { borderBottom: 'none' },
         '&:hover': { bgcolor: 'background.default' },
       }}
@@ -81,13 +95,52 @@ export function PluginListRow({ plugin, namespace }: PluginListRowProps) {
       </Box>
 
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography variant="body2" fontWeight={600} noWrap>{plugin.name}</Typography>
-        <Typography variant="caption" color="text.disabled">{plugin.provider ?? namespace}</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Typography variant="body2" fontWeight={600} noWrap>{plugin.name}</Typography>
+          {isDraftOnly && <Badge variant="pending-review">Pending Review</Badge>}
+          {statusBadge && (
+            <Badge variant={statusBadge}>
+              {plugin.status!.charAt(0).toUpperCase() + plugin.status!.slice(1)}
+            </Badge>
+          )}
+          {latestRelease?.version && (
+            <Badge variant="version">v{latestRelease.version}</Badge>
+          )}
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {plugin.provider && (
+            <>
+              <Typography variant="caption" color="text.disabled">{plugin.provider}</Typography>
+              <Typography variant="caption" color="text.disabled">·</Typography>
+            </>
+          )}
+          <CopyablePluginId pluginId={plugin.pluginId} />
+        </Box>
       </Box>
 
-      {isDeprecated && <Badge variant="deprecated">Deprecated</Badge>}
-      {latestRelease?.version && (
-        <Badge variant="version">v{latestRelease.version}</Badge>
+      {/* Tags */}
+      {plugin.tags && plugin.tags.length > 0 && (
+        <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+          {plugin.tags.slice(0, 3).map((tag) => (
+            <Badge key={tag} variant="tag">{tag}</Badge>
+          ))}
+        </Box>
+      )}
+
+      {/* Quick download */}
+      {downloadUrl && (
+        <ActionIconButton
+          icon={Download}
+          tooltip="Download latest release"
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            downloadArtifact(
+              downloadUrl,
+              `${plugin.pluginId}-${latestRelease!.version}.${latestRelease!.fileFormat ?? 'jar'}`,
+            ).catch(() => {})
+          }}
+        />
       )}
 
       <Box sx={{ display: 'flex', gap: 2, color: 'text.disabled', flexShrink: 0 }}>

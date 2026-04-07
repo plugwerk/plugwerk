@@ -26,6 +26,7 @@ interface AuthState {
   namespace: string | null | undefined
   isAuthenticated: boolean
   passwordChangeRequired: boolean
+  isSuperadmin: boolean
   namespaceRole: NamespaceRole | null
 
   login: (username: string, password: string) => Promise<void>
@@ -45,6 +46,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   namespace: undefined,
   isAuthenticated: !!localStorage.getItem('pw-access-token'),
   passwordChangeRequired: localStorage.getItem('pw-password-change-required') === 'true',
+  isSuperadmin: localStorage.getItem('pw-is-superadmin') === 'true',
   namespaceRole: null,
 
   get apiKey() {
@@ -62,6 +64,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     const data = await response.json()
     const passwordChangeRequired = data.passwordChangeRequired === true
+    const isSuperadmin = data.isSuperadmin === true
     localStorage.setItem('pw-access-token', data.accessToken)
     localStorage.setItem('pw-username', username)
     if (passwordChangeRequired) {
@@ -69,11 +72,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } else {
       localStorage.removeItem('pw-password-change-required')
     }
+    if (isSuperadmin) {
+      localStorage.setItem('pw-is-superadmin', 'true')
+    } else {
+      localStorage.removeItem('pw-is-superadmin')
+    }
     set({
       accessToken: data.accessToken,
       username,
       isAuthenticated: true,
       passwordChangeRequired,
+      isSuperadmin,
     })
   },
 
@@ -88,8 +97,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem('pw-access-token')
     localStorage.removeItem('pw-username')
     localStorage.removeItem('pw-password-change-required')
+    localStorage.removeItem('pw-is-superadmin')
     localStorage.removeItem('pw-namespace')
-    set({ accessToken: null, username: null, namespace: undefined, isAuthenticated: false, passwordChangeRequired: false, namespaceRole: null })
+    set({ accessToken: null, username: null, namespace: undefined, isAuthenticated: false, passwordChangeRequired: false, isSuperadmin: false, namespaceRole: null })
   },
 
   setNamespace(ns) {

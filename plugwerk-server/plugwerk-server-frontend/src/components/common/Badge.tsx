@@ -29,6 +29,9 @@ export type BadgeVariant =
   | 'yanked'
   | 'tag'
   | 'verified'
+  | 'suspended'
+  | 'archived'
+  | 'pending-review'
 
 interface BadgeProps {
   variant: BadgeVariant
@@ -41,8 +44,11 @@ const styles: Record<BadgeVariant, { bg: string; color: string }> = {
   draft:      { bg: tokens.badge.draft.bg,       color: tokens.badge.draft.text },
   deprecated: { bg: tokens.badge.deprecated.bg,  color: tokens.badge.deprecated.text },
   yanked:     { bg: tokens.badge.yanked.bg,       color: tokens.badge.yanked.text },
-  tag:        { bg: tokens.badge.tag.bg,          color: tokens.badge.tag.text },
-  verified:   { bg: tokens.badge.published.bg,    color: tokens.badge.published.text },
+  tag:            { bg: tokens.badge.tag.bg,            color: tokens.badge.tag.text },
+  verified:       { bg: tokens.badge.published.bg,      color: tokens.badge.published.text },
+  suspended:      { bg: tokens.badge.suspended.bg,      color: tokens.badge.suspended.text },
+  archived:       { bg: tokens.badge.archived.bg,       color: tokens.badge.archived.text },
+  'pending-review': { bg: tokens.badge.pendingReview.bg, color: tokens.badge.pendingReview.text },
 }
 
 export function Badge({ variant, children }: BadgeProps) {

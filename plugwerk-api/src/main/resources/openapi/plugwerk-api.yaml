@@ -399,17 +399,19 @@ paths:
       description: |
         Returns a paginated list of plugins in the given namespace.
 
-        Results can be filtered by tag and status, and searched by a full-text
-        query across plugin name, description, and tags.
+        Results can be filtered by tag, status, and system version compatibility,
+        and searched by a full-text query across plugin name, description, and tags.
 
-        **Visibility rules:**
-        - Only plugins with at least one **published** release are returned.
-        - Default status filter is `active`.
-        - `suspended` plugins are never returned via this endpoint.
+        **Visibility rules (role-dependent):**
+        - **Anonymous / API key:** Only `active` plugins with `published` or `deprecated` releases.
+        - **Namespace member / read-only:** All plugins (incl. draft-only) except `suspended`.
+        - **Namespace admin / system admin:** All plugins, all statuses (incl. suspended and draft-only).
+
+        Plugins that have only draft releases are marked with `hasDraftOnly: true` in the response.
 
         For authenticated users with namespace access, the response includes
         `pendingReviewPluginCount` — the number of active plugins that have draft releases
-        but no published release yet (i.e. plugins not shown in the catalog).
+        but no published release yet.
 
         This endpoint is publicly accessible unless the namespace has access control enabled.
       operationId: listPlugins
@@ -421,6 +423,7 @@ paths:
         - $ref: '#/components/parameters/SearchQuery'
         - $ref: '#/components/parameters/TagFilter'
         - $ref: '#/components/parameters/StatusFilter'
+        - $ref: '#/components/parameters/VersionFilter'
       responses:
         '200':
           description: Paginated list of plugins matching the given filters
@@ -1609,12 +1612,27 @@ components:
         type: string
         enum:
           - active
+          - suspended
           - archived
       description: |
-        Filter by plugin lifecycle status. Defaults to `active` when omitted.
-        - `active` — default; only active plugins with published releases
+        Filter by plugin lifecycle status. When omitted, visibility is role-dependent:
+        - Anonymous / API key: only `active` plugins with published releases
+        - Authenticated namespace member: all statuses except `suspended`, including draft-only
+        - Namespace admin / system admin: all plugins, all statuses
+        Explicit values:
+        - `active` — only active plugins
+        - `suspended` — only suspended plugins (admin-only)
         - `archived` — deprecated/end-of-life plugins only
-        Note: `suspended` plugins are never returned via the catalog endpoint.
+
+    VersionFilter:
+      name: version
+      in: query
+      schema:
+        type: string
+      description: |
+        Filter by system version compatibility. Only plugins whose latest release
+        declares a `requiresSystemVersion` satisfying this constraint are returned.
+        Example: `>=3.0.0`
 
   schemas:
     LoginRequest:
@@ -1660,11 +1678,18 @@ components:
             When `true`, the user must change their password before accessing any resource.
             The frontend should redirect to the change-password page immediately after login.
           example: false
+        isSuperadmin:
+          type: boolean
+          description: |
+            When `true`, the user has global superadmin privileges.
+            Used by the frontend to conditionally show admin UI elements.
+          example: false
       required:
         - accessToken
         - tokenType
         - expiresIn
         - passwordChangeRequired
+        - isSuperadmin
 
     NamespaceSummary:
       type: object
@@ -1829,6 +1854,13 @@ components:
           type: string
           format: uri
           description: URL of the source code repository (e.g. GitHub)
+        hasDraftOnly:
+          type: boolean
+          nullable: true
+          description: |
+            `true` when the plugin has at least one draft release but no published release.
+            `null` or `false` for plugins with at least one published release.
+            Used to render a "Pending Review" indicator in the catalog.
         createdAt:
           type: string
           format: date-time

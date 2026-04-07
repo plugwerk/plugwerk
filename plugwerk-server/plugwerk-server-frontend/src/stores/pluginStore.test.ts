@@ -42,6 +42,7 @@ const defaultFilters = {
   search: '',
   tag: '',
   status: '',
+  version: '',
   sort: 'name,asc',
   page: 0,
   size: 24,
@@ -109,7 +110,7 @@ describe('usePluginStore', () => {
   describe('resetFilters', () => {
     it('resets all filters to defaults', () => {
       usePluginStore.setState({
-        filters: { search: 'foo', tag: 'baz', status: 'active', sort: 'downloads,desc', page: 5, size: 12 },
+        filters: { search: 'foo', tag: 'baz', status: 'active', version: '', sort: 'downloads,desc', page: 5, size: 12 },
       })
       act(() => { usePluginStore.getState().resetFilters() })
       expect(usePluginStore.getState().filters).toEqual(defaultFilters)
