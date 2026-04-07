@@ -54,4 +54,6 @@ interface NamespaceMemberRepository : JpaRepository<NamespaceMemberEntity, UUID>
     ): Boolean
 
     fun deleteByNamespaceIdAndUserSubject(namespaceId: UUID, userSubject: String)
+
+    fun deleteAllByUserSubject(userSubject: String)
 }

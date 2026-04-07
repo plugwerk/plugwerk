@@ -19,6 +19,8 @@
 package io.plugwerk.server.service
 
 import io.plugwerk.server.domain.UserEntity
+import io.plugwerk.server.repository.NamespaceMemberRepository
+import io.plugwerk.server.repository.RevokedTokenRepository
 import io.plugwerk.server.repository.UserRepository
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
@@ -29,6 +31,8 @@ import java.util.UUID
 @Transactional
 class UserService(
     private val userRepository: UserRepository,
+    private val namespaceMemberRepository: NamespaceMemberRepository,
+    private val revokedTokenRepository: RevokedTokenRepository,
     private val passwordEncoder: PasswordEncoder,
     private val tokenRevocationService: TokenRevocationService,
 ) {
@@ -75,6 +79,8 @@ class UserService(
     fun delete(id: UUID) {
         val user = findById(id)
         if (user.isSuperadmin) throw ForbiddenException("The superadmin account cannot be deleted")
+        namespaceMemberRepository.deleteAllByUserSubject(user.username)
+        revokedTokenRepository.deleteByUsername(user.username)
         userRepository.delete(user)
     }
 

@@ -122,6 +122,29 @@ class AdminUserEndpointAuthzTest : AbstractAuthorizationTest() {
             .andExpect(status().isNoContent)
     }
 
+    @Test
+    fun `deleting user removes all namespace memberships`() {
+        // Create a user and add them to both namespaces
+        val userId = createEphemeralUser()
+        val user = userRepository.findById(userId).orElseThrow()
+        createEphemeralMembership(NS1, user.username)
+        createEphemeralMembership(NS2, user.username)
+
+        // Verify memberships exist
+        val membersBefore = namespaceMemberRepository.findAllByUserSubject(user.username)
+        assert(membersBefore.size == 2) { "Expected 2 memberships before delete, got ${membersBefore.size}" }
+
+        // Delete the user
+        mockMvc.perform(delete("/api/v1/admin/users/$userId").actAs(Actor.SUPERADMIN))
+            .andExpect(status().isNoContent)
+
+        // Verify all memberships are gone
+        val membersAfter = namespaceMemberRepository.findAllByUserSubject(user.username)
+        assert(membersAfter.isEmpty()) {
+            "Expected 0 memberships after user deletion, got ${membersAfter.size}"
+        }
+    }
+
     companion object {
         @JvmStatic
         fun superadminOnlyDeniedMatrix(): Stream<ActorExpectation> = Stream.of(

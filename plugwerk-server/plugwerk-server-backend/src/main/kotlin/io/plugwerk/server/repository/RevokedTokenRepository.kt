@@ -32,4 +32,7 @@ interface RevokedTokenRepository : JpaRepository<RevokedTokenEntity, UUID> {
     @Modifying
     @Query("DELETE FROM RevokedTokenEntity r WHERE r.expiresAt < :cutoff")
     fun deleteExpiredBefore(cutoff: OffsetDateTime): Int
+
+    @Modifying
+    fun deleteByUsername(username: String)
 }
