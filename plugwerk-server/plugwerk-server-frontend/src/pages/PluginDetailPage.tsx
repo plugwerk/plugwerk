@@ -164,12 +164,15 @@ export function PluginDetailPage() {
             <Tab label="Overview"      id="tab-overview"     aria-controls="panel-overview" />
             <Tab
               label={
-                <Box sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.5 }}>
+                <Box component="span" sx={{ position: 'relative' }}>
                   Versions
                   {draftCount > 0 && (
                     <Box
-                      component="sup"
+                      component="span"
                       sx={{
+                        position: 'absolute',
+                        top: -4,
+                        right: -22,
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -182,7 +185,6 @@ export function PluginDetailPage() {
                         lineHeight: 1,
                         bgcolor: 'warning.main',
                         color: '#161616',
-                        verticalAlign: 'super',
                       }}
                     >
                       {draftCount}
