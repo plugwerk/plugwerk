@@ -164,24 +164,25 @@ export function PluginDetailPage() {
             <Tab label="Overview"      id="tab-overview"     aria-controls="panel-overview" />
             <Tab
               label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.5 }}>
                   Versions
                   {draftCount > 0 && (
                     <Box
-                      component="span"
+                      component="sup"
                       sx={{
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        minWidth: 20,
-                        height: 20,
-                        px: 0.75,
-                        borderRadius: '10px',
-                        fontSize: '0.75rem',
+                        minWidth: 16,
+                        height: 16,
+                        px: 0.5,
+                        borderRadius: '8px',
+                        fontSize: '0.625rem',
                         fontWeight: 700,
                         lineHeight: 1,
                         bgcolor: 'warning.main',
                         color: '#161616',
+                        verticalAlign: 'super',
                       }}
                     >
                       {draftCount}
