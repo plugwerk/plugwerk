@@ -18,12 +18,31 @@
  */
 
 /**
- * Formats a number with locale-aware thousand separators.
- * Returns "0" for falsy/undefined values.
+ * Short human-readable format for display.
  *
- * Examples: 0 → "0", 999 → "999", 1500 → "1,500", 1234567 → "1,234,567"
+ * Examples: 0 → "0", 999 → "999", 1000 → "1k", 1500 → "1.5k",
+ *           45000 → "45k", 33300 → "33.3k", 1234567 → "1.2M"
  */
 export function formatCount(n: number | undefined): string {
   if (!n) return '0'
-  return n.toLocaleString('en-US')
+  if (n >= 1_000_000) {
+    const m = n / 1_000_000
+    return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M`
+  }
+  if (n >= 1_000) {
+    const k = n / 1_000
+    return k % 1 === 0 ? `${k}k` : `${k.toFixed(1)}k`
+  }
+  return String(n)
+}
+
+/**
+ * Full number with dot as thousand separator, for tooltips.
+ *
+ * Examples: 0 → "0", 999 → "999", 1500 → "1.500",
+ *           34343000 → "34.343.000", 34000 → "34.000"
+ */
+export function formatCountFull(n: number | undefined): string {
+  if (!n) return '0'
+  return n.toLocaleString('de-DE')
 }

@@ -84,7 +84,7 @@ describe('PluginCard', () => {
 
   it('renders download count', () => {
     renderWithRouter(<PluginCard plugin={basePlugin} namespace="acme" />)
-    expect(screen.getByText('1,500')).toBeInTheDocument()
+    expect(screen.getByText('1.5k')).toBeInTheDocument()
   })
 
   it('renders "0" when download count is missing', () => {

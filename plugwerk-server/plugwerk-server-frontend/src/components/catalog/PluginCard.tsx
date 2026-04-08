@@ -41,7 +41,7 @@ interface PluginCardProps {
   namespace: string
 }
 
-import { formatCount } from '../../utils/formatCount'
+import { formatCount, formatCountFull } from '../../utils/formatCount'
 
 
 export function PluginCard({ plugin, namespace }: PluginCardProps) {
@@ -194,10 +194,12 @@ export function PluginCard({ plugin, namespace }: PluginCardProps) {
               }}
             />
           )}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled' }}>
-            <Download size={12} aria-hidden="true" />
-            <Typography variant="caption">{formatCount(plugin.downloadCount ?? 0)}</Typography>
-          </Box>
+          <Tooltip title={formatCountFull(plugin.downloadCount)} placement="top">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled' }}>
+              <Download size={12} aria-hidden="true" />
+              <Typography variant="caption">{formatCount(plugin.downloadCount ?? 0)}</Typography>
+            </Box>
+          </Tooltip>
           {latestRelease?.artifactSize && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled' }}>
               <HardDrive size={12} aria-hidden="true" />

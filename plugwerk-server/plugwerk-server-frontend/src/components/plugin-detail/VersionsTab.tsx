@@ -41,7 +41,7 @@ import { managementApi, reviewsApi } from '../../api/config'
 import { formatFileSize } from '../../utils/formatFileSize'
 import { formatDateTime } from '../../utils/formatDateTime'
 import { downloadArtifact } from '../../utils/downloadArtifact'
-import { formatCount } from '../../utils/formatCount'
+import { formatCount, formatCountFull } from '../../utils/formatCount'
 
 function CopyableSha256({ value }: { value?: string }) {
   const [copied, setCopied] = useState(false)
@@ -242,9 +242,11 @@ export function VersionsTab({ releases, namespace, pluginId, canApprove, onRelea
       header: 'Downloads',
       align: 'right',
       render: (rel) => (
-        <Typography variant="caption" color="text.disabled">
-          {formatCount(rel.downloadCount)}
-        </Typography>
+        <Tooltip title={formatCountFull(rel.downloadCount)} placement="left">
+          <Typography variant="caption" color="text.disabled">
+            {formatCount(rel.downloadCount)}
+          </Typography>
+        </Tooltip>
       ),
     },
     {
