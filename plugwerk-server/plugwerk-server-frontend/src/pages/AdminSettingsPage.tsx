@@ -113,6 +113,7 @@ function UsersSection() {
     try {
       const res = await adminUsersApi.updateUser({ userId: user.id, userUpdateRequest: { enabled: !user.enabled } })
       setUsers((prev) => prev.map((u) => (u.id === user.id ? res.data : u)))
+      setToast({ message: `User "${user.username}" ${res.data.enabled ? 'enabled' : 'disabled'}.`, severity: 'success' })
     } catch {
       setToast({ message: `Failed to update user ${user.username}.`, severity: 'error' })
     }
@@ -339,6 +340,7 @@ function OidcProvidersSection() {
         oidcProviderUpdateRequest: { enabled: !provider.enabled },
       })
       setProviders((prev) => prev.map((p) => (p.id === provider.id ? res.data : p)))
+      setToast({ message: `Provider "${provider.name}" ${res.data.enabled ? 'enabled' : 'disabled'}.`, severity: 'success' })
     } catch {
       setToast({ message: `Failed to update provider "${provider.name}".`, severity: 'error' })
     }
