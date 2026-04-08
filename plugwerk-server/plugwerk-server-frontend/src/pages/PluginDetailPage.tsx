@@ -101,6 +101,7 @@ export function PluginDetailPage() {
   }
 
   const latestRelease = releases.find((r) => r.status === 'published') ?? releases[0] ?? null
+  const draftCount = releases.filter((r) => r.status === 'draft').length
 
   if (loading) {
     return (
@@ -161,7 +162,36 @@ export function PluginDetailPage() {
             sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
           >
             <Tab label="Overview"      id="tab-overview"     aria-controls="panel-overview" />
-            <Tab label="Versions"      id="tab-versions"     aria-controls="panel-versions" />
+            <Tab
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  Versions
+                  {draftCount > 0 && (
+                    <Box
+                      component="span"
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: 20,
+                        height: 20,
+                        px: 0.75,
+                        borderRadius: '10px',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        lineHeight: 1,
+                        bgcolor: 'warning.main',
+                        color: '#161616',
+                      }}
+                    >
+                      {draftCount}
+                    </Box>
+                  )}
+                </Box>
+              }
+              id="tab-versions"
+              aria-controls="panel-versions"
+            />
             <Tab label="Changelog"     id="tab-changelog"    aria-controls="panel-changelog" />
             <Tab label="Dependencies"  id="tab-dependencies" aria-controls="panel-dependencies" />
           </Tabs>
