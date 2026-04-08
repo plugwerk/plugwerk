@@ -62,7 +62,7 @@ describe('TopBar', () => {
     renderWithRouter(<TopBar />)
 
     await user.click(screen.getByLabelText('Select namespace'))
-    const option = await screen.findByRole('option', { name: 'beta' })
+    const option = await screen.findByRole('option', { name: 'Beta Inc (beta)' })
     await user.click(option)
 
     expect(mockNavigate).toHaveBeenCalledWith('/namespaces/beta/plugins')
@@ -73,7 +73,7 @@ describe('TopBar', () => {
     renderWithRouter(<TopBar />)
 
     await user.click(screen.getByLabelText('Select namespace'))
-    const option = await screen.findByRole('option', { name: 'beta' })
+    const option = await screen.findByRole('option', { name: 'Beta Inc (beta)' })
     await user.click(option)
 
     expect(useAuthStore.getState().namespace).toBe('beta')

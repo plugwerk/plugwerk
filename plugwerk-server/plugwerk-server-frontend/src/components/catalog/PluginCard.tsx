@@ -41,11 +41,7 @@ interface PluginCardProps {
   namespace: string
 }
 
-function formatCount(n: number | undefined): string {
-  if (!n) return '0'
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
-  return String(n)
-}
+import { formatCount } from '../../utils/formatCount'
 
 
 export function PluginCard({ plugin, namespace }: PluginCardProps) {

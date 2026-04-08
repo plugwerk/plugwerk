@@ -26,6 +26,7 @@ import type { PluginDto, PluginReleaseDto } from '../../api/generated/model'
 import { tokens } from '../../theme/tokens'
 import { formatDateTime } from '../../utils/formatDateTime'
 import { downloadArtifact } from '../../utils/downloadArtifact'
+import { formatCount } from '../../utils/formatCount'
 import { managementApi } from '../../api/config'
 
 const PLUGIN_STATUSES = ['active', 'suspended', 'archived'] as const
@@ -133,7 +134,7 @@ export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDele
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled' }}>
             <Download size={14} aria-hidden="true" />
-            <Typography variant="caption">{plugin.downloadCount ?? 0} downloads</Typography>
+            <Typography variant="caption">{formatCount(plugin.downloadCount)} downloads</Typography>
           </Box>
           {plugin.updatedAt && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled' }}>

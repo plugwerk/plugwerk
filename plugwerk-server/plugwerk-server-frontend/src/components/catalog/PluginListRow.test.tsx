@@ -59,9 +59,9 @@ describe('PluginListRow', () => {
     expect(screen.getByText('v2.0.0')).toBeInTheDocument()
   })
 
-  it('renders download count with k suffix', () => {
+  it('renders download count with thousand separator', () => {
     renderWithRouter(<PluginListRow plugin={plugin} namespace="acme" />)
-    expect(screen.getByText('5.0k')).toBeInTheDocument()
+    expect(screen.getByText('5,000')).toBeInTheDocument()
   })
 
   it('renders "—" when updatedAt is absent', () => {
