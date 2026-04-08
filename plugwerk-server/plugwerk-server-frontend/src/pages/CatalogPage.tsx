@@ -30,12 +30,14 @@ import { usePluginStore } from '../stores/pluginStore'
 import { useAuthStore } from '../stores/authStore'
 import { useUiStore } from '../stores/uiStore'
 import { useNamespaceStore } from '../stores/namespaceStore'
+import { useDebounce } from '../hooks/useDebounce'
 
 export function CatalogPage() {
   const { namespace = '' } = useParams<{ namespace: string }>()
   const { setNamespace, namespaceRole, fetchNamespaceRole, isAuthenticated } = useAuthStore()
   const { plugins, loading, error, totalElements, pendingReviewPluginCount, resetFilters, fetchPlugins, fetchTags } = usePluginStore()
   const { searchQuery } = useUiStore()
+  const debouncedSearch = useDebounce(searchQuery, 350)
   const { fetchNamespaces } = useNamespaceStore()
   const [view, setView] = useState<'card' | 'list'>('card')
 
@@ -55,9 +57,9 @@ export function CatalogPage() {
 
   useEffect(() => {
     const store = usePluginStore.getState()
-    store.setFilters({ search: searchQuery, page: 0 })
+    store.setFilters({ search: debouncedSearch, page: 0 })
     fetchPlugins(namespace)
-  }, [searchQuery, namespace])
+  }, [debouncedSearch, namespace])
 
   return (
     <Box component="main" id="main-content" sx={{ flex: 1, py: 4 }}>
