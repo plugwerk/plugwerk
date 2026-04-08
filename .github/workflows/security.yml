@@ -1,0 +1,76 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  trivy:
+    name: Trivy vulnerability scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Gradle — resolve dependencies so Trivy sees the full dependency tree
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Resolve Gradle dependencies
+        run: ./gradlew dependencies --configuration runtimeClasspath > /dev/null 2>&1 || true
+
+      # npm — ensure lock file is present for frontend scanning
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: plugwerk-server/plugwerk-server-frontend/package-lock.json
+
+      - name: Install npm dependencies
+        working-directory: plugwerk-server/plugwerk-server-frontend
+        run: npm ci --ignore-scripts
+
+      # Trivy filesystem scan
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@v0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: '0'
+          ignore-unfixed: false
+          scanners: vuln,secret
+          skip-dirs: build,.gradle,plugwerk-server/plugwerk-server-frontend/node_modules/.cache,.claude
+
+      # Upload results to GitHub Security tab
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
+
+      # Keep raw report as downloadable artifact
+      - name: Upload SARIF artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-sarif-report
+          path: trivy-results.sarif
+          retention-days: 30
