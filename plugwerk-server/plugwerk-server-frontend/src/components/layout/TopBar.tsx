@@ -45,7 +45,10 @@ export function TopBar() {
   const { pathname } = useLocation()
 
   function isActive(path: string) {
-    return path === '/' ? pathname === '/' : pathname.startsWith(path)
+    if (path === '/') {
+      return pathname === '/' || pathname.startsWith('/namespaces/')
+    }
+    return pathname.startsWith(path)
   }
 
   function handleNamespaceChange(ns: string) {
