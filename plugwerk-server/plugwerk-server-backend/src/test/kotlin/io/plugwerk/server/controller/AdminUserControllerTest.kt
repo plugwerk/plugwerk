@@ -78,6 +78,9 @@ class AdminUserControllerTest {
     @MockitoBean
     private lateinit var namespaceAuthorizationService: NamespaceAuthorizationService
 
+    @MockitoBean
+    private lateinit var namespaceMemberRepository: io.plugwerk.server.repository.NamespaceMemberRepository
+
     @BeforeEach
     fun setUp() {
         // Simulate an authenticated superadmin — requireSuperadmin mock does nothing by default

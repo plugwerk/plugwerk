@@ -37,6 +37,7 @@ import java.util.UUID
 class AdminUserController(
     private val userService: UserService,
     private val namespaceAuthorizationService: NamespaceAuthorizationService,
+    private val namespaceMemberRepository: io.plugwerk.server.repository.NamespaceMemberRepository,
 ) : AdminUsersApi {
 
     override fun listUsers(enabled: Boolean?): ResponseEntity<List<UserDto>> {
@@ -85,5 +86,6 @@ class AdminUserController(
         passwordChangeRequired = passwordChangeRequired,
         isSuperadmin = isSuperadmin,
         createdAt = createdAt,
+        namespaceMembershipCount = namespaceMemberRepository.countByUserSubject(username).toInt(),
     )
 }

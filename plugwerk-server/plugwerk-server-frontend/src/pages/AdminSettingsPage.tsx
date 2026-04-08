@@ -37,6 +37,7 @@ import {
 } from '@mui/material'
 import { CheckCircle, Plus, Shield, Trash2, XCircle } from 'lucide-react'
 import { AppDialog } from '../components/common/AppDialog'
+import { ConfirmDeleteDialog } from '../components/common/ConfirmDeleteDialog'
 import { DataTable } from '../components/common/DataTable'
 import type { DataColumn } from '../components/common/DataTable'
 import { ActionIconButton } from '../components/common/ActionIconButton'
@@ -93,6 +94,8 @@ function UsersSection() {
   const [password, setPassword] = useState('')
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<UserDto | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -119,13 +122,18 @@ function UsersSection() {
     }
   }
 
-  async function handleDelete(user: UserDto) {
+  async function handleConfirmDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
     try {
-      await adminUsersApi.deleteUser({ userId: user.id })
-      setUsers((prev) => prev.filter((u) => u.id !== user.id))
-      setToast({ message: `User "${user.username}" deleted.`, severity: 'success' })
+      await adminUsersApi.deleteUser({ userId: deleteTarget.id })
+      setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id))
+      setToast({ message: `User "${deleteTarget.username}" deleted.`, severity: 'success' })
+      setDeleteTarget(null)
     } catch {
-      setToast({ message: `Failed to delete user ${user.username}.`, severity: 'error' })
+      setToast({ message: `Failed to delete user ${deleteTarget.username}.`, severity: 'error' })
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -216,7 +224,7 @@ function UsersSection() {
       header: '',
       align: 'right',
       render: (user) => (
-        <ActionIconButton icon={Trash2} tooltip="Delete" color="error" onClick={() => handleDelete(user)} disabled={user.isSuperadmin} />
+        <ActionIconButton icon={Trash2} tooltip="Delete" color="error" onClick={() => setDeleteTarget(user)} disabled={user.isSuperadmin} />
       ),
     },
   ]
@@ -285,6 +293,20 @@ function UsersSection() {
           />
         </Box>
       </AppDialog>
+
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        title="Delete User"
+        message={
+          deleteTarget && (deleteTarget.namespaceMembershipCount ?? 0) > 0
+            ? `User "${deleteTarget.username}" is a member of ${deleteTarget.namespaceMembershipCount} namespace(s). All memberships will be removed. This action cannot be undone.`
+            : `User "${deleteTarget?.username ?? ''}" will be permanently deleted. This action cannot be undone.`
+        }
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+        loading={deleting}
+        actionLabel="Delete User"
+      />
 
       <Snackbar open={!!toast} autoHideDuration={4000} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
         <Alert severity={toast?.severity} onClose={() => setToast(null)} sx={{ width: '100%' }}>

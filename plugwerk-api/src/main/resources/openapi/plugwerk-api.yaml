@@ -2319,6 +2319,10 @@ components:
         createdAt:
           type: string
           format: date-time
+        namespaceMembershipCount:
+          type: integer
+          format: int32
+          description: Number of namespaces this user is a member of
       required:
         - id
         - username
