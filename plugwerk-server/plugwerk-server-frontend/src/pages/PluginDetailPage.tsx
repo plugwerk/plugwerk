@@ -101,6 +101,7 @@ export function PluginDetailPage() {
   }
 
   const latestRelease = releases.find((r) => r.status === 'published') ?? releases[0] ?? null
+  const draftCount = releases.filter((r) => r.status === 'draft').length
 
   if (loading) {
     return (
@@ -161,7 +162,37 @@ export function PluginDetailPage() {
             sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
           >
             <Tab label="Overview"      id="tab-overview"     aria-controls="panel-overview" />
-            <Tab label="Versions"      id="tab-versions"     aria-controls="panel-versions" />
+            <Tab
+              label={
+                <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 0.5 }}>
+                  <span>Versions</span>
+                  {draftCount > 0 && (
+                    <Box
+                      component="span"
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: 16,
+                        height: 16,
+                        px: 0.5,
+                        mt: '-2px',
+                        borderRadius: '8px',
+                        fontSize: '0.625rem',
+                        fontWeight: 700,
+                        lineHeight: 1,
+                        bgcolor: 'warning.main',
+                        color: '#161616',
+                      }}
+                    >
+                      {draftCount}
+                    </Box>
+                  )}
+                </Box>
+              }
+              id="tab-versions"
+              aria-controls="panel-versions"
+            />
             <Tab label="Changelog"     id="tab-changelog"    aria-controls="panel-changelog" />
             <Tab label="Dependencies"  id="tab-dependencies" aria-controls="panel-dependencies" />
           </Tabs>
@@ -205,7 +236,7 @@ export function PluginDetailPage() {
         open={!!toast}
         autoHideDuration={4000}
         onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert severity={toast?.severity} onClose={() => setToast(null)} sx={{ width: '100%' }}>
           {toast?.message}

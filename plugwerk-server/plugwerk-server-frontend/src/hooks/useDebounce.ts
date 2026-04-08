@@ -16,38 +16,20 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { AppDialog } from './AppDialog'
+import { useEffect, useState } from 'react'
 
-interface ConfirmDeleteDialogProps {
-  open: boolean
-  title: string
-  message: string
-  onConfirm: () => void
-  onCancel: () => void
-  loading?: boolean
-  /** Specific action label, e.g. "Delete Release". Defaults to "Delete". */
-  actionLabel?: string
-}
+/**
+ * Debounces a value by the given delay in milliseconds.
+ * Returns the latest value only after the caller has stopped changing it
+ * for at least `delay` ms.
+ */
+export function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
 
-export function ConfirmDeleteDialog({
-  open,
-  title,
-  message,
-  onConfirm,
-  onCancel,
-  loading = false,
-  actionLabel = 'Delete',
-}: ConfirmDeleteDialogProps) {
-  return (
-    <AppDialog
-      open={open}
-      onClose={onCancel}
-      title={title}
-      description={message}
-      actionLabel={actionLabel}
-      onAction={onConfirm}
-      actionColor="error"
-      actionLoading={loading}
-    />
-  )
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay)
+    return () => clearTimeout(timer)
+  }, [value, delay])
+
+  return debouncedValue
 }

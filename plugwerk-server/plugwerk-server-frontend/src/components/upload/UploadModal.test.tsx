@@ -65,7 +65,7 @@ describe('UploadModal', () => {
     useUiStore.setState({ uploadModalOpen: true })
     const user = userEvent.setup()
     renderWithRouter(<UploadModal />)
-    await user.click(screen.getByRole('button', { name: /close upload dialog/i }))
+    await user.click(screen.getByRole('button', { name: /close dialog/i }))
     expect(useUiStore.getState().uploadModalOpen).toBe(false)
   })
 

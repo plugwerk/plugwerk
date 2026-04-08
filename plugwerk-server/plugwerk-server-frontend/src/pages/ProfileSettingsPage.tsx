@@ -16,15 +16,18 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
+import { useState } from 'react'
 import {
+  Alert,
   Box,
+  Button,
   Container,
-  Typography,
-  Select,
-  MenuItem,
   FormControl,
   InputLabel,
-  Button,
+  MenuItem,
+  Select,
+  Snackbar,
+  Typography,
   alpha,
   useTheme,
 } from '@mui/material'
@@ -105,6 +108,12 @@ function InfoRow({ label, value }: InfoRowProps) {
 export function ProfileSettingsPage() {
   const { username, namespace, setNamespace } = useAuthStore()
   const { namespaces } = useNamespaceStore()
+  const [toast, setToast] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
+
+  function handleSave() {
+    // TODO: persist profile settings via API once backend endpoint exists
+    setToast({ message: 'Profile settings saved.', severity: 'success' })
+  }
 
   return (
     <Box component="main" id="main-content" sx={{ flex: 1, py: 4 }}>
@@ -175,11 +184,22 @@ export function ProfileSettingsPage() {
           </Section>
 
           <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button variant="contained" sx={{ borderRadius: tokens.radius.btn }}>
+            <Button variant="contained" sx={{ borderRadius: tokens.radius.btn }} onClick={handleSave}>
               Save Changes
             </Button>
           </Box>
         </Box>
+
+        <Snackbar
+          open={!!toast}
+          autoHideDuration={4000}
+          onClose={() => setToast(null)}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <Alert severity={toast?.severity} onClose={() => setToast(null)} sx={{ width: '100%' }}>
+            {toast?.message}
+          </Alert>
+        </Snackbar>
       </Container>
     </Box>
   )

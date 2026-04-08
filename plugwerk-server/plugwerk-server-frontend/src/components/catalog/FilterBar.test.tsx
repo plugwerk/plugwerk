@@ -56,7 +56,7 @@ describe('FilterBar', () => {
     renderWithRouter(
       <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
     )
-    expect(screen.getByRole('combobox', { name: /filter by tag/i })).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/all tags/i)).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /filter by status/i })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /filter by compatibility/i })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /sort order/i })).toBeInTheDocument()

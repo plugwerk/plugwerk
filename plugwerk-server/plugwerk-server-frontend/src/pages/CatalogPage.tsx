@@ -24,18 +24,21 @@ import { PendingReviewBanner } from '../components/catalog/PendingReviewBanner'
 import { PluginCard } from '../components/catalog/PluginCard'
 import { PluginListRow } from '../components/catalog/PluginListRow'
 import { PluginCardSkeleton } from '../components/catalog/PluginCardSkeleton'
+import { PluginListRowSkeleton } from '../components/catalog/PluginListRowSkeleton'
 import { PaginationBar } from '../components/catalog/PaginationBar'
 import { EmptyState } from '../components/common/EmptyState'
 import { usePluginStore } from '../stores/pluginStore'
 import { useAuthStore } from '../stores/authStore'
 import { useUiStore } from '../stores/uiStore'
 import { useNamespaceStore } from '../stores/namespaceStore'
+import { useDebounce } from '../hooks/useDebounce'
 
 export function CatalogPage() {
   const { namespace = '' } = useParams<{ namespace: string }>()
   const { setNamespace, namespaceRole, fetchNamespaceRole, isAuthenticated } = useAuthStore()
   const { plugins, loading, error, totalElements, pendingReviewPluginCount, resetFilters, fetchPlugins, fetchTags } = usePluginStore()
   const { searchQuery } = useUiStore()
+  const debouncedSearch = useDebounce(searchQuery, 350)
   const { fetchNamespaces } = useNamespaceStore()
   const [view, setView] = useState<'card' | 'list'>('card')
 
@@ -55,9 +58,9 @@ export function CatalogPage() {
 
   useEffect(() => {
     const store = usePluginStore.getState()
-    store.setFilters({ search: searchQuery, page: 0 })
+    store.setFilters({ search: debouncedSearch, page: 0 })
     fetchPlugins(namespace)
-  }, [searchQuery, namespace])
+  }, [debouncedSearch, namespace])
 
   return (
     <Box component="main" id="main-content" sx={{ flex: 1, py: 4 }}>
@@ -99,7 +102,7 @@ export function CatalogPage() {
         )}
 
         {/* Loading skeleton */}
-        {loading && (
+        {loading && view === 'card' && (
           <Box
             aria-label="Loading plugins"
             aria-busy="true"
@@ -111,6 +114,13 @@ export function CatalogPage() {
           >
             {Array.from({ length: 6 }).map((_, i) => (
               <PluginCardSkeleton key={i} />
+            ))}
+          </Box>
+        )}
+        {loading && view === 'list' && (
+          <Box aria-label="Loading plugins" aria-busy="true">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <PluginListRowSkeleton key={i} />
             ))}
           </Box>
         )}

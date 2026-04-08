@@ -91,12 +91,12 @@ describe('useAuthStore', () => {
       expect(localStorage.getItem('pw-access-token')).toBeNull()
     })
 
-    it('preserves namespace after logout', () => {
+    it('clears namespace after logout', () => {
       useAuthStore.setState({ accessToken: 'tok_xyz', isAuthenticated: true, namespace: 'my-org' })
 
       act(() => { useAuthStore.getState().logout() })
 
-      expect(useAuthStore.getState().namespace).toBe('my-org')
+      expect(useAuthStore.getState().namespace).toBeUndefined()
     })
   })
 

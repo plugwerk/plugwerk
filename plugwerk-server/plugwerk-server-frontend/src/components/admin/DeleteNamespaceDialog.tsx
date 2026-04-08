@@ -17,19 +17,10 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 import { useState } from 'react'
-import {
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  TextField,
-  Typography,
-} from '@mui/material'
+import { TextField } from '@mui/material'
 import { namespacesApi } from '../../api/config'
 import type { NamespaceSummary } from '../../api/generated/model'
-import { tokens } from '../../theme/tokens'
+import { AppDialog } from '../common/AppDialog'
 
 interface DeleteNamespaceDialogProps {
   namespace: NamespaceSummary | null
@@ -65,34 +56,25 @@ export function DeleteNamespaceDialog({ namespace, onClose, onDeleted, onError }
   }
 
   return (
-    <Dialog open={!!namespace} onClose={handleClose} maxWidth="xs" fullWidth>
-      <DialogTitle sx={{ color: tokens.color.danger }}>Delete Namespace</DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-          <Typography variant="body2">
-            This will permanently delete all plugins, releases, artifacts, members, and API keys
-            in namespace &lsquo;<strong>{slug}</strong>&rsquo;. This action cannot be undone.
-          </Typography>
-          <TextField
-            label={`Type "${slug}" to confirm`}
-            value={confirmation}
-            onChange={(e) => setConfirmation(e.target.value)}
-            size="small"
-            autoFocus
-          />
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose}>Cancel</Button>
-        <Button
-          variant="contained"
-          color="error"
-          onClick={handleDelete}
-          disabled={deleting || !matches}
-        >
-          {deleting ? 'Deleting\u2026' : 'Delete'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+    <AppDialog
+      open={!!namespace}
+      onClose={handleClose}
+      title="Delete Namespace"
+      description={`This will permanently delete all plugins, releases, artifacts, members, and API keys in namespace \u201c${slug}\u201d. This action cannot be undone.`}
+      actionLabel="Delete Namespace"
+      onAction={handleDelete}
+      actionColor="error"
+      actionDisabled={!matches}
+      actionLoading={deleting}
+    >
+      <TextField
+        label={`Type "${slug}" to confirm`}
+        value={confirmation}
+        onChange={(e) => setConfirmation(e.target.value)}
+        size="small"
+        autoFocus
+        fullWidth
+      />
+    </AppDialog>
   )
 }

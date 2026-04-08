@@ -45,7 +45,10 @@ export function TopBar() {
   const { pathname } = useLocation()
 
   function isActive(path: string) {
-    return path === '/' ? pathname === '/' : pathname.startsWith(path)
+    if (path === '/') {
+      return pathname === '/' || pathname.startsWith('/namespaces/')
+    }
+    return pathname.startsWith(path)
   }
 
   function handleNamespaceChange(ns: string) {
@@ -126,7 +129,7 @@ export function TopBar() {
                 >
                   {namespaces.length > 0
                     ? namespaces.map((ns) => (
-                        <MenuItem key={ns.slug} value={ns.slug}>{ns.slug}</MenuItem>
+                        <MenuItem key={ns.slug} value={ns.slug}>{ns.name} ({ns.slug})</MenuItem>
                       ))
                     : <MenuItem value={namespace}>{namespace}</MenuItem>
                   }

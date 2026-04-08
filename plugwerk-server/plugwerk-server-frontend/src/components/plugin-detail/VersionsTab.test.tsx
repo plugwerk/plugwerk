@@ -115,7 +115,7 @@ describe('VersionsTab', () => {
 
     const deleteButtons = screen.getAllByRole('button', { name: /delete/i })
     await user.click(deleteButtons[0])
-    await user.click(screen.getByRole('button', { name: /confirm-delete/i }))
+    await user.click(screen.getByRole('button', { name: /^delete$/i }))
 
     expect(mockDelete).toHaveBeenCalledWith({ ns: 'acme', pluginId: 'my-plugin', version: '1.0.0' })
     expect(onDeleted).toHaveBeenCalledWith('1.0.0')
@@ -171,17 +171,17 @@ describe('VersionsTab', () => {
 
     const deleteButton = screen.getByRole('button', { name: /delete/i })
     await user.click(deleteButton)
-    await user.click(screen.getByRole('button', { name: /confirm-delete/i }))
+    await user.click(screen.getByRole('button', { name: /^delete$/i }))
 
-    expect(mockNavigate).toHaveBeenCalledWith('/acme')
+    expect(mockNavigate).toHaveBeenCalledWith('/namespaces/acme/plugins')
     expect(onDeleted).not.toHaveBeenCalled()
   })
 
   it('renders download icon button for published releases', () => {
     renderWithRouter(<VersionsTab {...defaultProps} />)
 
-    const downloadButton = screen.getByRole('button', { name: /download/i })
-    expect(downloadButton).toBeInTheDocument()
+    const downloadButtons = screen.getAllByRole('button', { name: /download/i })
+    expect(downloadButtons.length).toBeGreaterThanOrEqual(1)
   })
 
   it('shows Format column with file format', () => {

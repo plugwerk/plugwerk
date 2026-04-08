@@ -51,9 +51,18 @@ export const tokens = {
   },
 
   radius: {
-    btn: '4px',
+    btn: '6px',
     card: '8px',
-    input: '4px',
+    input: '6px',
+    dialog: '12px',
+    tooltip: '6px',
+  },
+
+  shadow: {
+    card: '0 1px 3px rgba(0,0,0,0.08)',
+    cardHover: '0 4px 12px rgba(0,0,0,0.12)',
+    modal: '0 8px 32px rgba(0,0,0,0.16)',
+    tooltip: '0 2px 8px rgba(0,0,0,0.12)',
   },
 
   space: {
@@ -64,5 +73,8 @@ export const tokens = {
     5: '20px',
     6: '24px',
     7: '32px',
+    8: '48px',
+    9: '64px',
+    10: '96px',
   },
 } as const

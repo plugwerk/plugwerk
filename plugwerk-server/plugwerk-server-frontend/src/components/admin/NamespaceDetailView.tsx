@@ -29,10 +29,6 @@ import {
   Chip,
   Select,
   MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   FormControl,
   InputLabel,
   Tabs,
@@ -40,6 +36,7 @@ import {
   Autocomplete,
 } from '@mui/material'
 import { ArrowLeft, Plus, Trash2, Copy, Check } from 'lucide-react'
+import { AppDialog } from '../common/AppDialog'
 import { DataTable } from '../common/DataTable'
 import type { DataColumn } from '../common/DataTable'
 import { ActionIconButton } from '../common/ActionIconButton'
@@ -375,52 +372,48 @@ function MembersSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
         />
       )}
 
-      <Dialog open={addOpen} onClose={() => { setAddOpen(false); setAddError(null) }} maxWidth="xs" fullWidth>
-        <DialogTitle>Add Member</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            {addError && <Alert severity="error">{addError}</Alert>}
-            <Autocomplete
-              freeSolo
-              options={userOptions}
-              inputValue={newSubject}
-              onInputChange={(_, value) => { setNewSubject(value); setAddError(null) }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="User"
-                  required
-                  size="small"
-                  autoFocus
-                  helperText="Username or OIDC subject claim."
-                />
-              )}
-            />
-            <FormControl size="small" required>
-              <InputLabel>Role</InputLabel>
-              <Select
-                value={newRole}
-                label="Role"
-                onChange={(e) => setNewRole(e.target.value as NamespaceRole)}
-              >
-                {Object.values(NamespaceRoleEnum).map((role) => (
-                  <MenuItem key={role} value={role}>{ROLE_LABELS[role] ?? role}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAddOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleAdd}
-            disabled={addSaving || !newSubject.trim()}
-          >
-            {addSaving ? 'Adding\u2026' : 'Add'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <AppDialog
+        open={addOpen}
+        onClose={() => { setAddOpen(false); setAddError(null) }}
+        title="Add Member"
+        description="Add a user to this namespace by entering their username or OIDC subject claim and selecting a role."
+        actionLabel="Add Member"
+        onAction={handleAdd}
+        actionDisabled={!newSubject.trim()}
+        actionLoading={addSaving}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {addError && <Alert severity="error">{addError}</Alert>}
+          <Autocomplete
+            freeSolo
+            options={userOptions}
+            inputValue={newSubject}
+            onInputChange={(_, value) => { setNewSubject(value); setAddError(null) }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="User"
+                required
+                size="small"
+                autoFocus
+                helperText="Username or OIDC subject claim."
+              />
+            )}
+          />
+          <FormControl size="small" required>
+            <InputLabel>Role</InputLabel>
+            <Select
+              value={newRole}
+              label="Role"
+              onChange={(e) => setNewRole(e.target.value as NamespaceRole)}
+            >
+              {Object.values(NamespaceRoleEnum).map((role) => (
+                <MenuItem key={role} value={role}>{ROLE_LABELS[role] ?? role}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+      </AppDialog>
     </Box>
   )
 }
@@ -601,38 +594,38 @@ function ApiKeysSection({ slug, onToast }: { slug: string; onToast: NamespaceDet
         />
       )}
 
-      <Dialog open={createOpen} onClose={() => { setCreateOpen(false); setCreateError(null) }} maxWidth="xs" fullWidth>
-        <DialogTitle>Generate API Key</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            {createError && <Alert severity="error">{createError}</Alert>}
-            <TextField
-              label="Name"
-              value={keyName}
-              onChange={(e) => { setKeyName(e.target.value); setCreateError(null) }}
-              size="small"
-              required
-              autoFocus
-              helperText="Unique name to identify this key (e.g. 'CI pipeline')."
-            />
-            <TextField
-              label="Expires (optional)"
-              type="datetime-local"
-              value={expiresAt}
-              onChange={(e) => setExpiresAt(e.target.value)}
-              size="small"
-              slotProps={{ inputLabel: { shrink: true } }}
-              helperText="Leave empty for a key that never expires."
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreate} disabled={creating || !keyName.trim()}>
-            {creating ? 'Generating\u2026' : 'Generate'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <AppDialog
+        open={createOpen}
+        onClose={() => { setCreateOpen(false); setCreateError(null) }}
+        title="Generate API Key"
+        description="Create a new API key for programmatic access. The key is shown only once after creation."
+        actionLabel="Generate Key"
+        onAction={handleCreate}
+        actionDisabled={!keyName.trim()}
+        actionLoading={creating}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {createError && <Alert severity="error">{createError}</Alert>}
+          <TextField
+            label="Name"
+            value={keyName}
+            onChange={(e) => { setKeyName(e.target.value); setCreateError(null) }}
+            size="small"
+            required
+            autoFocus
+            helperText="Unique name to identify this key (e.g. 'CI pipeline')."
+          />
+          <TextField
+            label="Expires (optional)"
+            type="datetime-local"
+            value={expiresAt}
+            onChange={(e) => setExpiresAt(e.target.value)}
+            size="small"
+            slotProps={{ inputLabel: { shrink: true } }}
+            helperText="Leave empty for a key that never expires."
+          />
+        </Box>
+      </AppDialog>
     </Box>
   )
 }

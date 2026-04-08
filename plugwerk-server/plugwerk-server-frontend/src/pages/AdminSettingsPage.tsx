@@ -34,12 +34,9 @@ import {
   CircularProgress,
   Chip,
   Switch,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
 } from '@mui/material'
 import { CheckCircle, Plus, Shield, Trash2, XCircle } from 'lucide-react'
+import { AppDialog } from '../components/common/AppDialog'
 import { DataTable } from '../components/common/DataTable'
 import type { DataColumn } from '../components/common/DataTable'
 import { ActionIconButton } from '../components/common/ActionIconButton'
@@ -49,6 +46,13 @@ import { useAuthStore } from '../stores/authStore'
 import type { OidcProviderDto, OidcProviderType, ReviewItemDto, UserDto } from '../api/generated/model'
 
 function GeneralSection() {
+  const [toast, setToast] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
+
+  function handleSave() {
+    // TODO: persist settings via API once backend endpoint exists
+    setToast({ message: 'Settings saved.', severity: 'success' })
+  }
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <Box>
@@ -63,7 +67,19 @@ function GeneralSection() {
           <MenuItem value="de">Deutsch</MenuItem>
         </Select>
       </FormControl>
-      <Button variant="contained" sx={{ alignSelf: 'flex-start' }}>Save Changes</Button>
+      <Button variant="contained" sx={{ alignSelf: 'flex-start' }} onClick={handleSave}>
+        Save Changes
+      </Button>
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={4000}
+        onClose={() => setToast(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity={toast?.severity} onClose={() => setToast(null)} sx={{ width: '100%' }}>
+          {toast?.message}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }
@@ -97,6 +113,7 @@ function UsersSection() {
     try {
       const res = await adminUsersApi.updateUser({ userId: user.id, userUpdateRequest: { enabled: !user.enabled } })
       setUsers((prev) => prev.map((u) => (u.id === user.id ? res.data : u)))
+      setToast({ message: `User "${user.username}" ${res.data.enabled ? 'enabled' : 'disabled'}.`, severity: 'success' })
     } catch {
       setToast({ message: `Failed to update user ${user.username}.`, severity: 'error' })
     }
@@ -231,49 +248,45 @@ function UsersSection() {
         />
       )}
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Add User</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <TextField
-              label="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              size="small"
-              autoFocus
-            />
-            <TextField
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              size="small"
-            />
-            <TextField
-              label="Initial Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              size="small"
-              helperText="User will be required to change this on first login."
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleCreate}
-            disabled={saving || !username.trim() || !password}
-          >
-            {saving ? 'Creating…' : 'Create'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <AppDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        title="Add User"
+        description="Create a new local user account. The user will be required to change their password on first login."
+        actionLabel="Create User"
+        onAction={handleCreate}
+        actionDisabled={!username.trim() || !password}
+        actionLoading={saving}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            label="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+            size="small"
+            autoFocus
+          />
+          <TextField
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            size="small"
+          />
+          <TextField
+            label="Initial Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            size="small"
+            helperText="User will be required to change this on first login."
+          />
+        </Box>
+      </AppDialog>
 
-      <Snackbar open={!!toast} autoHideDuration={4000} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+      <Snackbar open={!!toast} autoHideDuration={4000} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
         <Alert severity={toast?.severity} onClose={() => setToast(null)} sx={{ width: '100%' }}>
           {toast?.message}
         </Alert>
@@ -327,6 +340,7 @@ function OidcProvidersSection() {
         oidcProviderUpdateRequest: { enabled: !provider.enabled },
       })
       setProviders((prev) => prev.map((p) => (p.id === provider.id ? res.data : p)))
+      setToast({ message: `Provider "${provider.name}" ${res.data.enabled ? 'enabled' : 'disabled'}.`, severity: 'success' })
     } catch {
       setToast({ message: `Failed to update provider "${provider.name}".`, severity: 'error' })
     }
@@ -453,83 +467,79 @@ function OidcProvidersSection() {
         />
       )}
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add OIDC Provider</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+      <AppDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        title="Add OIDC Provider"
+        description="Configure an external identity provider for single sign-on. The provider is disabled by default after creation."
+        actionLabel="Create Provider"
+        onAction={handleCreate}
+        actionDisabled={
+          !name.trim() ||
+          !clientId.trim() ||
+          !clientSecret.trim() ||
+          (issuerRequired && !issuerUri.trim())
+        }
+        actionLoading={saving}
+        maxWidth={600}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            label="Display Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            size="small"
+            autoFocus
+          />
+          <FormControl size="small" required>
+            <InputLabel>Provider Type</InputLabel>
+            <Select
+              value={providerType}
+              label="Provider Type"
+              onChange={(e) => setProviderType(e.target.value as OidcProviderType)}
+            >
+              {Object.entries(PROVIDER_TYPE_LABELS).map(([value, label]) => (
+                <MenuItem key={value} value={value}>{label}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            label="Client ID"
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            required
+            size="small"
+          />
+          <TextField
+            label="Client Secret"
+            type="password"
+            value={clientSecret}
+            onChange={(e) => setClientSecret(e.target.value)}
+            required
+            size="small"
+          />
+          {issuerRequired && (
             <TextField
-              label="Display Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              label="Issuer URI"
+              value={issuerUri}
+              onChange={(e) => setIssuerUri(e.target.value)}
               required
               size="small"
-              autoFocus
+              placeholder="https://your-idp.example.com/realms/myrealm"
             />
-            <FormControl size="small" required>
-              <InputLabel>Provider Type</InputLabel>
-              <Select
-                value={providerType}
-                label="Provider Type"
-                onChange={(e) => setProviderType(e.target.value as OidcProviderType)}
-              >
-                {Object.entries(PROVIDER_TYPE_LABELS).map(([value, label]) => (
-                  <MenuItem key={value} value={value}>{label}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="Client ID"
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              required
-              size="small"
-            />
-            <TextField
-              label="Client Secret"
-              type="password"
-              value={clientSecret}
-              onChange={(e) => setClientSecret(e.target.value)}
-              required
-              size="small"
-            />
-            {issuerRequired && (
-              <TextField
-                label="Issuer URI"
-                value={issuerUri}
-                onChange={(e) => setIssuerUri(e.target.value)}
-                required
-                size="small"
-                placeholder="https://your-idp.example.com/realms/myrealm"
-              />
-            )}
-            <TextField
-              label="Scope"
-              value={scope}
-              onChange={(e) => setScope(e.target.value)}
-              size="small"
-              helperText="Space-separated OAuth2 scopes"
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleCreate}
-            disabled={
-              saving ||
-              !name.trim() ||
-              !clientId.trim() ||
-              !clientSecret.trim() ||
-              (issuerRequired && !issuerUri.trim())
-            }
-          >
-            {saving ? 'Creating…' : 'Create'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+          )}
+          <TextField
+            label="Scope"
+            value={scope}
+            onChange={(e) => setScope(e.target.value)}
+            size="small"
+            helperText="Space-separated OAuth2 scopes"
+          />
+        </Box>
+      </AppDialog>
 
-      <Snackbar open={!!toast} autoHideDuration={4000} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+      <Snackbar open={!!toast} autoHideDuration={4000} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
         <Alert severity={toast?.severity} onClose={() => setToast(null)} sx={{ width: '100%' }}>
           {toast?.message}
         </Alert>
@@ -660,7 +670,7 @@ function ReviewsSection() {
         open={!!toast}
         autoHideDuration={4000}
         onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert severity={toast?.severity} onClose={() => setToast(null)} sx={{ width: '100%' }}>
           {toast?.message}

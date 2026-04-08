@@ -25,7 +25,7 @@ import {
   Menu,
   MenuItem,
 } from '@mui/material'
-import { Download, CheckCircle, Trash2, ArrowRightLeft } from 'lucide-react'
+import { Download, CheckCircle, Trash2, ArrowRightLeft, Copy, Check } from 'lucide-react'
 import { DataTable } from '../common/DataTable'
 import type { DataColumn } from '../common/DataTable'
 import { ActionIconButton } from '../common/ActionIconButton'
@@ -41,6 +41,41 @@ import { managementApi, reviewsApi } from '../../api/config'
 import { formatFileSize } from '../../utils/formatFileSize'
 import { formatDateTime } from '../../utils/formatDateTime'
 import { downloadArtifact } from '../../utils/downloadArtifact'
+import { formatCount, formatCountFull } from '../../utils/formatCount'
+
+function CopyableSha256({ value }: { value?: string }) {
+  const [copied, setCopied] = useState(false)
+
+  if (!value) return <Typography variant="caption" color="text.disabled">—</Typography>
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(value!)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <Tooltip title={copied ? 'Copied!' : 'Click to copy full SHA-256'}>
+      <Box
+        onClick={handleCopy}
+        sx={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 0.5,
+          cursor: 'pointer',
+          '&:hover': { color: 'text.primary' },
+        }}
+      >
+        <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.disabled' }}>
+          {value.slice(0, 12)}…
+        </Typography>
+        {copied
+          ? <Check size={12} color={tokens.color.success} />
+          : <Copy size={12} style={{ opacity: 0.4 }} />}
+      </Box>
+    </Tooltip>
+  )
+}
 
 interface VersionsTabProps {
   releases: PluginReleaseDto[]
@@ -190,6 +225,7 @@ export function VersionsTab({ releases, namespace, pluginId, canApprove, onRelea
     {
       key: 'size',
       header: 'Size',
+      align: 'right',
       render: (rel) => (
         <Typography variant="caption" color="text.disabled">
           {rel.artifactSize ? formatFileSize(rel.artifactSize) : '—'}
@@ -199,22 +235,18 @@ export function VersionsTab({ releases, namespace, pluginId, canApprove, onRelea
     {
       key: 'sha256',
       header: 'SHA-256',
-      render: (rel) => (
-        <Tooltip title={rel.artifactSha256 ?? ''}>
-          <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.disabled' }}>
-            {rel.artifactSha256 ? rel.artifactSha256.slice(0, 12) + '…' : '—'}
-          </Typography>
-        </Tooltip>
-      ),
+      render: (rel) => <CopyableSha256 value={rel.artifactSha256} />,
     },
     {
       key: 'downloads',
       header: 'Downloads',
       align: 'right',
       render: (rel) => (
-        <Typography variant="caption" color="text.disabled">
-          {rel.downloadCount ?? 0}
-        </Typography>
+        <Tooltip title={formatCountFull(rel.downloadCount)} placement="left">
+          <Typography variant="caption" color="text.disabled">
+            {formatCount(rel.downloadCount)}
+          </Typography>
+        </Tooltip>
       ),
     },
     {
@@ -292,7 +324,7 @@ export function VersionsTab({ releases, namespace, pluginId, canApprove, onRelea
         open={!!toast}
         autoHideDuration={4000}
         onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert severity={toast?.severity} onClose={() => setToast(null)} sx={{ width: '100%' }}>
           {toast?.message}

@@ -17,18 +17,11 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 import { useState } from 'react'
-import {
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  TextField,
-} from '@mui/material'
+import { Box, TextField } from '@mui/material'
 import { namespacesApi } from '../../api/config'
 import type { NamespaceSummary } from '../../api/generated/model'
 import { isAxiosError } from 'axios'
+import { AppDialog } from '../common/AppDialog'
 
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$/
 
@@ -88,48 +81,44 @@ export function CreateNamespaceDialog({ open, onClose, onCreated, onError }: Cre
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Create Namespace</DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-          <TextField
-            label="Slug"
-            value={slug}
-            onChange={(e) => handleSlugChange(e.target.value)}
-            required
-            size="small"
-            autoFocus
-            error={!!slugError}
-            helperText={slugError ?? 'Lowercase alphanumeric with hyphens, 2\u201364 characters.'}
-          />
-          <TextField
-            label="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            size="small"
-            helperText="Human-readable display name for this namespace."
-          />
-          <TextField
-            label="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            size="small"
-            multiline
-            minRows={2}
-          />
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose}>Cancel</Button>
-        <Button
-          variant="contained"
-          onClick={handleCreate}
-          disabled={saving || !slug.trim() || !name.trim() || !!slugError}
-        >
-          {saving ? 'Creating\u2026' : 'Create'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+    <AppDialog
+      open={open}
+      onClose={handleClose}
+      title="Create Namespace"
+      description="A namespace groups plugins, members, and API keys under a shared scope."
+      actionLabel="Create"
+      onAction={handleCreate}
+      actionDisabled={!slug.trim() || !name.trim() || !!slugError}
+      actionLoading={saving}
+    >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <TextField
+          label="Slug"
+          value={slug}
+          onChange={(e) => handleSlugChange(e.target.value)}
+          required
+          size="small"
+          autoFocus
+          error={!!slugError}
+          helperText={slugError ?? 'Lowercase alphanumeric with hyphens, 2\u201364 characters.'}
+        />
+        <TextField
+          label="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          size="small"
+          helperText="Human-readable display name for this namespace."
+        />
+        <TextField
+          label="Description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          size="small"
+          multiline
+          minRows={2}
+        />
+      </Box>
+    </AppDialog>
   )
 }

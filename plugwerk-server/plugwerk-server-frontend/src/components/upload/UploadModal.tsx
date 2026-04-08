@@ -18,18 +18,13 @@
  */
 import { useState, useCallback, useEffect } from 'react'
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
   Box,
   Typography,
   Alert,
   LinearProgress,
-  IconButton,
 } from '@mui/material'
-import { X, UploadCloud, FileBox } from 'lucide-react'
+import { UploadCloud, FileBox } from 'lucide-react'
+import { AppDialog } from '../common/AppDialog'
 import { useDropzone } from 'react-dropzone'
 import axios from 'axios'
 import { axiosInstance } from '../../api/config'
@@ -118,81 +113,66 @@ export function UploadModal() {
   }
 
   return (
-    <Dialog open={uploadModalOpen} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pr: 1 }}>
-        Upload Plugin Release
-        <IconButton onClick={handleClose} size="small" aria-label="Close upload dialog" disabled={progress !== null}>
-          <X size={18} />
-        </IconButton>
-      </DialogTitle>
+    <AppDialog
+      open={uploadModalOpen}
+      onClose={handleClose}
+      title="Upload Plugin Release"
+      description="Drop a plugin .jar or .zip file. All metadata (plugin ID, version, dependencies) is read from the descriptor inside the archive."
+      actionLabel="Upload Release"
+      onAction={handleUpload}
+      actionDisabled={!file}
+      actionLoading={progress !== null}
+      maxWidth={600}
+    >
+      {error && (
+        <Alert severity="error" onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-        <Typography variant="body2" color="text.secondary">
-          Drop a plugin <strong>.jar</strong> or <strong>.zip</strong> file. All metadata (plugin ID, version,
-          dependencies) is read from the descriptor inside the archive.
-        </Typography>
-
-        {error && (
-          <Alert severity="error" onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
-
-        <Box
-          {...getRootProps()}
-          sx={{
-            border: `2px dashed ${isDragActive ? tokens.color.primary : tokens.color.gray20}`,
-            borderRadius: tokens.radius.card,
-            p: 4,
-            textAlign: 'center',
-            cursor: progress !== null ? 'not-allowed' : 'pointer',
-            background: isDragActive ? tokens.color.primaryLight + '22' : 'background.default',
-            transition: 'border-color 0.15s, background 0.15s',
-            '&:hover': { borderColor: progress === null ? tokens.color.primary : undefined },
-          }}
-        >
-          <input {...getInputProps()} aria-label="Select plugin JAR or ZIP file" disabled={progress !== null} />
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
-            {file ? (
-              <>
-                <FileBox size={36} color={tokens.color.primary} />
-                <Typography variant="body2" fontWeight={600}>{file.name}</Typography>
-                <Typography variant="caption" color="text.disabled">
-                  {(file.size / 1024 / 1024).toFixed(2)} MB · Click to replace
-                </Typography>
-              </>
-            ) : (
-              <>
-                <UploadCloud size={36} color={tokens.color.gray40} />
-                <Typography variant="body2" fontWeight={600}>
-                  {isDragActive ? 'Drop the file here…' : 'Drag & drop a .jar or .zip file here'}
-                </Typography>
-                <Typography variant="caption" color="text.disabled">
-                  or click to browse · Max. {maxFileSizeMb} MB
-                </Typography>
-              </>
-            )}
-          </Box>
+      <Box
+        {...getRootProps()}
+        sx={{
+          border: `2px dashed ${isDragActive ? tokens.color.primary : tokens.color.gray20}`,
+          borderRadius: tokens.radius.card,
+          p: 4,
+          textAlign: 'center',
+          cursor: progress !== null ? 'not-allowed' : 'pointer',
+          background: isDragActive ? tokens.color.primaryLight + '22' : 'background.default',
+          transition: 'border-color 0.15s, background 0.15s',
+          '&:hover': { borderColor: progress === null ? tokens.color.primary : undefined },
+        }}
+      >
+        <input {...getInputProps()} aria-label="Select plugin JAR or ZIP file" disabled={progress !== null} />
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+          {file ? (
+            <>
+              <FileBox size={36} color={tokens.color.primary} />
+              <Typography variant="body2" fontWeight={600}>{file.name}</Typography>
+              <Typography variant="caption" color="text.disabled">
+                {(file.size / 1024 / 1024).toFixed(2)} MB · Click to replace
+              </Typography>
+            </>
+          ) : (
+            <>
+              <UploadCloud size={36} color={tokens.color.gray40} />
+              <Typography variant="body2" fontWeight={600}>
+                {isDragActive ? 'Drop the file here…' : 'Drag & drop a .jar or .zip file here'}
+              </Typography>
+              <Typography variant="caption" color="text.disabled">
+                or click to browse · Max. {maxFileSizeMb} MB
+              </Typography>
+            </>
+          )}
         </Box>
+      </Box>
 
-        {progress !== null && (
-          <Box>
-            <Typography variant="caption" color="text.secondary">Uploading… {progress}%</Typography>
-            <LinearProgress variant="determinate" value={progress} sx={{ mt: 0.5 }} />
-          </Box>
-        )}
-      </DialogContent>
-
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={handleClose} disabled={progress !== null}>Cancel</Button>
-        <Button
-          variant="contained"
-          onClick={handleUpload}
-          disabled={!file || progress !== null}
-        >
-          {progress !== null ? 'Uploading…' : 'Upload Release'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+      {progress !== null && (
+        <Box>
+          <Typography variant="caption" color="text.secondary">Uploading… {progress}%</Typography>
+          <LinearProgress variant="determinate" value={progress} sx={{ mt: 0.5 }} />
+        </Box>
+      )}
+    </AppDialog>
   )
 }

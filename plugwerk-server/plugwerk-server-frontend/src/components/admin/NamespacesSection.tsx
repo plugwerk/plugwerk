@@ -35,6 +35,8 @@ import type { NamespaceSummary } from '../../api/generated/model'
 import { CreateNamespaceDialog } from './CreateNamespaceDialog'
 import { DeleteNamespaceDialog } from './DeleteNamespaceDialog'
 import { NamespaceDetailView } from './NamespaceDetailView'
+import { useNamespaceStore } from '../../stores/namespaceStore'
+import { useAuthStore } from '../../stores/authStore'
 
 export function NamespacesSection() {
   const [namespaces, setNamespaces] = useState<NamespaceSummary[]>([])
@@ -63,12 +65,28 @@ export function NamespacesSection() {
   function handleCreated(ns: NamespaceSummary) {
     setNamespaces((prev) => [...prev, ns])
     setToast({ message: `Namespace "${ns.slug}" created.`, severity: 'success' })
+
+    // Refresh the global namespace dropdown in the header
+    useNamespaceStore.getState().fetchNamespaces()
   }
 
   function handleDeleted(slug: string) {
-    setNamespaces((prev) => prev.filter((n) => n.slug !== slug))
+    const remaining = namespaces.filter((n) => n.slug !== slug)
+    setNamespaces(remaining)
     setDeleteTarget(null)
     setToast({ message: `Namespace "${slug}" deleted.`, severity: 'success' })
+
+    // Refresh the global namespace dropdown in the header
+    useNamespaceStore.getState().fetchNamespaces()
+
+    // If the deleted namespace was currently selected, switch to the next available
+    const { namespace: current, setNamespace } = useAuthStore.getState()
+    if (current === slug) {
+      const next = remaining[0]?.slug
+      if (next) {
+        setNamespace(next)
+      }
+    }
   }
 
   const namespaceCols: DataColumn<NamespaceSummary>[] = [
@@ -96,7 +114,7 @@ export function NamespacesSection() {
   ]
 
   const snackbar = (
-    <Snackbar open={!!toast} autoHideDuration={4000} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+    <Snackbar open={!!toast} autoHideDuration={4000} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
       <Alert severity={toast?.severity} onClose={() => setToast(null)} sx={{ width: '100%' }}>
         {toast?.message}
       </Alert>

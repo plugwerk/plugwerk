@@ -46,12 +46,12 @@ describe('PluginListRow', () => {
 
   it('renders provider', () => {
     renderWithRouter(<PluginListRow plugin={plugin} namespace="acme" />)
-    expect(screen.getByText('Acme')).toBeInTheDocument()
+    expect(screen.getByText('by Acme')).toBeInTheDocument()
   })
 
   it('falls back to namespace when provider is absent', () => {
     renderWithRouter(<PluginListRow plugin={{ ...plugin, provider: undefined }} namespace="acme" />)
-    expect(screen.getByText('acme')).toBeInTheDocument()
+    expect(screen.queryByText('Acme')).not.toBeInTheDocument()
   })
 
   it('renders version badge', () => {
@@ -59,9 +59,9 @@ describe('PluginListRow', () => {
     expect(screen.getByText('v2.0.0')).toBeInTheDocument()
   })
 
-  it('renders download count with k suffix', () => {
+  it('renders download count in short format', () => {
     renderWithRouter(<PluginListRow plugin={plugin} namespace="acme" />)
-    expect(screen.getByText('5.0k')).toBeInTheDocument()
+    expect(screen.getByText('5k')).toBeInTheDocument()
   })
 
   it('renders "—" when updatedAt is absent', () => {

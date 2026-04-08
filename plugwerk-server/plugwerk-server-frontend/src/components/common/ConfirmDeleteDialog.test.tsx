@@ -42,7 +42,7 @@ describe('ConfirmDeleteDialog', () => {
     const user = userEvent.setup()
     renderWithTheme(<ConfirmDeleteDialog {...defaultProps} onConfirm={onConfirm} />)
 
-    await user.click(screen.getByRole('button', { name: /confirm-delete/i }))
+    await user.click(screen.getByRole('button', { name: /^delete$/i }))
     expect(onConfirm).toHaveBeenCalledOnce()
   })
 
@@ -59,8 +59,8 @@ describe('ConfirmDeleteDialog', () => {
     renderWithTheme(<ConfirmDeleteDialog {...defaultProps} loading />)
 
     expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /confirm-delete/i })).toBeDisabled()
-    expect(screen.getByText('Deleting\u2026')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /delete\u2026/i })).toBeDisabled()
+    expect(screen.getByText('Delete\u2026')).toBeInTheDocument()
   })
 
   it('does not render when open is false', () => {

@@ -39,11 +39,7 @@ interface PluginListRowProps {
   namespace: string
 }
 
-function formatCount(n: number | undefined): string {
-  if (!n) return '0'
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
-  return String(n)
-}
+import { formatCount, formatCountFull } from '../../utils/formatCount'
 
 export function PluginListRow({ plugin, namespace }: PluginListRowProps) {
   const isDraftOnly = plugin.hasDraftOnly === true
@@ -110,7 +106,7 @@ export function PluginListRow({ plugin, namespace }: PluginListRowProps) {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {plugin.provider && (
             <>
-              <Typography variant="caption" color="text.disabled">{plugin.provider}</Typography>
+              <Typography variant="caption" color="text.disabled">by {plugin.provider}</Typography>
               <Typography variant="caption" color="text.disabled">·</Typography>
             </>
           )}
@@ -144,10 +140,12 @@ export function PluginListRow({ plugin, namespace }: PluginListRowProps) {
       )}
 
       <Box sx={{ display: 'flex', gap: 2, color: 'text.disabled', flexShrink: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Download size={12} aria-hidden="true" />
-          <Typography variant="caption">{formatCount(plugin.downloadCount ?? 0)}</Typography>
-        </Box>
+        <Tooltip title={formatCountFull(plugin.downloadCount)} placement="top">
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Download size={12} aria-hidden="true" />
+            <Typography variant="caption">{formatCount(plugin.downloadCount ?? 0)}</Typography>
+          </Box>
+        </Tooltip>
         {latestRelease?.artifactSize && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <HardDrive size={12} aria-hidden="true" />

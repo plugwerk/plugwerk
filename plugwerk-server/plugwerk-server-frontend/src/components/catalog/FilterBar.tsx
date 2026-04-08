@@ -16,8 +16,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Box, Button, InputBase, MenuItem, ToggleButton, ToggleButtonGroup, useTheme, alpha } from '@mui/material'
-import { LayoutGrid, List, Search } from 'lucide-react'
+import { Box, Button, IconButton, InputBase, MenuItem, ToggleButton, ToggleButtonGroup, useTheme, alpha } from '@mui/material'
+import { LayoutGrid, List, Search, X } from 'lucide-react'
 import { usePluginStore } from '../../stores/pluginStore'
 import { useUiStore } from '../../stores/uiStore'
 import { FilterAutocomplete } from '../common/FilterAutocomplete'
@@ -147,10 +147,22 @@ export function FilterBar({ view, onViewChange, namespace }: FilterBarProps) {
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search plugins…"
           aria-label="Search plugins"
+          endAdornment={
+            searchQuery ? (
+              <IconButton
+                size="small"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+                sx={{ mr: 0.5 }}
+              >
+                <X size={14} />
+              </IconButton>
+            ) : null
+          }
           sx={{
             width: '100%',
             pl: '30px',
-            pr: 1,
+            pr: 0.5,
             py: 0.5,
             borderRadius: tokens.radius.btn,
             border: `1px solid ${isDark ? '#393939' : tokens.color.gray20}`,
