@@ -164,33 +164,33 @@ export function PluginDetailPage() {
             <Tab label="Overview"      id="tab-overview"     aria-controls="panel-overview" />
             <Tab
               label={
-                <Box component="span" sx={{ position: 'relative' }}>
+                <>
                   Versions
                   {draftCount > 0 && (
                     <Box
                       component="span"
                       sx={{
-                        position: 'absolute',
-                        top: -4,
-                        right: -22,
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         minWidth: 16,
                         height: 16,
                         px: 0.5,
+                        ml: 0.75,
+                        mb: 1,
                         borderRadius: '8px',
                         fontSize: '0.625rem',
                         fontWeight: 700,
                         lineHeight: 1,
                         bgcolor: 'warning.main',
                         color: '#161616',
+                        verticalAlign: 'top',
                       }}
                     >
                       {draftCount}
                     </Box>
                   )}
-                </Box>
+                </>
               }
               id="tab-versions"
               aria-controls="panel-versions"
