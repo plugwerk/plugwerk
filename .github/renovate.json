@@ -1,0 +1,86 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "schedule": ["before 6am on monday"],
+  "timezone": "Europe/Berlin",
+  "automerge": false,
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Renovate Dependency Dashboard",
+  "labels": ["chore"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "packageRules": [
+    {
+      "description": "Spring Boot starters, BOM, and dependency management plugin",
+      "matchManagers": ["gradle", "gradle-wrapper"],
+      "matchPackagePatterns": [
+        "^org\\.springframework\\.boot",
+        "^org\\.springframework\\.security",
+        "^io\\.spring\\.dependency-management"
+      ],
+      "groupName": "Spring Boot",
+      "groupSlug": "spring-boot"
+    },
+    {
+      "description": "Kotlin stdlib, reflect, and compiler plugins",
+      "matchManagers": ["gradle"],
+      "matchPackagePatterns": ["^org\\.jetbrains\\.kotlin"],
+      "groupName": "Kotlin",
+      "groupSlug": "kotlin"
+    },
+    {
+      "description": "JUnit 5, Mockito, and Testcontainers",
+      "matchManagers": ["gradle"],
+      "matchPackagePatterns": [
+        "^org\\.junit",
+        "^org\\.mockito",
+        "^org\\.testcontainers"
+      ],
+      "groupName": "Test dependencies",
+      "groupSlug": "test-deps"
+    },
+    {
+      "description": "Jackson 3.x (tools.jackson) and legacy annotations (com.fasterxml)",
+      "matchManagers": ["gradle"],
+      "matchPackagePatterns": [
+        "^tools\\.jackson",
+        "^com\\.fasterxml\\.jackson"
+      ],
+      "groupName": "Jackson",
+      "groupSlug": "jackson"
+    },
+    {
+      "description": "OkHttp client and MockWebServer",
+      "matchManagers": ["gradle"],
+      "matchPackagePatterns": ["^com\\.squareup\\.okhttp3"],
+      "groupName": "OkHttp",
+      "groupSlug": "okhttp"
+    },
+    {
+      "description": "Gradle wrapper version",
+      "matchManagers": ["gradle-wrapper"],
+      "groupName": "Gradle wrapper",
+      "groupSlug": "gradle-wrapper"
+    },
+    {
+      "description": "GitHub Actions version bumps",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "groupSlug": "github-actions"
+    },
+    {
+      "description": "npm minor and patch updates (grouped)",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "npm dependencies",
+      "groupSlug": "npm-deps"
+    },
+    {
+      "description": "npm major updates (separate PRs for deliberate review)",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "npm major updates",
+      "groupSlug": "npm-major"
+    }
+  ]
+}
