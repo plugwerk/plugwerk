@@ -135,14 +135,14 @@ export function PluginCard({ plugin, namespace }: PluginCardProps) {
               )}
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Tooltip title={providerOverflowing ? (plugin.provider ?? '') : ''} placement="bottom">
+              <Tooltip title={providerOverflowing ? `by ${plugin.provider}` : ''} placement="bottom">
                 <Typography
                   ref={providerRef}
                   variant="caption"
                   color="text.disabled"
                   sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}
                 >
-                  {plugin.provider ?? ''}
+                  {plugin.provider ? `by ${plugin.provider}` : ''}
                 </Typography>
               </Tooltip>
             </Box>

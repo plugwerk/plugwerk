@@ -110,7 +110,7 @@ export function PluginListRow({ plugin, namespace }: PluginListRowProps) {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {plugin.provider && (
             <>
-              <Typography variant="caption" color="text.disabled">{plugin.provider}</Typography>
+              <Typography variant="caption" color="text.disabled">by {plugin.provider}</Typography>
               <Typography variant="caption" color="text.disabled">·</Typography>
             </>
           )}
