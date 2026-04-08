@@ -24,6 +24,7 @@ import { PendingReviewBanner } from '../components/catalog/PendingReviewBanner'
 import { PluginCard } from '../components/catalog/PluginCard'
 import { PluginListRow } from '../components/catalog/PluginListRow'
 import { PluginCardSkeleton } from '../components/catalog/PluginCardSkeleton'
+import { PluginListRowSkeleton } from '../components/catalog/PluginListRowSkeleton'
 import { PaginationBar } from '../components/catalog/PaginationBar'
 import { EmptyState } from '../components/common/EmptyState'
 import { usePluginStore } from '../stores/pluginStore'
@@ -101,7 +102,7 @@ export function CatalogPage() {
         )}
 
         {/* Loading skeleton */}
-        {loading && (
+        {loading && view === 'card' && (
           <Box
             aria-label="Loading plugins"
             aria-busy="true"
@@ -113,6 +114,13 @@ export function CatalogPage() {
           >
             {Array.from({ length: 6 }).map((_, i) => (
               <PluginCardSkeleton key={i} />
+            ))}
+          </Box>
+        )}
+        {loading && view === 'list' && (
+          <Box aria-label="Loading plugins" aria-busy="true">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <PluginListRowSkeleton key={i} />
             ))}
           </Box>
         )}
