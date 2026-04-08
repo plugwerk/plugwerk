@@ -114,7 +114,7 @@ export function NamespacesSection() {
   ]
 
   const snackbar = (
-    <Snackbar open={!!toast} autoHideDuration={4000} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+    <Snackbar open={!!toast} autoHideDuration={4000} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
       <Alert severity={toast?.severity} onClose={() => setToast(null)} sx={{ width: '100%' }}>
         {toast?.message}
       </Alert>

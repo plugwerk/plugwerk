@@ -46,7 +46,7 @@ describe('PluginListRow', () => {
 
   it('renders provider', () => {
     renderWithRouter(<PluginListRow plugin={plugin} namespace="acme" />)
-    expect(screen.getByText('Acme')).toBeInTheDocument()
+    expect(screen.getByText('by Acme')).toBeInTheDocument()
   })
 
   it('falls back to namespace when provider is absent', () => {

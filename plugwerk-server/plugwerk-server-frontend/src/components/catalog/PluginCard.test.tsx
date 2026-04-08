@@ -59,7 +59,7 @@ describe('PluginCard', () => {
 
   it('renders the provider', () => {
     renderWithRouter(<PluginCard plugin={basePlugin} namespace="acme" />)
-    expect(screen.getByText('ACME Corp')).toBeInTheDocument()
+    expect(screen.getByText('by ACME Corp')).toBeInTheDocument()
   })
 
   it('falls back to namespace when provider is not set', () => {

@@ -205,7 +205,7 @@ export function PluginDetailPage() {
         open={!!toast}
         autoHideDuration={4000}
         onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert severity={toast?.severity} onClose={() => setToast(null)} sx={{ width: '100%' }}>
           {toast?.message}
