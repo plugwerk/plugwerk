@@ -3,6 +3,7 @@ FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /app
 
 COPY gradle/ gradle/
+COPY buildSrc/ buildSrc/
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties* ./
 COPY plugwerk-api/ plugwerk-api/
 COPY plugwerk-spi/ plugwerk-spi/
