@@ -71,3 +71,7 @@ sourceSets {
 tasks.compileKotlin {
     dependsOn(tasks.openApiGenerate)
 }
+
+tasks.named("sourcesJar") {
+    dependsOn(tasks.openApiGenerate)
+}
