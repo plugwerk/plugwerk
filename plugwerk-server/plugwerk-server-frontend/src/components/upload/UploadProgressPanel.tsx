@@ -132,18 +132,16 @@ export function UploadProgressPanel() {
   const successCount = entries.filter((e) => e.status === 'success').length
   const failedCount = entries.filter((e) => e.status === 'failed').length
   const isComplete = totalCount > 0 && successCount + failedCount === totalCount
-  const allSucceeded = isComplete && failedCount === 0
-
-  // Auto-dismiss after 5 seconds when all uploads succeeded
+  // Auto-dismiss after 5 seconds when all uploads have completed (success or failed)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
-    if (allSucceeded && panelVisible) {
+    if (isComplete && panelVisible) {
       timerRef.current = setTimeout(() => dismissPanel(), AUTO_DISMISS_MS)
     }
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [allSucceeded, panelVisible, dismissPanel])
+  }, [isComplete, panelVisible, dismissPanel])
 
   const headerText = isComplete
     ? `Upload complete — ${successCount} succeeded`
