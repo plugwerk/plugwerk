@@ -17,7 +17,7 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { UploadProgressPanel } from './UploadProgressPanel'
 import { useUploadStore } from '../../stores/uploadStore'
@@ -36,10 +36,12 @@ describe('UploadProgressPanel', () => {
     expect(container.querySelector('[role="region"]')).toBeNull()
   })
 
-  it('renders when files are added (panelVisible becomes true)', () => {
+  it('renders when files are added (panelVisible becomes true)', async () => {
     useUploadStore.getState().addFiles([createFile('plugin.jar')])
     render(<UploadProgressPanel />)
-    expect(screen.getByRole('region', { name: /upload progress/i })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: /upload progress/i })).toBeInTheDocument()
+    })
   })
 
   it('shows file names in the entry list', () => {

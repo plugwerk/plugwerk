@@ -33,7 +33,7 @@ export function CatalogDropOverlay({ visible }: CatalogDropOverlayProps) {
           position: 'fixed',
           inset: 0,
           zIndex: 1200,
-          bgcolor: 'rgba(15, 98, 254, 0.05)',
+          bgcolor: `${tokens.color.primary}0D`,
           backdropFilter: 'blur(2px)',
           pointerEvents: 'none',
           visibility: visible ? 'visible' : 'hidden',
@@ -55,8 +55,8 @@ export function CatalogDropOverlay({ visible }: CatalogDropOverlayProps) {
             borderTop: `1px dashed ${tokens.color.primary}`,
             background: (theme) =>
               theme.palette.mode === 'dark'
-                ? 'rgba(15, 98, 254, 0.06)'
-                : 'rgba(208, 226, 255, 0.3)',
+                ? `${tokens.color.primary}0F`
+                : `${tokens.color.primaryLight}4D`,
           }}
         >
           <UploadCloud size={64} color={tokens.color.primary} strokeWidth={1.25} />

@@ -23,7 +23,8 @@ import { useConfigStore } from '../../stores/configStore'
 import { tokens } from '../../theme/tokens'
 
 export function Footer() {
-  const { version, fetchConfig } = useConfigStore()
+  const version = useConfigStore((s) => s.version)
+  const fetchConfig = useConfigStore((s) => s.fetchConfig)
 
   useEffect(() => {
     fetchConfig()

@@ -33,9 +33,11 @@ import { useUploadFiles } from '../../hooks/useUploadFiles'
 import { tokens } from '../../theme/tokens'
 
 export function UploadModal() {
-  const { uploadModalOpen, closeUploadModal } = useUiStore()
-  const { namespace } = useAuthStore()
-  const { maxFileSizeMb, fetchConfig } = useConfigStore()
+  const uploadModalOpen = useUiStore((s) => s.uploadModalOpen)
+  const closeUploadModal = useUiStore((s) => s.closeUploadModal)
+  const namespace = useAuthStore((s) => s.namespace)
+  const maxFileSizeMb = useConfigStore((s) => s.maxFileSizeMb)
+  const fetchConfig = useConfigStore((s) => s.fetchConfig)
   const { uploadFiles } = useUploadFiles()
 
   const [files, setFiles] = useState<readonly File[]>([])
