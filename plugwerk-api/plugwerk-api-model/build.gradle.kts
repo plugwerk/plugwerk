@@ -1,7 +1,10 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.openapi.generator)
+    id("io.plugwerk.maven-publish")
 }
+
+description = "Plugwerk API Model — generated REST API data transfer objects for Plugwerk server communication"
 
 kotlin {
     jvmToolchain(21)
@@ -9,13 +12,13 @@ kotlin {
 
 tasks.compileKotlin {
     compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
     }
 }
 
 tasks.compileJava {
-    sourceCompatibility = "17"
-    targetCompatibility = "17"
+    sourceCompatibility = "11"
+    targetCompatibility = "11"
 }
 
 dependencies {

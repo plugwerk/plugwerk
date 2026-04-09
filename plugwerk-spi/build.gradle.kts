@@ -1,15 +1,9 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
-    `maven-publish`
+    id("io.plugwerk.maven-publish")
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            from(components["java"])
-        }
-    }
-}
+description = "Plugwerk SPI — extension point interfaces and shared model types for the PF4J plugin ecosystem"
 
 kotlin {
     jvmToolchain(21)

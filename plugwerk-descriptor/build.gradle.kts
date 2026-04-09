@@ -1,6 +1,9 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    id("io.plugwerk.maven-publish")
 }
+
+description = "Plugwerk Descriptor — MANIFEST.MF parser and validator for PF4J plugin metadata"
 
 kotlin {
     jvmToolchain(21)
