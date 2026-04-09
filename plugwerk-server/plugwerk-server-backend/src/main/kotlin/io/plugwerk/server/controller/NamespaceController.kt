@@ -58,6 +58,8 @@ class NamespaceController(
                 slug = namespaceCreateRequest.slug,
                 name = namespaceCreateRequest.name,
                 description = namespaceCreateRequest.description,
+                publicCatalog = namespaceCreateRequest.publicCatalog ?: false,
+                autoApproveReleases = namespaceCreateRequest.autoApproveReleases ?: false,
             )
             ResponseEntity.created(URI("/api/v1/namespaces/${entity.slug}")).body(entity.toSummary())
         } catch (_: NamespaceAlreadyExistsException) {

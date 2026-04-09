@@ -1740,6 +1740,16 @@ components:
         description:
           type: string
           description: Optional longer description of the namespace
+        publicCatalog:
+          type: boolean
+          default: false
+          description: Whether the plugin catalog of this namespace is publicly visible without authentication.
+        autoApproveReleases:
+          type: boolean
+          default: false
+          description: |
+            When enabled, uploaded releases are published immediately instead of going through the
+            draft → approval workflow.
       required:
         - slug
         - name

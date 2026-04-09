@@ -48,6 +48,7 @@ class NamespaceService(
         slug: String,
         name: String,
         description: String? = null,
+        publicCatalog: Boolean = false,
         autoApproveReleases: Boolean = false,
     ): NamespaceEntity {
         if (namespaceRepository.existsBySlug(slug)) throw NamespaceAlreadyExistsException(slug)
@@ -56,6 +57,7 @@ class NamespaceService(
                 slug = slug,
                 name = name,
                 description = description,
+                publicCatalog = publicCatalog,
                 autoApproveReleases = autoApproveReleases,
             ),
         )

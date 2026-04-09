@@ -148,6 +148,12 @@ class PluginReleaseService(
         val artifactKey = "${plugin.namespace.id}:${descriptor.id}:${descriptor.version}:$extension"
         storageService.store(artifactKey, ByteArrayInputStream(bytes), bytes.size.toLong())
 
+        val initialStatus = if (plugin.namespace.autoApproveReleases) {
+            ReleaseStatus.PUBLISHED
+        } else {
+            ReleaseStatus.DRAFT
+        }
+
         return releaseRepository.save(
             PluginReleaseEntity(
                 plugin = plugin,
@@ -158,6 +164,7 @@ class PluginReleaseService(
                 fileFormat = fileFormat,
                 requiresSystemVersion = descriptor.requiresSystemVersion,
                 pluginDependencies = serializeDependencies(descriptor),
+                status = initialStatus,
             ),
         )
     }

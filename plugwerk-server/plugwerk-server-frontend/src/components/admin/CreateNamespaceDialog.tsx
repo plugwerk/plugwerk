@@ -17,7 +17,7 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 import { useState } from 'react'
-import { Box, TextField } from '@mui/material'
+import { Box, FormControlLabel, Switch, TextField, Typography } from '@mui/material'
 import { namespacesApi } from '../../api/config'
 import type { NamespaceSummary } from '../../api/generated/model'
 import { isAxiosError } from 'axios'
@@ -36,6 +36,8 @@ export function CreateNamespaceDialog({ open, onClose, onCreated, onError }: Cre
   const [slug, setSlug] = useState('')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [publicCatalog, setPublicCatalog] = useState(false)
+  const [autoApprove, setAutoApprove] = useState(false)
   const [saving, setSaving] = useState(false)
   const [slugError, setSlugError] = useState<string | null>(null)
 
@@ -52,6 +54,8 @@ export function CreateNamespaceDialog({ open, onClose, onCreated, onError }: Cre
     setSlug('')
     setName('')
     setDescription('')
+    setPublicCatalog(false)
+    setAutoApprove(false)
     setSlugError(null)
     onClose()
   }
@@ -65,6 +69,8 @@ export function CreateNamespaceDialog({ open, onClose, onCreated, onError }: Cre
           slug: slug.trim(),
           name: name.trim(),
           description: description.trim() || undefined,
+          publicCatalog,
+          autoApproveReleases: autoApprove,
         },
       })
       onCreated(res.data)
@@ -118,6 +124,44 @@ export function CreateNamespaceDialog({ open, onClose, onCreated, onError }: Cre
           multiline
           minRows={2}
         />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={publicCatalog}
+                onChange={(e) => setPublicCatalog(e.target.checked)}
+                size="small"
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body2">Public Catalog</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Allow unauthenticated users to browse the plugin catalog.
+                </Typography>
+              </Box>
+            }
+            sx={{ mx: 0, alignItems: 'flex-start' }}
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={autoApprove}
+                onChange={(e) => setAutoApprove(e.target.checked)}
+                size="small"
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body2">Auto-Approve Releases</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Uploaded releases are published immediately without manual review.
+                </Typography>
+              </Box>
+            }
+            sx={{ mx: 0, alignItems: 'flex-start' }}
+          />
+        </Box>
       </Box>
     </AppDialog>
   )

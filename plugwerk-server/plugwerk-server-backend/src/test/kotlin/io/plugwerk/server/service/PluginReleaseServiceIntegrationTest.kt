@@ -147,4 +147,15 @@ class PluginReleaseServiceIntegrationTest {
         assertThat(releases).hasSize(2)
         assertThat(releases.first().version).isEqualTo("2.0.0")
     }
+
+    @Test
+    fun `upload auto-publishes release when namespace has autoApproveReleases enabled`() {
+        val autoNs = namespaceService.create("auto-approve-ns", "Auto Org", autoApproveReleases = true)
+        val descriptor = PlugwerkDescriptor(id = "auto-pub-plugin", version = "1.0.0", name = "Auto Plugin")
+        whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+
+        val result = releaseService.upload("auto-approve-ns", ByteArrayInputStream(FAKE_JAR), FAKE_JAR.size.toLong())
+
+        assertThat(result.status).isEqualTo(ReleaseStatus.PUBLISHED)
+    }
 }

@@ -66,7 +66,16 @@ class PluginReleaseServiceTest {
 
     private val namespaceId = UUID.fromString("00000000-0000-0000-0000-000000000001")
     private val namespace = NamespaceEntity(id = namespaceId, slug = "acme", name = "ACME Corp")
+    private val autoApproveNamespaceId = UUID.fromString("00000000-0000-0000-0000-000000000002")
+    private val autoApproveNamespace = NamespaceEntity(
+        id = autoApproveNamespaceId,
+        slug = "auto-ns",
+        name = "Auto Corp",
+        autoApproveReleases = true,
+    )
     private val plugin = PluginEntity(namespace = namespace, pluginId = "my-plugin", name = "My Plugin")
+    private val autoApprovePlugin =
+        PluginEntity(namespace = autoApproveNamespace, pluginId = "auto-plugin", name = "Auto Plugin")
 
     private val properties = PlugwerkProperties(
         auth = PlugwerkProperties.AuthProperties(
@@ -439,5 +448,40 @@ class PluginReleaseServiceTest {
         val result = releaseService.upload("acme", ByteArrayInputStream(jarBytes), jarBytes.size.toLong())
 
         assertThat(result.version).isEqualTo("2.0.0")
+    }
+
+    @Test
+    fun `upload sets status to DRAFT when namespace has autoApproveReleases disabled`() {
+        val jarBytes = fakeJarBytes()
+        val descriptor = PlugwerkDescriptor(id = "my-plugin", version = "3.0.0", name = "My Plugin")
+
+        whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.existsByPluginAndVersion(plugin, "3.0.0")).thenReturn(false)
+        whenever(storageService.store(any(), any(), any())).thenReturn("key")
+        whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenAnswer { it.getArgument(0) }
+
+        val result = releaseService.upload("acme", ByteArrayInputStream(jarBytes), jarBytes.size.toLong())
+
+        assertThat(result.status).isEqualTo(ReleaseStatus.DRAFT)
+    }
+
+    @Test
+    fun `upload sets status to PUBLISHED when namespace has autoApproveReleases enabled`() {
+        val jarBytes = fakeJarBytes()
+        val descriptor = PlugwerkDescriptor(id = "auto-plugin", version = "1.0.0", name = "Auto Plugin")
+
+        whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+        whenever(namespaceRepository.findBySlug("auto-ns")).thenReturn(Optional.of(autoApproveNamespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(autoApproveNamespace, "auto-plugin"))
+            .thenReturn(Optional.of(autoApprovePlugin))
+        whenever(releaseRepository.existsByPluginAndVersion(autoApprovePlugin, "1.0.0")).thenReturn(false)
+        whenever(storageService.store(any(), any(), any())).thenReturn("key")
+        whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenAnswer { it.getArgument(0) }
+
+        val result = releaseService.upload("auto-ns", ByteArrayInputStream(jarBytes), jarBytes.size.toLong())
+
+        assertThat(result.status).isEqualTo(ReleaseStatus.PUBLISHED)
     }
 }
