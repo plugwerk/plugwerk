@@ -50,10 +50,23 @@ Never skip these checks — even for "small" renames or refactors (longer class 
   - Bugs: `bug_report.md`
   - Features: `feature_request.md`
 
-## License Header (MANDATORY)
+## Licensing (MANDATORY)
 
-Every source file — Kotlin and TypeScript — **must** begin with the same AGPL-3.0 license header.
-The canonical text lives in **`license-header.txt`** at the project root (single source of truth):
+Plugwerk uses a **dual-license model** (see [ADR-0014](docs/adrs/0014-dual-license-library-modules.md)):
+
+| Module | License | Header file |
+|--------|---------|-------------|
+| `plugwerk-server` (backend + frontend) | **AGPL-3.0** | `license-header.txt` |
+| `plugwerk-spi` | **Apache-2.0** | `license-header-apache.txt` |
+| `plugwerk-descriptor` | **Apache-2.0** | `license-header-apache.txt` |
+| `plugwerk-client-plugin` | **Apache-2.0** | `license-header-apache.txt` |
+| `plugwerk-api-model` | **Apache-2.0** | `license-header-apache.txt` |
+
+Every source file — Kotlin and TypeScript — **must** begin with the correct license header for its module. Spotless is configured per-module to enforce the right header automatically.
+
+### AGPL-3.0 header (server modules)
+
+Canonical text in **`license-header.txt`**:
 
 ```
 /*
@@ -76,15 +89,37 @@ The canonical text lives in **`license-header.txt`** at the project root (single
  */
 ```
 
+### Apache-2.0 header (library modules)
+
+Canonical text in **`license-header-apache.txt`**:
+
+```
+/*
+ * Copyright (c) 2025-present devtank42 GmbH
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+```
+
 ### Enforcement
 
 | Language | Check | Fix | Scope |
 |---|---|---|---|
-| Kotlin (`src/**/*.kt`) | `./gradlew spotlessCheck` | `./gradlew spotlessApply` | Spotless reads `license-header.txt` via `licenseHeaderFile()` |
+| Kotlin (`src/**/*.kt`) | `./gradlew spotlessCheck` | `./gradlew spotlessApply` | Spotless applies per-module header automatically |
 | TypeScript (`src/**/*.ts`, `src/**/*.tsx`) | `npm run license:check` | `npm run license:add` | Shell script in `scripts/license-check.sh` |
 
 - **Never omit** the header from new files — CI enforces both checks.
-- Do **not** modify the header text directly in `build.gradle.kts` — edit `license-header.txt` instead.
+- Do **not** modify headers directly in `build.gradle.kts` — edit the header text files instead.
 - Generated files are excluded: `build/generated/` (Kotlin), `src/api/generated/` and `vite-env.d.ts` (TypeScript).
 
 ## Issue Management
@@ -125,6 +160,7 @@ PRs without labels or milestone are non-compliant. Set them via `gh pr edit <num
   - [ADR-0003](docs/adrs/0003-spring-boot-4-backend-conventions.md) — Spring Boot 4.x backend conventions
   - [ADR-0004](docs/adrs/0004-frontend-conventions.md) — Frontend conventions (React + TypeScript + MUI + Zustand)
   - [ADR-0011](docs/adrs/0011-client-auth-api-key-strategy.md) — Client SDK authentication (API key primary)
+  - [ADR-0014](docs/adrs/0014-dual-license-library-modules.md) — Dual-license: Apache-2.0 for libraries, AGPL-3.0 for server
 - Feature specifications: `docs/features/` — GitHub Issues link to their corresponding spec file
 - Project concept: `docs/concepts/`
 - Design system: `docs/design/` — HTML prototypes and design tokens (`tokens.css`)

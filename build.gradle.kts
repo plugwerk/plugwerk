@@ -17,13 +17,21 @@ allprojects {
     }
 }
 
+val apacheModules = setOf("plugwerk-spi", "plugwerk-descriptor", "plugwerk-client-plugin", "plugwerk-api-model")
+
 subprojects {
     apply(plugin = "com.diffplug.spotless")
+
+    val headerFile = if (project.name in apacheModules) {
+        rootProject.file("license-header-apache.txt")
+    } else {
+        rootProject.file("license-header.txt")
+    }
 
     spotless {
         kotlin {
             target("src/**/*.kt")
-            licenseHeaderFile(rootProject.file("license-header.txt"))
+            licenseHeaderFile(headerFile)
             ktlint("1.8.0")
                 .editorConfigOverride(
                     mapOf(
