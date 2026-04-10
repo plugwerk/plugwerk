@@ -18,7 +18,7 @@
  */
 import { Box, Card, CardActionArea, Tooltip, Typography } from '@mui/material'
 import { Download, Clock, Puzzle, HardDrive } from 'lucide-react'
-import { useRef } from 'react'
+import { memo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge } from '../common/Badge'
 import type { BadgeVariant } from '../common/Badge'
@@ -44,7 +44,7 @@ interface PluginCardProps {
 import { formatCount, formatCountFull } from '../../utils/formatCount'
 
 
-export function PluginCard({ plugin, namespace }: PluginCardProps) {
+export const PluginCard = memo(function PluginCard({ plugin, namespace }: PluginCardProps) {
   const isDraftOnly = plugin.hasDraftOnly === true
   const statusBadge = plugin.status ? STATUS_BADGE[plugin.status] : undefined
   const latestRelease = plugin.latestRelease
@@ -218,4 +218,4 @@ export function PluginCard({ plugin, namespace }: PluginCardProps) {
       </CardActionArea>
     </Card>
   )
-}
+})

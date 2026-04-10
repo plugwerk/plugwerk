@@ -16,6 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
+import { memo } from 'react'
 import { Box, Tooltip, Typography } from '@mui/material'
 import { Download, Clock, Puzzle, HardDrive } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -41,7 +42,7 @@ interface PluginListRowProps {
 
 import { formatCount, formatCountFull } from '../../utils/formatCount'
 
-export function PluginListRow({ plugin, namespace }: PluginListRowProps) {
+export const PluginListRow = memo(function PluginListRow({ plugin, namespace }: PluginListRowProps) {
   const isDraftOnly = plugin.hasDraftOnly === true
   const statusBadge = plugin.status ? STATUS_BADGE[plugin.status] : undefined
   const latestRelease = plugin.latestRelease
@@ -161,4 +162,4 @@ export function PluginListRow({ plugin, namespace }: PluginListRowProps) {
       </Box>
     </Box>
   )
-}
+})
