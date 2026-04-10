@@ -104,19 +104,25 @@ jobs:
           git commit -m "chore: prepare next development cycle ${{ inputs.next_version }}"
 
       - name: Push commits and tag
-        run: git push origin main "v${{ inputs.release_version }}"
+        id: push
+        run: |
+          PUSH_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          echo "PUSH_TIME=$PUSH_TIME" >> "$GITHUB_OUTPUT"
+          git push origin main "v${{ inputs.release_version }}"
 
       - name: Wait for release workflow
         run: |
-          echo "⏳ Waiting for release.yml to be triggered by tag v${{ inputs.release_version }}..."
+          PUSH_TIME="${{ steps.push.outputs.PUSH_TIME }}"
+          TAG="v${{ inputs.release_version }}"
+          echo "⏳ Waiting for release.yml triggered by tag $TAG (after $PUSH_TIME)..."
 
-          # Wait for the workflow run to appear (may take a few seconds)
+          # Wait for a NEW workflow run (created after our push) to appear
           for i in $(seq 1 30); do
             RUN_ID=$(gh run list \
               --workflow=release.yml \
-              --json databaseId,headBranch,status \
-              --jq ".[] | select(.headBranch == \"v${{ inputs.release_version }}\") | .databaseId" \
-              | head -1)
+              --json databaseId,headBranch,createdAt \
+              --jq "[.[] | select(.headBranch == \"$TAG\" and .createdAt > \"$PUSH_TIME\")] | first | .databaseId // empty" \
+            )
             if [[ -n "$RUN_ID" ]]; then
               break
             fi
@@ -125,7 +131,7 @@ jobs:
           done
 
           if [[ -z "$RUN_ID" ]]; then
-            echo "::error::release.yml was not triggered within 5 minutes"
+            echo "::error::release.yml was not triggered within 5 minutes after push at $PUSH_TIME"
             exit 1
           fi
 
