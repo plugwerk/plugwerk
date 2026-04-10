@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.jpa)
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
+    id("io.plugwerk.maven-publish")
 }
 
 kotlin {
@@ -60,6 +61,50 @@ tasks.named<ProcessResources>("processResources") {
                 "  version: ${project.version}"
             } else {
                 line
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Publishing: fat JAR (bootJar) + distribution ZIP to Maven Central
+// ---------------------------------------------------------------------------
+
+// Spring Boot disables the plain JAR by default — re-enable it for the
+// maven-publish convention plugin which publishes from components["java"]
+tasks.named<Jar>("jar") {
+    archiveClassifier.set("plain")
+    enabled = true
+}
+
+val serverDistZip by tasks.registering(Zip::class) {
+    group = "distribution"
+    description = "Assembles a distribution ZIP with the fat JAR, config, and start scripts"
+    archiveBaseName.set("plugwerk-server")
+    destinationDirectory.set(layout.buildDirectory.dir("dist"))
+
+    into("plugwerk-server-${project.version}") {
+        from(tasks.named("bootJar"))
+        from(rootProject.file("LICENSE"))
+        from(rootProject.file("README.md"))
+    }
+}
+
+tasks.named("assemble") {
+    dependsOn(serverDistZip)
+}
+
+publishing {
+    publications {
+        named<MavenPublication>("mavenJava") {
+            // Add the fat JAR as the primary artifact (replaces plain JAR)
+            artifact(tasks.named("bootJar")) {
+                classifier = null as String?
+            }
+            // Add the distribution ZIP
+            artifact(serverDistZip) {
+                classifier = "dist"
+                extension = "zip"
             }
         }
     }

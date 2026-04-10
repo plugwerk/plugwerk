@@ -72,6 +72,18 @@ jobs:
             cp "$ZIP" "$STAGING_DIR/"
           fi
 
+          # Server fat JAR (bootJar)
+          BOOT_JAR="plugwerk-server/plugwerk-server-backend/build/libs/plugwerk-server-backend-${VERSION}.jar"
+          if [[ -f "$BOOT_JAR" ]]; then
+            cp "$BOOT_JAR" "$STAGING_DIR/"
+          fi
+
+          # Server distribution ZIP
+          DIST_ZIP="plugwerk-server/plugwerk-server-backend/build/dist/plugwerk-server-${VERSION}.zip"
+          if [[ -f "$DIST_ZIP" ]]; then
+            cp "$DIST_ZIP" "$STAGING_DIR/"
+          fi
+
           echo "STAGING_DIR=$STAGING_DIR" >> "$GITHUB_OUTPUT"
           echo "📦 Collected artifacts:"
           ls -lh "$STAGING_DIR/"
