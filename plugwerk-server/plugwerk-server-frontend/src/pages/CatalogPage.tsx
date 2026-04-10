@@ -91,14 +91,10 @@ export function CatalogPage() {
   }, [namespace])
 
   useEffect(() => {
-    fetchPlugins(namespace)
-    fetchTags(namespace)
-  }, [namespace])
-
-  useEffect(() => {
     const store = usePluginStore.getState()
     store.setFilters({ search: debouncedSearch, page: 0 })
     fetchPlugins(namespace)
+    fetchTags(namespace)
   }, [debouncedSearch, namespace])
 
   return (
