@@ -58,7 +58,7 @@ export function AuthCard({ title, subtitle, children }: AuthCardProps) {
             component="img"
             src="/logomark.svg"
             alt="Plugwerk"
-            sx={{ height: 56, width: 'auto' }}
+            sx={{ height: 96, width: 'auto' }}
           />
         </Box>
 
