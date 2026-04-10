@@ -102,7 +102,7 @@ export function TopBar() {
             component="img"
             src={isDark ? '/logo-dark.svg' : '/logo-light.svg'}
             alt="Plugwerk"
-            sx={{ height: 32, width: 'auto', maxWidth: { xs: 100, sm: 140 }, display: 'block', flexShrink: 0 }}
+            sx={{ height: 48, width: 'auto', maxWidth: { xs: 160, sm: 220 }, display: 'block', flexShrink: 0 }}
           />
         </Box>
 

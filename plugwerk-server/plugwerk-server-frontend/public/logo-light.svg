@@ -1,23 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 100" width="520" height="100">
-  <defs>
-    <mask id="ring">
-      <polygon points="0,-40 35,-20 35,20 0,40 -35,20 -35,-20" fill="white"/>
-      <circle cx="0" cy="0" r="27" fill="black"/>
-    </mask>
-  </defs>
-  <g transform="translate(50, 50)">
-    <g mask="url(#ring)">
-      <polygon points="0,-40 35,-20 35,20 0,40 -35,20 -35,-20" fill="#0F62FE"/>
-    </g>
-    <rect x="-3.5" y="-44" width="7" height="7" rx="1.5" fill="#0F62FE"/>
-    <rect x="31" y="-23.5" width="7" height="7" rx="1.5" fill="#0F62FE" transform="rotate(60, 35, -20)"/>
-    <rect x="31" y="16.5" width="7" height="7" rx="1.5" fill="#0F62FE" transform="rotate(120, 35, 20)"/>
-    <rect x="-3.5" y="37" width="7" height="7" rx="1.5" fill="#0F62FE" transform="rotate(180, 0, 40)"/>
-    <rect x="-38.5" y="16.5" width="7" height="7" rx="1.5" fill="#0F62FE" transform="rotate(240, -35, 20)"/>
-    <rect x="-38.5" y="-23.5" width="7" height="7" rx="1.5" fill="#0F62FE" transform="rotate(300, -35, -20)"/>
-    <rect x="-10" y="-16" width="6" height="20" rx="2" fill="#0F62FE"/>
-    <rect x="4" y="-16" width="6" height="20" rx="2" fill="#0F62FE"/>
-    <rect x="-3" y="3" width="6" height="11" rx="2" fill="#0F62FE"/>
+  <!-- Plugwerk Full Logo (Light Background) -->
+
+  <!-- Icon: scale 2.2 (nur Bild groesser, Text bleibt) -->
+  <!-- Plugin 3 (hinten) -->
+  <g transform="translate(2, 22) scale(2.2)" opacity="0.3">
+    <path d="M13.11 4.36L9.87 7.6L8 5.73l3.24-3.24c.18-.18.7-.12 1.56.32c.28.28.42.98.31 1.55m-8 1.77l.91-1.12l9.01 9.01l-1.19.84c-.4.4-2.2.9-3.82 1.16H6.14L4.9 17.26c-.3.3-1.3.4-2.12 0a1.1 1.1 0 0 1 0-2.12l1.24-1.24v-3.88c0-.8.25-2.7 1.09-3.89m7.26 3.97l3.24-3.24c.18-.18.7-.12 1.55.31c.28.28.42.98.31 1.55l-3.24 3.25z" fill="#0F62FE"/>
   </g>
-  <text x="108" y="50" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="58" fill="#161616" letter-spacing="-1" dominant-baseline="central">PLUG<tspan fill="#0F62FE">WERK</tspan></text>
+  <!-- Plugin 2 (mitte) -->
+  <g transform="translate(8, 28) scale(2.2)" opacity="0.6">
+    <path d="M13.11 4.36L9.87 7.6L8 5.73l3.24-3.24c.18-.18.7-.12 1.56.32c.28.28.42.98.31 1.55m-8 1.77l.91-1.12l9.01 9.01l-1.19.84c-.4.4-2.2.9-3.82 1.16H6.14L4.9 17.26c-.3.3-1.3.4-2.12 0a1.1 1.1 0 0 1 0-2.12l1.24-1.24v-3.88c0-.8.25-2.7 1.09-3.89m7.26 3.97l3.24-3.24c.18-.18.7-.12 1.55.31c.28.28.42.98.31 1.55l-3.24 3.25z" fill="#0F62FE"/>
+  </g>
+  <!-- Plugin 1 (vorne) -->
+  <g transform="translate(14, 34) scale(2.2)">
+    <path d="M13.11 4.36L9.87 7.6L8 5.73l3.24-3.24c.18-.18.7-.12 1.56.32c.28.28.42.98.31 1.55m-8 1.77l.91-1.12l9.01 9.01l-1.19.84c-.4.4-2.2.9-3.82 1.16H6.14L4.9 17.26c-.3.3-1.3.4-2.12 0a1.1 1.1 0 0 1 0-2.12l1.24-1.24v-3.88c0-.8.25-2.7 1.09-3.89m7.26 3.97l3.24-3.24c.18-.18.7-.12 1.55.31c.28.28.42.98.31 1.55l-3.24 3.25z" fill="#0F62FE"/>
+  </g>
+
+  <!-- Wordmark (unveraendert) -->
+  <text x="68" y="50" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="42" fill="#161616" letter-spacing="-1" dominant-baseline="central">PLUG<tspan fill="#0F62FE">WERK</tspan></text>
 </svg>
