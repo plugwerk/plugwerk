@@ -104,7 +104,7 @@ function EntryRow({ entry }: { entry: FileUploadEntry }) {
         <LinearProgress
           variant="determinate"
           value={entry.progress}
-          sx={{ mt: 0.75, height: 3, borderRadius: 1 }}
+          sx={{ mt: 0.75, height: 3, borderRadius: tokens.radius.btn }}
         />
       )}
 
@@ -126,7 +126,8 @@ function EntryRow({ entry }: { entry: FileUploadEntry }) {
 }
 
 export function UploadProgressPanel() {
-  const { entries, panelVisible, dismissPanel } = useUploadStore()
+  const entries = useUploadStore((s) => s.entries)
+  const panelVisible = useUploadStore((s) => s.panelVisible)
 
   const totalCount = entries.length
   const successCount = entries.filter((e) => e.status === 'success').length
@@ -136,12 +137,12 @@ export function UploadProgressPanel() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     if (isComplete && panelVisible) {
-      timerRef.current = setTimeout(() => dismissPanel(), AUTO_DISMISS_MS)
+      timerRef.current = setTimeout(() => useUploadStore.getState().dismissPanel(), AUTO_DISMISS_MS)
     }
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [isComplete, panelVisible, dismissPanel])
+  }, [isComplete, panelVisible])
 
   const headerText = isComplete
     ? `Upload complete — ${successCount} succeeded`
@@ -202,7 +203,7 @@ export function UploadProgressPanel() {
           </Box>
           <IconButton
             size="small"
-            onClick={dismissPanel}
+            onClick={() => useUploadStore.getState().dismissPanel()}
             aria-label="Dismiss upload panel"
             sx={{ color: 'text.disabled', p: 0.5 }}
           >

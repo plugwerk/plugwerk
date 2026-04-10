@@ -10,6 +10,10 @@ kotlin {
     jvmToolchain(21)
 }
 
+springBoot {
+    buildInfo()
+}
+
 dependencies {
     implementation(project(":plugwerk-api:plugwerk-api-endpoint"))
     implementation(project(":plugwerk-spi"))
@@ -50,6 +54,14 @@ tasks.named<ProcessResources>("processResources") {
     from(rootProject.file("plugwerk-api/src/main/resources/openapi/plugwerk-api.yaml")) {
         into("static/api-docs")
         rename { "openapi.yaml" }
+        filter { line ->
+            // Replace the OpenAPI info.version (indented with 2 spaces) with the project version
+            if (line.matches(Regex("^  version: .+"))) {
+                "  version: ${project.version}"
+            } else {
+                line
+            }
+        }
     }
 }
 

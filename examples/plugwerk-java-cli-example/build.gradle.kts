@@ -29,9 +29,11 @@ val copyClientPlugin by tasks.registering(Copy::class) {
     into(layout.projectDirectory.dir("plugins"))
 }
 
+val projectVersion = rootProject.file("../../VERSION").readText().trim()
+
 allprojects {
     group = "io.plugwerk.examples"
-    version = "0.1.0-SNAPSHOT"
+    version = projectVersion
 
     repositories {
         mavenCentral()

@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY gradle/ gradle/
 COPY buildSrc/ buildSrc/
-COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties* ./
+COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties* VERSION ./
 COPY plugwerk-api/ plugwerk-api/
 COPY plugwerk-spi/ plugwerk-spi/
 COPY plugwerk-descriptor/ plugwerk-descriptor/

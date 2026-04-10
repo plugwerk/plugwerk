@@ -8,9 +8,11 @@ plugins {
     alias(libs.plugins.spotless)
 }
 
+val projectVersion = file("VERSION").readText().trim()
+
 allprojects {
     group = "io.plugwerk"
-    version = "0.1.0-SNAPSHOT"
+    version = projectVersion
 
     repositories {
         mavenCentral()

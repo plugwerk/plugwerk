@@ -16,11 +16,19 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
+import { useEffect } from 'react'
 import { Box, Typography, Link } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
+import { useConfigStore } from '../../stores/configStore'
 import { tokens } from '../../theme/tokens'
 
 export function Footer() {
+  const version = useConfigStore((s) => s.version)
+  const fetchConfig = useConfigStore((s) => s.fetchConfig)
+
+  useEffect(() => {
+    fetchConfig()
+  }, [fetchConfig])
   return (
     <Box
       component="footer"
@@ -44,7 +52,7 @@ export function Footer() {
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="body2" fontWeight={700}>Plugwerk</Typography>
-          <Typography variant="caption" color="text.disabled">v1.0.0</Typography>
+          <Typography variant="caption" color="text.disabled">v{version}</Typography>
         </Box>
 
         <Link

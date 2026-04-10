@@ -26,32 +26,26 @@ import {
 import { UploadCloud, FileBox, X } from 'lucide-react'
 import { AppDialog } from '../common/AppDialog'
 import { useDropzone } from 'react-dropzone'
-import { axiosInstance } from '../../api/config'
 import { useUiStore } from '../../stores/uiStore'
 import { useAuthStore } from '../../stores/authStore'
+import { useConfigStore } from '../../stores/configStore'
 import { useUploadFiles } from '../../hooks/useUploadFiles'
 import { tokens } from '../../theme/tokens'
 
-const DEFAULT_MAX_FILE_SIZE_MB = 100
-
 export function UploadModal() {
-  const { uploadModalOpen, closeUploadModal } = useUiStore()
-  const { namespace } = useAuthStore()
+  const uploadModalOpen = useUiStore((s) => s.uploadModalOpen)
+  const closeUploadModal = useUiStore((s) => s.closeUploadModal)
+  const namespace = useAuthStore((s) => s.namespace)
+  const maxFileSizeMb = useConfigStore((s) => s.maxFileSizeMb)
+  const fetchConfig = useConfigStore((s) => s.fetchConfig)
   const { uploadFiles } = useUploadFiles()
 
   const [files, setFiles] = useState<readonly File[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [maxFileSizeMb, setMaxFileSizeMb] = useState(DEFAULT_MAX_FILE_SIZE_MB)
 
   useEffect(() => {
-    if (!uploadModalOpen) return
-    axiosInstance.get('/config')
-      .then((res) => {
-        const limit = res.data?.upload?.maxFileSizeMb
-        if (typeof limit === 'number' && limit > 0) setMaxFileSizeMb(limit)
-      })
-      .catch(() => { /* use default */ })
-  }, [uploadModalOpen])
+    if (uploadModalOpen) fetchConfig()
+  }, [uploadModalOpen, fetchConfig])
 
   const onDrop = useCallback((accepted: File[]) => {
     if (accepted.length === 0) return

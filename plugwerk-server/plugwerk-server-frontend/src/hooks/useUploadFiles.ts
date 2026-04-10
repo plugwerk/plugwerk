@@ -22,6 +22,7 @@ import { axiosInstance } from '../api/config'
 import { useUploadStore } from '../stores/uploadStore'
 import { useUiStore } from '../stores/uiStore'
 import { usePluginStore } from '../stores/pluginStore'
+import { useConfigStore } from '../stores/configStore'
 
 const VALID_EXTENSIONS = ['.jar', '.zip']
 
@@ -64,18 +65,9 @@ export function useUploadFiles() {
 
     if (validFiles.length === 0) return
 
-    // Fetch max file size from server config
-    try {
-      const configRes = await axiosInstance.get('/config')
-      const limit = configRes.data?.upload?.maxFileSizeMb
-      if (typeof limit === 'number' && limit > 0) {
-        useUploadStore.getState().setMaxFileSizeMb(limit)
-      }
-    } catch {
-      // Use default max file size
-    }
-
-    const currentMaxMb = useUploadStore.getState().maxFileSizeMb
+    // Ensure config is loaded (cached after first fetch)
+    await useConfigStore.getState().fetchConfig()
+    const currentMaxMb = useConfigStore.getState().maxFileSizeMb
     const maxBytes = currentMaxMb * 1024 * 1024
 
     // Add files to store (this filters by extension again, but that's fine)

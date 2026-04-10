@@ -94,7 +94,7 @@ info:
     - `413 Payload Too Large` — the uploaded artifact exceeds the server's file size limit
     - `422 Unprocessable Entity` — the artifact was uploaded successfully but the plugin
       descriptor inside it is missing or invalid
-  version: 0.1.0
+  version: 1.0.0
   license:
     name: AGPL-3.0
     url: https://www.gnu.org/licenses/agpl-3.0.html
@@ -2528,6 +2528,13 @@ components:
         validation rules. This response is intentionally small and stable — new top-level
         keys may be added in future versions, but existing keys will not be removed.
       properties:
+        version:
+          type: string
+          description: |
+            Server version string (e.g. "1.0.0-SNAPSHOT" or "1.0.0").
+            Sourced from build metadata at startup. Returns "unknown" if
+            build information is not available.
+          example: "1.0.0"
         upload:
           type: object
           description: Upload-related configuration
@@ -2543,6 +2550,7 @@ components:
           required:
             - maxFileSizeMb
       required:
+        - version
         - upload
 
     AccessKeyDto:

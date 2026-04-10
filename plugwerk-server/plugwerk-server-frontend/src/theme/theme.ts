@@ -50,6 +50,7 @@ export function buildTheme(mode: PaletteMode) {
     },
 
     typography: {
+      fontSize: 12, // MUI internal base (default: 14). Used by pxToRem().
       fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       h1: { fontWeight: 700, fontSize: '2.25rem', lineHeight: '2.75rem' },
       h2: { fontWeight: 600, fontSize: '1.75rem', lineHeight: '2.25rem' },
@@ -67,6 +68,7 @@ export function buildTheme(mode: PaletteMode) {
     components: {
       MuiCssBaseline: {
         styleOverrides: {
+          html: { fontSize: '87.5%' }, // 14px base instead of 16px — scales all rem-based typography down
           '*, *::before, *::after': { boxSizing: 'border-box' },
           body: { minHeight: '100dvh' },
           a: { color: 'inherit', textDecoration: 'none' },
