@@ -1,6 +1,6 @@
 # plugwerk-client-plugin
 
-PF4J plugin that implements the Plugwerk Client SDK. Provides catalog browsing, plugin installation, and update checking for host applications.
+PF4J plugin that implements the Plugwerk Client. Provides catalog browsing, plugin installation, and update checking for host applications.
 
 ## Purpose
 

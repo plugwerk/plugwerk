@@ -1,10 +1,10 @@
 # plugwerk-spi
 
-Service Provider Interface (SPI) for the Plugwerk ecosystem. Defines the contract between host applications and the Plugwerk Client SDK.
+Service Provider Interface (SPI) for the Plugwerk ecosystem. Defines the contract between host applications and the Plugwerk Client Plugin.
 
 ## Purpose
 
-This module contains **extension point interfaces** and **shared data models** that both the host application and the client SDK depend on. It is the thinnest possible abstraction layer — no HTTP, no persistence, no framework dependencies.
+This module contains **extension point interfaces** and **shared data models** that both the host application and the client plugin depend on. It is the thinnest possible abstraction layer — no HTTP, no persistence, no framework dependencies.
 
 Because PF4J requires that `ExtensionPoint` interfaces are loaded by the **parent classloader** (shared between host and plugin), `plugwerk-spi` must be on the host's classpath, not bundled inside the plugin ZIP.
 
@@ -40,4 +40,4 @@ dependencies {
 }
 ```
 
-The client SDK (`plugwerk-client-plugin`) provides the runtime implementations.
+The client plugin (`plugwerk-client-plugin`) provides the runtime implementations.

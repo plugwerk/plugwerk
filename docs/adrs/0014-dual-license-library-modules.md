@@ -28,7 +28,7 @@ modules are relicensed to Apache-2.0.
 | `plugwerk-server` (backend + frontend) | AGPL-3.0 | Protects the server; self-hosters must contribute back |
 | `plugwerk-spi` | Apache-2.0 | ExtensionPoint interfaces used by every host application |
 | `plugwerk-descriptor` | Apache-2.0 | MANIFEST.MF parser used by build tools and CI/CD |
-| `plugwerk-client-plugin` | Apache-2.0 | Client SDK embedded in host applications as PF4J plugin |
+| `plugwerk-client-plugin` | Apache-2.0 | Client plugin embedded in host applications as PF4J plugin |
 | `plugwerk-api-model` | Apache-2.0 | Generated DTOs for REST API consumers |
 
 **Precedent:** GitLab (server AGPL, client libs MIT), Grafana (server AGPL, SDKs Apache-2.0),

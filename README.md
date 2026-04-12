@@ -109,7 +109,7 @@ curl -s -X POST http://localhost:8080/api/v1/namespaces/myproduct/reviews/$RELEA
 curl -s http://localhost:8080/api/v1/namespaces/myproduct/plugins | jq .
 ```
 
-## Integrating the Client SDK into your Application
+## Integrating the Client Plugin into your Application
 
 The `plugwerk-client-plugin` is a PF4J plugin with an isolated classloader — it has no dependency conflicts with your application. Add it to your PF4J plugins directory and use it to connect to a Plugwerk server at runtime.
 

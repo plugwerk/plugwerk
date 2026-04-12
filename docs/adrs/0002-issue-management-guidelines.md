@@ -31,7 +31,7 @@ Every issue must be assigned to a milestone. Milestones represent delivery phase
 
 | Milestone | Scope |
 |-----------|-------|
-| Phase 1 — MVP | Core marketplace: REST API, minimal Web UI, Client SDK |
+| Phase 1 — MVP | Core marketplace: REST API, minimal Web UI, Client Plugin |
 | *(future)* | Additional milestones are created as phases are planned |
 
 If no suitable milestone exists, create one before creating the issue.

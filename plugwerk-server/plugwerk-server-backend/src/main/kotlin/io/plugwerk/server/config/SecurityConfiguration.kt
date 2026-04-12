@@ -128,7 +128,7 @@ class SecurityConfiguration(
                     .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated()
                     // Auth endpoints are always public (login + change-password requires auth but handled in controller)
                     .requestMatchers("/api/v1/auth/**").permitAll()
-                    // Update check is public (used by client SDK without auth)
+                    // Update check is public (used by client plugin without auth)
                     .requestMatchers(HttpMethod.POST, "/api/v1/namespaces/*/updates/check").permitAll()
                     // Public server config (upload limits etc.) — used by frontend without auth
                     .requestMatchers(HttpMethod.GET, "/api/v1/config").permitAll()

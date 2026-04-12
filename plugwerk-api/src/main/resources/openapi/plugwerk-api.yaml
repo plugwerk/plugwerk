@@ -127,7 +127,7 @@ tags:
       Read-only endpoints for discovering and downloading plugins.
 
       These endpoints are designed to be consumed by end-user tooling (IDE plugins, CLI tools,
-      the Plugwerk client SDK). Most catalog endpoints are public (no authentication required)
+      the Plugwerk client plugin). Most catalog endpoints are public (no authentication required)
       unless the namespace owner has enabled access control.
 
       The `plugins.json` endpoint (`GET /namespaces/{ns}/plugins.json`) is a drop-in replacement
@@ -144,7 +144,7 @@ tags:
       All management endpoints require an API key (`X-Api-Key` header) or Bearer token.
   - name: Updates
     description: |
-      Endpoints used by the Plugwerk client SDK (and any compatible tooling) to poll for
+      Endpoints used by the Plugwerk client plugin (and any compatible tooling) to poll for
       available plugin updates.
 
       Send the list of currently installed plugins with their versions; receive back only the
@@ -545,7 +545,7 @@ paths:
         to it. There is no need to pre-register a plugin before uploading.
 
         The artifact SHA-256 is computed server-side and stored with the release for
-        integrity verification by the client SDK.
+        integrity verification by the client plugin.
 
         New releases are created with status `draft`. Publish them explicitly via
         `PATCH /namespaces/{ns}/plugins/{pluginId}/releases/{version}`.
@@ -743,7 +743,7 @@ paths:
 
         The response is a binary stream (`application/octet-stream`). Clients should verify
         the downloaded file against the `artifactSha256` value from the release metadata to
-        ensure integrity. The Plugwerk client SDK performs this check automatically.
+        ensure integrity. The Plugwerk client plugin performs this check automatically.
 
         Only `published` releases can be downloaded by unauthenticated callers. Authenticated
         callers with management access can also download `draft` releases.
@@ -824,7 +824,7 @@ paths:
         Accepts the list of currently installed plugins with their versions and returns
         only the plugins that have a newer published release available.
 
-        This endpoint is designed to be called periodically by the Plugwerk client SDK
+        This endpoint is designed to be called periodically by the Plugwerk client plugin
         (e.g. on application startup). Pass up to 500 installed plugins per request.
 
         A plugin is considered to have an update if a published release with a higher

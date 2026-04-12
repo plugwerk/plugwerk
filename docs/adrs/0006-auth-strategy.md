@@ -9,7 +9,7 @@ Accepted (updated to reflect Phase 1 implementation and Phase 2 design)
 Plugwerk needs authentication for two distinct use cases:
 
 1. **Human users** interacting via the Web UI (browser-based login)
-2. **Machine-to-machine** access from the Client SDK and CI/CD pipelines (PF4J host apps)
+2. **Machine-to-machine** access from the Client Plugin and CI/CD pipelines (PF4J host apps)
 
 Phase 1 targets self-hosted deployments with a small number of known users and scripts. Full OIDC integration would require an external identity provider, which adds operational overhead that is not justified for MVP.
 

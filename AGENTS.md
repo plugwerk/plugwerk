@@ -8,7 +8,7 @@ Plugwerk is **plugin management and marketplace software for the Java/PF4J ecosy
 
 Two artifacts:
 - **Plugwerk Server** – Spring Boot 4.x + Kotlin web application: REST API, catalog, upload, versioning, download
-- **Plugwerk Client SDK** – Kotlin library (JVM 11+) deployed as a PF4J plugin with isolated classloader: discovery, download, install, update lifecycle
+- **Plugwerk Client Plugin** – Kotlin library (JVM 11+) deployed as a PF4J plugin with isolated classloader: discovery, download, install, update lifecycle
 
 Project concept: `docs/concepts/concept-pf4j-marketplace-en.md`
 
@@ -159,7 +159,7 @@ PRs without labels or milestone are non-compliant. Set them via `gh pr edit <num
   - [ADR-0002](docs/adrs/0002-issue-management-guidelines.md) — Issue management guidelines
   - [ADR-0003](docs/adrs/0003-spring-boot-4-backend-conventions.md) — Spring Boot 4.x backend conventions
   - [ADR-0004](docs/adrs/0004-frontend-conventions.md) — Frontend conventions (React + TypeScript + MUI + Zustand)
-  - [ADR-0011](docs/adrs/0011-client-auth-api-key-strategy.md) — Client SDK authentication (API key primary)
+  - [ADR-0011](docs/adrs/0011-client-auth-api-key-strategy.md) — Client Plugin authentication (API key primary)
   - [ADR-0014](docs/adrs/0014-dual-license-library-modules.md) — Dual-license: Apache-2.0 for libraries, AGPL-3.0 for server
 - Feature specifications: `docs/features/` — GitHub Issues link to their corresponding spec file
 - Project concept: `docs/concepts/`
@@ -178,7 +178,7 @@ PRs without labels or milestone are non-compliant. Set them via `gh pr edit <num
 | Storage | Filesystem (local) / S3-compatible (planned) |
 | Web UI | React 19 / TypeScript / Material UI 7 / Zustand 5 / Vite |
 | Auth | Spring Security: JWT (local login) + OIDC multi-issuer + API keys |
-| Client SDK | PF4J plugin / OkHttp / Jackson / JVM 11+ |
+| Client Plugin | PF4J plugin / OkHttp / Jackson / JVM 11+ |
 | Build | Gradle 9.x multi-module (Kotlin DSL) + Vite (frontend) |
 | Tests (backend) | JUnit 5 + Mockito + Testcontainers |
 | Tests (frontend) | Vitest + @testing-library/react |
@@ -198,7 +198,7 @@ plugwerk/
 
 ### Key Design Constraints
 
-- **Client SDK is a PF4J plugin** with isolated classloader – no dependency conflicts with host application
+- **Client Plugin is a PF4J plugin** with isolated classloader – no dependency conflicts with host application
 - **Hybrid Extension Point pattern** – `PlugwerkMarketplace` facade + granular `PlugwerkCatalog`, `PlugwerkInstaller`, `PlugwerkUpdateChecker` as separate ExtensionPoints (interfaces in `plugwerk-spi`)
 - **`plugins.json` endpoint** – `GET /plugins.json` serves the catalog in a format inspired by pf4j-update (the SDK does **not** depend on pf4j-update — see [ADR-0005](docs/adrs/0005-client-sdk-design.md))
 - **API-First** – OpenAPI 3.1 spec in `plugwerk-api` is the single source of truth
@@ -247,7 +247,7 @@ Auth & admin endpoints (under `/api/v1/`):
 | `GET/POST` | `/admin/users` | User management (superadmin) |
 | `GET/POST` | `/admin/oidc-providers` | OIDC provider management |
 
-### Client SDK Core Classes
+### Client Plugin Core Classes
 
 ```kotlin
 PlugwerkConfig           // Builder pattern or properties file
@@ -258,7 +258,7 @@ PlugwerkUpdateChecker    // Update polling (ExtensionPoint)
 PlugwerkMarketplace      // Facade combining all three (ExtensionPoint)
 ```
 
-### Client SDK Authentication ([ADR-0011](docs/adrs/0011-client-auth-api-key-strategy.md))
+### Client Plugin Authentication ([ADR-0011](docs/adrs/0011-client-auth-api-key-strategy.md))
 
 Two authentication methods, API key takes precedence:
 
@@ -331,7 +331,7 @@ npm run license:add          # Add missing license headers
 
 ## Implementation Phases
 
-- **Phase 1 (Core):** REST API, PostgreSQL, filesystem storage, JWT auth, Web UI (React + MUI), `plugins.json` endpoint, Client SDK — **completed**
+- **Phase 1 (Core):** REST API, PostgreSQL, filesystem storage, JWT auth, Web UI (React + MUI), `plugins.json` endpoint, Client Plugin — **completed**
 - **Phase 2 (Enterprise):** Multi-namespace, RBAC with namespace roles (ADMIN/MEMBER/READ_ONLY), OIDC multi-issuer auth, review/approval workflow, catalog visibility (status filter, pending review banner) — **in progress**
 - **Phase 3 (Ecosystem):** Embeddable UI component, webhooks, vulnerability scanning, Gradle/Maven CI/CD plugin, code signing, S3/MinIO storage, SaaS multi-tenancy
 
