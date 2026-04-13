@@ -34,21 +34,17 @@ import java.nio.file.Path
  * Kotlin:
  * ```kotlin
  * val installer = pluginManager.getExtensions(PlugwerkInstaller::class.java).first()
- * when (val result = installer.install("io.example.my-plugin", "2.0.0")) {
- *     is InstallResult.Success -> println("Installed ${result.pluginId} ${result.version}")
- *     is InstallResult.Failure -> println("Failed: ${result.reason}")
- * }
+ * installer.install("io.example.my-plugin", "2.0.0")
+ *     .onSuccess { println("Installed ${it.pluginId} ${it.version}") }
+ *     .onFailure { println("Failed: ${it.reason}") }
  * ```
  *
  * Java:
  * ```java
  * PlugwerkInstaller installer = pluginManager.getExtensions(PlugwerkInstaller.class).get(0);
- * InstallResult result = installer.install("io.example.my-plugin", "2.0.0");
- * if (result instanceof InstallResult.Success s) {
- *     System.out.println("Installed " + s.getPluginId() + " " + s.getVersion());
- * } else if (result instanceof InstallResult.Failure f) {
- *     System.out.println("Failed: " + f.getReason());
- * }
+ * installer.install("io.example.my-plugin", "2.0.0")
+ *     .onSuccess(s -> System.out.println("Installed " + s.getPluginId()))
+ *     .onFailure(f -> System.out.println("Failed: " + f.getReason()));
  * ```
  *
  * @see PlugwerkMarketplace for a unified facade

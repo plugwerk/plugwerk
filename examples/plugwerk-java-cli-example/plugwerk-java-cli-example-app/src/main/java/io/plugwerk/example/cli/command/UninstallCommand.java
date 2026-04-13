@@ -19,7 +19,6 @@
 package io.plugwerk.example.cli.command;
 
 import io.plugwerk.example.cli.PlugwerkCli;
-import io.plugwerk.spi.model.InstallResult;
 import org.pf4j.PluginManager;
 import org.pf4j.PluginState;
 import picocli.CommandLine.Command;
@@ -60,13 +59,15 @@ public class UninstallCommand implements Runnable {
       pm.unloadPlugin(pluginId);
     }
 
-    InstallResult result = parent.getMarketplace().installer().uninstall(pluginId);
-
-    if (result instanceof InstallResult.Success s) {
-      System.out.printf("✓ Successfully uninstalled %s%n", s.getPluginId());
-    } else if (result instanceof InstallResult.Failure f) {
-      System.err.printf("✗ Uninstall failed: %s%n", f.getReason());
-      System.exit(1);
-    }
+    parent
+        .getMarketplace()
+        .installer()
+        .uninstall(pluginId)
+        .onSuccess(s -> System.out.printf("✓ Successfully uninstalled %s%n", s.getPluginId()))
+        .onFailure(
+            f -> {
+              System.err.printf("✗ Uninstall failed: %s%n", f.getReason());
+              System.exit(1);
+            });
   }
 }
