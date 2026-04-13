@@ -64,7 +64,11 @@ public class SearchCommand implements Runnable {
 
   @Override
   public void run() {
-    SearchCriteria criteria = new SearchCriteria(query, tag, compatibleWith);
+    SearchCriteria.Builder builder = new SearchCriteria.Builder();
+    if (query != null) builder.query(query);
+    if (tag != null) builder.tag(tag);
+    if (compatibleWith != null) builder.compatibleWith(compatibleWith);
+    SearchCriteria criteria = builder.build();
     List<PluginInfo> results = parent.getMarketplace().catalog().searchPlugins(criteria);
 
     if (results.isEmpty()) {

@@ -33,7 +33,10 @@ package io.plugwerk.spi.model
  *
  * Java:
  * ```java
- * SearchCriteria criteria = new SearchCriteria(null, "experimental", "3.1.0");
+ * SearchCriteria criteria = new SearchCriteria.Builder()
+ *     .tag("experimental")
+ *     .compatibleWith("3.1.0")
+ *     .build();
  * List<PluginInfo> results = catalog.searchPlugins(criteria);
  * ```
  *
@@ -45,4 +48,31 @@ package io.plugwerk.spi.model
  *   whose `requiresSystemVersion` range includes this version are returned;
  *   `null` disables compatibility filtering
  */
-data class SearchCriteria(val query: String? = null, val tag: String? = null, val compatibleWith: String? = null)
+data class SearchCriteria(val query: String? = null, val tag: String? = null, val compatibleWith: String? = null) {
+
+    /**
+     * Fluent builder for [SearchCriteria], primarily intended for Java callers.
+     *
+     * Kotlin callers should prefer the data-class constructor with named arguments.
+     *
+     * ```java
+     * SearchCriteria criteria = new SearchCriteria.Builder()
+     *     .query("crm")
+     *     .tag("salesforce")
+     *     .build();
+     * ```
+     */
+    class Builder {
+        private var query: String? = null
+        private var tag: String? = null
+        private var compatibleWith: String? = null
+
+        fun query(query: String): Builder = apply { this.query = query }
+
+        fun tag(tag: String): Builder = apply { this.tag = tag }
+
+        fun compatibleWith(version: String): Builder = apply { this.compatibleWith = version }
+
+        fun build(): SearchCriteria = SearchCriteria(query, tag, compatibleWith)
+    }
+}
