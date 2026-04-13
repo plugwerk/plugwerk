@@ -38,7 +38,8 @@ import org.pf4j.ExtensionPoint
  * Java:
  * ```java
  * PlugwerkCatalog catalog = pluginManager.getExtensions(PlugwerkCatalog.class).get(0);
- * List<PluginInfo> plugins = catalog.searchPlugins(new SearchCriteria(null, "analytics", null, null));
+ * List<PluginInfo> plugins = catalog.searchPlugins(
+ *     new SearchCriteria.Builder().tag("analytics").build());
  * ```
  *
  * @see PlugwerkMarketplace for a unified facade that also exposes [PlugwerkInstaller] and
