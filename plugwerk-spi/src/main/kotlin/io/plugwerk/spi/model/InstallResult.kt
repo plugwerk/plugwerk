@@ -18,34 +18,41 @@ package io.plugwerk.spi.model
 /**
  * Result of a [PlugwerkInstaller.install] or [PlugwerkInstaller.uninstall] operation.
  *
- * Use a `when` expression to handle both outcomes:
+ * [pluginId] and [version] are available on every result without casting.
+ * For detailed handling, use [onSuccess] / [onFailure] callbacks, [fold], or
+ * Kotlin `when` expressions.
  *
  * Kotlin:
  * ```kotlin
- * when (val result = installer.install("io.example.my-plugin", "2.0.0")) {
- *     is InstallResult.Success -> println("Installed ${result.pluginId} ${result.version}")
- *     is InstallResult.Failure -> println("Failed: ${result.reason}")
- * }
+ * installer.install("io.example.my-plugin", "2.0.0")
+ *     .onSuccess { println("Installed ${it.pluginId} ${it.version}") }
+ *     .onFailure { println("Failed: ${it.reason}") }
  * ```
  *
  * Java:
  * ```java
- * InstallResult result = installer.install("io.example.my-plugin", "2.0.0");
- * if (result instanceof InstallResult.Success s) {
- *     System.out.println("Installed " + s.getPluginId() + " " + s.getVersion());
- * } else if (result instanceof InstallResult.Failure f) {
- *     System.out.println("Failed: " + f.getReason());
- * }
+ * installer.install("io.example.my-plugin", "2.0.0")
+ *     .onSuccess(s -> System.out.println("Installed " + s.getPluginId()))
+ *     .onFailure(f -> System.out.println("Failed: " + f.getReason()));
  * ```
+ *
+ * The `when` / `instanceof` pattern is still fully supported for exhaustive matching.
  */
 sealed class InstallResult {
+
+    /** The plugin ID that the operation targeted. */
+    abstract val pluginId: String
+
+    /** The SemVer version string that the operation targeted. */
+    abstract val version: String
+
     /**
      * The operation completed successfully.
      *
      * @property pluginId the unique plugin ID that was installed or uninstalled
      * @property version  the SemVer version string that was installed or uninstalled
      */
-    data class Success(val pluginId: String, val version: String) : InstallResult()
+    data class Success(override val pluginId: String, override val version: String) : InstallResult()
 
     /**
      * The operation failed.
@@ -54,5 +61,60 @@ sealed class InstallResult {
      * @property version  the SemVer version string that was attempted
      * @property reason   human-readable explanation of why the operation failed
      */
-    data class Failure(val pluginId: String, val version: String, val reason: String) : InstallResult()
+    data class Failure(override val pluginId: String, override val version: String, val reason: String) :
+        InstallResult()
+
+    /** Returns `true` if this result represents a successful operation. */
+    fun isSuccess(): Boolean = this is Success
+
+    /** Returns `true` if this result represents a failed operation. */
+    fun isFailure(): Boolean = this is Failure
+
+    /**
+     * Executes [action] if this is a [Success], then returns `this` for chaining.
+     *
+     * ```java
+     * result.onSuccess(s -> log.info("Installed: {}", s.getPluginId()));
+     * ```
+     */
+    fun onSuccess(action: (Success) -> Unit): InstallResult {
+        if (this is Success) action(this)
+        return this
+    }
+
+    /**
+     * Executes [action] if this is a [Failure], then returns `this` for chaining.
+     *
+     * ```java
+     * result.onFailure(f -> log.warn("Failed: {}", f.getReason()));
+     * ```
+     */
+    fun onFailure(action: (Failure) -> Unit): InstallResult {
+        if (this is Failure) action(this)
+        return this
+    }
+
+    /**
+     * Maps this result to a value of type [T] by applying the appropriate function.
+     *
+     * Both branches must be handled, guaranteeing exhaustive coverage at compile time.
+     *
+     * ```java
+     * String message = result.fold(
+     *     s -> "Installed " + s.getPluginId(),
+     *     f -> "Failed: " + f.getReason()
+     * );
+     * ```
+     */
+    fun <T> fold(onSuccess: (Success) -> T, onFailure: (Failure) -> T): T = when (this) {
+        is Success -> onSuccess(this)
+        is Failure -> onFailure(this)
+    }
+
+    /**
+     * Returns the failure [Failure.reason] if this is a [Failure], or `null` if this is a [Success].
+     *
+     * Convenience accessor for callers that only need the error message.
+     */
+    fun reasonOrNull(): String? = (this as? Failure)?.reason
 }

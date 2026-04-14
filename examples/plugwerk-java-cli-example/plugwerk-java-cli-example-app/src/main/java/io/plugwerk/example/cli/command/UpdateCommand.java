@@ -20,7 +20,6 @@ package io.plugwerk.example.cli.command;
 
 import io.plugwerk.example.cli.PlugwerkCli;
 import io.plugwerk.spi.extension.PlugwerkMarketplace;
-import io.plugwerk.spi.model.InstallResult;
 import io.plugwerk.spi.model.UpdateInfo;
 import java.util.List;
 import java.util.Map;
@@ -90,21 +89,24 @@ public class UpdateCommand implements Runnable {
     }
 
     System.out.println("Applying updates …");
-    int success = 0;
-    int failed = 0;
+    int[] counts = {0, 0}; // [success, failed]
     for (UpdateInfo u : updates) {
-      InstallResult result =
-          marketplace.installer().install(u.getPluginId(), u.getAvailableVersion());
-      if (result instanceof InstallResult.Success s) {
-        System.out.printf(
-            "  ✓ %s %s → %s%n", s.getPluginId(), u.getCurrentVersion(), s.getVersion());
-        success++;
-      } else if (result instanceof InstallResult.Failure f) {
-        System.err.printf("  ✗ %s: %s%n", f.getPluginId(), f.getReason());
-        failed++;
-      }
+      marketplace
+          .installer()
+          .install(u.getPluginId(), u.getAvailableVersion())
+          .onSuccess(
+              s -> {
+                System.out.printf(
+                    "  ✓ %s %s → %s%n", s.getPluginId(), u.getCurrentVersion(), s.getVersion());
+                counts[0]++;
+              })
+          .onFailure(
+              f -> {
+                System.err.printf("  ✗ %s: %s%n", f.getPluginId(), f.getReason());
+                counts[1]++;
+              });
     }
-    System.out.printf("%nDone: %d updated, %d failed.%n", success, failed);
+    System.out.printf("%nDone: %d updated, %d failed.%n", counts[0], counts[1]);
     if (failed > 0) {
       System.exit(1);
     }

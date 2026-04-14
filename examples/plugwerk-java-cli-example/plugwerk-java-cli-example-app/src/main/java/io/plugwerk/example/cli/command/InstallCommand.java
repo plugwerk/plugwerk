@@ -20,7 +20,6 @@ package io.plugwerk.example.cli.command;
 
 import io.plugwerk.example.cli.DynamicCommandLoader;
 import io.plugwerk.example.cli.PlugwerkCli;
-import io.plugwerk.spi.model.InstallResult;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -59,26 +58,33 @@ public class InstallCommand implements Runnable {
   public void run() {
     System.out.printf("Installing %s@%s …%n", pluginId, version);
 
-    InstallResult result = parent.getMarketplace().installer().install(pluginId, version);
-
-    if (result instanceof InstallResult.Success s) {
-      System.out.printf("✓ Successfully installed %s@%s%n", s.getPluginId(), s.getVersion());
-      // Load and start only the newly installed plugin, then register its extensions.
-      // Using loadPlugin(path) instead of loadPlugins() avoids a PluginAlreadyLoadedException
-      // for plugins that are already running (e.g. plugwerk-client-plugin).
-      PluginManager pm = parent.getPluginManager();
-      if (pm != null) {
-        Path artifact = findInstalledArtifact(parent.pluginsDir, pluginId, version);
-        if (artifact != null) {
-          pm.loadPlugin(artifact);
-        }
-        pm.startPlugin(pluginId);
-      }
-      DynamicCommandLoader.reload(parent.getCommandLine(), pm);
-    } else if (result instanceof InstallResult.Failure f) {
-      System.err.printf("✗ Installation failed: %s%n", f.getReason());
-      System.exit(1);
-    }
+    parent
+        .getMarketplace()
+        .installer()
+        .install(pluginId, version)
+        .onSuccess(
+            s -> {
+              System.out.printf(
+                  "✓ Successfully installed %s@%s%n", s.getPluginId(), s.getVersion());
+              // Load and start only the newly installed plugin, then register its extensions.
+              // Using loadPlugin(path) instead of loadPlugins() avoids a
+              // PluginAlreadyLoadedException
+              // for plugins that are already running (e.g. plugwerk-client-plugin).
+              PluginManager pm = parent.getPluginManager();
+              if (pm != null) {
+                Path artifact = findInstalledArtifact(parent.pluginsDir, pluginId, version);
+                if (artifact != null) {
+                  pm.loadPlugin(artifact);
+                }
+                pm.startPlugin(pluginId);
+              }
+              DynamicCommandLoader.reload(parent.getCommandLine(), pm);
+            })
+        .onFailure(
+            f -> {
+              System.err.printf("✗ Installation failed: %s%n", f.getReason());
+              System.exit(1);
+            });
   }
 
   private static Path findInstalledArtifact(Path pluginsDir, String pluginId, String version) {

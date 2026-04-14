@@ -21,7 +21,6 @@ package io.plugwerk.example.webapp.controller;
 import io.plugwerk.example.webapp.config.PluginContributionRegistry;
 import io.plugwerk.spi.PlugwerkPlugin;
 import io.plugwerk.spi.extension.PlugwerkMarketplace;
-import io.plugwerk.spi.model.InstallResult;
 import io.plugwerk.spi.model.UpdateInfo;
 import java.util.List;
 import java.util.Map;
@@ -108,14 +107,19 @@ public class PluginInstalledController {
       pluginManager.stopPlugin(pluginId);
       pluginManager.unloadPlugin(pluginId);
 
-      InstallResult result = marketplace.installer().uninstall(pluginId);
-      if (result instanceof InstallResult.Success s) {
-        registry.refresh();
-        redirectAttributes.addFlashAttribute(
-            "successMessage", "Successfully uninstalled " + s.getPluginId());
-      } else if (result instanceof InstallResult.Failure f) {
-        redirectAttributes.addFlashAttribute("errorMessage", "Uninstall failed: " + f.getReason());
-      }
+      marketplace
+          .installer()
+          .uninstall(pluginId)
+          .onSuccess(
+              s -> {
+                registry.refresh();
+                redirectAttributes.addFlashAttribute(
+                    "successMessage", "Successfully uninstalled " + s.getPluginId());
+              })
+          .onFailure(
+              f ->
+                  redirectAttributes.addFlashAttribute(
+                      "errorMessage", "Uninstall failed: " + f.getReason()));
     } catch (Exception e) {
       log.error("Failed to uninstall plugin {}", pluginId, e);
       redirectAttributes.addFlashAttribute("errorMessage", "Uninstall failed: " + e.getMessage());
@@ -138,16 +142,22 @@ public class PluginInstalledController {
     try {
       // Uninstall the current version, then install the new one
       marketplace.installer().uninstall(pluginId);
-      InstallResult result = marketplace.installer().install(pluginId, version);
-      if (result instanceof InstallResult.Success s) {
-        pluginManager.loadPlugins();
-        pluginManager.startPlugins();
-        registry.refresh();
-        redirectAttributes.addFlashAttribute(
-            "successMessage", "Successfully updated " + s.getPluginId() + " to " + s.getVersion());
-      } else if (result instanceof InstallResult.Failure f) {
-        redirectAttributes.addFlashAttribute("errorMessage", "Update failed: " + f.getReason());
-      }
+      marketplace
+          .installer()
+          .install(pluginId, version)
+          .onSuccess(
+              s -> {
+                pluginManager.loadPlugins();
+                pluginManager.startPlugins();
+                registry.refresh();
+                redirectAttributes.addFlashAttribute(
+                    "successMessage",
+                    "Successfully updated " + s.getPluginId() + " to " + s.getVersion());
+              })
+          .onFailure(
+              f ->
+                  redirectAttributes.addFlashAttribute(
+                      "errorMessage", "Update failed: " + f.getReason()));
     } catch (Exception e) {
       log.error("Failed to update plugin {}@{}", pluginId, version, e);
       redirectAttributes.addFlashAttribute("errorMessage", "Update failed: " + e.getMessage());
