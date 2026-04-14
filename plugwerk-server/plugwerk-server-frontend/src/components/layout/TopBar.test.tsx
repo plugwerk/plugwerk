@@ -16,66 +16,78 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { renderWithRouter } from '../../test/renderWithTheme'
-import { TopBar } from './TopBar'
-import { useAuthStore } from '../../stores/authStore'
-import { useNamespaceStore } from '../../stores/namespaceStore'
-import { useUiStore } from '../../stores/uiStore'
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { renderWithRouter } from "../../test/renderWithTheme";
+import { TopBar } from "./TopBar";
+import { useAuthStore } from "../../stores/authStore";
+import { useNamespaceStore } from "../../stores/namespaceStore";
+import { useUiStore } from "../../stores/uiStore";
 
-const mockNavigate = vi.fn()
+const mockNavigate = vi.fn();
 
-vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('react-router-dom')>()
-  return { ...actual, useNavigate: () => mockNavigate }
-})
+vi.mock("react-router-dom", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-router-dom")>();
+  return { ...actual, useNavigate: () => mockNavigate };
+});
 
-vi.mock('../../api/config', () => ({
+vi.mock("../../api/config", () => ({
   axiosInstance: { get: vi.fn().mockResolvedValue({ data: [] }) },
   catalogApi: {},
   managementApi: {},
   reviewsApi: {},
   updatesApi: {},
-}))
+}));
 
-describe('TopBar', () => {
+describe("TopBar", () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-    useAuthStore.setState({ accessToken: 'tok', username: 'alice', isAuthenticated: true, namespace: 'acme' })
+    vi.clearAllMocks();
+    useAuthStore.setState({
+      accessToken: "tok",
+      username: "alice",
+      isAuthenticated: true,
+      namespace: "acme",
+    });
     useNamespaceStore.setState({
-      namespaces: [{ slug: 'acme', name: 'ACME' }, { slug: 'beta', name: 'Beta Inc' }],
+      namespaces: [
+        { slug: "acme", name: "ACME" },
+        { slug: "beta", name: "Beta Inc" },
+      ],
       loading: false,
       error: null,
-    })
-    useUiStore.setState({ themeMode: 'light', toasts: [], searchQuery: '' })
-  })
+    });
+    useUiStore.setState({ themeMode: "light", toasts: [], searchQuery: "" });
+  });
 
-  it('renders the namespace dropdown', () => {
-    renderWithRouter(<TopBar />)
-    expect(screen.getByLabelText('Select namespace')).toBeInTheDocument()
-  })
+  it("renders the namespace dropdown", () => {
+    renderWithRouter(<TopBar />);
+    expect(screen.getByLabelText("Select namespace")).toBeInTheDocument();
+  });
 
-  it('navigates to catalog page of new namespace on namespace change', async () => {
-    const user = userEvent.setup()
-    renderWithRouter(<TopBar />)
+  it("navigates to catalog page of new namespace on namespace change", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<TopBar />);
 
-    await user.click(screen.getByLabelText('Select namespace'))
-    const option = await screen.findByRole('option', { name: 'Beta Inc (beta)' })
-    await user.click(option)
+    await user.click(screen.getByLabelText("Select namespace"));
+    const option = await screen.findByRole("option", {
+      name: "Beta Inc (beta)",
+    });
+    await user.click(option);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/namespaces/beta/plugins')
-  })
+    expect(mockNavigate).toHaveBeenCalledWith("/namespaces/beta/plugins");
+  });
 
-  it('updates auth store namespace on namespace change', async () => {
-    const user = userEvent.setup()
-    renderWithRouter(<TopBar />)
+  it("updates auth store namespace on namespace change", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<TopBar />);
 
-    await user.click(screen.getByLabelText('Select namespace'))
-    const option = await screen.findByRole('option', { name: 'Beta Inc (beta)' })
-    await user.click(option)
+    await user.click(screen.getByLabelText("Select namespace"));
+    const option = await screen.findByRole("option", {
+      name: "Beta Inc (beta)",
+    });
+    await user.click(option);
 
-    expect(useAuthStore.getState().namespace).toBe('beta')
-  })
-})
+    expect(useAuthStore.getState().namespace).toBe("beta");
+  });
+});

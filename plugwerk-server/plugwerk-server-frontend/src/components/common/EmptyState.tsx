@@ -16,26 +16,31 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Box, Typography, Button } from '@mui/material'
+import { Box, Typography, Button } from "@mui/material";
 
 interface EmptyStateProps {
-  title: string
-  message: string
-  actionLabel?: string
-  onAction?: () => void
+  title: string;
+  message: string;
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
-export function EmptyState({ title, message, actionLabel, onAction }: EmptyStateProps) {
+export function EmptyState({
+  title,
+  message,
+  actionLabel,
+  onAction,
+}: EmptyStateProps) {
   return (
     <Box
       sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
         py: 8,
         gap: 2,
-        textAlign: 'center',
+        textAlign: "center",
       }}
     >
       <Box
@@ -47,7 +52,7 @@ export function EmptyState({ title, message, actionLabel, onAction }: EmptyState
         strokeLinecap="round"
         strokeLinejoin="round"
         aria-hidden="true"
-        sx={{ width: 64, height: 64, color: 'text.disabled' }}
+        sx={{ width: 64, height: 64, color: "text.disabled" }}
       >
         <circle cx="26" cy="26" r="18" />
         <line x1="38" y1="38" x2="56" y2="56" />
@@ -66,5 +71,5 @@ export function EmptyState({ title, message, actionLabel, onAction }: EmptyState
         </Button>
       )}
     </Box>
-  )
+  );
 }

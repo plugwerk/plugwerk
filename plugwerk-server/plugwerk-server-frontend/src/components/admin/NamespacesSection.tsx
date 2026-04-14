@@ -16,101 +16,120 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Typography,
   Button,
   Divider,
   CircularProgress,
-} from '@mui/material'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
-import { DataTable } from '../common/DataTable'
-import type { DataColumn } from '../common/DataTable'
-import { ActionIconButton } from '../common/ActionIconButton'
-import { namespacesApi } from '../../api/config'
-import type { NamespaceSummary } from '../../api/generated/model'
-import { CreateNamespaceDialog } from './CreateNamespaceDialog'
-import { DeleteNamespaceDialog } from './DeleteNamespaceDialog'
-import { NamespaceDetailView } from './NamespaceDetailView'
-import { useNamespaceStore } from '../../stores/namespaceStore'
-import { useAuthStore } from '../../stores/authStore'
-import { useUiStore } from '../../stores/uiStore'
+} from "@mui/material";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import { DataTable } from "../common/DataTable";
+import type { DataColumn } from "../common/DataTable";
+import { ActionIconButton } from "../common/ActionIconButton";
+import { namespacesApi } from "../../api/config";
+import type { NamespaceSummary } from "../../api/generated/model";
+import { CreateNamespaceDialog } from "./CreateNamespaceDialog";
+import { DeleteNamespaceDialog } from "./DeleteNamespaceDialog";
+import { NamespaceDetailView } from "./NamespaceDetailView";
+import { useNamespaceStore } from "../../stores/namespaceStore";
+import { useAuthStore } from "../../stores/authStore";
+import { useUiStore } from "../../stores/uiStore";
 
 export function NamespacesSection() {
-  const [namespaces, setNamespaces] = useState<NamespaceSummary[]>([])
-  const [loading, setLoading] = useState(true)
-  const [createOpen, setCreateOpen] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<NamespaceSummary | null>(null)
-  const [editingSlug, setEditingSlug] = useState<string | null>(null)
-  const { addToast } = useUiStore()
+  const [namespaces, setNamespaces] = useState<NamespaceSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<NamespaceSummary | null>(
+    null,
+  );
+  const [editingSlug, setEditingSlug] = useState<string | null>(null);
+  const { addToast } = useUiStore();
 
   const loadNamespaces = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const res = await namespacesApi.listNamespaces()
-      setNamespaces(res.data)
+      const res = await namespacesApi.listNamespaces();
+      setNamespaces(res.data);
     } catch {
-      setNamespaces([])
+      setNamespaces([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    loadNamespaces()
-  }, [loadNamespaces])
+    loadNamespaces();
+  }, [loadNamespaces]);
 
   function handleCreated(ns: NamespaceSummary) {
-    setNamespaces((prev) => [...prev, ns])
-    addToast({ message: `Namespace "${ns.slug}" created.`, type: 'success' })
+    setNamespaces((prev) => [...prev, ns]);
+    addToast({ message: `Namespace "${ns.slug}" created.`, type: "success" });
 
     // Refresh the global namespace dropdown in the header
-    useNamespaceStore.getState().fetchNamespaces()
+    useNamespaceStore.getState().fetchNamespaces();
   }
 
   function handleDeleted(slug: string) {
-    const remaining = namespaces.filter((n) => n.slug !== slug)
-    setNamespaces(remaining)
-    setDeleteTarget(null)
-    addToast({ message: `Namespace "${slug}" deleted.`, type: 'success' })
+    const remaining = namespaces.filter((n) => n.slug !== slug);
+    setNamespaces(remaining);
+    setDeleteTarget(null);
+    addToast({ message: `Namespace "${slug}" deleted.`, type: "success" });
 
     // Refresh the global namespace dropdown in the header
-    useNamespaceStore.getState().fetchNamespaces()
+    useNamespaceStore.getState().fetchNamespaces();
 
     // If the deleted namespace was currently selected, switch to the next available
-    const { namespace: current, setNamespace } = useAuthStore.getState()
+    const { namespace: current, setNamespace } = useAuthStore.getState();
     if (current === slug) {
-      const next = remaining[0]?.slug
+      const next = remaining[0]?.slug;
       if (next) {
-        setNamespace(next)
+        setNamespace(next);
       }
     }
   }
 
   const namespaceCols: DataColumn<NamespaceSummary>[] = [
     {
-      key: 'slug',
-      header: 'Slug',
-      render: (ns) => <Typography variant="body2" fontWeight={500}>{ns.slug}</Typography>,
-    },
-    {
-      key: 'name',
-      header: 'Name',
-      render: (ns) => <Typography variant="caption" color="text.secondary">{ns.name || '\u2014'}</Typography>,
-    },
-    {
-      key: 'actions',
-      header: '',
-      align: 'right',
+      key: "slug",
+      header: "Slug",
       render: (ns) => (
-        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-          <ActionIconButton icon={Pencil} tooltip="Edit" onClick={() => setEditingSlug(ns.slug)} />
-          <ActionIconButton icon={Trash2} tooltip="Delete" color="error" onClick={() => setDeleteTarget(ns)} />
+        <Typography variant="body2" fontWeight={500}>
+          {ns.slug}
+        </Typography>
+      ),
+    },
+    {
+      key: "name",
+      header: "Name",
+      render: (ns) => (
+        <Typography variant="caption" color="text.secondary">
+          {ns.name || "\u2014"}
+        </Typography>
+      ),
+    },
+    {
+      key: "actions",
+      header: "",
+      align: "right",
+      render: (ns) => (
+        <Box sx={{ display: "flex", gap: 0.5, justifyContent: "flex-end" }}>
+          <ActionIconButton
+            icon={Pencil}
+            tooltip="Edit"
+            onClick={() => setEditingSlug(ns.slug)}
+          />
+          <ActionIconButton
+            icon={Trash2}
+            tooltip="Delete"
+            color="error"
+            onClick={() => setDeleteTarget(ns)}
+          />
         </Box>
       ),
     },
-  ]
+  ];
 
   if (editingSlug) {
     return (
@@ -118,27 +137,42 @@ export function NamespacesSection() {
         slug={editingSlug}
         onBack={() => setEditingSlug(null)}
       />
-    )
+    );
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <Box>
-          <Typography variant="h2" gutterBottom>Namespaces</Typography>
+          <Typography variant="h2" gutterBottom>
+            Namespaces
+          </Typography>
           <Divider sx={{ mb: 3 }} />
         </Box>
-        <Button variant="outlined" size="small" startIcon={<Plus size={14} />} onClick={() => setCreateOpen(true)}>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<Plus size={14} />}
+          onClick={() => setCreateOpen(true)}
+        >
           Create Namespace
         </Button>
       </Box>
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
           <CircularProgress size={24} />
         </Box>
       ) : namespaces.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">No namespaces found.</Typography>
+        <Typography variant="body2" color="text.secondary">
+          No namespaces found.
+        </Typography>
       ) : (
         <DataTable<NamespaceSummary>
           ariaLabel="Namespaces"
@@ -152,15 +186,15 @@ export function NamespacesSection() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={handleCreated}
-        onError={(msg) => addToast({ message: msg, type: 'error' })}
+        onError={(msg) => addToast({ message: msg, type: "error" })}
       />
 
       <DeleteNamespaceDialog
         namespace={deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onDeleted={handleDeleted}
-        onError={(msg) => addToast({ type: 'error', message: msg })}
+        onError={(msg) => addToast({ type: "error", message: msg })}
       />
     </Box>
-  )
+  );
 }

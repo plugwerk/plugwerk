@@ -16,34 +16,39 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Box, Typography } from '@mui/material'
-import ReactMarkdown from 'react-markdown'
-import rehypeSanitize from 'rehype-sanitize'
-import type { PluginReleaseDto } from '../../api/generated/model'
-import { formatDateTime } from '../../utils/formatDateTime'
+import { Box, Typography } from "@mui/material";
+import ReactMarkdown from "react-markdown";
+import rehypeSanitize from "rehype-sanitize";
+import type { PluginReleaseDto } from "../../api/generated/model";
+import { formatDateTime } from "../../utils/formatDateTime";
 
 interface ChangelogTabProps {
-  releases: PluginReleaseDto[]
+  releases: PluginReleaseDto[];
 }
 
 export function ChangelogTab({ releases }: ChangelogTabProps) {
-  const withChangelog = releases.filter((r) => r.changelog)
+  const withChangelog = releases.filter((r) => r.changelog);
 
   if (withChangelog.length === 0) {
     return (
       <Typography variant="body2" color="text.secondary">
         No changelog available. Add release notes when publishing a new version.
       </Typography>
-    )
+    );
   }
 
   return (
     <Box
       sx={{
-        '& h2': { fontSize: '1.125rem', fontWeight: 600, mt: 3, mb: 1 },
-        '& ul, & ol': { pl: 3, mb: 1.5 },
-        '& li': { fontSize: '0.875rem', color: 'text.secondary', mb: 0.5, lineHeight: 1.7 },
-        '& p':  { fontSize: '0.875rem', color: 'text.secondary', mb: 1 },
+        "& h2": { fontSize: "1.125rem", fontWeight: 600, mt: 3, mb: 1 },
+        "& ul, & ol": { pl: 3, mb: 1.5 },
+        "& li": {
+          fontSize: "0.875rem",
+          color: "text.secondary",
+          mb: 0.5,
+          lineHeight: 1.7,
+        },
+        "& p": { fontSize: "0.875rem", color: "text.secondary", mb: 1 },
       }}
     >
       {withChangelog.map((rel) => (
@@ -51,7 +56,15 @@ export function ChangelogTab({ releases }: ChangelogTabProps) {
           <Typography variant="h3" sx={{ mt: 3, mb: 1 }}>
             v{rel.version}
             {rel.createdAt && (
-              <Box component="span" sx={{ fontWeight: 400, fontSize: '0.875rem', color: 'text.disabled', ml: 1 }}>
+              <Box
+                component="span"
+                sx={{
+                  fontWeight: 400,
+                  fontSize: "0.875rem",
+                  color: "text.disabled",
+                  ml: 1,
+                }}
+              >
                 – {formatDateTime(rel.createdAt)}
               </Box>
             )}
@@ -62,5 +75,5 @@ export function ChangelogTab({ releases }: ChangelogTabProps) {
         </Box>
       ))}
     </Box>
-  )
+  );
 }

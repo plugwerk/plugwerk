@@ -16,24 +16,24 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Outlet } from 'react-router-dom'
-import { Box, Container } from '@mui/material'
-import { AdminSidebar } from '../components/admin/AdminSidebar'
+import { Outlet } from "react-router-dom";
+import { Box, Container } from "@mui/material";
+import { AdminSidebar } from "../components/admin/AdminSidebar";
 
-export { GeneralSection } from './admin/GeneralSection'
-export { UsersSection } from './admin/UsersSection'
-export { OidcProvidersSection } from './admin/OidcProvidersSection'
-export { ReviewsSection } from './admin/ReviewsSection'
+export { GeneralSection } from "./admin/GeneralSection";
+export { UsersSection } from "./admin/UsersSection";
+export { OidcProvidersSection } from "./admin/OidcProvidersSection";
+export { ReviewsSection } from "./admin/ReviewsSection";
 
 export function AdminSettingsPage() {
   return (
-    <Box component="main" id="main-content" sx={{ flex: 1, display: 'flex' }}>
+    <Box component="main" id="main-content" sx={{ flex: 1, display: "flex" }}>
       <AdminSidebar />
-      <Box sx={{ flex: 1, overflow: 'auto' }}>
+      <Box sx={{ flex: 1, overflow: "auto" }}>
         <Container maxWidth="lg" sx={{ py: 4 }}>
           <Outlet />
         </Container>
       </Box>
     </Box>
-  )
+  );
 }

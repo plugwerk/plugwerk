@@ -16,11 +16,11 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { createTheme, type PaletteMode } from '@mui/material'
-import { tokens } from './tokens'
+import { createTheme, type PaletteMode } from "@mui/material";
+import { tokens } from "./tokens";
 
 export function buildTheme(mode: PaletteMode) {
-  const isDark = mode === 'dark'
+  const isDark = mode === "dark";
 
   return createTheme({
     palette: {
@@ -34,31 +34,32 @@ export function buildTheme(mode: PaletteMode) {
       secondary: {
         main: tokens.color.secondary,
       },
-      success:  { main: tokens.color.success },
-      warning:  { main: tokens.color.warning },
-      error:    { main: tokens.color.danger },
+      success: { main: tokens.color.success },
+      warning: { main: tokens.color.warning },
+      error: { main: tokens.color.danger },
       background: {
-        default: isDark ? '#161616' : tokens.color.gray10,
-        paper:   isDark ? '#262626' : tokens.color.white,
+        default: isDark ? "#161616" : tokens.color.gray10,
+        paper: isDark ? "#262626" : tokens.color.white,
       },
       text: {
-        primary:   isDark ? '#F4F4F4' : tokens.color.gray100,
-        secondary: isDark ? '#C6C6C6' : tokens.color.gray80,
-        disabled:  isDark ? '#6F6F6F' : tokens.color.gray40,
+        primary: isDark ? "#F4F4F4" : tokens.color.gray100,
+        secondary: isDark ? "#C6C6C6" : tokens.color.gray80,
+        disabled: isDark ? "#6F6F6F" : tokens.color.gray40,
       },
-      divider: isDark ? '#393939' : tokens.color.gray20,
+      divider: isDark ? "#393939" : tokens.color.gray20,
     },
 
     typography: {
       fontSize: 12, // MUI internal base (default: 14). Used by pxToRem().
-      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      h1: { fontWeight: 700, fontSize: '2.25rem', lineHeight: '2.75rem' },
-      h2: { fontWeight: 600, fontSize: '1.75rem', lineHeight: '2.25rem' },
-      h3: { fontWeight: 600, fontSize: '1.375rem', lineHeight: '1.75rem' },
-      h4: { fontWeight: 600, fontSize: '1.0625rem', lineHeight: '1.5rem' },
-      body1: { fontSize: '1rem', lineHeight: '1.5rem' },
-      body2: { fontSize: '0.875rem', lineHeight: '1.25rem' },
-      caption: { fontSize: '0.75rem', lineHeight: '1.125rem' },
+      fontFamily:
+        'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      h1: { fontWeight: 700, fontSize: "2.25rem", lineHeight: "2.75rem" },
+      h2: { fontWeight: 600, fontSize: "1.75rem", lineHeight: "2.25rem" },
+      h3: { fontWeight: 600, fontSize: "1.375rem", lineHeight: "1.75rem" },
+      h4: { fontWeight: 600, fontSize: "1.0625rem", lineHeight: "1.5rem" },
+      body1: { fontSize: "1rem", lineHeight: "1.5rem" },
+      body2: { fontSize: "0.875rem", lineHeight: "1.25rem" },
+      caption: { fontSize: "0.75rem", lineHeight: "1.125rem" },
     },
 
     shape: {
@@ -68,17 +69,17 @@ export function buildTheme(mode: PaletteMode) {
     components: {
       MuiCssBaseline: {
         styleOverrides: {
-          html: { fontSize: '87.5%' }, // 14px base instead of 16px — scales all rem-based typography down
-          '*, *::before, *::after': { boxSizing: 'border-box' },
-          body: { minHeight: '100dvh' },
-          a: { color: 'inherit', textDecoration: 'none' },
-          'ul, ol': { listStyle: 'none', margin: 0, padding: 0 },
+          html: { fontSize: "87.5%" }, // 14px base instead of 16px — scales all rem-based typography down
+          "*, *::before, *::after": { boxSizing: "border-box" },
+          body: { minHeight: "100dvh" },
+          a: { color: "inherit", textDecoration: "none" },
+          "ul, ol": { listStyle: "none", margin: 0, padding: 0 },
         },
       },
       MuiButton: {
         styleOverrides: {
           root: {
-            textTransform: 'none',
+            textTransform: "none",
             fontWeight: 500,
             borderRadius: tokens.radius.btn,
           },
@@ -93,7 +94,7 @@ export function buildTheme(mode: PaletteMode) {
         styleOverrides: {
           root: {
             borderRadius: tokens.radius.card,
-            border: `1px solid ${isDark ? '#393939' : tokens.color.gray20}`,
+            border: `1px solid ${isDark ? "#393939" : tokens.color.gray20}`,
             boxShadow: tokens.shadow.card,
           },
         },
@@ -103,7 +104,7 @@ export function buildTheme(mode: PaletteMode) {
           paper: {
             borderRadius: tokens.radius.dialog,
             boxShadow: isDark
-              ? '0 8px 32px rgba(0,0,0,0.5)'
+              ? "0 8px 32px rgba(0,0,0,0.5)"
               : tokens.shadow.modal,
           },
         },
@@ -112,32 +113,36 @@ export function buildTheme(mode: PaletteMode) {
         styleOverrides: {
           paper: {
             borderRadius: tokens.radius.card,
-            border: `1px solid ${isDark ? '#393939' : tokens.color.gray20}`,
+            border: `1px solid ${isDark ? "#393939" : tokens.color.gray20}`,
             boxShadow: isDark
-              ? '0 4px 16px rgba(0,0,0,0.4)'
-              : '0 4px 16px rgba(0,0,0,0.08)',
+              ? "0 4px 16px rgba(0,0,0,0.4)"
+              : "0 4px 16px rgba(0,0,0,0.08)",
             marginTop: 4,
           },
           list: {
-            padding: '4px',
+            padding: "4px",
           },
         },
       },
       MuiMenuItem: {
         styleOverrides: {
           root: {
-            fontSize: '0.8125rem',
-            borderRadius: '4px',
-            padding: '6px 12px',
-            minHeight: 'unset',
-            transition: 'background 150ms ease',
-            '&:hover': {
-              backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : tokens.color.gray10,
+            fontSize: "0.8125rem",
+            borderRadius: "4px",
+            padding: "6px 12px",
+            minHeight: "unset",
+            transition: "background 150ms ease",
+            "&:hover": {
+              backgroundColor: isDark
+                ? "rgba(255,255,255,0.06)"
+                : tokens.color.gray10,
             },
-            '&.Mui-selected': {
-              backgroundColor: isDark ? 'rgba(15,98,254,0.15)' : `${tokens.color.primaryLight}`,
-              '&:hover': {
-                backgroundColor: isDark ? 'rgba(15,98,254,0.22)' : '#bdd4ff',
+            "&.Mui-selected": {
+              backgroundColor: isDark
+                ? "rgba(15,98,254,0.15)"
+                : `${tokens.color.primaryLight}`,
+              "&:hover": {
+                backgroundColor: isDark ? "rgba(15,98,254,0.22)" : "#bdd4ff",
               },
             },
           },
@@ -156,13 +161,13 @@ export function buildTheme(mode: PaletteMode) {
       MuiAppBar: {
         styleOverrides: {
           root: {
-            boxShadow: 'none',
-            borderBottom: `1px solid ${isDark ? '#393939' : tokens.color.gray20}`,
-            backgroundColor: isDark ? '#262626' : tokens.color.white,
-            color: isDark ? '#F4F4F4' : tokens.color.gray100,
+            boxShadow: "none",
+            borderBottom: `1px solid ${isDark ? "#393939" : tokens.color.gray20}`,
+            backgroundColor: isDark ? "#262626" : tokens.color.white,
+            color: isDark ? "#F4F4F4" : tokens.color.gray100,
           },
         },
       },
     },
-  })
+  });
 }

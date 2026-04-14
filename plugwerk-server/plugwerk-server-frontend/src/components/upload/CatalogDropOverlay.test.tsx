@@ -16,27 +16,33 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { CatalogDropOverlay } from './CatalogDropOverlay'
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { CatalogDropOverlay } from "./CatalogDropOverlay";
 
-describe('CatalogDropOverlay', () => {
-  it('renders overlay text when visible is true', () => {
-    render(<CatalogDropOverlay visible={true} />)
-    expect(screen.getByText('Drop .jar or .zip files to upload')).toBeInTheDocument()
-    expect(screen.getByText('Files will be uploaded immediately')).toBeInTheDocument()
-  })
+describe("CatalogDropOverlay", () => {
+  it("renders overlay text when visible is true", () => {
+    render(<CatalogDropOverlay visible={true} />);
+    expect(
+      screen.getByText("Drop .jar or .zip files to upload"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Files will be uploaded immediately"),
+    ).toBeInTheDocument();
+  });
 
-  it('hides overlay content when visible is false', () => {
-    render(<CatalogDropOverlay visible={false} />)
+  it("hides overlay content when visible is false", () => {
+    render(<CatalogDropOverlay visible={false} />);
     // MUI Fade keeps the element mounted but with visibility: hidden
-    const overlay = screen.getByText('Drop .jar or .zip files to upload').closest('[aria-hidden]')
-    expect(overlay).toHaveAttribute('aria-hidden', 'true')
-  })
+    const overlay = screen
+      .getByText("Drop .jar or .zip files to upload")
+      .closest("[aria-hidden]");
+    expect(overlay).toHaveAttribute("aria-hidden", "true");
+  });
 
-  it('has pointerEvents none to not capture drag events', () => {
-    const { container } = render(<CatalogDropOverlay visible={true} />)
-    const overlay = container.querySelector('[aria-hidden="false"]')
-    expect(overlay).toHaveStyle({ pointerEvents: 'none' })
-  })
-})
+  it("has pointerEvents none to not capture drag events", () => {
+    const { container } = render(<CatalogDropOverlay visible={true} />);
+    const overlay = container.querySelector('[aria-hidden="false"]');
+    expect(overlay).toHaveStyle({ pointerEvents: "none" });
+  });
+});

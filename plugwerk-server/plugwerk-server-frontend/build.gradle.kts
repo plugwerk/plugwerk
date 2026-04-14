@@ -16,8 +16,18 @@ val npmInstall by tasks.registering(Exec::class) {
     outputs.dir("node_modules")
 }
 
-val npmBuild by tasks.registering(Exec::class) {
+val npmFormatCheck by tasks.registering(Exec::class) {
     dependsOn(npmInstall)
+    workingDir = projectDir
+    commandLine(npmCmd("run", "format:check"))
+    inputs.dir("src")
+    inputs.file(".prettierrc")
+    inputs.file(".prettierignore")
+    outputs.upToDateWhen { true }
+}
+
+val npmBuild by tasks.registering(Exec::class) {
+    dependsOn(npmInstall, npmFormatCheck)
     workingDir = projectDir
     commandLine(npmCmd("run", "build"))
     inputs.dir("src")

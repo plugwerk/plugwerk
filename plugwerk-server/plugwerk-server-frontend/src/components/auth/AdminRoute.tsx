@@ -16,12 +16,12 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Navigate } from 'react-router-dom'
-import type { ReactNode } from 'react'
-import { useAuthStore } from '../../stores/authStore'
+import { Navigate } from "react-router-dom";
+import type { ReactNode } from "react";
+import { useAuthStore } from "../../stores/authStore";
 
 interface AdminRouteProps {
-  children: ReactNode
+  children: ReactNode;
 }
 
 /**
@@ -34,11 +34,11 @@ interface AdminRouteProps {
  * All other users are redirected to the 403 Forbidden page.
  */
 export function AdminRoute({ children }: AdminRouteProps) {
-  const { isSuperadmin, namespaceRole } = useAuthStore()
+  const { isSuperadmin, namespaceRole } = useAuthStore();
 
-  if (!isSuperadmin && namespaceRole !== 'ADMIN') {
-    return <Navigate to="/403" replace />
+  if (!isSuperadmin && namespaceRole !== "ADMIN") {
+    return <Navigate to="/403" replace />;
   }
 
-  return <>{children}</>
+  return <>{children}</>;
 }

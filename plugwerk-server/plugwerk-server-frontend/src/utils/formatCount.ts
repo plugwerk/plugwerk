@@ -24,16 +24,16 @@
  *           45000 → "45k", 33300 → "33.3k", 1234567 → "1.2M"
  */
 export function formatCount(n: number | undefined): string {
-  if (!n) return '0'
+  if (!n) return "0";
   if (n >= 1_000_000) {
-    const m = n / 1_000_000
-    return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M`
+    const m = n / 1_000_000;
+    return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M`;
   }
   if (n >= 1_000) {
-    const k = n / 1_000
-    return k % 1 === 0 ? `${k}k` : `${k.toFixed(1)}k`
+    const k = n / 1_000;
+    return k % 1 === 0 ? `${k}k` : `${k.toFixed(1)}k`;
   }
-  return String(n)
+  return String(n);
 }
 
 /**
@@ -43,6 +43,6 @@ export function formatCount(n: number | undefined): string {
  *           34343000 → "34.343.000", 34000 → "34.000"
  */
 export function formatCountFull(n: number | undefined): string {
-  if (!n) return '0'
-  return n.toLocaleString('de-DE')
+  if (!n) return "0";
+  return n.toLocaleString("de-DE");
 }

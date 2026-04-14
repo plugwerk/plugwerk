@@ -16,36 +16,52 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Box, Container, Typography, Button } from '@mui/material'
-import { Link } from 'react-router-dom'
-import type { ReactNode } from 'react'
+import { Box, Container, Typography, Button } from "@mui/material";
+import { Link } from "react-router-dom";
+import type { ReactNode } from "react";
 
 interface ErrorPageProps {
-  code: number
-  title: string
-  message: string
-  illustration: ReactNode
+  code: number;
+  title: string;
+  message: string;
+  illustration: ReactNode;
 }
 
-export function ErrorPage({ code, title, message, illustration }: ErrorPageProps) {
+export function ErrorPage({
+  code,
+  title,
+  message,
+  illustration,
+}: ErrorPageProps) {
   return (
     <Box
       component="main"
       id="main-content"
       sx={{
         flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         py: 8,
       }}
     >
       <Container maxWidth="sm">
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, textAlign: 'center' }}>
-          <Box sx={{ color: 'text.disabled', width: 160, height: 160 }}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 3,
+            textAlign: "center",
+          }}
+        >
+          <Box sx={{ color: "text.disabled", width: 160, height: 160 }}>
             {illustration}
           </Box>
-          <Typography variant="h1" sx={{ fontSize: '4rem', fontWeight: 700, color: 'text.disabled' }}>
+          <Typography
+            variant="h1"
+            sx={{ fontSize: "4rem", fontWeight: 700, color: "text.disabled" }}
+          >
             {code}
           </Typography>
           <Typography variant="h2">{title}</Typography>
@@ -58,5 +74,5 @@ export function ErrorPage({ code, title, message, illustration }: ErrorPageProps
         </Box>
       </Container>
     </Box>
-  )
+  );
 }

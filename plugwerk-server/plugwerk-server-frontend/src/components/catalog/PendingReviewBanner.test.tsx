@@ -16,46 +16,58 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { describe, it, expect } from 'vitest'
-import { screen } from '@testing-library/react'
-import { renderWithRouter } from '../../test/renderWithTheme'
-import { PendingReviewBanner } from './PendingReviewBanner'
+import { describe, it, expect } from "vitest";
+import { screen } from "@testing-library/react";
+import { renderWithRouter } from "../../test/renderWithTheme";
+import { PendingReviewBanner } from "./PendingReviewBanner";
 
-function renderBanner(props: { pluginCount: number; releaseCount: number | null; isAdmin: boolean }) {
-  return renderWithRouter(<PendingReviewBanner {...props} />)
+function renderBanner(props: {
+  pluginCount: number;
+  releaseCount: number | null;
+  isAdmin: boolean;
+}) {
+  return renderWithRouter(<PendingReviewBanner {...props} />);
 }
 
-describe('PendingReviewBanner', () => {
-  it('renders nothing when pluginCount is 0', () => {
-    const { container } = renderBanner({ pluginCount: 0, releaseCount: null, isAdmin: false })
-    expect(container.firstChild).toBeNull()
-  })
+describe("PendingReviewBanner", () => {
+  it("renders nothing when pluginCount is 0", () => {
+    const { container } = renderBanner({
+      pluginCount: 0,
+      releaseCount: null,
+      isAdmin: false,
+    });
+    expect(container.firstChild).toBeNull();
+  });
 
-  it('shows singular plugin and release text', () => {
-    renderBanner({ pluginCount: 1, releaseCount: 1, isAdmin: false })
-    expect(screen.getByText(/1 plugin \(1 release\) pending review/)).toBeInTheDocument()
-  })
+  it("shows singular plugin and release text", () => {
+    renderBanner({ pluginCount: 1, releaseCount: 1, isAdmin: false });
+    expect(
+      screen.getByText(/1 plugin \(1 release\) pending review/),
+    ).toBeInTheDocument();
+  });
 
-  it('shows plural plugins and releases text', () => {
-    renderBanner({ pluginCount: 3, releaseCount: 5, isAdmin: false })
-    expect(screen.getByText(/3 plugins \(5 releases\) pending review/)).toBeInTheDocument()
-  })
+  it("shows plural plugins and releases text", () => {
+    renderBanner({ pluginCount: 3, releaseCount: 5, isAdmin: false });
+    expect(
+      screen.getByText(/3 plugins \(5 releases\) pending review/),
+    ).toBeInTheDocument();
+  });
 
-  it('shows plugin-only text when releaseCount is null', () => {
-    renderBanner({ pluginCount: 2, releaseCount: null, isAdmin: false })
-    expect(screen.getByText(/2 plugins pending review/)).toBeInTheDocument()
-    expect(screen.queryByText(/releases/)).not.toBeInTheDocument()
-  })
+  it("shows plugin-only text when releaseCount is null", () => {
+    renderBanner({ pluginCount: 2, releaseCount: null, isAdmin: false });
+    expect(screen.getByText(/2 plugins pending review/)).toBeInTheDocument();
+    expect(screen.queryByText(/releases/)).not.toBeInTheDocument();
+  });
 
-  it('shows Review link for admins pointing to /admin/reviews', () => {
-    renderBanner({ pluginCount: 1, releaseCount: 2, isAdmin: true })
-    const link = screen.getByText('Review')
-    expect(link).toBeInTheDocument()
-    expect(link.closest('a')).toHaveAttribute('href', '/admin/reviews')
-  })
+  it("shows Review link for admins pointing to /admin/reviews", () => {
+    renderBanner({ pluginCount: 1, releaseCount: 2, isAdmin: true });
+    const link = screen.getByText("Review");
+    expect(link).toBeInTheDocument();
+    expect(link.closest("a")).toHaveAttribute("href", "/admin/reviews");
+  });
 
-  it('does not show Review link for non-admins', () => {
-    renderBanner({ pluginCount: 1, releaseCount: 2, isAdmin: false })
-    expect(screen.queryByText('Review')).not.toBeInTheDocument()
-  })
-})
+  it("does not show Review link for non-admins", () => {
+    renderBanner({ pluginCount: 1, releaseCount: 2, isAdmin: false });
+    expect(screen.queryByText("Review")).not.toBeInTheDocument();
+  });
+});

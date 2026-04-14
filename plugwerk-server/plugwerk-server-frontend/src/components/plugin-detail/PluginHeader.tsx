@@ -16,73 +16,99 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useState } from 'react'
-import { Box, Typography, Button, Menu, MenuItem, Tooltip } from '@mui/material'
-import { Download, Calendar, Scale, Puzzle, Trash2, ArrowRightLeft } from 'lucide-react'
-import { Badge } from '../common/Badge'
-import type { BadgeVariant } from '../common/Badge'
-import { CopyablePluginId } from '../common/CopyablePluginId'
-import type { PluginDto, PluginReleaseDto } from '../../api/generated/model'
-import { tokens } from '../../theme/tokens'
-import { formatDateTime } from '../../utils/formatDateTime'
-import { downloadArtifact } from '../../utils/downloadArtifact'
-import { formatCount, formatCountFull } from '../../utils/formatCount'
-import { managementApi } from '../../api/config'
+import { useState } from "react";
+import {
+  Box,
+  Typography,
+  Button,
+  Menu,
+  MenuItem,
+  Tooltip,
+} from "@mui/material";
+import {
+  Download,
+  Calendar,
+  Scale,
+  Puzzle,
+  Trash2,
+  ArrowRightLeft,
+} from "lucide-react";
+import { Badge } from "../common/Badge";
+import type { BadgeVariant } from "../common/Badge";
+import { CopyablePluginId } from "../common/CopyablePluginId";
+import type { PluginDto, PluginReleaseDto } from "../../api/generated/model";
+import { tokens } from "../../theme/tokens";
+import { formatDateTime } from "../../utils/formatDateTime";
+import { downloadArtifact } from "../../utils/downloadArtifact";
+import { formatCount, formatCountFull } from "../../utils/formatCount";
+import { managementApi } from "../../api/config";
 
-const PLUGIN_STATUSES = ['active', 'suspended', 'archived'] as const
+const PLUGIN_STATUSES = ["active", "suspended", "archived"] as const;
 
 const PLUGIN_STATUS_BADGE: Record<string, BadgeVariant> = {
-  active: 'published',
-  suspended: 'yanked',
-  archived: 'deprecated',
-}
+  active: "published",
+  suspended: "yanked",
+  archived: "deprecated",
+};
 
 interface PluginHeaderProps {
-  plugin: PluginDto
-  latestRelease: PluginReleaseDto | null
-  namespace: string
-  isAdmin?: boolean
-  onDeletePlugin?: () => void
-  onError?: (message: string) => void
-  onPluginUpdated?: (plugin: PluginDto) => void
+  plugin: PluginDto;
+  latestRelease: PluginReleaseDto | null;
+  namespace: string;
+  isAdmin?: boolean;
+  onDeletePlugin?: () => void;
+  onError?: (message: string) => void;
+  onPluginUpdated?: (plugin: PluginDto) => void;
 }
 
-export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDeletePlugin, onError, onPluginUpdated }: PluginHeaderProps) {
-  const [statusMenuAnchor, setStatusMenuAnchor] = useState<HTMLElement | null>(null)
-  const [updatingStatus, setUpdatingStatus] = useState(false)
+export function PluginHeader({
+  plugin,
+  latestRelease,
+  namespace,
+  isAdmin,
+  onDeletePlugin,
+  onError,
+  onPluginUpdated,
+}: PluginHeaderProps) {
+  const [statusMenuAnchor, setStatusMenuAnchor] = useState<HTMLElement | null>(
+    null,
+  );
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const downloadUrl = latestRelease
     ? `/api/v1/namespaces/${namespace}/plugins/${plugin.pluginId}/releases/${latestRelease.version}/download`
-    : '#'
+    : "#";
 
   async function handleStatusChange(newStatus: string) {
-    setStatusMenuAnchor(null)
-    setUpdatingStatus(true)
+    setStatusMenuAnchor(null);
+    setUpdatingStatus(true);
     try {
       const res = await managementApi.updatePlugin({
         ns: namespace,
         pluginId: plugin.pluginId!,
-        pluginUpdateRequest: { status: newStatus as 'active' | 'suspended' | 'archived' },
-      })
-      onPluginUpdated?.(res.data)
+        pluginUpdateRequest: {
+          status: newStatus as "active" | "suspended" | "archived",
+        },
+      });
+      onPluginUpdated?.(res.data);
     } catch {
-      onError?.(`Failed to change plugin status to ${newStatus}.`)
+      onError?.(`Failed to change plugin status to ${newStatus}.`);
     } finally {
-      setUpdatingStatus(false)
+      setUpdatingStatus(false);
     }
   }
 
   return (
     <Box
       sx={{
-        display: 'flex',
-        alignItems: 'flex-start',
+        display: "flex",
+        alignItems: "flex-start",
         gap: 2.5,
         pb: 3,
-        borderBottom: '1px solid',
-        borderColor: 'divider',
+        borderBottom: "1px solid",
+        borderColor: "divider",
         mb: 2.5,
-        flexWrap: { xs: 'wrap', sm: 'nowrap' },
+        flexWrap: { xs: "wrap", sm: "nowrap" },
       }}
     >
       {/* Plugin icon */}
@@ -91,13 +117,13 @@ export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDele
           width: { xs: 64, sm: 96 },
           height: { xs: 64, sm: 96 },
           borderRadius: tokens.radius.card,
-          background: 'background.default',
-          border: '1px solid',
-          borderColor: 'divider',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'text.disabled',
+          background: "background.default",
+          border: "1px solid",
+          borderColor: "divider",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "text.disabled",
           flexShrink: 0,
         }}
         aria-hidden="true"
@@ -107,39 +133,79 @@ export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDele
 
       {/* Plugin info */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1 }}>
-          <Typography variant="h1" sx={{ fontSize: { xs: '1.5rem', sm: '2.25rem' } }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 1,
+            mb: 1,
+          }}
+        >
+          <Typography
+            variant="h1"
+            sx={{ fontSize: { xs: "1.5rem", sm: "2.25rem" } }}
+          >
             {plugin.name}
           </Typography>
           {latestRelease?.version && (
             <Badge variant="version">v{latestRelease.version}</Badge>
           )}
           {plugin.status && (
-            <Badge variant={PLUGIN_STATUS_BADGE[plugin.status] ?? 'published'}>
+            <Badge variant={PLUGIN_STATUS_BADGE[plugin.status] ?? "published"}>
               {plugin.status.charAt(0).toUpperCase() + plugin.status.slice(1)}
             </Badge>
           )}
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
           <Typography variant="caption" color="text.disabled">
-            by <strong style={{ color: 'inherit' }}>{plugin.provider ?? namespace}</strong>
-            {' · '}Namespace: <code>{namespace}</code>
+            by{" "}
+            <strong style={{ color: "inherit" }}>
+              {plugin.provider ?? namespace}
+            </strong>
+            {" · "}Namespace: <code>{namespace}</code>
           </Typography>
         </Box>
         <Box sx={{ mb: 1.5 }}>
           <CopyablePluginId pluginId={plugin.pluginId} />
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
-          <Tooltip title={formatCountFull(plugin.downloadCount)} placement="top">
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled' }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 3,
+            flexWrap: "wrap",
+          }}
+        >
+          <Tooltip
+            title={formatCountFull(plugin.downloadCount)}
+            placement="top"
+          >
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+                color: "text.disabled",
+              }}
+            >
               <Download size={14} aria-hidden="true" />
-              <Typography variant="caption">{formatCount(plugin.downloadCount)} downloads</Typography>
+              <Typography variant="caption">
+                {formatCount(plugin.downloadCount)} downloads
+              </Typography>
             </Box>
           </Tooltip>
           {plugin.updatedAt && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled' }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+                color: "text.disabled",
+              }}
+            >
               <Calendar size={14} aria-hidden="true" />
               <Typography variant="caption">
                 Updated {formatDateTime(plugin.updatedAt)}
@@ -147,7 +213,14 @@ export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDele
             </Box>
           )}
           {plugin.license && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled' }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+                color: "text.disabled",
+              }}
+            >
               <Scale size={14} aria-hidden="true" />
               <Typography variant="caption">{plugin.license}</Typography>
             </Box>
@@ -155,16 +228,28 @@ export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDele
         </Box>
 
         {plugin.tags && plugin.tags.length > 0 && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', mt: 1.5 }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+              flexWrap: "wrap",
+              mt: 1.5,
+            }}
+          >
             {plugin.tags.map((tag) => (
-              <Badge key={tag} variant="tag">{tag}</Badge>
+              <Badge key={tag} variant="tag">
+                {tag}
+              </Badge>
             ))}
           </Box>
         )}
       </Box>
 
       {/* Actions */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+      <Box
+        sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}
+      >
         {latestRelease && (
           <Button
             variant="outlined"
@@ -176,8 +261,8 @@ export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDele
             onClick={() => {
               downloadArtifact(
                 downloadUrl,
-                `${plugin.pluginId}-${latestRelease.version}.${latestRelease.fileFormat ?? 'jar'}`,
-              ).catch((err: Error) => onError?.(err.message))
+                `${plugin.pluginId}-${latestRelease.version}.${latestRelease.fileFormat ?? "jar"}`,
+              ).catch((err: Error) => onError?.(err.message));
             }}
           >
             Download
@@ -194,7 +279,7 @@ export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDele
               onClick={(e) => setStatusMenuAnchor(e.currentTarget)}
               sx={{ borderRadius: tokens.radius.btn }}
             >
-              {updatingStatus ? 'Changing\u2026' : 'Change Status'}
+              {updatingStatus ? "Changing\u2026" : "Change Status"}
             </Button>
             <Menu
               anchorEl={statusMenuAnchor}
@@ -224,5 +309,5 @@ export function PluginHeader({ plugin, latestRelease, namespace, isAdmin, onDele
         )}
       </Box>
     </Box>
-  )
+  );
 }

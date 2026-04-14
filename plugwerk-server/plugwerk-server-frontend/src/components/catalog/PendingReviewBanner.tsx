@@ -16,21 +16,25 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Alert, Typography } from '@mui/material'
-import { Link } from 'react-router-dom'
-import { tokens } from '../../theme/tokens'
+import { Alert, Typography } from "@mui/material";
+import { Link } from "react-router-dom";
+import { tokens } from "../../theme/tokens";
 
 interface PendingReviewBannerProps {
-  pluginCount: number
-  releaseCount: number | null
-  isAdmin: boolean
+  pluginCount: number;
+  releaseCount: number | null;
+  isAdmin: boolean;
 }
 
-export function PendingReviewBanner({ pluginCount, releaseCount, isAdmin }: PendingReviewBannerProps) {
-  if (pluginCount <= 0) return null
+export function PendingReviewBanner({
+  pluginCount,
+  releaseCount,
+  isAdmin,
+}: PendingReviewBannerProps) {
+  if (pluginCount <= 0) return null;
 
-  const pluginLabel = pluginCount === 1 ? 'plugin' : 'plugins'
-  const releaseLabel = releaseCount === 1 ? 'release' : 'releases'
+  const pluginLabel = pluginCount === 1 ? "plugin" : "plugins";
+  const releaseLabel = releaseCount === 1 ? "release" : "releases";
 
   return (
     <Alert
@@ -38,14 +42,20 @@ export function PendingReviewBanner({ pluginCount, releaseCount, isAdmin }: Pend
       sx={{
         py: 0.5,
         px: 2,
-        alignItems: 'center',
-        '& .MuiAlert-message': { display: 'flex', alignItems: 'center', gap: 1 },
+        alignItems: "center",
+        "& .MuiAlert-message": {
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+        },
       }}
     >
-      <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
+      <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
         {pluginCount} {pluginLabel}
-        {releaseCount != null && releaseCount > 0 && ` (${releaseCount} ${releaseLabel})`}
-        {' '}pending review
+        {releaseCount != null &&
+          releaseCount > 0 &&
+          ` (${releaseCount} ${releaseLabel})`}{" "}
+        pending review
       </Typography>
       {isAdmin && (
         <Typography
@@ -54,15 +64,15 @@ export function PendingReviewBanner({ pluginCount, releaseCount, isAdmin }: Pend
           variant="body2"
           sx={{
             color: tokens.color.primary,
-            textDecoration: 'none',
-            whiteSpace: 'nowrap',
+            textDecoration: "none",
+            whiteSpace: "nowrap",
             fontWeight: 600,
-            '&:hover': { textDecoration: 'underline' },
+            "&:hover": { textDecoration: "underline" },
           }}
         >
           Review
         </Typography>
       )}
     </Alert>
-  )
+  );
 }

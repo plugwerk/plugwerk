@@ -16,42 +16,47 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useState } from 'react'
-import { TextField } from '@mui/material'
-import { namespacesApi } from '../../api/config'
-import type { NamespaceSummary } from '../../api/generated/model'
-import { AppDialog } from '../common/AppDialog'
+import { useState } from "react";
+import { TextField } from "@mui/material";
+import { namespacesApi } from "../../api/config";
+import type { NamespaceSummary } from "../../api/generated/model";
+import { AppDialog } from "../common/AppDialog";
 
 interface DeleteNamespaceDialogProps {
-  namespace: NamespaceSummary | null
-  onClose: () => void
-  onDeleted: (slug: string) => void
-  onError: (message: string) => void
+  namespace: NamespaceSummary | null;
+  onClose: () => void;
+  onDeleted: (slug: string) => void;
+  onError: (message: string) => void;
 }
 
-export function DeleteNamespaceDialog({ namespace, onClose, onDeleted, onError }: DeleteNamespaceDialogProps) {
-  const [confirmation, setConfirmation] = useState('')
-  const [deleting, setDeleting] = useState(false)
+export function DeleteNamespaceDialog({
+  namespace,
+  onClose,
+  onDeleted,
+  onError,
+}: DeleteNamespaceDialogProps) {
+  const [confirmation, setConfirmation] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
-  const slug = namespace?.slug ?? ''
-  const matches = confirmation === slug
+  const slug = namespace?.slug ?? "";
+  const matches = confirmation === slug;
 
   function handleClose() {
-    setConfirmation('')
-    onClose()
+    setConfirmation("");
+    onClose();
   }
 
   async function handleDelete() {
-    if (!matches) return
-    setDeleting(true)
+    if (!matches) return;
+    setDeleting(true);
     try {
-      await namespacesApi.deleteNamespace({ ns: slug })
-      onDeleted(slug)
-      handleClose()
+      await namespacesApi.deleteNamespace({ ns: slug });
+      onDeleted(slug);
+      handleClose();
     } catch {
-      onError(`Failed to delete namespace "${slug}".`)
+      onError(`Failed to delete namespace "${slug}".`);
     } finally {
-      setDeleting(false)
+      setDeleting(false);
     }
   }
 
@@ -76,5 +81,5 @@ export function DeleteNamespaceDialog({ namespace, onClose, onDeleted, onError }
         fullWidth
       />
     </AppDialog>
-  )
+  );
 }

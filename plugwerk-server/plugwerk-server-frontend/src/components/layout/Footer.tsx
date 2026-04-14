@@ -16,52 +16,56 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useEffect } from 'react'
-import { Box, Typography, Link } from '@mui/material'
-import { Link as RouterLink } from 'react-router-dom'
-import { useConfigStore } from '../../stores/configStore'
-import { tokens } from '../../theme/tokens'
+import { useEffect } from "react";
+import { Box, Typography, Link } from "@mui/material";
+import { Link as RouterLink } from "react-router-dom";
+import { useConfigStore } from "../../stores/configStore";
+import { tokens } from "../../theme/tokens";
 
 export function Footer() {
-  const version = useConfigStore((s) => s.version)
-  const fetchConfig = useConfigStore((s) => s.fetchConfig)
+  const version = useConfigStore((s) => s.version);
+  const fetchConfig = useConfigStore((s) => s.fetchConfig);
 
   useEffect(() => {
-    fetchConfig()
-  }, [fetchConfig])
+    fetchConfig();
+  }, [fetchConfig]);
   return (
     <Box
       component="footer"
       role="contentinfo"
       sx={{
         borderTop: `1px solid`,
-        borderColor: 'divider',
-        mt: 'auto',
+        borderColor: "divider",
+        mt: "auto",
         py: 1.5,
         px: { xs: 2, sm: 3 },
-        bgcolor: 'background.paper',
+        bgcolor: "background.paper",
       }}
     >
       <Box
         sx={{
-          display: 'flex',
-          alignItems: 'center',
+          display: "flex",
+          alignItems: "center",
           gap: 3,
-          flexWrap: 'wrap',
+          flexWrap: "wrap",
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="body2" fontWeight={700}>Plugwerk</Typography>
-          <Typography variant="caption" color="text.disabled">v{version}</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography variant="body2" fontWeight={700}>
+            Plugwerk
+          </Typography>
+          <Typography variant="caption" color="text.disabled">
+            v{version}
+          </Typography>
         </Box>
 
         <Link
           component={RouterLink}
           to="/api-docs"
           sx={{
-            fontSize: '0.8125rem',
+            fontSize: "0.8125rem",
             color: tokens.color.primary,
-            '&:hover': { textDecoration: 'underline' },
+            "&:hover": { textDecoration: "underline" },
           }}
         >
           API Docs
@@ -70,5 +74,5 @@ export function Footer() {
         <Box sx={{ flex: 1 }} />
       </Box>
     </Box>
-  )
+  );
 }

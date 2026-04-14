@@ -27,70 +27,72 @@ import {
   Typography,
   alpha,
   useTheme,
-} from '@mui/material'
-import { User, Globe, FolderOpen, Lock } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { useAuthStore } from '../stores/authStore'
-import { useNamespaceStore } from '../stores/namespaceStore'
-import { tokens } from '../theme/tokens'
-import { useUiStore } from '../stores/uiStore'
+} from "@mui/material";
+import { User, Globe, FolderOpen, Lock } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useAuthStore } from "../stores/authStore";
+import { useNamespaceStore } from "../stores/namespaceStore";
+import { tokens } from "../theme/tokens";
+import { useUiStore } from "../stores/uiStore";
 
 interface SectionProps {
-  icon: React.ReactNode
-  title: string
-  description?: string
-  children: React.ReactNode
+  icon: React.ReactNode;
+  title: string;
+  description?: string;
+  children: React.ReactNode;
 }
 
 function Section({ icon, title, description, children }: SectionProps) {
-  const theme = useTheme()
-  const isDark = theme.palette.mode === 'dark'
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
 
   return (
     <Box
       sx={{
-        border: '1px solid',
-        borderColor: 'divider',
+        border: "1px solid",
+        borderColor: "divider",
         borderRadius: tokens.radius.card,
-        background: isDark ? alpha('#ffffff', 0.02) : tokens.color.white,
-        overflow: 'hidden',
+        background: isDark ? alpha("#ffffff", 0.02) : tokens.color.white,
+        overflow: "hidden",
       }}
     >
       <Box
         sx={{
-          display: 'flex',
-          alignItems: 'center',
+          display: "flex",
+          alignItems: "center",
           gap: 1.5,
           px: 3,
           py: 2,
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          background: isDark ? alpha('#ffffff', 0.03) : tokens.color.gray10,
+          borderBottom: "1px solid",
+          borderColor: "divider",
+          background: isDark ? alpha("#ffffff", 0.03) : tokens.color.gray10,
         }}
       >
-        <Box sx={{ color: 'text.secondary', display: 'flex' }}>{icon}</Box>
+        <Box sx={{ color: "text.secondary", display: "flex" }}>{icon}</Box>
         <Box>
-          <Typography variant="subtitle1" fontWeight={600}>{title}</Typography>
+          <Typography variant="subtitle1" fontWeight={600}>
+            {title}
+          </Typography>
           {description && (
-            <Typography variant="caption" color="text.secondary">{description}</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {description}
+            </Typography>
           )}
         </Box>
       </Box>
-      <Box sx={{ px: 3, py: 2.5 }}>
-        {children}
-      </Box>
+      <Box sx={{ px: 3, py: 2.5 }}>{children}</Box>
     </Box>
-  )
+  );
 }
 
 interface InfoRowProps {
-  label: string
-  value: string
+  label: string;
+  value: string;
 }
 
 function InfoRow({ label, value }: InfoRowProps) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2, py: 0.75 }}>
+    <Box sx={{ display: "flex", alignItems: "baseline", gap: 2, py: 0.75 }}>
       <Typography
         variant="caption"
         color="text.secondary"
@@ -100,32 +102,33 @@ function InfoRow({ label, value }: InfoRowProps) {
       </Typography>
       <Typography variant="body2">{value}</Typography>
     </Box>
-  )
+  );
 }
 
 export function ProfileSettingsPage() {
-  const { username, namespace, setNamespace } = useAuthStore()
-  const { namespaces } = useNamespaceStore()
-  const { addToast } = useUiStore()
+  const { username, namespace, setNamespace } = useAuthStore();
+  const { namespaces } = useNamespaceStore();
+  const { addToast } = useUiStore();
 
   function handleSave() {
     // TODO: persist profile settings via API once backend endpoint exists
-    addToast({ type: 'success', message: 'Profile settings saved.' })
+    addToast({ type: "success", message: "Profile settings saved." });
   }
 
   return (
     <Box component="main" id="main-content" sx={{ flex: 1, py: 4 }}>
       <Container maxWidth="sm">
-        <Typography variant="h1" sx={{ mb: 0.5 }}>Profile Settings</Typography>
+        <Typography variant="h1" sx={{ mb: 0.5 }}>
+          Profile Settings
+        </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
           Manage your account preferences and workspace configuration.
         </Typography>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
           {/* Personal Information */}
           <Section icon={<User size={18} />} title="Personal Information">
-            <InfoRow label="Username" value={username ?? '—'} />
+            <InfoRow label="Username" value={username ?? "—"} />
             <InfoRow label="Email" value="Not set" />
           </Section>
 
@@ -170,25 +173,30 @@ export function ProfileSettingsPage() {
             <FormControl size="small" sx={{ minWidth: 220 }}>
               <InputLabel>Namespace</InputLabel>
               <Select
-                value={namespace ?? ''}
+                value={namespace ?? ""}
                 label="Namespace"
                 onChange={(e) => setNamespace(e.target.value)}
               >
                 {namespaces.map((ns) => (
-                  <MenuItem key={ns.slug} value={ns.slug}>{ns.name} ({ns.slug})</MenuItem>
+                  <MenuItem key={ns.slug} value={ns.slug}>
+                    {ns.name} ({ns.slug})
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
           </Section>
 
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button variant="contained" sx={{ borderRadius: tokens.radius.btn }} onClick={handleSave}>
+          <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+            <Button
+              variant="contained"
+              sx={{ borderRadius: tokens.radius.btn }}
+              onClick={handleSave}
+            >
               Save Changes
             </Button>
           </Box>
         </Box>
-
       </Container>
     </Box>
-  )
+  );
 }

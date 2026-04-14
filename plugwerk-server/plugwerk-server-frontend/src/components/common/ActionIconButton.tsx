@@ -16,23 +16,37 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { CircularProgress, IconButton, Tooltip } from '@mui/material'
-import type { LucideIcon } from 'lucide-react'
+import { CircularProgress, IconButton, Tooltip } from "@mui/material";
+import type { LucideIcon } from "lucide-react";
 
 interface ActionIconButtonProps {
-  icon: LucideIcon
-  tooltip: string
-  onClick: (e: React.MouseEvent) => void
-  color?: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'
-  loading?: boolean
-  disabled?: boolean
+  icon: LucideIcon;
+  tooltip: string;
+  onClick: (e: React.MouseEvent) => void;
+  color?:
+    | "default"
+    | "primary"
+    | "secondary"
+    | "error"
+    | "info"
+    | "success"
+    | "warning";
+  loading?: boolean;
+  disabled?: boolean;
 }
 
 /**
  * Design guideline: All table actions are icon-only buttons with a tooltip.
  * Use this component for every action in DataTable columns.
  */
-export function ActionIconButton({ icon: Icon, tooltip, onClick, color, loading, disabled }: ActionIconButtonProps) {
+export function ActionIconButton({
+  icon: Icon,
+  tooltip,
+  onClick,
+  color,
+  loading,
+  disabled,
+}: ActionIconButtonProps) {
   return (
     <Tooltip title={tooltip}>
       <span>
@@ -47,5 +61,5 @@ export function ActionIconButton({ icon: Icon, tooltip, onClick, color, loading,
         </IconButton>
       </span>
     </Tooltip>
-  )
+  );
 }

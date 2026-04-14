@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from "react";
 import {
   Box,
   Container,
@@ -26,99 +26,116 @@ import {
   Alert,
   CircularProgress,
   Link as MuiLink,
-} from '@mui/material'
-import { ChevronRight } from 'lucide-react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { PluginHeader } from '../components/plugin-detail/PluginHeader'
-import { OverviewTab } from '../components/plugin-detail/OverviewTab'
-import { VersionsTab } from '../components/plugin-detail/VersionsTab'
-import { ChangelogTab } from '../components/plugin-detail/ChangelogTab'
-import { DependenciesTab } from '../components/plugin-detail/DependenciesTab'
-import { catalogApi, managementApi } from '../api/config'
-import type { PluginDto, PluginReleaseDto } from '../api/generated/model'
-import { ConfirmDeleteDialog } from '../components/common/ConfirmDeleteDialog'
-import { useAuthStore } from '../stores/authStore'
-import { useUiStore } from '../stores/uiStore'
+} from "@mui/material";
+import { ChevronRight } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { PluginHeader } from "../components/plugin-detail/PluginHeader";
+import { OverviewTab } from "../components/plugin-detail/OverviewTab";
+import { VersionsTab } from "../components/plugin-detail/VersionsTab";
+import { ChangelogTab } from "../components/plugin-detail/ChangelogTab";
+import { DependenciesTab } from "../components/plugin-detail/DependenciesTab";
+import { catalogApi, managementApi } from "../api/config";
+import type { PluginDto, PluginReleaseDto } from "../api/generated/model";
+import { ConfirmDeleteDialog } from "../components/common/ConfirmDeleteDialog";
+import { useAuthStore } from "../stores/authStore";
+import { useUiStore } from "../stores/uiStore";
 
-const TAB_IDS = ['overview', 'versions', 'changelog', 'dependencies']
+const TAB_IDS = ["overview", "versions", "changelog", "dependencies"];
 
 export function PluginDetailPage() {
-  const { namespace = '', pluginId = '' } = useParams<{ namespace: string; pluginId: string }>()
-  const navigate = useNavigate()
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-  const namespaceRole = useAuthStore((s) => s.namespaceRole)
-  const fetchNamespaceRole = useAuthStore((s) => s.fetchNamespaceRole)
-  const isAdmin = namespaceRole === 'ADMIN'
-  const [plugin, setPlugin] = useState<PluginDto | null>(null)
-  const [releases, setReleases] = useState<PluginReleaseDto[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState(0)
-  const [showDeletePlugin, setShowDeletePlugin] = useState(false)
-  const [isDeletingPlugin, setIsDeletingPlugin] = useState(false)
-  const { addToast } = useUiStore()
+  const { namespace = "", pluginId = "" } = useParams<{
+    namespace: string;
+    pluginId: string;
+  }>();
+  const navigate = useNavigate();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const namespaceRole = useAuthStore((s) => s.namespaceRole);
+  const fetchNamespaceRole = useAuthStore((s) => s.fetchNamespaceRole);
+  const isAdmin = namespaceRole === "ADMIN";
+  const [plugin, setPlugin] = useState<PluginDto | null>(null);
+  const [releases, setReleases] = useState<PluginReleaseDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState(0);
+  const [showDeletePlugin, setShowDeletePlugin] = useState(false);
+  const [isDeletingPlugin, setIsDeletingPlugin] = useState(false);
+  const { addToast } = useUiStore();
 
   useEffect(() => {
     async function load() {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
       try {
         const [pluginRes, releasesRes] = await Promise.all([
           catalogApi.getPlugin({ ns: namespace, pluginId }),
           catalogApi.listReleases({ ns: namespace, pluginId }),
-        ])
-        setPlugin(pluginRes.data)
-        setReleases(releasesRes.data.content)
+        ]);
+        setPlugin(pluginRes.data);
+        setReleases(releasesRes.data.content);
       } catch {
-        setError('Failed to load plugin details.')
+        setError("Failed to load plugin details.");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
-    if (pluginId) load()
-  }, [namespace, pluginId])
+    if (pluginId) load();
+  }, [namespace, pluginId]);
 
   useEffect(() => {
-    if (isAuthenticated) fetchNamespaceRole(namespace)
-  }, [isAuthenticated, namespace, fetchNamespaceRole])
+    if (isAuthenticated) fetchNamespaceRole(namespace);
+  }, [isAuthenticated, namespace, fetchNamespaceRole]);
 
   const handleReleaseDeleted = useCallback((version: string) => {
-    setReleases((prev) => prev.filter((r) => r.version !== version))
-  }, [])
+    setReleases((prev) => prev.filter((r) => r.version !== version));
+  }, []);
 
   async function handleDeletePlugin() {
-    setIsDeletingPlugin(true)
+    setIsDeletingPlugin(true);
     try {
-      await managementApi.deletePlugin({ ns: namespace, pluginId })
-      addToast({ message: `Plugin ${pluginId} deleted.`, type: 'success' })
-      setTimeout(() => navigate(`/namespaces/${namespace}/plugins`), 1000)
+      await managementApi.deletePlugin({ ns: namespace, pluginId });
+      addToast({ message: `Plugin ${pluginId} deleted.`, type: "success" });
+      setTimeout(() => navigate(`/namespaces/${namespace}/plugins`), 1000);
     } catch {
-      addToast({ message: `Failed to delete plugin ${pluginId}.`, type: 'error' })
+      addToast({
+        message: `Failed to delete plugin ${pluginId}.`,
+        type: "error",
+      });
     } finally {
-      setIsDeletingPlugin(false)
-      setShowDeletePlugin(false)
+      setIsDeletingPlugin(false);
+      setShowDeletePlugin(false);
     }
   }
 
-  const latestRelease = releases.find((r) => r.status === 'published') ?? releases[0] ?? null
-  const draftCount = releases.filter((r) => r.status === 'draft').length
+  const latestRelease =
+    releases.find((r) => r.status === "published") ?? releases[0] ?? null;
+  const draftCount = releases.filter((r) => r.status === "draft").length;
 
   if (loading) {
     return (
-      <Box component="main" id="main-content" sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+      <Box
+        component="main"
+        id="main-content"
+        sx={{
+          flex: 1,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          py: 8,
+        }}
+      >
         <CircularProgress />
       </Box>
-    )
+    );
   }
 
   if (error || !plugin) {
     return (
       <Box component="main" id="main-content" sx={{ flex: 1, py: 4 }}>
         <Container maxWidth="lg">
-          <Alert severity="error">{error ?? 'Plugin not found.'}</Alert>
+          <Alert severity="error">{error ?? "Plugin not found."}</Alert>
         </Container>
       </Box>
-    )
+    );
   }
 
   return (
@@ -128,12 +145,24 @@ export function PluginDetailPage() {
         <Box
           component="nav"
           aria-label="Breadcrumb"
-          sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}
+          sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 2 }}
         >
-          <MuiLink component={Link} to="/" sx={{ fontSize: '0.875rem', color: 'text.secondary', '&:hover': { color: 'primary.main' } }}>
+          <MuiLink
+            component={Link}
+            to="/"
+            sx={{
+              fontSize: "0.875rem",
+              color: "text.secondary",
+              "&:hover": { color: "primary.main" },
+            }}
+          >
             Catalog
           </MuiLink>
-          <ChevronRight size={14} style={{ color: 'var(--mui-palette-text-disabled)' }} aria-hidden="true" />
+          <ChevronRight
+            size={14}
+            style={{ color: "var(--mui-palette-text-disabled)" }}
+            aria-hidden="true"
+          />
           <Typography variant="body2" color="text.primary" aria-current="page">
             {plugin.name}
           </Typography>
@@ -146,10 +175,13 @@ export function PluginDetailPage() {
           namespace={namespace}
           isAdmin={isAdmin}
           onDeletePlugin={() => setShowDeletePlugin(true)}
-          onError={(message) => addToast({ type: 'error', message })}
+          onError={(message) => addToast({ type: "error", message })}
           onPluginUpdated={(updated) => {
-            setPlugin(updated)
-            addToast({ message: `Plugin status changed to ${updated.status}.`, type: 'success' })
+            setPlugin(updated);
+            addToast({
+              message: `Plugin status changed to ${updated.status}.`,
+              type: "success",
+            });
           }}
         />
 
@@ -159,30 +191,41 @@ export function PluginDetailPage() {
             value={tab}
             onChange={(_, v) => setTab(v)}
             aria-label="Plugin information tabs"
-            sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
+            sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}
           >
-            <Tab label="Overview"      id="tab-overview"     aria-controls="panel-overview" />
+            <Tab
+              label="Overview"
+              id="tab-overview"
+              aria-controls="panel-overview"
+            />
             <Tab
               label={
-                <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 0.5 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "flex-start",
+                    gap: 0.5,
+                  }}
+                >
                   <span>Versions</span>
                   {draftCount > 0 && (
                     <Box
                       component="span"
                       sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                         minWidth: 16,
                         height: 16,
                         px: 0.5,
-                        mt: '-2px',
-                        borderRadius: '8px',
-                        fontSize: '0.625rem',
+                        mt: "-2px",
+                        borderRadius: "8px",
+                        fontSize: "0.625rem",
                         fontWeight: 700,
                         lineHeight: 1,
-                        bgcolor: 'warning.main',
-                        color: '#161616',
+                        bgcolor: "warning.main",
+                        color: "#161616",
                       }}
                     >
                       {draftCount}
@@ -193,8 +236,16 @@ export function PluginDetailPage() {
               id="tab-versions"
               aria-controls="panel-versions"
             />
-            <Tab label="Changelog"     id="tab-changelog"    aria-controls="panel-changelog" />
-            <Tab label="Dependencies"  id="tab-dependencies" aria-controls="panel-dependencies" />
+            <Tab
+              label="Changelog"
+              id="tab-changelog"
+              aria-controls="panel-changelog"
+            />
+            <Tab
+              label="Dependencies"
+              id="tab-dependencies"
+              aria-controls="panel-dependencies"
+            />
           </Tabs>
 
           {TAB_IDS.map((id, i) => (
@@ -217,7 +268,12 @@ export function PluginDetailPage() {
                 />
               )}
               {tab === 2 && i === 2 && <ChangelogTab releases={releases} />}
-              {tab === 3 && i === 3 && <DependenciesTab release={latestRelease} namespace={namespace} />}
+              {tab === 3 && i === 3 && (
+                <DependenciesTab
+                  release={latestRelease}
+                  namespace={namespace}
+                />
+              )}
             </Box>
           ))}
         </Box>
@@ -231,7 +287,6 @@ export function PluginDetailPage() {
         onCancel={() => setShowDeletePlugin(false)}
         loading={isDeletingPlugin}
       />
-
     </Box>
-  )
+  );
 }

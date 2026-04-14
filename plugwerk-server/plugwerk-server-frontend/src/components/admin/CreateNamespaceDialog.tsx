@@ -16,53 +16,66 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useState } from 'react'
-import { Box, FormControlLabel, Switch, TextField, Typography } from '@mui/material'
-import { namespacesApi } from '../../api/config'
-import type { NamespaceSummary } from '../../api/generated/model'
-import { isAxiosError } from 'axios'
-import { AppDialog } from '../common/AppDialog'
+import { useState } from "react";
+import {
+  Box,
+  FormControlLabel,
+  Switch,
+  TextField,
+  Typography,
+} from "@mui/material";
+import { namespacesApi } from "../../api/config";
+import type { NamespaceSummary } from "../../api/generated/model";
+import { isAxiosError } from "axios";
+import { AppDialog } from "../common/AppDialog";
 
-const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$/
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$/;
 
 interface CreateNamespaceDialogProps {
-  open: boolean
-  onClose: () => void
-  onCreated: (ns: NamespaceSummary) => void
-  onError: (message: string) => void
+  open: boolean;
+  onClose: () => void;
+  onCreated: (ns: NamespaceSummary) => void;
+  onError: (message: string) => void;
 }
 
-export function CreateNamespaceDialog({ open, onClose, onCreated, onError }: CreateNamespaceDialogProps) {
-  const [slug, setSlug] = useState('')
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [publicCatalog, setPublicCatalog] = useState(false)
-  const [autoApprove, setAutoApprove] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [slugError, setSlugError] = useState<string | null>(null)
+export function CreateNamespaceDialog({
+  open,
+  onClose,
+  onCreated,
+  onError,
+}: CreateNamespaceDialogProps) {
+  const [slug, setSlug] = useState("");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [publicCatalog, setPublicCatalog] = useState(false);
+  const [autoApprove, setAutoApprove] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [slugError, setSlugError] = useState<string | null>(null);
 
   function handleSlugChange(value: string) {
-    setSlug(value)
+    setSlug(value);
     if (value && !SLUG_PATTERN.test(value)) {
-      setSlugError('Must be lowercase alphanumeric with hyphens, 2\u201364 characters.')
+      setSlugError(
+        "Must be lowercase alphanumeric with hyphens, 2\u201364 characters.",
+      );
     } else {
-      setSlugError(null)
+      setSlugError(null);
     }
   }
 
   function handleClose() {
-    setSlug('')
-    setName('')
-    setDescription('')
-    setPublicCatalog(false)
-    setAutoApprove(false)
-    setSlugError(null)
-    onClose()
+    setSlug("");
+    setName("");
+    setDescription("");
+    setPublicCatalog(false);
+    setAutoApprove(false);
+    setSlugError(null);
+    onClose();
   }
 
   async function handleCreate() {
-    if (!slug.trim() || !SLUG_PATTERN.test(slug) || !name.trim()) return
-    setSaving(true)
+    if (!slug.trim() || !SLUG_PATTERN.test(slug) || !name.trim()) return;
+    setSaving(true);
     try {
       const res = await namespacesApi.createNamespace({
         namespaceCreateRequest: {
@@ -72,17 +85,17 @@ export function CreateNamespaceDialog({ open, onClose, onCreated, onError }: Cre
           publicCatalog,
           autoApproveReleases: autoApprove,
         },
-      })
-      onCreated(res.data)
-      handleClose()
+      });
+      onCreated(res.data);
+      handleClose();
     } catch (error: unknown) {
       if (isAxiosError(error) && error.response?.status === 409) {
-        setSlugError('Namespace already exists.')
+        setSlugError("Namespace already exists.");
       } else {
-        onError('Failed to create namespace.')
+        onError("Failed to create namespace.");
       }
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
@@ -97,7 +110,7 @@ export function CreateNamespaceDialog({ open, onClose, onCreated, onError }: Cre
       actionDisabled={!slug.trim() || !name.trim() || !!slugError}
       actionLoading={saving}
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <TextField
           label="Slug"
           value={slug}
@@ -106,7 +119,10 @@ export function CreateNamespaceDialog({ open, onClose, onCreated, onError }: Cre
           size="small"
           autoFocus
           error={!!slugError}
-          helperText={slugError ?? 'Lowercase alphanumeric with hyphens, 2\u201364 characters.'}
+          helperText={
+            slugError ??
+            "Lowercase alphanumeric with hyphens, 2\u201364 characters."
+          }
         />
         <TextField
           label="Name"
@@ -124,7 +140,7 @@ export function CreateNamespaceDialog({ open, onClose, onCreated, onError }: Cre
           multiline
           minRows={2}
         />
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
           <FormControlLabel
             control={
               <Switch
@@ -141,7 +157,7 @@ export function CreateNamespaceDialog({ open, onClose, onCreated, onError }: Cre
                 </Typography>
               </Box>
             }
-            sx={{ mx: 0, alignItems: 'flex-start' }}
+            sx={{ mx: 0, alignItems: "flex-start" }}
           />
           <FormControlLabel
             control={
@@ -155,14 +171,15 @@ export function CreateNamespaceDialog({ open, onClose, onCreated, onError }: Cre
               <Box>
                 <Typography variant="body2">Auto-Approve Releases</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Uploaded releases are published immediately without manual review.
+                  Uploaded releases are published immediately without manual
+                  review.
                 </Typography>
               </Box>
             }
-            sx={{ mx: 0, alignItems: 'flex-start' }}
+            sx={{ mx: 0, alignItems: "flex-start" }}
           />
         </Box>
       </Box>
     </AppDialog>
-  )
+  );
 }

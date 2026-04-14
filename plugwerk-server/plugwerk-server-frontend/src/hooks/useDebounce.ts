@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from "react";
 
 /**
  * Debounces a value by the given delay in milliseconds.
@@ -24,12 +24,12 @@ import { useEffect, useState } from 'react'
  * for at least `delay` ms.
  */
 export function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value)
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedValue(value), delay)
-    return () => clearTimeout(timer)
-  }, [value, delay])
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
 
-  return debouncedValue
+  return debouncedValue;
 }

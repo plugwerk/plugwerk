@@ -16,45 +16,48 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Box, MenuItem, Pagination, Typography } from '@mui/material'
-import { usePluginStore } from '../../stores/pluginStore'
-import { FilterSelect } from '../common/FilterSelect'
+import { Box, MenuItem, Pagination, Typography } from "@mui/material";
+import { usePluginStore } from "../../stores/pluginStore";
+import { FilterSelect } from "../common/FilterSelect";
 
 interface PaginationBarProps {
-  namespace: string
+  namespace: string;
 }
 
-const PAGE_SIZES = [12, 24, 48]
+const PAGE_SIZES = [12, 24, 48];
 
 export function PaginationBar({ namespace }: PaginationBarProps) {
-  const { filters, totalElements, totalPages, setFilters, fetchPlugins } = usePluginStore()
+  const { filters, totalElements, totalPages, setFilters, fetchPlugins } =
+    usePluginStore();
 
   function handlePageChange(_: unknown, page: number) {
-    setFilters({ page: page - 1 })
-    fetchPlugins(namespace)
+    setFilters({ page: page - 1 });
+    fetchPlugins(namespace);
   }
 
   function handleSizeChange(value: string) {
-    setFilters({ size: Number(value), page: 0 })
-    fetchPlugins(namespace)
+    setFilters({ size: Number(value), page: 0 });
+    fetchPlugins(namespace);
   }
 
-  const start = filters.page * filters.size + 1
-  const end = Math.min(start + filters.size - 1, totalElements)
+  const start = filters.page * filters.size + 1;
+  const end = Math.min(start + filters.size - 1, totalElements);
 
   return (
     <Box
       sx={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        flexWrap: "wrap",
         gap: 2,
         mt: 4,
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography variant="caption" color="text.primary">Show:</Typography>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <Typography variant="caption" color="text.primary">
+          Show:
+        </Typography>
         <FilterSelect
           value={filters.size}
           onChange={handleSizeChange}
@@ -62,7 +65,9 @@ export function PaginationBar({ namespace }: PaginationBarProps) {
           minWidth={70}
         >
           {PAGE_SIZES.map((s) => (
-            <MenuItem key={s} value={s}>{s}</MenuItem>
+            <MenuItem key={s} value={s}>
+              {s}
+            </MenuItem>
           ))}
         </FilterSelect>
       </Box>
@@ -80,5 +85,5 @@ export function PaginationBar({ namespace }: PaginationBarProps) {
         Showing {start}–{end} of {totalElements}
       </Typography>
     </Box>
-  )
+  );
 }

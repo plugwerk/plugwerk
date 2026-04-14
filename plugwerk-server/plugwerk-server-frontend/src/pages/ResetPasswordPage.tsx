@@ -16,25 +16,54 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Box, TextField, Button, Typography, Link as MuiLink } from '@mui/material'
-import { Link } from 'react-router-dom'
-import { AuthCard } from '../components/auth/AuthCard'
+import {
+  Box,
+  TextField,
+  Button,
+  Typography,
+  Link as MuiLink,
+} from "@mui/material";
+import { Link } from "react-router-dom";
+import { AuthCard } from "../components/auth/AuthCard";
 
 export function ResetPasswordPage() {
   return (
-    <AuthCard title="Set new password" subtitle="Enter and confirm your new password">
-      <Box component="form" noValidate sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <TextField label="New Password" type="password" required size="small" autoComplete="new-password" />
-        <TextField label="Confirm Password" type="password" required size="small" autoComplete="new-password" />
+    <AuthCard
+      title="Set new password"
+      subtitle="Enter and confirm your new password"
+    >
+      <Box
+        component="form"
+        noValidate
+        sx={{ display: "flex", flexDirection: "column", gap: 2 }}
+      >
+        <TextField
+          label="New Password"
+          type="password"
+          required
+          size="small"
+          autoComplete="new-password"
+        />
+        <TextField
+          label="Confirm Password"
+          type="password"
+          required
+          size="small"
+          autoComplete="new-password"
+        />
         <Button type="submit" variant="contained" size="large" fullWidth>
           Set Password
         </Button>
       </Box>
-      <Typography variant="caption" color="text.disabled" sx={{ textAlign: 'center' }}>
-        <MuiLink component={Link} to="/login" sx={{ color: 'primary.main' }}>
+      <Typography
+        variant="caption"
+        color="text.disabled"
+        sx={{ textAlign: "center" }}
+      >
+        <MuiLink component={Link} to="/login" sx={{ color: "primary.main" }}>
           Back to login
         </MuiLink>
       </Typography>
     </AuthCard>
-  )
+  );
 }

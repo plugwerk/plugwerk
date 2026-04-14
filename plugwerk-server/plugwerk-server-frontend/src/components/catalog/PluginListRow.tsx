@@ -16,39 +16,42 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { memo } from 'react'
-import { Box, Tooltip, Typography } from '@mui/material'
-import { Download, Clock, Puzzle, HardDrive } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { Badge } from '../common/Badge'
-import type { BadgeVariant } from '../common/Badge'
-import { ActionIconButton } from '../common/ActionIconButton'
-import { CopyablePluginId } from '../common/CopyablePluginId'
-import type { PluginDto } from '../../api/generated/model'
-import { tokens } from '../../theme/tokens'
-import { formatFileSize } from '../../utils/formatFileSize'
-import { formatDateTime, formatRelativeTime } from '../../utils/formatDateTime'
-import { downloadArtifact } from '../../utils/downloadArtifact'
+import { memo } from "react";
+import { Box, Tooltip, Typography } from "@mui/material";
+import { Download, Clock, Puzzle, HardDrive } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Badge } from "../common/Badge";
+import type { BadgeVariant } from "../common/Badge";
+import { ActionIconButton } from "../common/ActionIconButton";
+import { CopyablePluginId } from "../common/CopyablePluginId";
+import type { PluginDto } from "../../api/generated/model";
+import { tokens } from "../../theme/tokens";
+import { formatFileSize } from "../../utils/formatFileSize";
+import { formatDateTime, formatRelativeTime } from "../../utils/formatDateTime";
+import { downloadArtifact } from "../../utils/downloadArtifact";
 
 const STATUS_BADGE: Record<string, BadgeVariant> = {
-  suspended: 'suspended',
-  archived: 'archived',
-}
+  suspended: "suspended",
+  archived: "archived",
+};
 
 interface PluginListRowProps {
-  plugin: PluginDto
-  namespace: string
+  plugin: PluginDto;
+  namespace: string;
 }
 
-import { formatCount, formatCountFull } from '../../utils/formatCount'
+import { formatCount, formatCountFull } from "../../utils/formatCount";
 
-export const PluginListRow = memo(function PluginListRow({ plugin, namespace }: PluginListRowProps) {
-  const isDraftOnly = plugin.hasDraftOnly === true
-  const statusBadge = plugin.status ? STATUS_BADGE[plugin.status] : undefined
-  const latestRelease = plugin.latestRelease
+export const PluginListRow = memo(function PluginListRow({
+  plugin,
+  namespace,
+}: PluginListRowProps) {
+  const isDraftOnly = plugin.hasDraftOnly === true;
+  const statusBadge = plugin.status ? STATUS_BADGE[plugin.status] : undefined;
+  const latestRelease = plugin.latestRelease;
   const downloadUrl = latestRelease
     ? `/api/v1/namespaces/${namespace}/plugins/${plugin.pluginId}/releases/${latestRelease.version}/download`
-    : null
+    : null;
 
   return (
     <Box
@@ -56,20 +59,20 @@ export const PluginListRow = memo(function PluginListRow({ plugin, namespace }: 
       to={`/namespaces/${namespace}/plugins/${plugin.pluginId}`}
       role="listitem"
       sx={{
-        display: 'flex',
-        alignItems: 'center',
+        display: "flex",
+        alignItems: "center",
         gap: 2,
         px: 2,
         py: 1.5,
-        borderBottom: '1px solid',
-        borderColor: 'divider',
-        textDecoration: 'none',
-        color: 'inherit',
-        bgcolor: 'background.paper',
-        transition: 'background-color 0.15s',
-        ...(isDraftOnly && { opacity: 0.6, filter: 'saturate(0.5)' }),
-        '&:last-child': { borderBottom: 'none' },
-        '&:hover': { bgcolor: 'background.default' },
+        borderBottom: "1px solid",
+        borderColor: "divider",
+        textDecoration: "none",
+        color: "inherit",
+        bgcolor: "background.paper",
+        transition: "background-color 0.15s",
+        ...(isDraftOnly && { opacity: 0.6, filter: "saturate(0.5)" }),
+        "&:last-child": { borderBottom: "none" },
+        "&:hover": { bgcolor: "background.default" },
       }}
     >
       <Box
@@ -77,13 +80,13 @@ export const PluginListRow = memo(function PluginListRow({ plugin, namespace }: 
           width: 36,
           height: 36,
           borderRadius: tokens.radius.btn,
-          background: 'background.default',
-          border: '1px solid',
-          borderColor: 'divider',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'text.disabled',
+          background: "background.default",
+          border: "1px solid",
+          borderColor: "divider",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "text.disabled",
           flexShrink: 0,
         }}
         aria-hidden="true"
@@ -92,9 +95,13 @@ export const PluginListRow = memo(function PluginListRow({ plugin, namespace }: 
       </Box>
 
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Typography variant="body2" fontWeight={600} noWrap>{plugin.name}</Typography>
-          {isDraftOnly && <Badge variant="pending-review">Pending Review</Badge>}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <Typography variant="body2" fontWeight={600} noWrap>
+            {plugin.name}
+          </Typography>
+          {isDraftOnly && (
+            <Badge variant="pending-review">Pending Review</Badge>
+          )}
           {statusBadge && (
             <Badge variant={statusBadge}>
               {plugin.status!.charAt(0).toUpperCase() + plugin.status!.slice(1)}
@@ -104,11 +111,15 @@ export const PluginListRow = memo(function PluginListRow({ plugin, namespace }: 
             <Badge variant="version">v{latestRelease.version}</Badge>
           )}
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           {plugin.provider && (
             <>
-              <Typography variant="caption" color="text.disabled">by {plugin.provider}</Typography>
-              <Typography variant="caption" color="text.disabled">·</Typography>
+              <Typography variant="caption" color="text.disabled">
+                by {plugin.provider}
+              </Typography>
+              <Typography variant="caption" color="text.disabled">
+                ·
+              </Typography>
             </>
           )}
           <CopyablePluginId pluginId={plugin.pluginId} />
@@ -117,9 +128,11 @@ export const PluginListRow = memo(function PluginListRow({ plugin, namespace }: 
 
       {/* Tags */}
       {plugin.tags && plugin.tags.length > 0 && (
-        <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+        <Box sx={{ display: "flex", gap: 0.5, flexShrink: 0 }}>
           {plugin.tags.slice(0, 3).map((tag) => (
-            <Badge key={tag} variant="tag">{tag}</Badge>
+            <Badge key={tag} variant="tag">
+              {tag}
+            </Badge>
           ))}
         </Box>
       )}
@@ -130,36 +143,51 @@ export const PluginListRow = memo(function PluginListRow({ plugin, namespace }: 
           icon={Download}
           tooltip="Download latest release"
           onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
+            e.preventDefault();
+            e.stopPropagation();
             downloadArtifact(
               downloadUrl,
-              `${plugin.pluginId}-${latestRelease!.version}.${latestRelease!.fileFormat ?? 'jar'}`,
-            ).catch(() => {})
+              `${plugin.pluginId}-${latestRelease!.version}.${latestRelease!.fileFormat ?? "jar"}`,
+            ).catch(() => {});
           }}
         />
       )}
 
-      <Box sx={{ display: 'flex', gap: 2, color: 'text.disabled', flexShrink: 0 }}>
+      <Box
+        sx={{ display: "flex", gap: 2, color: "text.disabled", flexShrink: 0 }}
+      >
         <Tooltip title={formatCountFull(plugin.downloadCount)} placement="top">
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <Download size={12} aria-hidden="true" />
-            <Typography variant="caption">{formatCount(plugin.downloadCount ?? 0)}</Typography>
+            <Typography variant="caption">
+              {formatCount(plugin.downloadCount ?? 0)}
+            </Typography>
           </Box>
         </Tooltip>
         {latestRelease?.artifactSize && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <HardDrive size={12} aria-hidden="true" />
-            <Typography variant="caption">{formatFileSize(latestRelease.artifactSize)}</Typography>
+            <Typography variant="caption">
+              {formatFileSize(latestRelease.artifactSize)}
+            </Typography>
           </Box>
         )}
         <Tooltip title={formatDateTime(plugin.updatedAt)} placement="top">
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'default' }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+              cursor: "default",
+            }}
+          >
             <Clock size={12} aria-hidden="true" />
-            <Typography variant="caption">{formatRelativeTime(plugin.updatedAt)}</Typography>
+            <Typography variant="caption">
+              {formatRelativeTime(plugin.updatedAt)}
+            </Typography>
           </Box>
         </Tooltip>
       </Box>
     </Box>
-  )
-})
+  );
+});
