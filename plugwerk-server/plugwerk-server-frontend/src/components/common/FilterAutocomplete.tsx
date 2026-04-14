@@ -16,24 +16,24 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Autocomplete, CircularProgress, TextField } from '@mui/material'
+import { Autocomplete, CircularProgress, TextField } from "@mui/material";
 
 interface FilterAutocompleteProps {
-  options: string[]
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  'aria-label'?: string
-  minWidth?: number
-  loading?: boolean
+  options: string[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  "aria-label"?: string;
+  minWidth?: number;
+  loading?: boolean;
 }
 
 export function FilterAutocomplete({
   options,
   value,
   onChange,
-  placeholder = 'All',
-  'aria-label': ariaLabel,
+  placeholder = "All",
+  "aria-label": ariaLabel,
   minWidth = 180,
   loading = false,
 }: FilterAutocompleteProps) {
@@ -42,7 +42,7 @@ export function FilterAutocomplete({
       size="small"
       options={options}
       value={value || null}
-      onChange={(_, newValue) => onChange(newValue ?? '')}
+      onChange={(_, newValue) => onChange(newValue ?? "")}
       loading={loading}
       openOnFocus
       clearOnEscape
@@ -63,17 +63,17 @@ export function FilterAutocomplete({
               ),
               sx: {
                 height: 36,
-                fontSize: '0.875rem',
-                color: 'text.secondary',
-                '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: 'divider',
+                fontSize: "0.875rem",
+                color: "text.secondary",
+                "& .MuiOutlinedInput-notchedOutline": {
+                  borderColor: "divider",
                 },
-                '&:hover:not(.Mui-focused) .MuiOutlinedInput-notchedOutline': {
-                  borderColor: 'text.disabled',
+                "&:hover:not(.Mui-focused) .MuiOutlinedInput-notchedOutline": {
+                  borderColor: "text.disabled",
                 },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                  borderColor: 'primary.main',
-                  borderWidth: '1px',
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                  borderColor: "primary.main",
+                  borderWidth: "1px",
                 },
               },
             },
@@ -81,5 +81,5 @@ export function FilterAutocomplete({
         />
       )}
     />
-  )
+  );
 }

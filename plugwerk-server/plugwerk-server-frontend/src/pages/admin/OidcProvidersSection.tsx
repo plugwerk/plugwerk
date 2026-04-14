@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -31,81 +31,99 @@ import {
   CircularProgress,
   Chip,
   Switch,
-} from '@mui/material'
-import { Plus, Trash2 } from 'lucide-react'
-import { AppDialog } from '../../components/common/AppDialog'
-import { DataTable } from '../../components/common/DataTable'
-import type { DataColumn } from '../../components/common/DataTable'
-import { ActionIconButton } from '../../components/common/ActionIconButton'
-import { oidcProvidersApi } from '../../api/config'
-import { useUiStore } from '../../stores/uiStore'
-import type { OidcProviderDto, OidcProviderType } from '../../api/generated/model'
+} from "@mui/material";
+import { Plus, Trash2 } from "lucide-react";
+import { AppDialog } from "../../components/common/AppDialog";
+import { DataTable } from "../../components/common/DataTable";
+import type { DataColumn } from "../../components/common/DataTable";
+import { ActionIconButton } from "../../components/common/ActionIconButton";
+import { oidcProvidersApi } from "../../api/config";
+import { useUiStore } from "../../stores/uiStore";
+import type {
+  OidcProviderDto,
+  OidcProviderType,
+} from "../../api/generated/model";
 
 const PROVIDER_TYPE_LABELS: Record<string, string> = {
-  GENERIC_OIDC: 'Generic OIDC',
-  KEYCLOAK: 'Keycloak',
-  GITHUB: 'GitHub',
-  GOOGLE: 'Google',
-  FACEBOOK: 'Facebook',
-}
+  GENERIC_OIDC: "Generic OIDC",
+  KEYCLOAK: "Keycloak",
+  GITHUB: "GitHub",
+  GOOGLE: "Google",
+  FACEBOOK: "Facebook",
+};
 
-const ISSUER_REQUIRED_TYPES = new Set(['GENERIC_OIDC', 'KEYCLOAK'])
+const ISSUER_REQUIRED_TYPES = new Set(["GENERIC_OIDC", "KEYCLOAK"]);
 
 export function OidcProvidersSection() {
-  const [providers, setProviders] = useState<OidcProviderDto[]>([])
-  const [loading, setLoading] = useState(true)
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [name, setName] = useState('')
-  const [providerType, setProviderType] = useState<OidcProviderType>('GENERIC_OIDC')
-  const [clientId, setClientId] = useState('')
-  const [clientSecret, setClientSecret] = useState('')
-  const [issuerUri, setIssuerUri] = useState('')
-  const [scope, setScope] = useState('openid profile email')
-  const [saving, setSaving] = useState(false)
-  const addToast = useUiStore((s) => s.addToast)
+  const [providers, setProviders] = useState<OidcProviderDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [providerType, setProviderType] =
+    useState<OidcProviderType>("GENERIC_OIDC");
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [issuerUri, setIssuerUri] = useState("");
+  const [scope, setScope] = useState("openid profile email");
+  const [saving, setSaving] = useState(false);
+  const addToast = useUiStore((s) => s.addToast);
 
   useEffect(() => {
     async function load() {
-      setLoading(true)
+      setLoading(true);
       try {
-        const res = await oidcProvidersApi.listOidcProviders()
-        setProviders(res.data)
+        const res = await oidcProvidersApi.listOidcProviders();
+        setProviders(res.data);
       } catch {
-        setProviders([])
+        setProviders([]);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
-    load()
-  }, [])
+    load();
+  }, []);
 
   async function handleToggleEnabled(provider: OidcProviderDto) {
     try {
       const res = await oidcProvidersApi.updateOidcProvider({
         providerId: provider.id,
         oidcProviderUpdateRequest: { enabled: !provider.enabled },
-      })
-      setProviders((prev) => prev.map((p) => (p.id === provider.id ? res.data : p)))
-      addToast({ message: `Provider "${provider.name}" ${res.data.enabled ? 'enabled' : 'disabled'}.`, type: 'success' })
+      });
+      setProviders((prev) =>
+        prev.map((p) => (p.id === provider.id ? res.data : p)),
+      );
+      addToast({
+        message: `Provider "${provider.name}" ${res.data.enabled ? "enabled" : "disabled"}.`,
+        type: "success",
+      });
     } catch {
-      addToast({ message: `Failed to update provider "${provider.name}".`, type: 'error' })
+      addToast({
+        message: `Failed to update provider "${provider.name}".`,
+        type: "error",
+      });
     }
   }
 
   async function handleDelete(provider: OidcProviderDto) {
     try {
-      await oidcProvidersApi.deleteOidcProvider({ providerId: provider.id })
-      setProviders((prev) => prev.filter((p) => p.id !== provider.id))
-      addToast({ message: `Provider "${provider.name}" deleted.`, type: 'success' })
+      await oidcProvidersApi.deleteOidcProvider({ providerId: provider.id });
+      setProviders((prev) => prev.filter((p) => p.id !== provider.id));
+      addToast({
+        message: `Provider "${provider.name}" deleted.`,
+        type: "success",
+      });
     } catch {
-      addToast({ message: `Failed to delete provider "${provider.name}".`, type: 'error' })
+      addToast({
+        message: `Failed to delete provider "${provider.name}".`,
+        type: "error",
+      });
     }
   }
 
   async function handleCreate() {
-    if (!name.trim() || !clientId.trim() || !clientSecret.trim()) return
-    if (ISSUER_REQUIRED_TYPES.has(providerType) && !issuerUri.trim()) return
-    setSaving(true)
+    if (!name.trim() || !clientId.trim() || !clientSecret.trim()) return;
+    if (ISSUER_REQUIRED_TYPES.has(providerType) && !issuerUri.trim()) return;
+    setSaving(true);
     try {
       const res = await oidcProvidersApi.createOidcProvider({
         oidcProviderCreateRequest: {
@@ -116,94 +134,129 @@ export function OidcProvidersSection() {
           issuerUri: issuerUri.trim() || undefined,
           scope: scope.trim() || undefined,
         },
-      })
-      setProviders((prev) => [...prev, res.data])
-      addToast({ message: `Provider "${res.data.name}" created.`, type: 'success' })
-      setDialogOpen(false)
-      setName('')
-      setClientId('')
-      setClientSecret('')
-      setIssuerUri('')
-      setScope('openid profile email')
-      setProviderType('GENERIC_OIDC')
+      });
+      setProviders((prev) => [...prev, res.data]);
+      addToast({
+        message: `Provider "${res.data.name}" created.`,
+        type: "success",
+      });
+      setDialogOpen(false);
+      setName("");
+      setClientId("");
+      setClientSecret("");
+      setIssuerUri("");
+      setScope("openid profile email");
+      setProviderType("GENERIC_OIDC");
     } catch {
-      addToast({ message: 'Failed to create OIDC provider.', type: 'error' })
+      addToast({ message: "Failed to create OIDC provider.", type: "error" });
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
-  const issuerRequired = ISSUER_REQUIRED_TYPES.has(providerType)
+  const issuerRequired = ISSUER_REQUIRED_TYPES.has(providerType);
 
   const oidcColumns: DataColumn<OidcProviderDto>[] = [
     {
-      key: 'name',
-      header: 'Name',
+      key: "name",
+      header: "Name",
       render: (provider) => (
-        <Typography variant="body2" fontWeight={500}>{provider.name}</Typography>
+        <Typography variant="body2" fontWeight={500}>
+          {provider.name}
+        </Typography>
       ),
     },
     {
-      key: 'type',
-      header: 'Type',
+      key: "type",
+      header: "Type",
       render: (provider) => (
-        <Chip label={PROVIDER_TYPE_LABELS[provider.providerType] ?? provider.providerType} size="small" />
+        <Chip
+          label={
+            PROVIDER_TYPE_LABELS[provider.providerType] ?? provider.providerType
+          }
+          size="small"
+        />
       ),
     },
     {
-      key: 'issuer',
-      header: 'Issuer / Client ID',
+      key: "issuer",
+      header: "Issuer / Client ID",
       render: (provider) =>
         provider.issuerUri ? (
-          <Typography variant="caption" color="text.secondary">{provider.issuerUri}</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {provider.issuerUri}
+          </Typography>
         ) : (
-          <Typography variant="caption" color="text.disabled">{provider.clientId}</Typography>
+          <Typography variant="caption" color="text.disabled">
+            {provider.clientId}
+          </Typography>
         ),
     },
     {
-      key: 'enabled',
-      header: 'Enabled',
+      key: "enabled",
+      header: "Enabled",
       render: (provider) => (
         <Switch
           checked={provider.enabled}
           size="small"
           onChange={() => handleToggleEnabled(provider)}
-          inputProps={{ 'aria-label': `Toggle ${provider.name}` }}
+          inputProps={{ "aria-label": `Toggle ${provider.name}` }}
         />
       ),
     },
     {
-      key: 'actions',
-      header: '',
-      align: 'right',
+      key: "actions",
+      header: "",
+      align: "right",
       render: (provider) => (
-        <ActionIconButton icon={Trash2} tooltip="Delete" color="error" onClick={() => handleDelete(provider)} />
+        <ActionIconButton
+          icon={Trash2}
+          tooltip="Delete"
+          color="error"
+          onClick={() => handleDelete(provider)}
+        />
       ),
     },
-  ]
+  ];
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <Box>
-          <Typography variant="h2" gutterBottom>OIDC Providers</Typography>
+          <Typography variant="h2" gutterBottom>
+            OIDC Providers
+          </Typography>
           <Divider sx={{ mb: 3 }} />
         </Box>
-        <Button variant="outlined" size="small" startIcon={<Plus size={14} />} onClick={() => setDialogOpen(true)}>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<Plus size={14} />}
+          onClick={() => setDialogOpen(true)}
+        >
           Add Provider
         </Button>
       </Box>
 
       <Alert severity="info">
-        OIDC is disabled by default. Enable individual providers after adding their credentials.
+        OIDC is disabled by default. Enable individual providers after adding
+        their credentials.
       </Alert>
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
           <CircularProgress size={24} />
         </Box>
       ) : providers.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">No OIDC providers configured.</Typography>
+        <Typography variant="body2" color="text.secondary">
+          No OIDC providers configured.
+        </Typography>
       ) : (
         <DataTable<OidcProviderDto>
           columns={oidcColumns}
@@ -229,7 +282,7 @@ export function OidcProvidersSection() {
         actionLoading={saving}
         maxWidth={600}
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <TextField
             label="Display Name"
             value={name}
@@ -243,10 +296,14 @@ export function OidcProvidersSection() {
             <Select
               value={providerType}
               label="Provider Type"
-              onChange={(e) => setProviderType(e.target.value as OidcProviderType)}
+              onChange={(e) =>
+                setProviderType(e.target.value as OidcProviderType)
+              }
             >
               {Object.entries(PROVIDER_TYPE_LABELS).map(([value, label]) => (
-                <MenuItem key={value} value={value}>{label}</MenuItem>
+                <MenuItem key={value} value={value}>
+                  {label}
+                </MenuItem>
               ))}
             </Select>
           </FormControl>
@@ -285,5 +342,5 @@ export function OidcProvidersSection() {
         </Box>
       </AppDialog>
     </Box>
-  )
+  );
 }

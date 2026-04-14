@@ -16,20 +16,20 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { create } from 'zustand'
-import { axiosInstance } from '../api/config'
+import { create } from "zustand";
+import { axiosInstance } from "../api/config";
 
 interface NamespaceSummary {
-  slug: string
-  name: string
-  description?: string
+  slug: string;
+  name: string;
+  description?: string;
 }
 
 interface NamespaceState {
-  namespaces: NamespaceSummary[]
-  loading: boolean
-  error: string | null
-  fetchNamespaces: () => Promise<void>
+  namespaces: NamespaceSummary[];
+  loading: boolean;
+  error: string | null;
+  fetchNamespaces: () => Promise<void>;
 }
 
 export const useNamespaceStore = create<NamespaceState>((set) => ({
@@ -38,13 +38,15 @@ export const useNamespaceStore = create<NamespaceState>((set) => ({
   error: null,
 
   async fetchNamespaces() {
-    set({ loading: true, error: null })
+    set({ loading: true, error: null });
     try {
-      const response = await axiosInstance.get<NamespaceSummary[]>('/namespaces')
-      set({ namespaces: response.data, loading: false })
+      const response =
+        await axiosInstance.get<NamespaceSummary[]>("/namespaces");
+      set({ namespaces: response.data, loading: false });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load namespaces'
-      set({ loading: false, error: message })
+      const message =
+        err instanceof Error ? err.message : "Failed to load namespaces";
+      set({ loading: false, error: message });
     }
   },
-}))
+}));

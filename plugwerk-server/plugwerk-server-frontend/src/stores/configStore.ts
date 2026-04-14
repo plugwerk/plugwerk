@@ -16,34 +16,35 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { create } from 'zustand'
-import { axiosInstance } from '../api/config'
+import { create } from "zustand";
+import { axiosInstance } from "../api/config";
 
 interface ConfigState {
-  readonly version: string
-  readonly maxFileSizeMb: number
-  readonly loaded: boolean
-  fetchConfig: () => Promise<void>
+  readonly version: string;
+  readonly maxFileSizeMb: number;
+  readonly loaded: boolean;
+  fetchConfig: () => Promise<void>;
 }
 
 export const useConfigStore = create<ConfigState>((set, get) => ({
-  version: '…',
+  version: "…",
   maxFileSizeMb: 100,
   loaded: false,
 
   async fetchConfig() {
-    if (get().loaded) return
+    if (get().loaded) return;
     try {
-      const res = await axiosInstance.get('/config')
+      const res = await axiosInstance.get("/config");
       set({
-        version: res.data?.version ?? 'unknown',
-        maxFileSizeMb: typeof res.data?.upload?.maxFileSizeMb === 'number'
-          ? res.data.upload.maxFileSizeMb
-          : 100,
+        version: res.data?.version ?? "unknown",
+        maxFileSizeMb:
+          typeof res.data?.upload?.maxFileSizeMb === "number"
+            ? res.data.upload.maxFileSizeMb
+            : 100,
         loaded: true,
-      })
+      });
     } catch {
-      set({ version: 'unknown', loaded: true })
+      set({ version: "unknown", loaded: true });
     }
   },
-}))
+}));

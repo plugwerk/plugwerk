@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import type { ReactNode } from 'react'
+import type { ReactNode } from "react";
 import {
   Box,
   Button,
@@ -26,36 +26,36 @@ import {
   DialogTitle,
   IconButton,
   Typography,
-} from '@mui/material'
-import { X } from 'lucide-react'
+} from "@mui/material";
+import { X } from "lucide-react";
 
 interface AppDialogProps {
   /** Whether the dialog is open. */
-  open: boolean
+  open: boolean;
   /** Called when the dialog should close (Cancel, X, Escape, overlay click). */
-  onClose: () => void
+  onClose: () => void;
   /** Dialog title shown in the header. */
-  title: string
+  title: string;
   /** Optional description shown below the title in muted color. */
-  description?: string
+  description?: string;
   /** Form or content rendered below the description. */
-  children?: ReactNode
+  children?: ReactNode;
   /** Label for the primary action button. */
-  actionLabel: string
+  actionLabel: string;
   /** Called when the primary action button is clicked. */
-  onAction: () => void
+  onAction: () => void;
   /** Color variant for the primary action button. Use "error" for destructive actions. */
-  actionColor?: 'primary' | 'error'
+  actionColor?: "primary" | "error";
   /** Whether the primary action button is disabled. */
-  actionDisabled?: boolean
+  actionDisabled?: boolean;
   /** Whether the primary action is in progress (shows loading text). */
-  actionLoading?: boolean
+  actionLoading?: boolean;
   /** Label for the cancel button. Defaults to "Cancel". */
-  cancelLabel?: string
+  cancelLabel?: string;
   /** Maximum width of the dialog in pixels. Defaults to 560. */
-  maxWidth?: number
+  maxWidth?: number;
   /** Whether to hide the footer action buttons (for custom footers). */
-  hideActions?: boolean
+  hideActions?: boolean;
 }
 
 /**
@@ -79,14 +79,14 @@ export function AppDialog({
   children,
   actionLabel,
   onAction,
-  actionColor = 'primary',
+  actionColor = "primary",
   actionDisabled = false,
   actionLoading = false,
-  cancelLabel = 'Cancel',
+  cancelLabel = "Cancel",
   maxWidth = 560,
   hideActions = false,
 }: AppDialogProps) {
-  const isDisabled = actionDisabled || actionLoading
+  const isDisabled = actionDisabled || actionLoading;
 
   return (
     <Dialog
@@ -102,9 +102,9 @@ export function AppDialog({
       {/* ── Header ── */}
       <DialogTitle
         sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
           pr: 1,
         }}
       >
@@ -147,5 +147,5 @@ export function AppDialog({
         </DialogActions>
       )}
     </Dialog>
-  )
+  );
 }

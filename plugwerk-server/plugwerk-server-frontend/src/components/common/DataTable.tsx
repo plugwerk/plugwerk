@@ -16,34 +16,42 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Box, Typography } from '@mui/material'
-import type { SxProps, Theme } from '@mui/material'
+import { Box, Typography } from "@mui/material";
+import type { SxProps, Theme } from "@mui/material";
 
 export interface DataColumn<T> {
-  key: string
-  header: string
-  align?: 'left' | 'right' | 'center'
-  width?: string | number
-  render: (row: T) => React.ReactNode
+  key: string;
+  header: string;
+  align?: "left" | "right" | "center";
+  width?: string | number;
+  render: (row: T) => React.ReactNode;
 }
 
 interface DataTableProps<T> {
-  columns: DataColumn<T>[]
-  rows: T[]
-  keyFn: (row: T) => string
-  ariaLabel: string
-  rowSx?: (row: T) => SxProps<Theme> | undefined
-  onRowClick?: (row: T) => void
-  emptyMessage?: string
+  columns: DataColumn<T>[];
+  rows: T[];
+  keyFn: (row: T) => string;
+  ariaLabel: string;
+  rowSx?: (row: T) => SxProps<Theme> | undefined;
+  onRowClick?: (row: T) => void;
+  emptyMessage?: string;
 }
 
-export function DataTable<T>({ columns, rows, keyFn, ariaLabel, rowSx, onRowClick, emptyMessage }: DataTableProps<T>) {
+export function DataTable<T>({
+  columns,
+  rows,
+  keyFn,
+  ariaLabel,
+  rowSx,
+  onRowClick,
+  emptyMessage,
+}: DataTableProps<T>) {
   if (rows.length === 0 && emptyMessage) {
     return (
       <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
         {emptyMessage}
       </Typography>
-    )
+    );
   }
 
   return (
@@ -52,9 +60,9 @@ export function DataTable<T>({ columns, rows, keyFn, ariaLabel, rowSx, onRowClic
       role="table"
       aria-label={ariaLabel}
       sx={{
-        width: '100%',
-        borderCollapse: 'collapse',
-        tableLayout: 'auto',
+        width: "100%",
+        borderCollapse: "collapse",
+        tableLayout: "auto",
       }}
     >
       <Box component="thead">
@@ -64,18 +72,18 @@ export function DataTable<T>({ columns, rows, keyFn, ariaLabel, rowSx, onRowClic
               component="th"
               key={col.key}
               sx={{
-                textAlign: col.align ?? 'left',
+                textAlign: col.align ?? "left",
                 width: col.width,
                 px: 2,
                 py: 1,
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-                fontSize: '0.75rem',
+                borderBottom: "1px solid",
+                borderColor: "divider",
+                fontSize: "0.75rem",
                 fontWeight: 600,
-                color: 'text.disabled',
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-                whiteSpace: 'nowrap',
+                color: "text.disabled",
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+                whiteSpace: "nowrap",
               }}
             >
               {col.header}
@@ -90,11 +98,11 @@ export function DataTable<T>({ columns, rows, keyFn, ariaLabel, rowSx, onRowClic
             key={keyFn(row)}
             onClick={onRowClick ? () => onRowClick(row) : undefined}
             sx={{
-              bgcolor: 'background.paper',
-              transition: 'background-color 0.15s',
-              '&:hover': { bgcolor: 'background.default' },
-              '&:last-child td': { borderBottom: 'none' },
-              ...(onRowClick && { cursor: 'pointer' }),
+              bgcolor: "background.paper",
+              transition: "background-color 0.15s",
+              "&:hover": { bgcolor: "background.default" },
+              "&:last-child td": { borderBottom: "none" },
+              ...(onRowClick && { cursor: "pointer" }),
               ...(rowSx?.(row) as object),
             }}
           >
@@ -103,14 +111,14 @@ export function DataTable<T>({ columns, rows, keyFn, ariaLabel, rowSx, onRowClic
                 component="td"
                 key={col.key}
                 sx={{
-                  textAlign: col.align ?? 'left',
+                  textAlign: col.align ?? "left",
                   width: col.width,
                   px: 2,
                   py: 1.5,
-                  borderBottom: '1px solid',
-                  borderColor: 'divider',
-                  fontSize: '0.875rem',
-                  verticalAlign: 'middle',
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
+                  fontSize: "0.875rem",
+                  verticalAlign: "middle",
                 }}
               >
                 {col.render(row)}
@@ -120,5 +128,5 @@ export function DataTable<T>({ columns, rows, keyFn, ariaLabel, rowSx, onRowClic
         ))}
       </Box>
     </Box>
-  )
+  );
 }

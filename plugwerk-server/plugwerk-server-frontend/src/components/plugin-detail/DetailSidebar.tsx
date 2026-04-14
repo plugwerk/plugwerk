@@ -16,64 +16,83 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Box, Typography, Link } from '@mui/material'
-import { ExternalLink } from 'lucide-react'
-import { Badge } from '../common/Badge'
-import type { PluginDto, PluginReleaseDto } from '../../api/generated/model'
-import { tokens } from '../../theme/tokens'
-import { formatFileSize } from '../../utils/formatFileSize'
+import { Box, Typography, Link } from "@mui/material";
+import { ExternalLink } from "lucide-react";
+import { Badge } from "../common/Badge";
+import type { PluginDto, PluginReleaseDto } from "../../api/generated/model";
+import { tokens } from "../../theme/tokens";
+import { formatFileSize } from "../../utils/formatFileSize";
 
 interface DetailSidebarProps {
-  plugin: PluginDto
-  release: PluginReleaseDto | null
+  plugin: PluginDto;
+  release: PluginReleaseDto | null;
 }
 
-function MetaItem({ label, children }: { label: string; children: React.ReactNode }) {
+function MetaItem({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
-      <Typography variant="caption" color="text.disabled" sx={{ flexShrink: 0 }}>
+    <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1 }}>
+      <Typography
+        variant="caption"
+        color="text.disabled"
+        sx={{ flexShrink: 0 }}
+      >
         {label}
       </Typography>
-      <Box sx={{ textAlign: 'right' }}>
-        {children}
-      </Box>
+      <Box sx={{ textAlign: "right" }}>{children}</Box>
     </Box>
-  )
+  );
 }
 
-function SidebarBox({ title, children }: { title: string; children: React.ReactNode }) {
+function SidebarBox({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <Box
       sx={{
-        border: '1px solid',
-        borderColor: 'divider',
+        border: "1px solid",
+        borderColor: "divider",
         borderRadius: tokens.radius.card,
         p: 2,
-        display: 'flex',
-        flexDirection: 'column',
+        display: "flex",
+        flexDirection: "column",
         gap: 1.5,
       }}
     >
-      <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+      <Typography
+        variant="caption"
+        fontWeight={600}
+        color="text.secondary"
+        sx={{ textTransform: "uppercase", letterSpacing: "0.06em" }}
+      >
         {title}
       </Typography>
       {children}
     </Box>
-  )
+  );
 }
 
 export function DetailSidebar({ plugin, release }: DetailSidebarProps) {
-  const sha256 = release?.artifactSha256
+  const sha256 = release?.artifactSha256;
 
   return (
     <Box
       component="aside"
       aria-label="Plugin metadata"
       sx={{
-        position: 'sticky',
+        position: "sticky",
         top: 72,
-        display: 'flex',
-        flexDirection: 'column',
+        display: "flex",
+        flexDirection: "column",
         gap: 2,
       }}
     >
@@ -84,13 +103,19 @@ export function DetailSidebar({ plugin, release }: DetailSidebarProps) {
             <Typography variant="caption">{plugin.license}</Typography>
           </MetaItem>
         )}
-        {plugin.repository?.startsWith('http') && (
+        {plugin.repository?.startsWith("http") && (
           <MetaItem label="Repository">
             <Link
               href={plugin.repository}
               target="_blank"
               rel="noopener noreferrer"
-              sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.75rem', color: tokens.color.primary }}
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+                fontSize: "0.75rem",
+                color: tokens.color.primary,
+              }}
             >
               GitHub <ExternalLink size={11} />
             </Link>
@@ -98,20 +123,28 @@ export function DetailSidebar({ plugin, release }: DetailSidebarProps) {
         )}
         {release?.requiresSystemVersion && (
           <MetaItem label="Requires">
-            <Typography variant="caption">{release.requiresSystemVersion}</Typography>
+            <Typography variant="caption">
+              {release.requiresSystemVersion}
+            </Typography>
           </MetaItem>
         )}
         {release?.artifactSize && (
           <MetaItem label="File Size">
-            <Typography variant="caption">{formatFileSize(release.artifactSize)}</Typography>
+            <Typography variant="caption">
+              {formatFileSize(release.artifactSize)}
+            </Typography>
           </MetaItem>
         )}
         {sha256 && (
           <MetaItem label="SHA-256">
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
               <Typography
                 variant="caption"
-                sx={{ fontFamily: 'monospace', wordBreak: 'break-all', maxWidth: 120 }}
+                sx={{
+                  fontFamily: "monospace",
+                  wordBreak: "break-all",
+                  maxWidth: 120,
+                }}
               >
                 {sha256.slice(0, 16)}…
               </Typography>
@@ -123,13 +156,15 @@ export function DetailSidebar({ plugin, release }: DetailSidebarProps) {
       {/* Tags */}
       {plugin.tags && plugin.tags.length > 0 && (
         <SidebarBox title="Tags">
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
             {plugin.tags.map((tag) => (
-              <Badge key={tag} variant="tag">{tag}</Badge>
+              <Badge key={tag} variant="tag">
+                {tag}
+              </Badge>
             ))}
           </Box>
         </SidebarBox>
       )}
     </Box>
-  )
+  );
 }

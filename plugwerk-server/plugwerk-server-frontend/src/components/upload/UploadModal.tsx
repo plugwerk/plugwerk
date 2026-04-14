@@ -16,89 +16,86 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useState, useCallback, useEffect } from 'react'
-import {
-  Box,
-  Typography,
-  Alert,
-  IconButton,
-} from '@mui/material'
-import { UploadCloud, FileBox, X } from 'lucide-react'
-import { AppDialog } from '../common/AppDialog'
-import { useDropzone } from 'react-dropzone'
-import { useUiStore } from '../../stores/uiStore'
-import { useAuthStore } from '../../stores/authStore'
-import { useConfigStore } from '../../stores/configStore'
-import { useUploadFiles } from '../../hooks/useUploadFiles'
-import { tokens } from '../../theme/tokens'
+import { useState, useCallback, useEffect } from "react";
+import { Box, Typography, Alert, IconButton } from "@mui/material";
+import { UploadCloud, FileBox, X } from "lucide-react";
+import { AppDialog } from "../common/AppDialog";
+import { useDropzone } from "react-dropzone";
+import { useUiStore } from "../../stores/uiStore";
+import { useAuthStore } from "../../stores/authStore";
+import { useConfigStore } from "../../stores/configStore";
+import { useUploadFiles } from "../../hooks/useUploadFiles";
+import { tokens } from "../../theme/tokens";
 
 export function UploadModal() {
-  const uploadModalOpen = useUiStore((s) => s.uploadModalOpen)
-  const closeUploadModal = useUiStore((s) => s.closeUploadModal)
-  const namespace = useAuthStore((s) => s.namespace)
-  const maxFileSizeMb = useConfigStore((s) => s.maxFileSizeMb)
-  const fetchConfig = useConfigStore((s) => s.fetchConfig)
-  const { uploadFiles } = useUploadFiles()
+  const uploadModalOpen = useUiStore((s) => s.uploadModalOpen);
+  const closeUploadModal = useUiStore((s) => s.closeUploadModal);
+  const namespace = useAuthStore((s) => s.namespace);
+  const maxFileSizeMb = useConfigStore((s) => s.maxFileSizeMb);
+  const fetchConfig = useConfigStore((s) => s.fetchConfig);
+  const { uploadFiles } = useUploadFiles();
 
-  const [files, setFiles] = useState<readonly File[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const [files, setFiles] = useState<readonly File[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (uploadModalOpen) fetchConfig()
-  }, [uploadModalOpen, fetchConfig])
+    if (uploadModalOpen) fetchConfig();
+  }, [uploadModalOpen, fetchConfig]);
 
   const onDrop = useCallback((accepted: File[]) => {
-    if (accepted.length === 0) return
+    if (accepted.length === 0) return;
     setFiles((prev) => {
-      const existingNames = new Set(prev.map((f) => f.name))
-      const newFiles = accepted.filter((f) => !existingNames.has(f.name))
-      return [...prev, ...newFiles]
-    })
-    setError(null)
-  }, [])
+      const existingNames = new Set(prev.map((f) => f.name));
+      const newFiles = accepted.filter((f) => !existingNames.has(f.name));
+      return [...prev, ...newFiles];
+    });
+    setError(null);
+  }, []);
 
   const removeFile = useCallback((name: string) => {
-    setFiles((prev) => prev.filter((f) => f.name !== name))
-  }, [])
+    setFiles((prev) => prev.filter((f) => f.name !== name));
+  }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'application/java-archive': ['.jar'], 'application/zip': ['.jar', '.zip'] },
+    accept: {
+      "application/java-archive": [".jar"],
+      "application/zip": [".jar", ".zip"],
+    },
     multiple: true,
-  })
+  });
 
   function handleClose() {
-    setFiles([])
-    setError(null)
-    closeUploadModal()
+    setFiles([]);
+    setError(null);
+    closeUploadModal();
   }
 
   async function handleUpload() {
     if (files.length === 0) {
-      setError('Please select at least one .jar or .zip file.')
-      return
+      setError("Please select at least one .jar or .zip file.");
+      return;
     }
 
-    const oversized = files.filter((f) => f.size > maxFileSizeMb * 1024 * 1024)
+    const oversized = files.filter((f) => f.size > maxFileSizeMb * 1024 * 1024);
     if (oversized.length > 0) {
-      const names = oversized.map((f) => f.name).join(', ')
-      setError(`Files too large (max ${maxFileSizeMb} MB): ${names}`)
-      return
+      const names = oversized.map((f) => f.name).join(", ");
+      setError(`Files too large (max ${maxFileSizeMb} MB): ${names}`);
+      return;
     }
 
-    setError(null)
+    setError(null);
     // Close the dialog immediately — progress tracked via UploadProgressPanel
-    const filesToUpload = [...files]
-    handleClose()
+    const filesToUpload = [...files];
+    handleClose();
 
     if (namespace) {
-      await uploadFiles(filesToUpload, namespace)
+      await uploadFiles(filesToUpload, namespace);
     }
   }
 
-  const actionLabel = files.length <= 1
-    ? 'Upload Release'
-    : `Upload ${files.length} Releases`
+  const actionLabel =
+    files.length <= 1 ? "Upload Release" : `Upload ${files.length} Releases`;
 
   return (
     <AppDialog
@@ -123,18 +120,32 @@ export function UploadModal() {
           border: `2px dashed ${isDragActive ? tokens.color.primary : tokens.color.gray20}`,
           borderRadius: tokens.radius.card,
           p: 4,
-          textAlign: 'center',
-          cursor: 'pointer',
-          background: isDragActive ? tokens.color.primaryLight + '22' : 'background.default',
-          transition: 'border-color 0.15s, background 0.15s',
-          '&:hover': { borderColor: tokens.color.primary },
+          textAlign: "center",
+          cursor: "pointer",
+          background: isDragActive
+            ? tokens.color.primaryLight + "22"
+            : "background.default",
+          transition: "border-color 0.15s, background 0.15s",
+          "&:hover": { borderColor: tokens.color.primary },
         }}
       >
-        <input {...getInputProps()} aria-label="Select plugin JAR or ZIP files" />
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+        <input
+          {...getInputProps()}
+          aria-label="Select plugin JAR or ZIP files"
+        />
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 1.5,
+          }}
+        >
           <UploadCloud size={36} color={tokens.color.gray40} />
           <Typography variant="body2" fontWeight={600}>
-            {isDragActive ? 'Drop the files here…' : 'Drag & drop .jar or .zip files here'}
+            {isDragActive
+              ? "Drop the files here…"
+              : "Drag & drop .jar or .zip files here"}
           </Typography>
           <Typography variant="caption" color="text.disabled">
             or click to browse · Max. {maxFileSizeMb} MB per file
@@ -144,19 +155,19 @@ export function UploadModal() {
 
       {/* Selected file list */}
       {files.length > 0 && (
-        <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 0.5 }}>
           {files.map((file) => (
             <Box
               key={file.name}
               sx={{
-                display: 'flex',
-                alignItems: 'center',
+                display: "flex",
+                alignItems: "center",
                 gap: 1.5,
                 px: 1.5,
                 py: 1,
                 borderRadius: tokens.radius.input,
-                border: '1px solid',
-                borderColor: 'divider',
+                border: "1px solid",
+                borderColor: "divider",
               }}
             >
               <FileBox size={16} color={tokens.color.primary} />
@@ -164,19 +175,30 @@ export function UploadModal() {
                 <Typography
                   variant="body2"
                   fontWeight={500}
-                  sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  sx={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
                 >
                   {file.name}
                 </Typography>
               </Box>
-              <Typography variant="caption" color="text.disabled" sx={{ flexShrink: 0 }}>
+              <Typography
+                variant="caption"
+                color="text.disabled"
+                sx={{ flexShrink: 0 }}
+              >
                 {(file.size / 1024 / 1024).toFixed(2)} MB
               </Typography>
               <IconButton
                 size="small"
-                onClick={(e) => { e.stopPropagation(); removeFile(file.name) }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeFile(file.name);
+                }}
                 aria-label={`Remove ${file.name}`}
-                sx={{ p: 0.25, color: 'text.disabled' }}
+                sx={{ p: 0.25, color: "text.disabled" }}
               >
                 <X size={14} />
               </IconButton>
@@ -185,5 +207,5 @@ export function UploadModal() {
         </Box>
       )}
     </AppDialog>
-  )
+  );
 }

@@ -16,48 +16,48 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
-import { Box, TextField, Button, Alert } from '@mui/material'
-import { AuthCard } from '../components/auth/AuthCard'
-import { useAuthStore } from '../stores/authStore'
+import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Box, TextField, Button, Alert } from "@mui/material";
+import { AuthCard } from "../components/auth/AuthCard";
+import { useAuthStore } from "../stores/authStore";
 
 export function LoginPage() {
-  const { login } = useAuthStore()
-  const navigate = useNavigate()
-  const location = useLocation()
-  const from = new URLSearchParams(location.search).get('from') ?? '/'
+  const { login } = useAuthStore();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = new URLSearchParams(location.search).get("from") ?? "/";
 
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+    e.preventDefault();
     if (!username.trim() || !password) {
-      setError('Please enter username and password.')
-      return
+      setError("Please enter username and password.");
+      return;
     }
-    setError(null)
-    setLoading(true)
+    setError(null);
+    setLoading(true);
     try {
-      await login(username.trim(), password)
-      await useAuthStore.getState().initNamespace()
-      const { passwordChangeRequired, namespace } = useAuthStore.getState()
+      await login(username.trim(), password);
+      await useAuthStore.getState().initNamespace();
+      const { passwordChangeRequired, namespace } = useAuthStore.getState();
       if (passwordChangeRequired) {
-        navigate('/change-password', { replace: true })
+        navigate("/change-password", { replace: true });
       } else if (!namespace) {
-        navigate('/onboarding', { replace: true })
+        navigate("/onboarding", { replace: true });
       } else {
         // Only use the saved return URL if it doesn't contain a stale namespace
-        const safeFrom = from.startsWith('/namespaces/') ? '/' : from
-        navigate(safeFrom, { replace: true })
+        const safeFrom = from.startsWith("/namespaces/") ? "/" : from;
+        navigate(safeFrom, { replace: true });
       }
     } catch {
-      setError('Invalid username or password.')
+      setError("Invalid username or password.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -69,7 +69,12 @@ export function LoginPage() {
         </Alert>
       )}
 
-      <Box component="form" onSubmit={handleSubmit} noValidate sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box
+        component="form"
+        onSubmit={handleSubmit}
+        noValidate
+        sx={{ display: "flex", flexDirection: "column", gap: 2 }}
+      >
         <TextField
           label="Username"
           value={username}
@@ -88,10 +93,16 @@ export function LoginPage() {
           autoComplete="current-password"
           size="small"
         />
-        <Button type="submit" variant="contained" size="large" disabled={loading} fullWidth>
-          {loading ? 'Signing in…' : 'Sign In'}
+        <Button
+          type="submit"
+          variant="contained"
+          size="large"
+          disabled={loading}
+          fullWidth
+        >
+          {loading ? "Signing in…" : "Sign In"}
         </Button>
       </Box>
     </AuthCard>
-  )
+  );
 }

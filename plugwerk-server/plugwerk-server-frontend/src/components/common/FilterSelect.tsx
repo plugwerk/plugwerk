@@ -16,15 +16,15 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Select } from '@mui/material'
+import { Select } from "@mui/material";
 
 interface FilterSelectProps {
-  value: string | number
-  onChange: (value: string) => void
-  'aria-label'?: string
-  id?: string
-  minWidth?: number
-  children: React.ReactNode
+  value: string | number;
+  onChange: (value: string) => void;
+  "aria-label"?: string;
+  id?: string;
+  minWidth?: number;
+  children: React.ReactNode;
 }
 
 export function FilterSelect({
@@ -32,7 +32,7 @@ export function FilterSelect({
   onChange,
   minWidth,
   children,
-  'aria-label': ariaLabel,
+  "aria-label": ariaLabel,
   id,
 }: FilterSelectProps) {
   return (
@@ -41,32 +41,32 @@ export function FilterSelect({
       displayEmpty
       value={value}
       onChange={(e) => onChange(e.target.value as string)}
-      SelectDisplayProps={{ 'aria-label': ariaLabel }}
+      SelectDisplayProps={{ "aria-label": ariaLabel }}
       inputProps={{ id }}
       sx={{
         minWidth,
         height: 36,
-        fontSize: '0.875rem',
-        color: 'text.secondary',
-        '& .MuiSelect-select': {
+        fontSize: "0.875rem",
+        color: "text.secondary",
+        "& .MuiSelect-select": {
           py: 0,
-          display: 'flex',
-          alignItems: 'center',
-          height: '100%',
+          display: "flex",
+          alignItems: "center",
+          height: "100%",
         },
-        '& .MuiOutlinedInput-notchedOutline': {
-          borderColor: 'divider',
+        "& .MuiOutlinedInput-notchedOutline": {
+          borderColor: "divider",
         },
-        '&:hover:not(.Mui-focused) .MuiOutlinedInput-notchedOutline': {
-          borderColor: 'text.disabled',
+        "&:hover:not(.Mui-focused) .MuiOutlinedInput-notchedOutline": {
+          borderColor: "text.disabled",
         },
-        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-          borderColor: 'primary.main',
-          borderWidth: '1px',
+        "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+          borderColor: "primary.main",
+          borderWidth: "1px",
         },
       }}
     >
       {children}
     </Select>
-  )
+  );
 }

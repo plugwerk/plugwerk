@@ -16,24 +16,24 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useState } from 'react'
-import { Box, Tooltip, IconButton, Typography } from '@mui/material'
-import { Copy, Check } from 'lucide-react'
+import { useState } from "react";
+import { Box, Tooltip, IconButton, Typography } from "@mui/material";
+import { Copy, Check } from "lucide-react";
 
 interface CopyablePluginIdProps {
-  pluginId: string
+  pluginId: string;
 }
 
 export function CopyablePluginId({ pluginId }: CopyablePluginIdProps) {
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState(false);
 
   async function handleCopy(e: React.MouseEvent) {
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault();
+    e.stopPropagation();
     try {
-      await navigator.clipboard.writeText(pluginId)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      await navigator.clipboard.writeText(pluginId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch {
       // clipboard not available
     }
@@ -42,36 +42,36 @@ export function CopyablePluginId({ pluginId }: CopyablePluginIdProps) {
   return (
     <Box
       sx={{
-        display: 'inline-flex',
-        alignItems: 'center',
+        display: "inline-flex",
+        alignItems: "center",
         gap: 0.25,
-        maxWidth: '100%',
+        maxWidth: "100%",
         minWidth: 0,
       }}
     >
       <Typography
         variant="caption"
         sx={{
-          fontFamily: 'monospace',
-          fontSize: '0.7rem',
-          color: 'text.disabled',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
+          fontFamily: "monospace",
+          fontSize: "0.7rem",
+          color: "text.disabled",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
         }}
       >
         {pluginId}
       </Typography>
-      <Tooltip title={copied ? 'Copied!' : 'Copy plugin ID'} arrow>
+      <Tooltip title={copied ? "Copied!" : "Copy plugin ID"} arrow>
         <IconButton
           size="small"
           onClick={handleCopy}
           aria-label="Copy plugin ID"
-          sx={{ p: 0.25, color: 'text.disabled' }}
+          sx={{ p: 0.25, color: "text.disabled" }}
         >
           {copied ? <Check size={11} /> : <Copy size={11} />}
         </IconButton>
       </Tooltip>
     </Box>
-  )
+  );
 }

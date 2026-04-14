@@ -16,28 +16,28 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Box, IconButton, Paper, Slide, Typography } from '@mui/material'
-import { Info, CheckCircle, AlertTriangle, XCircle, X } from 'lucide-react'
-import { useUiStore, type ToastItem } from '../../stores/uiStore'
-import { tokens } from '../../theme/tokens'
+import { Box, IconButton, Paper, Slide, Typography } from "@mui/material";
+import { Info, CheckCircle, AlertTriangle, XCircle, X } from "lucide-react";
+import { useUiStore, type ToastItem } from "../../stores/uiStore";
+import { tokens } from "../../theme/tokens";
 
 const iconMap = {
   info: <Info size={20} />,
   success: <CheckCircle size={20} />,
   warning: <AlertTriangle size={20} />,
   error: <XCircle size={20} />,
-}
+};
 
 const colorMap = {
   info: tokens.color.primary,
   success: tokens.color.success,
   warning: tokens.color.warning,
   error: tokens.color.danger,
-}
+};
 
 function ToastItem({ toast }: { toast: ToastItem }) {
-  const { removeToast } = useUiStore()
-  const accentColor = colorMap[toast.type]
+  const { removeToast } = useUiStore();
+  const accentColor = colorMap[toast.type];
 
   return (
     <Slide direction="down" in={true} mountOnEnter unmountOnExit>
@@ -45,28 +45,32 @@ function ToastItem({ toast }: { toast: ToastItem }) {
         role="status"
         elevation={0}
         sx={{
-          display: 'flex',
-          alignItems: 'center',
+          display: "flex",
+          alignItems: "center",
           gap: 1.5,
           px: 2,
           py: 1.5,
           width: 380,
-          bgcolor: 'background.paper',
-          border: '1px solid',
-          borderColor: 'divider',
+          bgcolor: "background.paper",
+          border: "1px solid",
+          borderColor: "divider",
           borderLeftColor: accentColor,
           borderLeftWidth: 3,
-          borderLeftStyle: 'solid',
+          borderLeftStyle: "solid",
           borderRadius: tokens.radius.dialog,
           boxShadow: tokens.shadow.modal,
         }}
       >
-        <Box sx={{ color: accentColor, flexShrink: 0, display: 'flex' }}>
+        <Box sx={{ color: accentColor, flexShrink: 0, display: "flex" }}>
           {iconMap[toast.type]}
         </Box>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {toast.title && (
-            <Typography variant="body2" fontWeight={600} sx={{ lineHeight: 1.4 }}>
+            <Typography
+              variant="body2"
+              fontWeight={600}
+              sx={{ lineHeight: 1.4 }}
+            >
               {toast.title}
             </Typography>
           )}
@@ -84,17 +88,17 @@ function ToastItem({ toast }: { toast: ToastItem }) {
           size="small"
           onClick={() => removeToast(toast.id)}
           aria-label="Dismiss notification"
-          sx={{ color: 'text.disabled', p: 0.5, flexShrink: 0 }}
+          sx={{ color: "text.disabled", p: 0.5, flexShrink: 0 }}
         >
           <X size={16} />
         </IconButton>
       </Paper>
     </Slide>
-  )
+  );
 }
 
 export function ToastRegion() {
-  const { toasts } = useUiStore()
+  const { toasts } = useUiStore();
 
   return (
     <Box
@@ -102,22 +106,22 @@ export function ToastRegion() {
       aria-label="Notifications"
       aria-live="polite"
       sx={{
-        position: 'fixed',
+        position: "fixed",
         top: 80,
-        left: '50%',
-        transform: 'translateX(-50%)',
+        left: "50%",
+        transform: "translateX(-50%)",
         zIndex: 2000,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
         gap: 1.5,
-        pointerEvents: 'none',
-        '& > *': { pointerEvents: 'auto' },
+        pointerEvents: "none",
+        "& > *": { pointerEvents: "auto" },
       }}
     >
       {toasts.map((t) => (
         <ToastItem key={t.id} toast={t} />
       ))}
     </Box>
-  )
+  );
 }

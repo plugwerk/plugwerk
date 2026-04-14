@@ -26,24 +26,31 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-} from '@mui/material'
-import { useUiStore } from '../../stores/uiStore'
+} from "@mui/material";
+import { useUiStore } from "../../stores/uiStore";
 
 export function GeneralSection() {
-  const addToast = useUiStore((s) => s.addToast)
+  const addToast = useUiStore((s) => s.addToast);
 
   function handleSave() {
     // TODO: persist settings via API once backend endpoint exists
-    addToast({ message: 'Settings saved.', type: 'success' })
+    addToast({ message: "Settings saved.", type: "success" });
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
       <Box>
-        <Typography variant="h2" gutterBottom>General Settings</Typography>
+        <Typography variant="h2" gutterBottom>
+          General Settings
+        </Typography>
         <Divider sx={{ mb: 3 }} />
       </Box>
-      <TextField label="Max Upload Size (MB)" type="number" defaultValue={50} size="small" />
+      <TextField
+        label="Max Upload Size (MB)"
+        type="number"
+        defaultValue={50}
+        size="small"
+      />
       <FormControl size="small" sx={{ minWidth: 200 }}>
         <InputLabel>Default Language</InputLabel>
         <Select defaultValue="en" label="Default Language">
@@ -51,9 +58,13 @@ export function GeneralSection() {
           <MenuItem value="de">Deutsch</MenuItem>
         </Select>
       </FormControl>
-      <Button variant="contained" sx={{ alignSelf: 'flex-start' }} onClick={handleSave}>
+      <Button
+        variant="contained"
+        sx={{ alignSelf: "flex-start" }}
+        onClick={handleSave}
+      >
         Save Changes
       </Button>
     </Box>
-  )
+  );
 }

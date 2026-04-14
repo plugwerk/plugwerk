@@ -16,25 +16,25 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import '@testing-library/jest-dom'
-import { vi } from 'vitest'
+import "@testing-library/jest-dom";
+import { vi } from "vitest";
 
 // navigator.clipboard is not implemented in jsdom
-Object.defineProperty(navigator, 'clipboard', {
+Object.defineProperty(navigator, "clipboard", {
   value: { writeText: vi.fn().mockResolvedValue(undefined) },
   configurable: true,
   writable: true,
-})
+});
 
 // ResizeObserver is not implemented in jsdom
 global.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}
   disconnect() {}
-}
+};
 
 // matchMedia is not implemented in jsdom — mock globally before any store initialises
-Object.defineProperty(window, 'matchMedia', {
+Object.defineProperty(window, "matchMedia", {
   writable: true,
   configurable: true,
   value: (query: string) => ({
@@ -47,4 +47,4 @@ Object.defineProperty(window, 'matchMedia', {
     removeEventListener: () => {},
     dispatchEvent: () => false,
   }),
-})
+});

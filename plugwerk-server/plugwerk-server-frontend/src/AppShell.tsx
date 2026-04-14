@@ -16,11 +16,11 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Outlet } from 'react-router-dom'
-import { PageWrapper } from './components/layout/PageWrapper'
-import { TopBar } from './components/layout/TopBar'
-import { Footer } from './components/layout/Footer'
-import { ToastRegion } from './components/common/Toast'
+import { Outlet } from "react-router-dom";
+import { PageWrapper } from "./components/layout/PageWrapper";
+import { TopBar } from "./components/layout/TopBar";
+import { Footer } from "./components/layout/Footer";
+import { ToastRegion } from "./components/common/Toast";
 
 export function AppShell() {
   return (
@@ -30,5 +30,5 @@ export function AppShell() {
       <Footer />
       <ToastRegion />
     </PageWrapper>
-  )
+  );
 }

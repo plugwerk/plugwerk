@@ -16,125 +16,162 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useState, useEffect } from 'react'
-import {
-  Box,
-  Typography,
-  Divider,
-  CircularProgress,
-} from '@mui/material'
-import { CheckCircle, XCircle } from 'lucide-react'
-import { DataTable } from '../../components/common/DataTable'
-import type { DataColumn } from '../../components/common/DataTable'
-import { ActionIconButton } from '../../components/common/ActionIconButton'
-import { reviewsApi } from '../../api/config'
-import { useAuthStore } from '../../stores/authStore'
-import { useUiStore } from '../../stores/uiStore'
-import type { ReviewItemDto } from '../../api/generated/model'
+import { useState, useEffect } from "react";
+import { Box, Typography, Divider, CircularProgress } from "@mui/material";
+import { CheckCircle, XCircle } from "lucide-react";
+import { DataTable } from "../../components/common/DataTable";
+import type { DataColumn } from "../../components/common/DataTable";
+import { ActionIconButton } from "../../components/common/ActionIconButton";
+import { reviewsApi } from "../../api/config";
+import { useAuthStore } from "../../stores/authStore";
+import { useUiStore } from "../../stores/uiStore";
+import type { ReviewItemDto } from "../../api/generated/model";
 
 export function ReviewsSection() {
-  const namespace = useAuthStore((s) => s.namespace)
-  const [items, setItems] = useState<ReviewItemDto[]>([])
-  const [loading, setLoading] = useState(true)
-  const [approvingId, setApprovingId] = useState<string | null>(null)
-  const [rejectingId, setRejectingId] = useState<string | null>(null)
-  const addToast = useUiStore((s) => s.addToast)
+  const namespace = useAuthStore((s) => s.namespace);
+  const [items, setItems] = useState<ReviewItemDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const addToast = useUiStore((s) => s.addToast);
 
   useEffect(() => {
     async function load() {
-      setLoading(true)
+      setLoading(true);
       try {
-        if (!namespace) return
-        const res = await reviewsApi.listPendingReviews({ ns: namespace })
-        setItems(res.data)
+        if (!namespace) return;
+        const res = await reviewsApi.listPendingReviews({ ns: namespace });
+        setItems(res.data);
       } catch {
-        setItems([])
+        setItems([]);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
-    load()
-  }, [namespace])
+    load();
+  }, [namespace]);
 
   async function handleApprove(item: ReviewItemDto) {
-    setApprovingId(item.releaseId)
+    setApprovingId(item.releaseId);
     try {
-      await reviewsApi.approveRelease({ ns: namespace!, releaseId: item.releaseId })
-      setItems((prev) => prev.filter((i) => i.releaseId !== item.releaseId))
-      addToast({ message: `${item.pluginName} v${item.version} approved and published.`, type: 'success' })
+      await reviewsApi.approveRelease({
+        ns: namespace!,
+        releaseId: item.releaseId,
+      });
+      setItems((prev) => prev.filter((i) => i.releaseId !== item.releaseId));
+      addToast({
+        message: `${item.pluginName} v${item.version} approved and published.`,
+        type: "success",
+      });
     } catch {
-      addToast({ message: `Failed to approve ${item.pluginName} v${item.version}.`, type: 'error' })
+      addToast({
+        message: `Failed to approve ${item.pluginName} v${item.version}.`,
+        type: "error",
+      });
     } finally {
-      setApprovingId(null)
+      setApprovingId(null);
     }
   }
 
   async function handleReject(item: ReviewItemDto) {
-    setRejectingId(item.releaseId)
+    setRejectingId(item.releaseId);
     try {
-      await reviewsApi.rejectRelease({ ns: namespace!, releaseId: item.releaseId })
-      setItems((prev) => prev.filter((i) => i.releaseId !== item.releaseId))
-      addToast({ message: `${item.pluginName} v${item.version} rejected.`, type: 'success' })
+      await reviewsApi.rejectRelease({
+        ns: namespace!,
+        releaseId: item.releaseId,
+      });
+      setItems((prev) => prev.filter((i) => i.releaseId !== item.releaseId));
+      addToast({
+        message: `${item.pluginName} v${item.version} rejected.`,
+        type: "success",
+      });
     } catch {
-      addToast({ message: `Failed to reject ${item.pluginName} v${item.version}.`, type: 'error' })
+      addToast({
+        message: `Failed to reject ${item.pluginName} v${item.version}.`,
+        type: "error",
+      });
     } finally {
-      setRejectingId(null)
+      setRejectingId(null);
     }
   }
 
   const reviewColumns: DataColumn<ReviewItemDto>[] = [
     {
-      key: 'plugin',
-      header: 'Plugin',
+      key: "plugin",
+      header: "Plugin",
       render: (item) => (
         <>
-          <Typography variant="body2" fontWeight={500}>{item.pluginName}</Typography>
-          <Typography variant="caption" color="text.secondary">{item.pluginId}</Typography>
+          <Typography variant="body2" fontWeight={500}>
+            {item.pluginName}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {item.pluginId}
+          </Typography>
         </>
       ),
     },
     {
-      key: 'namespace',
-      header: 'Namespace',
+      key: "namespace",
+      header: "Namespace",
       render: () => (
-        <Typography variant="caption" color="text.secondary">{namespace}</Typography>
-      ),
-    },
-    {
-      key: 'version',
-      header: 'Version',
-      render: (item) => <>v{item.version}</>,
-    },
-    {
-      key: 'submitted',
-      header: 'Submitted',
-      render: (item) => (
-        <Typography variant="caption" color="text.disabled">
-          {new Date(item.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+        <Typography variant="caption" color="text.secondary">
+          {namespace}
         </Typography>
       ),
     },
     {
-      key: 'actions',
-      header: 'Actions',
+      key: "version",
+      header: "Version",
+      render: (item) => <>v{item.version}</>,
+    },
+    {
+      key: "submitted",
+      header: "Submitted",
       render: (item) => (
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <ActionIconButton icon={CheckCircle} tooltip="Approve" color="success" loading={approvingId === item.releaseId} onClick={() => handleApprove(item)} />
-          <ActionIconButton icon={XCircle} tooltip="Deny" color="error" loading={rejectingId === item.releaseId} onClick={() => handleReject(item)} />
+        <Typography variant="caption" color="text.disabled">
+          {new Date(item.submittedAt).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </Typography>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      render: (item) => (
+        <Box sx={{ display: "flex", gap: 0.5 }}>
+          <ActionIconButton
+            icon={CheckCircle}
+            tooltip="Approve"
+            color="success"
+            loading={approvingId === item.releaseId}
+            onClick={() => handleApprove(item)}
+          />
+          <ActionIconButton
+            icon={XCircle}
+            tooltip="Deny"
+            color="error"
+            loading={rejectingId === item.releaseId}
+            onClick={() => handleReject(item)}
+          />
         </Box>
       ),
     },
-  ]
+  ];
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
       <Box>
-        <Typography variant="h2" gutterBottom>Pending Reviews</Typography>
+        <Typography variant="h2" gutterBottom>
+          Pending Reviews
+        </Typography>
         <Divider sx={{ mb: 3 }} />
       </Box>
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
           <CircularProgress size={24} />
         </Box>
       ) : items.length === 0 ? (
@@ -150,5 +187,5 @@ export function ReviewsSection() {
         />
       )}
     </Box>
-  )
+  );
 }

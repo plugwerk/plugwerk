@@ -16,23 +16,23 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Box } from '@mui/material'
-import type { ReactNode } from 'react'
+import { Box } from "@mui/material";
+import type { ReactNode } from "react";
 
 interface PageWrapperProps {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export function PageWrapper({ children }: PageWrapperProps) {
   return (
     <Box
       sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: '100dvh',
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100dvh",
       }}
     >
       {children}
     </Box>
-  )
+  );
 }

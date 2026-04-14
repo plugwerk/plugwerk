@@ -16,178 +16,240 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
+import { Box, Typography, Tooltip, Menu, MenuItem } from "@mui/material";
 import {
-  Box,
-  Typography,
-  Tooltip,
-  Menu,
-  MenuItem,
-} from '@mui/material'
-import { Download, CheckCircle, Trash2, ArrowRightLeft, Copy, Check } from 'lucide-react'
-import { DataTable } from '../common/DataTable'
-import type { DataColumn } from '../common/DataTable'
-import { ActionIconButton } from '../common/ActionIconButton'
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Badge } from '../common/Badge'
-import { ConfirmDeleteDialog } from '../common/ConfirmDeleteDialog'
-import type { PluginReleaseDto } from '../../api/generated/model'
-import type { ReleaseStatusUpdateRequestStatusEnum } from '../../api/generated/model/release-status-update-request'
-import { tokens } from '../../theme/tokens'
-import type { BadgeVariant } from '../common/Badge'
-import { managementApi, reviewsApi } from '../../api/config'
-import { formatFileSize } from '../../utils/formatFileSize'
-import { formatDateTime } from '../../utils/formatDateTime'
-import { downloadArtifact } from '../../utils/downloadArtifact'
-import { formatCount, formatCountFull } from '../../utils/formatCount'
-import { useUiStore } from '../../stores/uiStore'
+  Download,
+  CheckCircle,
+  Trash2,
+  ArrowRightLeft,
+  Copy,
+  Check,
+} from "lucide-react";
+import { DataTable } from "../common/DataTable";
+import type { DataColumn } from "../common/DataTable";
+import { ActionIconButton } from "../common/ActionIconButton";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Badge } from "../common/Badge";
+import { ConfirmDeleteDialog } from "../common/ConfirmDeleteDialog";
+import type { PluginReleaseDto } from "../../api/generated/model";
+import type { ReleaseStatusUpdateRequestStatusEnum } from "../../api/generated/model/release-status-update-request";
+import { tokens } from "../../theme/tokens";
+import type { BadgeVariant } from "../common/Badge";
+import { managementApi, reviewsApi } from "../../api/config";
+import { formatFileSize } from "../../utils/formatFileSize";
+import { formatDateTime } from "../../utils/formatDateTime";
+import { downloadArtifact } from "../../utils/downloadArtifact";
+import { formatCount, formatCountFull } from "../../utils/formatCount";
+import { useUiStore } from "../../stores/uiStore";
 
 function CopyableSha256({ value }: { value?: string }) {
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState(false);
 
-  if (!value) return <Typography variant="caption" color="text.disabled">—</Typography>
+  if (!value)
+    return (
+      <Typography variant="caption" color="text.disabled">
+        —
+      </Typography>
+    );
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(value!)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    await navigator.clipboard.writeText(value!);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
-    <Tooltip title={copied ? 'Copied!' : 'Click to copy full SHA-256'}>
+    <Tooltip title={copied ? "Copied!" : "Click to copy full SHA-256"}>
       <Box
         onClick={handleCopy}
         sx={{
-          display: 'inline-flex',
-          alignItems: 'center',
+          display: "inline-flex",
+          alignItems: "center",
           gap: 0.5,
-          cursor: 'pointer',
-          '&:hover': { color: 'text.primary' },
+          cursor: "pointer",
+          "&:hover": { color: "text.primary" },
         }}
       >
-        <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.disabled' }}>
+        <Typography
+          variant="caption"
+          sx={{ fontFamily: "monospace", color: "text.disabled" }}
+        >
           {value.slice(0, 12)}…
         </Typography>
-        {copied
-          ? <Check size={12} color={tokens.color.success} />
-          : <Copy size={12} style={{ opacity: 0.4 }} />}
+        {copied ? (
+          <Check size={12} color={tokens.color.success} />
+        ) : (
+          <Copy size={12} style={{ opacity: 0.4 }} />
+        )}
       </Box>
     </Tooltip>
-  )
+  );
 }
 
 interface VersionsTabProps {
-  releases: PluginReleaseDto[]
-  namespace: string
-  pluginId: string
-  canApprove?: boolean
-  onReleaseDeleted?: (version: string) => void
-  onReleasesChanged?: (releases: PluginReleaseDto[]) => void
+  releases: PluginReleaseDto[];
+  namespace: string;
+  pluginId: string;
+  canApprove?: boolean;
+  onReleaseDeleted?: (version: string) => void;
+  onReleasesChanged?: (releases: PluginReleaseDto[]) => void;
 }
 
 const statusToBadge: Record<string, BadgeVariant> = {
-  published:  'published',
-  draft:      'draft',
-  deprecated: 'deprecated',
-  yanked:     'yanked',
+  published: "published",
+  draft: "draft",
+  deprecated: "deprecated",
+  yanked: "yanked",
+};
+
+const STATUS_TRANSITIONS: Record<
+  string,
+  ReleaseStatusUpdateRequestStatusEnum[]
+> = {
+  published: ["deprecated", "yanked"],
+  deprecated: ["published", "yanked"],
+  yanked: ["published", "deprecated"],
+};
+
+function getLatestPublishedVersion(
+  rels: PluginReleaseDto[],
+): string | undefined {
+  return rels.find((r) => r.status === "published")?.version;
 }
 
-const STATUS_TRANSITIONS: Record<string, ReleaseStatusUpdateRequestStatusEnum[]> = {
-  published: ['deprecated', 'yanked'],
-  deprecated: ['published', 'yanked'],
-  yanked: ['published', 'deprecated'],
-}
+export function VersionsTab({
+  releases,
+  namespace,
+  pluginId,
+  canApprove,
+  onReleaseDeleted,
+  onReleasesChanged,
+}: VersionsTabProps) {
+  const navigate = useNavigate();
+  const [localReleases, setLocalReleases] = useState(releases);
+  const latestVersion = getLatestPublishedVersion(localReleases);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
 
-function getLatestPublishedVersion(rels: PluginReleaseDto[]): string | undefined {
-  return rels.find((r) => r.status === 'published')?.version
-}
-
-export function VersionsTab({ releases, namespace, pluginId, canApprove, onReleaseDeleted, onReleasesChanged }: VersionsTabProps) {
-  const navigate = useNavigate()
-  const [localReleases, setLocalReleases] = useState(releases)
-  const latestVersion = getLatestPublishedVersion(localReleases)
-  const [approvingId, setApprovingId] = useState<string | null>(null)
-
-  useEffect(() => { setLocalReleases(releases) }, [releases])
+  useEffect(() => {
+    setLocalReleases(releases);
+  }, [releases]);
 
   function updateReleaseLocally(releaseId: string, newStatus: string) {
     setLocalReleases((prev) => {
-      const updated = prev.map((r) => r.id === releaseId ? { ...r, status: newStatus as PluginReleaseDto['status'] } : r)
-      onReleasesChanged?.(updated)
-      return updated
-    })
+      const updated = prev.map((r) =>
+        r.id === releaseId
+          ? { ...r, status: newStatus as PluginReleaseDto["status"] }
+          : r,
+      );
+      onReleasesChanged?.(updated);
+      return updated;
+    });
   }
-  const [deleteTarget, setDeleteTarget] = useState<PluginReleaseDto | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const { addToast } = useUiStore()
-  const [statusMenuAnchor, setStatusMenuAnchor] = useState<HTMLElement | null>(null)
-  const [statusMenuRelease, setStatusMenuRelease] = useState<PluginReleaseDto | null>(null)
-  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<PluginReleaseDto | null>(
+    null,
+  );
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { addToast } = useUiStore();
+  const [statusMenuAnchor, setStatusMenuAnchor] = useState<HTMLElement | null>(
+    null,
+  );
+  const [statusMenuRelease, setStatusMenuRelease] =
+    useState<PluginReleaseDto | null>(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
 
   async function handleApprove(rel: PluginReleaseDto) {
-    if (!rel.id) return
-    setApprovingId(rel.id)
+    if (!rel.id) return;
+    setApprovingId(rel.id);
     try {
-      await reviewsApi.approveRelease({ ns: namespace, releaseId: rel.id })
-      addToast({ message: `v${rel.version} approved and published.`, type: 'success' })
-      updateReleaseLocally(rel.id!, 'published')
+      await reviewsApi.approveRelease({ ns: namespace, releaseId: rel.id });
+      addToast({
+        message: `v${rel.version} approved and published.`,
+        type: "success",
+      });
+      updateReleaseLocally(rel.id!, "published");
     } catch {
-      addToast({ message: `Failed to approve v${rel.version}.`, type: 'error' })
+      addToast({
+        message: `Failed to approve v${rel.version}.`,
+        type: "error",
+      });
     } finally {
-      setApprovingId(null)
+      setApprovingId(null);
     }
   }
 
   async function handleDeleteRelease() {
-    if (!deleteTarget?.version) return
-    setIsDeleting(true)
+    if (!deleteTarget?.version) return;
+    setIsDeleting(true);
     try {
-      const response = await managementApi.deleteRelease({ ns: namespace, pluginId, version: deleteTarget.version })
-      const pluginDeleted = response.headers?.['x-plugin-deleted'] === 'true'
+      const response = await managementApi.deleteRelease({
+        ns: namespace,
+        pluginId,
+        version: deleteTarget.version,
+      });
+      const pluginDeleted = response.headers?.["x-plugin-deleted"] === "true";
       if (pluginDeleted) {
-        addToast({ message: 'Plugin and release deleted.', type: 'success' })
-        navigate(`/namespaces/${namespace}/plugins`)
+        addToast({ message: "Plugin and release deleted.", type: "success" });
+        navigate(`/namespaces/${namespace}/plugins`);
       } else {
-        addToast({ message: `v${deleteTarget.version} deleted.`, type: 'success' })
-        onReleaseDeleted?.(deleteTarget.version)
+        addToast({
+          message: `v${deleteTarget.version} deleted.`,
+          type: "success",
+        });
+        onReleaseDeleted?.(deleteTarget.version);
       }
     } catch {
-      addToast({ message: `Failed to delete v${deleteTarget.version}.`, type: 'error' })
+      addToast({
+        message: `Failed to delete v${deleteTarget.version}.`,
+        type: "error",
+      });
     } finally {
-      setIsDeleting(false)
-      setDeleteTarget(null)
+      setIsDeleting(false);
+      setDeleteTarget(null);
     }
   }
 
-  async function handleStatusChange(rel: PluginReleaseDto, newStatus: ReleaseStatusUpdateRequestStatusEnum) {
-    setStatusMenuAnchor(null)
-    setStatusMenuRelease(null)
-    setUpdatingStatusId(rel.id ?? null)
+  async function handleStatusChange(
+    rel: PluginReleaseDto,
+    newStatus: ReleaseStatusUpdateRequestStatusEnum,
+  ) {
+    setStatusMenuAnchor(null);
+    setStatusMenuRelease(null);
+    setUpdatingStatusId(rel.id ?? null);
     try {
       await managementApi.updateReleaseStatus({
         ns: namespace,
         pluginId,
         version: rel.version,
         releaseStatusUpdateRequest: { status: newStatus },
-      })
-      updateReleaseLocally(rel.id!, newStatus)
-      addToast({ message: `v${rel.version} status changed to ${newStatus}.`, type: 'success' })
+      });
+      updateReleaseLocally(rel.id!, newStatus);
+      addToast({
+        message: `v${rel.version} status changed to ${newStatus}.`,
+        type: "success",
+      });
     } catch {
-      addToast({ message: `Failed to change status of v${rel.version}.`, type: 'error' })
+      addToast({
+        message: `Failed to change status of v${rel.version}.`,
+        type: "error",
+      });
     } finally {
-      setUpdatingStatusId(null)
+      setUpdatingStatusId(null);
     }
   }
 
   const releaseColumns: DataColumn<PluginReleaseDto>[] = [
     {
-      key: 'version',
-      header: 'Version',
+      key: "version",
+      header: "Version",
       render: (rel) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <Badge variant="version">v{rel.version}</Badge>
           {rel.version === latestVersion && (
-            <Typography variant="caption" sx={{ color: tokens.color.primary, fontWeight: 600 }}>
+            <Typography
+              variant="caption"
+              sx={{ color: tokens.color.primary, fontWeight: 600 }}
+            >
               latest
             </Typography>
           )}
@@ -195,8 +257,8 @@ export function VersionsTab({ releases, namespace, pluginId, canApprove, onRelea
       ),
     },
     {
-      key: 'uploaded',
-      header: 'Uploaded',
+      key: "uploaded",
+      header: "Uploaded",
       render: (rel) => (
         <Typography variant="caption" color="text.disabled">
           {formatDateTime(rel.createdAt)}
@@ -204,42 +266,42 @@ export function VersionsTab({ releases, namespace, pluginId, canApprove, onRelea
       ),
     },
     {
-      key: 'status',
-      header: 'Status',
+      key: "status",
+      header: "Status",
       render: (rel) => (
-        <Badge variant={statusToBadge[rel.status] ?? 'draft'}>
+        <Badge variant={statusToBadge[rel.status] ?? "draft"}>
           {rel.status.charAt(0).toUpperCase() + rel.status.slice(1)}
         </Badge>
       ),
     },
     {
-      key: 'format',
-      header: 'Format',
+      key: "format",
+      header: "Format",
       render: (rel) => (
         <Typography variant="caption" color="text.disabled">
-          .{rel.fileFormat ?? 'jar'}
+          .{rel.fileFormat ?? "jar"}
         </Typography>
       ),
     },
     {
-      key: 'size',
-      header: 'Size',
-      align: 'right',
+      key: "size",
+      header: "Size",
+      align: "right",
       render: (rel) => (
         <Typography variant="caption" color="text.disabled">
-          {rel.artifactSize ? formatFileSize(rel.artifactSize) : '—'}
+          {rel.artifactSize ? formatFileSize(rel.artifactSize) : "—"}
         </Typography>
       ),
     },
     {
-      key: 'sha256',
-      header: 'SHA-256',
+      key: "sha256",
+      header: "SHA-256",
       render: (rel) => <CopyableSha256 value={rel.artifactSha256} />,
     },
     {
-      key: 'downloads',
-      header: 'Downloads',
-      align: 'right',
+      key: "downloads",
+      header: "Downloads",
+      align: "right",
       render: (rel) => (
         <Tooltip title={formatCountFull(rel.downloadCount)} placement="left">
           <Typography variant="caption" color="text.disabled">
@@ -249,46 +311,62 @@ export function VersionsTab({ releases, namespace, pluginId, canApprove, onRelea
       ),
     },
     {
-      key: 'actions',
-      header: 'Actions',
+      key: "actions",
+      header: "Actions",
       width: 140,
       render: (rel) => {
-        const isDraft = rel.status === 'draft'
-        const transitions = STATUS_TRANSITIONS[rel.status] ?? []
+        const isDraft = rel.status === "draft";
+        const transitions = STATUS_TRANSITIONS[rel.status] ?? [];
         return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <ActionIconButton
               icon={Download}
-              tooltip={`Download .${rel.fileFormat ?? 'jar'}`}
+              tooltip={`Download .${rel.fileFormat ?? "jar"}`}
               onClick={() => {
                 downloadArtifact(
                   `/api/v1/namespaces/${namespace}/plugins/${pluginId}/releases/${rel.version}/download`,
-                  `${pluginId}-${rel.version}.${rel.fileFormat ?? 'jar'}`,
-                ).catch(() => addToast({ message: 'Download failed.', type: 'error' }))
+                  `${pluginId}-${rel.version}.${rel.fileFormat ?? "jar"}`,
+                ).catch(() =>
+                  addToast({ message: "Download failed.", type: "error" }),
+                );
               }}
             />
             {isDraft && canApprove && (
-              <ActionIconButton icon={CheckCircle} tooltip="Approve" color="success" loading={approvingId === rel.id} onClick={() => handleApprove(rel)} />
+              <ActionIconButton
+                icon={CheckCircle}
+                tooltip="Approve"
+                color="success"
+                loading={approvingId === rel.id}
+                onClick={() => handleApprove(rel)}
+              />
             )}
             {canApprove && transitions.length > 0 && (
               <ActionIconButton
                 icon={ArrowRightLeft}
                 tooltip="Change release status"
                 loading={updatingStatusId === rel.id}
-                onClick={(e) => { setStatusMenuAnchor(e.currentTarget as HTMLElement); setStatusMenuRelease(rel) }}
+                onClick={(e) => {
+                  setStatusMenuAnchor(e.currentTarget as HTMLElement);
+                  setStatusMenuRelease(rel);
+                }}
               />
             )}
             {canApprove && (
-              <ActionIconButton icon={Trash2} tooltip="Delete release" color="error" onClick={() => setDeleteTarget(rel)} />
+              <ActionIconButton
+                icon={Trash2}
+                tooltip="Delete release"
+                color="error"
+                onClick={() => setDeleteTarget(rel)}
+              />
             )}
           </Box>
-        )
+        );
       },
     },
-  ]
+  ];
 
   return (
-    <Box sx={{ overflowX: 'auto' }}>
+    <Box sx={{ overflowX: "auto" }}>
       <DataTable<PluginReleaseDto>
         columns={releaseColumns}
         rows={localReleases}
@@ -299,26 +377,38 @@ export function VersionsTab({ releases, namespace, pluginId, canApprove, onRelea
       <Menu
         anchorEl={statusMenuAnchor}
         open={!!statusMenuAnchor && !!statusMenuRelease}
-        onClose={() => { setStatusMenuAnchor(null); setStatusMenuRelease(null) }}
+        onClose={() => {
+          setStatusMenuAnchor(null);
+          setStatusMenuRelease(null);
+        }}
       >
-        {(STATUS_TRANSITIONS[statusMenuRelease?.status ?? ''] ?? []).map((target) => (
-          <MenuItem key={target} onClick={() => statusMenuRelease && handleStatusChange(statusMenuRelease, target)}>
-            {target.charAt(0).toUpperCase() + target.slice(1)}
-          </MenuItem>
-        ))}
+        {(STATUS_TRANSITIONS[statusMenuRelease?.status ?? ""] ?? []).map(
+          (target) => (
+            <MenuItem
+              key={target}
+              onClick={() =>
+                statusMenuRelease &&
+                handleStatusChange(statusMenuRelease, target)
+              }
+            >
+              {target.charAt(0).toUpperCase() + target.slice(1)}
+            </MenuItem>
+          ),
+        )}
       </Menu>
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}
         title="Delete Release"
-        message={localReleases.length === 1
-          ? `Are you sure you want to delete v${deleteTarget?.version ?? ''}? This is the last release — the entire plugin will also be removed. This action cannot be undone.`
-          : `Are you sure you want to delete v${deleteTarget?.version ?? ''}? This action cannot be undone.`}
+        message={
+          localReleases.length === 1
+            ? `Are you sure you want to delete v${deleteTarget?.version ?? ""}? This is the last release — the entire plugin will also be removed. This action cannot be undone.`
+            : `Are you sure you want to delete v${deleteTarget?.version ?? ""}? This action cannot be undone.`
+        }
         onConfirm={handleDeleteRelease}
         onCancel={() => setDeleteTarget(null)}
         loading={isDeleting}
       />
-
     </Box>
-  )
+  );
 }

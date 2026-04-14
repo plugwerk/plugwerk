@@ -16,17 +16,17 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { AppDialog } from './AppDialog'
+import { AppDialog } from "./AppDialog";
 
 interface ConfirmDeleteDialogProps {
-  open: boolean
-  title: string
-  message: string
-  onConfirm: () => void
-  onCancel: () => void
-  loading?: boolean
+  open: boolean;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading?: boolean;
   /** Specific action label, e.g. "Delete Release". Defaults to "Delete". */
-  actionLabel?: string
+  actionLabel?: string;
 }
 
 export function ConfirmDeleteDialog({
@@ -36,7 +36,7 @@ export function ConfirmDeleteDialog({
   onConfirm,
   onCancel,
   loading = false,
-  actionLabel = 'Delete',
+  actionLabel = "Delete",
 }: ConfirmDeleteDialogProps) {
   return (
     <AppDialog
@@ -49,5 +49,5 @@ export function ConfirmDeleteDialog({
       actionColor="error"
       actionLoading={loading}
     />
-  )
+  );
 }

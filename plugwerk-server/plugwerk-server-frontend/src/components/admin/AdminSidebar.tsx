@@ -16,27 +16,31 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Box, Typography } from '@mui/material'
-import { Settings, Users, Shield, FileCheck, Globe } from 'lucide-react'
-import { Link, useLocation } from 'react-router-dom'
-import { tokens } from '../../theme/tokens'
+import { Box, Typography } from "@mui/material";
+import { Settings, Users, Shield, FileCheck, Globe } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { tokens } from "../../theme/tokens";
 
 interface AdminSection {
-  path: string
-  label: string
-  icon: React.ReactNode
+  path: string;
+  label: string;
+  icon: React.ReactNode;
 }
 
 const ADMIN_SECTIONS: AdminSection[] = [
-  { path: 'global-settings',  label: 'General',         icon: <Settings size={16} /> },
-  { path: 'namespaces',       label: 'Namespaces',      icon: <Globe size={16} /> },
-  { path: 'users',            label: 'Users',            icon: <Users size={16} /> },
-  { path: 'oidc-providers',   label: 'OIDC Providers',   icon: <Shield size={16} /> },
-  { path: 'reviews',          label: 'Pending Reviews',  icon: <FileCheck size={16} /> },
-]
+  { path: "global-settings", label: "General", icon: <Settings size={16} /> },
+  { path: "namespaces", label: "Namespaces", icon: <Globe size={16} /> },
+  { path: "users", label: "Users", icon: <Users size={16} /> },
+  {
+    path: "oidc-providers",
+    label: "OIDC Providers",
+    icon: <Shield size={16} />,
+  },
+  { path: "reviews", label: "Pending Reviews", icon: <FileCheck size={16} /> },
+];
 
 export function AdminSidebar() {
-  const location = useLocation()
+  const location = useLocation();
 
   return (
     <Box
@@ -45,15 +49,15 @@ export function AdminSidebar() {
       sx={{
         width: 240,
         flexShrink: 0,
-        borderRight: '1px solid',
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
-        display: { xs: 'none', md: 'flex' },
-        flexDirection: 'column',
-        position: 'sticky',
+        borderRight: "1px solid",
+        borderColor: "divider",
+        bgcolor: "background.paper",
+        display: { xs: "none", md: "flex" },
+        flexDirection: "column",
+        position: "sticky",
         top: 56,
-        height: 'calc(100dvh - 56px - 48px)',
-        overflowY: 'auto',
+        height: "calc(100dvh - 56px - 48px)",
+        overflowY: "auto",
         pt: 1,
       }}
     >
@@ -61,9 +65,9 @@ export function AdminSidebar() {
         variant="caption"
         sx={{
           fontWeight: 600,
-          color: 'text.disabled',
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
+          color: "text.disabled",
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
           px: 2,
           py: 1,
         }}
@@ -72,42 +76,49 @@ export function AdminSidebar() {
       </Typography>
 
       {ADMIN_SECTIONS.map((section) => {
-        const isActive = location.pathname === `/admin/${section.path}` || location.pathname.startsWith(`/admin/${section.path}/`)
+        const isActive =
+          location.pathname === `/admin/${section.path}` ||
+          location.pathname.startsWith(`/admin/${section.path}/`);
         return (
           <Box
             key={section.path}
             component={Link}
             to={`/admin/${section.path}`}
-            aria-current={isActive ? 'page' : undefined}
+            aria-current={isActive ? "page" : undefined}
             sx={{
-              display: 'flex',
-              alignItems: 'center',
+              display: "flex",
+              alignItems: "center",
               gap: 1.5,
               px: 2,
               py: 1,
               mx: 1,
               borderRadius: tokens.radius.btn,
-              textDecoration: 'none',
-              background: isActive ? tokens.color.primaryLight : 'transparent',
-              color: isActive ? tokens.color.primary : 'text.secondary',
+              textDecoration: "none",
+              background: isActive ? tokens.color.primaryLight : "transparent",
+              color: isActive ? tokens.color.primary : "text.secondary",
               fontWeight: isActive ? 600 : 400,
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-              textAlign: 'left',
-              width: 'calc(100% - 16px)',
-              transition: 'background 0.15s, color 0.15s',
-              '&:hover': {
-                background: isActive ? tokens.color.primaryLight : 'background.default',
-                color: 'text.primary',
+              fontSize: "0.875rem",
+              cursor: "pointer",
+              textAlign: "left",
+              width: "calc(100% - 16px)",
+              transition: "background 0.15s, color 0.15s",
+              "&:hover": {
+                background: isActive
+                  ? tokens.color.primaryLight
+                  : "background.default",
+                color: "text.primary",
               },
-              '&:focus-visible': { outline: `2px solid ${tokens.color.primary}`, outlineOffset: -2 },
+              "&:focus-visible": {
+                outline: `2px solid ${tokens.color.primary}`,
+                outlineOffset: -2,
+              },
             }}
           >
             {section.icon}
             {section.label}
           </Box>
-        )
+        );
       })}
     </Box>
-  )
+  );
 }

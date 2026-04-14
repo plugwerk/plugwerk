@@ -16,9 +16,9 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { RouterProvider } from 'react-router-dom'
-import { router } from './router'
+import { RouterProvider } from "react-router-dom";
+import { router } from "./router";
 
 export default function App() {
-  return <RouterProvider router={router} />
+  return <RouterProvider router={router} />;
 }
