@@ -36,8 +36,9 @@ Before **every commit**, run the formatter and linter for the language(s) you ch
 |---|---|---|
 | Kotlin | `./gradlew spotlessApply` | repo root |
 | TypeScript / TSX | `npm run lint` | `plugwerk-server/plugwerk-server-frontend/` |
+| TypeScript / TSX formatting | `npm run format` | `plugwerk-server/plugwerk-server-frontend/` |
 
-CI enforces both (`spotlessKotlinCheck` and `eslint`) and will fail if violations are committed.
+CI enforces all three (`spotlessKotlinCheck`, `eslint`, and `prettier --check` via the Gradle `npmFormatCheck` task that runs as part of `./gradlew build`) and will fail if violations are committed.
 Never skip these checks — even for "small" renames or refactors (longer class names can exceed line limits).
 
 - **Never commit directly to `main`** – always use a feature branch
