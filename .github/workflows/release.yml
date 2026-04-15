@@ -122,3 +122,43 @@ jobs:
           repository: plugwerk/website
           event-type: openapi-update
           client-payload: '{"version": "${{ steps.version.outputs.VERSION }}"}'
+
+  docker-publish:
+    name: Build and push Docker image
+    needs: publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download backend fat JAR from publish job
+        uses: actions/download-artifact@v4
+        with:
+          name: plugwerk-server-backend-jar
+          path: plugwerk-server/plugwerk-server-backend/src/dist/
+
+      - name: Verify staged JAR is present
+        run: |
+          STAGED="plugwerk-server/plugwerk-server-backend/src/dist/plugwerk-server-backend-${{ steps.version.outputs.VERSION }}.jar"
+          ls -lh "$STAGED"
+          test -f "$STAGED" || { echo "::error::Staged JAR missing: $STAGED"; exit 1; }
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (no push, smoke test both platforms)
+        uses: docker/build-push-action@v6
+        with:
+          context: plugwerk-server/plugwerk-server-backend/src/dist
+          file: plugwerk-server/plugwerk-server-backend/src/dist/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: plugwerk/plugwerk-server:ci-smoke
