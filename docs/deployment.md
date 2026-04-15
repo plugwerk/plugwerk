@@ -45,9 +45,43 @@ plugwerk-server-<version>/
 
 ---
 
+## Option 0: Pull from Docker Hub
+
+The published image `plugwerk/plugwerk-server` is available on Docker Hub for
+`linux/amd64` and `linux/arm64`. Every `v*` Git tag publishes a matching image
+tag, and stable releases also update `:latest`.
+
+```bash
+# Pull a specific version (recommended for production)
+docker pull plugwerk/plugwerk-server:1.0.0
+
+# Pull the latest stable release
+docker pull plugwerk/plugwerk-server:latest
+
+# Pull a pre-release (no ':latest' redirect)
+docker pull plugwerk/plugwerk-server:1.0.0-alpha.1
+```
+
+You still need a PostgreSQL instance and the required environment variables
+(see [Environment Variables](#environment-variables) below). The simplest way
+to run the full stack is Option 1 (Docker Compose), which references this
+image automatically.
+
+---
+
 ## Option 1: Docker Compose (recommended)
 
 The fastest way to get started. Includes PostgreSQL and the server.
+
+### 1.0 Pin the image version (optional but recommended)
+
+By default, `docker-compose.yml` pulls `plugwerk/plugwerk-server:latest`. For
+reproducible deployments, pin a specific version via the `PLUGWERK_VERSION`
+environment variable:
+
+```bash
+export PLUGWERK_VERSION=1.0.0
+```
 
 ### 1.1 Generate secrets
 
@@ -78,6 +112,10 @@ docker compose down -v       # stop and delete database volume
 ```
 
 ### 1.5 Custom JVM options
+
+The published Docker image reads the standard `JAVA_OPTS` environment variable
+to pass arguments to the JVM. You can override it from the host shell or from
+a `docker-compose.override.yml`:
 
 ```yaml
 # docker-compose.override.yml

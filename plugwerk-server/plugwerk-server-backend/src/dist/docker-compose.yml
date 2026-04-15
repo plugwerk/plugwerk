@@ -16,7 +16,7 @@ services:
       retries: 5
 
   plugwerk-server:
-    build: .
+    image: plugwerk/plugwerk-server:${PLUGWERK_VERSION:-latest}
     depends_on:
       postgres:
         condition: service_healthy
