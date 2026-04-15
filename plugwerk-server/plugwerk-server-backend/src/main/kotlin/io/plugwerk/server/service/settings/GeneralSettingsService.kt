@@ -47,15 +47,15 @@ class GeneralSettingsService(private val repository: ApplicationSettingRepositor
 
     private val log = LoggerFactory.getLogger(GeneralSettingsService::class.java)
 
-    /** Live snapshot of `setting_key -> raw string value`. Updated atomically on writes. */
-    private val cache = AtomicReference<Map<String, String>>(emptyMap())
+    /** Live snapshot of `setting_key -> stored row data`. Updated atomically on writes. */
+    private val cache = AtomicReference<Map<String, StoredSetting>>(emptyMap())
 
     /**
      * Snapshot of the values as they were at JVM startup. Immutable for the lifetime of the
      * process. Used to compute [SettingSnapshot.restartPending] — a UI hint, not a hard
      * enforcement mechanism.
      */
-    private lateinit var bootSnapshot: Map<String, String>
+    private lateinit var bootSnapshot: Map<String, StoredSetting>
 
     @PostConstruct
     fun initialize() {
@@ -71,7 +71,12 @@ class GeneralSettingsService(private val repository: ApplicationSettingRepositor
      */
     private fun refreshCache() {
         val rows = repository.findAll()
-        val snapshot = rows.associate { it.settingKey to (it.settingValue ?: "") }
+        val snapshot = rows.associate {
+            it.settingKey to StoredSetting(
+                rawValue = it.settingValue ?: "",
+                description = it.settingDesc,
+            )
+        }
         cache.set(snapshot)
     }
 
@@ -80,7 +85,7 @@ class GeneralSettingsService(private val repository: ApplicationSettingRepositor
      * the row is missing or the stored value is an empty string.
      */
     fun getRaw(key: SettingKey): String {
-        val stored = cache.get()[key.key]
+        val stored = cache.get()[key.key]?.rawValue
         return if (stored.isNullOrEmpty()) key.defaultValue else stored
     }
 
@@ -108,22 +113,32 @@ class GeneralSettingsService(private val repository: ApplicationSettingRepositor
     fun siteName(): String = getRaw(SettingKey.GENERAL_SITE_NAME)
 
     /**
-     * Returns a complete snapshot of every key, including its effective value, its source
-     * (`DATABASE` if a row exists, `DEFAULT` otherwise), and a `restartPending` flag for
-     * keys whose DB value has changed since the JVM started.
+     * Returns a complete snapshot of every key, including its effective value, description,
+     * source (`DATABASE` if a row exists, `DEFAULT` otherwise), and a `restartPending` flag
+     * for keys whose DB value has changed since the JVM started.
      */
     fun listAll(): List<SettingSnapshot> {
         val current = cache.get()
         val boot = if (::bootSnapshot.isInitialized) bootSnapshot else current
         return SettingKey.entries.map { key ->
-            val raw = current[key.key]
-            val effective = if (raw.isNullOrEmpty()) key.defaultValue else raw
-            val source = if (raw == null) SettingSource.DEFAULT else SettingSource.DATABASE
-            val bootValue = boot[key.key] ?: key.defaultValue
+            val stored = current[key.key]
+            val effective = when {
+                stored == null -> key.defaultValue
+                stored.rawValue.isEmpty() -> key.defaultValue
+                else -> stored.rawValue
+            }
+            val source = if (stored == null) SettingSource.DEFAULT else SettingSource.DATABASE
+            val bootStored = boot[key.key]
+            val bootValue = when {
+                bootStored == null -> key.defaultValue
+                bootStored.rawValue.isEmpty() -> key.defaultValue
+                else -> bootStored.rawValue
+            }
             val restartPending = key.requiresRestart && bootValue != effective
             SettingSnapshot(
                 key = key,
                 value = effective,
+                description = stored?.description,
                 source = source,
                 restartPending = restartPending,
             )
@@ -166,10 +181,17 @@ enum class SettingSource {
 }
 
 /**
+ * Internal cache row — holds the raw stored value plus the DB-persisted description.
+ */
+internal data class StoredSetting(val rawValue: String, val description: String?)
+
+/**
  * A point-in-time view of one setting.
  *
  * @property key the [SettingKey] entry.
  * @property value the effective raw string value (either from DB or the hard-coded default).
+ * @property description human-readable description from the DB row, or `null` if the row
+ *   is missing or has no description persisted.
  * @property source where [value] came from.
  * @property restartPending `true` if [SettingKey.requiresRestart] and the DB value has
  *   diverged from the value the JVM loaded at boot. UI hint only.
@@ -177,6 +199,7 @@ enum class SettingSource {
 data class SettingSnapshot(
     val key: SettingKey,
     val value: String,
+    val description: String?,
     val source: SettingSource,
     val restartPending: Boolean,
 )

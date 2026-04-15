@@ -88,6 +88,7 @@ class AdminSettingsController(
         },
         requiresRestart = key.requiresRestart,
         restartPending = restartPending,
+        description = description,
         allowedValues = key.allowedValues?.toList(),
         minInt = key.minInt,
         maxInt = key.maxInt,

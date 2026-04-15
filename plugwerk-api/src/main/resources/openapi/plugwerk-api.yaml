@@ -2684,6 +2684,13 @@ components:
         value:
           type: string
           description: Raw string value (parsed according to `valueType` on the client)
+        description:
+          type: string
+          nullable: true
+          description: |
+            Human-readable description of the setting, persisted in the
+            `application_setting.setting_desc` column. Intended for display as inline help
+            in the Admin UI. May be `null` for legacy rows or keys that have no description.
         valueType:
           type: string
           enum: [STRING, INTEGER, BOOLEAN, ENUM]

@@ -56,6 +56,9 @@ enum class SettingValueType {
  * @property settingKey Stable dotted identifier, e.g. `upload.max_file_size_mb`. Unique.
  * @property settingValue Stringified value. `null` means "unset — fall back to the key's
  *   hard-coded default in `SettingKey`". Parsing is driven by [valueType].
+ * @property settingDesc Human-readable description of the setting. Seeded by Liquibase with
+ *   a sensible default for every known key and displayed in the Admin UI as inline help.
+ *   Nullable because a row may exist for an unknown/legacy key without a description.
  * @property valueType Discriminator used by the service layer to parse [settingValue].
  * @property updatedAt Last-write timestamp (set automatically on insert and every update).
  * @property updatedBy Principal name of the user who last wrote this row. `null` for rows
@@ -74,6 +77,9 @@ class ApplicationSettingEntity(
 
     @Column(name = "setting_value", nullable = true, columnDefinition = "text")
     var settingValue: String? = null,
+
+    @Column(name = "setting_desc", nullable = true, columnDefinition = "text")
+    var settingDesc: String? = null,
 
     @Enumerated(EnumType.STRING)
     @Column(name = "value_type", nullable = false, length = 16)
