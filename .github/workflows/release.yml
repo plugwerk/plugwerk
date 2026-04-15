@@ -143,10 +143,12 @@ jobs:
           path: plugwerk-server/plugwerk-server-backend/src/dist/
 
       - name: Verify staged JAR is present
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
-          STAGED="plugwerk-server/plugwerk-server-backend/src/dist/plugwerk-server-backend-${{ steps.version.outputs.VERSION }}.jar"
-          ls -lh "$STAGED"
+          STAGED="plugwerk-server/plugwerk-server-backend/src/dist/plugwerk-server-backend-${VERSION}.jar"
           test -f "$STAGED" || { echo "::error::Staged JAR missing: $STAGED"; exit 1; }
+          ls -lh "$STAGED"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -162,3 +164,5 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: false
           tags: plugwerk/plugwerk-server:ci-smoke
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
