@@ -169,7 +169,9 @@ jobs:
           images: plugwerk/plugwerk-server
           tags: |
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+            type=semver,pattern={{major}}.{{minor}}
+          flavor: |
+            latest=auto
           labels: |
             org.opencontainers.image.title=Plugwerk Server
             org.opencontainers.image.description=Plugin management and marketplace software for the Java/PF4J ecosystem.
