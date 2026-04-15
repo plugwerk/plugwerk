@@ -43,6 +43,7 @@ Thumbs.db
 docker-compose.override.yml
 
 .claude
+docs/superpowers/
 **/.observer.lock
 **/plugwerk-server-frontend/coverage
 **/plugwerk-server-frontend/src/api/generated
