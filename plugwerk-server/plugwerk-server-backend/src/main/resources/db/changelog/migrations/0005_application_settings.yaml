@@ -1,0 +1,102 @@
+# Persistent global application settings (ADR-0016).
+# Stores admin-manageable values such as default language, site name, max upload size, and
+# download-tracking flags. Supersedes the `plugwerk.upload.*` and `plugwerk.tracking.*`
+# YAML properties, which are removed from application.yml in the same change.
+databaseChangeLog:
+  - changeSet:
+      id: 0005-create-application-setting
+      author: plugwerk
+      changes:
+        - createTable:
+            tableName: application_setting
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: setting_key
+                  type: varchar(128)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uq_application_setting_key
+              - column:
+                  name: setting_value
+                  type: text
+                  constraints:
+                    nullable: true
+              - column:
+                  name: value_type
+                  type: varchar(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: varchar(255)
+                  constraints:
+                    nullable: true
+  - changeSet:
+      id: 0005-seed-default-settings
+      author: plugwerk
+      changes:
+        # General application settings
+        - insert:
+            tableName: application_setting
+            columns:
+              - column: { name: id, valueComputed: "gen_random_uuid()" }
+              - column: { name: setting_key, value: "general.default_language" }
+              - column: { name: setting_value, value: "en" }
+              - column: { name: value_type, value: "ENUM" }
+        - insert:
+            tableName: application_setting
+            columns:
+              - column: { name: id, valueComputed: "gen_random_uuid()" }
+              - column: { name: setting_key, value: "general.site_name" }
+              - column: { name: setting_value, value: "Plugwerk" }
+              - column: { name: value_type, value: "STRING" }
+        # Upload settings (previously plugwerk.upload.*)
+        - insert:
+            tableName: application_setting
+            columns:
+              - column: { name: id, valueComputed: "gen_random_uuid()" }
+              - column: { name: setting_key, value: "upload.max_file_size_mb" }
+              - column: { name: setting_value, value: "100" }
+              - column: { name: value_type, value: "INTEGER" }
+        # Download tracking settings (previously plugwerk.tracking.*)
+        - insert:
+            tableName: application_setting
+            columns:
+              - column: { name: id, valueComputed: "gen_random_uuid()" }
+              - column: { name: setting_key, value: "tracking.enabled" }
+              - column: { name: setting_value, value: "true" }
+              - column: { name: value_type, value: "BOOLEAN" }
+        - insert:
+            tableName: application_setting
+            columns:
+              - column: { name: id, valueComputed: "gen_random_uuid()" }
+              - column: { name: setting_key, value: "tracking.capture_ip" }
+              - column: { name: setting_value, value: "true" }
+              - column: { name: value_type, value: "BOOLEAN" }
+        - insert:
+            tableName: application_setting
+            columns:
+              - column: { name: id, valueComputed: "gen_random_uuid()" }
+              - column: { name: setting_key, value: "tracking.anonymize_ip" }
+              - column: { name: setting_value, value: "true" }
+              - column: { name: value_type, value: "BOOLEAN" }
+        - insert:
+            tableName: application_setting
+            columns:
+              - column: { name: id, valueComputed: "gen_random_uuid()" }
+              - column: { name: setting_key, value: "tracking.capture_user_agent" }
+              - column: { name: setting_value, value: "true" }
+              - column: { name: value_type, value: "BOOLEAN" }
