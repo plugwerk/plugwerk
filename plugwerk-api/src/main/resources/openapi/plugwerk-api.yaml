@@ -1510,6 +1510,61 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /admin/settings:
+    get:
+      tags:
+        - AdminSettings
+      summary: List all application settings
+      description: |
+        Returns a snapshot of every admin-manageable application setting along with its
+        effective value, source (DATABASE or DEFAULT), and a `restartPending` flag for
+        keys that require a server restart and whose DB value has changed since boot.
+        Requires superadmin privileges. See ADR-0016.
+      operationId: listApplicationSettings
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: All settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationSettingsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    patch:
+      tags:
+        - AdminSettings
+      summary: Update one or more application settings
+      description: |
+        Writes a partial set of `key -> value` pairs to the `application_setting` table.
+        Each value is validated against its SettingKey's validator; invalid values are
+        rejected with HTTP 400 and no partial write occurs. Requires superadmin privileges.
+      operationId: updateApplicationSettings
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationSettingsUpdateRequest'
+      responses:
+        '200':
+          description: Updated snapshot of all settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationSettingsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
 components:
   parameters:
     NamespaceSlug:
@@ -2617,6 +2672,80 @@ components:
         - key
         - name
         - createdAt
+
+    ApplicationSettingDto:
+      type: object
+      description: |
+        One admin-manageable application setting (ADR-0016).
+      properties:
+        key:
+          type: string
+          description: Stable dotted identifier, e.g. `upload.max_file_size_mb`
+        value:
+          type: string
+          description: Raw string value (parsed according to `valueType` on the client)
+        valueType:
+          type: string
+          enum: [STRING, INTEGER, BOOLEAN, ENUM]
+          description: Discriminator for client-side parsing
+        source:
+          type: string
+          enum: [DATABASE, DEFAULT]
+          description: Where the effective value came from
+        requiresRestart:
+          type: boolean
+          description: True if changing this setting requires a server restart to take effect
+        restartPending:
+          type: boolean
+          description: |
+            True if `requiresRestart` is true AND the database value has changed since the
+            JVM started. UI hint only — the running server still uses the boot-time value.
+        allowedValues:
+          type: array
+          description: For ENUM settings, the full set of accepted values. Null otherwise.
+          items:
+            type: string
+        minInt:
+          type: integer
+          description: For INTEGER settings, the inclusive minimum. Null otherwise.
+        maxInt:
+          type: integer
+          description: For INTEGER settings, the inclusive maximum. Null otherwise.
+      required:
+        - key
+        - value
+        - valueType
+        - source
+        - requiresRestart
+        - restartPending
+
+    ApplicationSettingsResponse:
+      type: object
+      description: Full snapshot of every known setting.
+      properties:
+        settings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApplicationSettingDto'
+      required:
+        - settings
+
+    ApplicationSettingsUpdateRequest:
+      type: object
+      description: |
+        Partial write — only the keys present in `settings` are updated. Unknown keys are
+        rejected with HTTP 400.
+      properties:
+        settings:
+          type: object
+          additionalProperties:
+            type: string
+          description: Map of `setting_key` to raw string value
+          example:
+            upload.max_file_size_mb: "200"
+            tracking.enabled: "false"
+      required:
+        - settings
 
   responses:
     BadRequest:

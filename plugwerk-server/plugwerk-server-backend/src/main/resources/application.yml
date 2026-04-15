@@ -19,10 +19,10 @@ spring:
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
-  servlet:
-    multipart:
-      max-file-size: ${PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB:100}MB
-      max-request-size: ${PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB:100}MB
+  # Spring's servlet multipart limits are set programmatically at bean-creation time from
+  # the `upload.max_file_size_mb` setting in `application_setting` (see MultipartConfig.kt).
+  # A hard safety ceiling of 1 GB is applied by the MultipartConfig bean regardless of the
+  # DB value — see SettingKey.MAX_ALLOWED_UPLOAD_MB and ADR-0016.
 
   jackson:
     deserialization:
@@ -66,28 +66,11 @@ plugwerk:
       # Env: PLUGWERK_AUTH_RATE_LIMIT_WINDOW_SECONDS
       window-seconds: ${PLUGWERK_AUTH_RATE_LIMIT_WINDOW_SECONDS:60}
 
-  # Maximum allowed plugin artifact file size in MB.
-  # Files exceeding this limit are rejected with HTTP 413 (Payload Too Large).
-  # Env: PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB
-  upload:
-    max-file-size-mb: ${PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB:100}
-
-  # Download event tracking (audit log).
-  # Records individual download events in the download_event table.
-  # The atomic download_count counter on plugin_release is always incremented regardless.
-  tracking:
-    # Master switch — set to false to disable event recording entirely.
-    # Env: PLUGWERK_TRACKING_ENABLED
-    enabled: ${PLUGWERK_TRACKING_ENABLED:true}
-    # Whether to capture the client IP address. Default: true.
-    # Env: PLUGWERK_TRACKING_CAPTURE_IP
-    capture-ip: ${PLUGWERK_TRACKING_CAPTURE_IP:true}
-    # Anonymize IPs to /24 (IPv4) or /48 (IPv6) before storage. Default: true.
-    # Env: PLUGWERK_TRACKING_ANONYMIZE_IP
-    anonymize-ip: ${PLUGWERK_TRACKING_ANONYMIZE_IP:true}
-    # Whether to capture the HTTP User-Agent header. Default: true.
-    # Env: PLUGWERK_TRACKING_CAPTURE_USER_AGENT
-    capture-user-agent: ${PLUGWERK_TRACKING_CAPTURE_USER_AGENT:true}
+  # Upload and download-tracking settings were moved to the `application_setting` database
+  # table in 1.0.0-alpha.2 (ADR-0016). The environment variables PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB,
+  # PLUGWERK_TRACKING_ENABLED, PLUGWERK_TRACKING_CAPTURE_IP, PLUGWERK_TRACKING_ANONYMIZE_IP and
+  # PLUGWERK_TRACKING_CAPTURE_USER_AGENT are no longer read. Manage these values via the
+  # Admin UI or the `PATCH /api/v1/admin/settings` endpoint.
 
 server:
   port: 8080

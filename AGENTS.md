@@ -162,6 +162,7 @@ PRs without labels or milestone are non-compliant. Set them via `gh pr edit <num
   - [ADR-0004](docs/adrs/0004-frontend-conventions.md) — Frontend conventions (React + TypeScript + MUI + Zustand)
   - [ADR-0011](docs/adrs/0011-client-auth-api-key-strategy.md) — Client Plugin authentication (API key primary)
   - [ADR-0014](docs/adrs/0014-dual-license-library-modules.md) — Dual-license: Apache-2.0 for libraries, AGPL-3.0 for server
+  - [ADR-0016](docs/adrs/0016-application-settings-precedence.md) — Application settings precedence (DB is authoritative, YAML is infra-only)
 - Feature specifications: `docs/features/` — GitHub Issues link to their corresponding spec file
 - Project concept: `docs/concepts/`
 - Design system: `docs/design/` — HTML prototypes and design tokens (`tokens.css`)

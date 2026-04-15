@@ -18,8 +18,8 @@
  */
 package io.plugwerk.server.controller
 
-import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.service.VersionProvider
+import io.plugwerk.server.service.settings.GeneralSettingsService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
@@ -27,14 +27,17 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/api/v1")
-class ConfigController(private val properties: PlugwerkProperties, private val versionProvider: VersionProvider) {
+class ConfigController(
+    private val settingsService: GeneralSettingsService,
+    private val versionProvider: VersionProvider,
+) {
 
     @GetMapping("/config")
     fun getServerConfig(): ResponseEntity<ServerConfigResponse> = ResponseEntity.ok(
         ServerConfigResponse(
             version = versionProvider.getVersion(),
             upload = ServerConfigResponse.UploadConfig(
-                maxFileSizeMb = properties.upload.maxFileSizeMb,
+                maxFileSizeMb = settingsService.maxUploadSizeMb(),
             ),
         ),
     )

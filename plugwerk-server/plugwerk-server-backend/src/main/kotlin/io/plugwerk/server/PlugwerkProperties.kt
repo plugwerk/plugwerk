@@ -27,12 +27,16 @@ import org.springframework.validation.annotation.Validated
 /**
  * Central configuration properties for the Plugwerk server, bound to the `plugwerk` prefix.
  *
- * All Plugwerk-specific settings are grouped here. Each logical sub-section is represented
- * by a nested data class so that consumers can depend on only the slice they need.
- * Registered via `@EnableConfigurationProperties` on [PlugwerkApplication].
+ * All infra/security/bootstrap Plugwerk settings are grouped here. Admin-manageable values
+ * (default language, site name, upload size, tracking flags) are **not** here — they live
+ * in the `application_setting` database table and are accessed via
+ * `GeneralSettingsService`. See [ADR-0016](../../../../../../../../docs/adrs/0016-application-settings-precedence.md).
  *
- * Configuration is supplied through `application.yml` and can be overridden per environment
- * using environment variables (see each property for the corresponding variable name).
+ * Each logical sub-section is represented by a nested data class so that consumers can
+ * depend on only the slice they need. Registered via `@EnableConfigurationProperties` on
+ * [PlugwerkApplication]. Configuration is supplied through `application.yml` and can be
+ * overridden per environment using environment variables (see each property for the
+ * corresponding variable name).
  *
  * @property storage Artifact storage configuration — selects the backend and provides
  *   backend-specific settings. See [StorageProperties].
@@ -44,8 +48,6 @@ data class PlugwerkProperties(
     val storage: StorageProperties = StorageProperties(),
     val server: ServerProperties = ServerProperties(),
     @field:Valid val auth: AuthProperties = AuthProperties(),
-    val upload: UploadProperties = UploadProperties(),
-    val tracking: TrackingProperties = TrackingProperties(),
 ) {
     /**
      * Artifact storage configuration (`plugwerk.storage.*`).
@@ -209,57 +211,4 @@ data class PlugwerkProperties(
          */
         data class RateLimitProperties(val maxAttempts: Int = 10, val windowSeconds: Long = 60)
     }
-
-    /**
-     * Upload configuration (`plugwerk.upload.*`).
-     *
-     * Controls the maximum allowed size for plugin artifact uploads.
-     *
-     * @property maxFileSizeMb Maximum artifact file size in megabytes. Files exceeding this
-     *   limit are rejected with HTTP 413 (Payload Too Large). This limit is enforced both
-     *   at the Spring multipart layer and in the application service layer.
-     *
-     *   Environment variable: `PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB`
-     *
-     *   ```yaml
-     *   plugwerk.upload.max-file-size-mb: 100
-     *   ```
-     */
-    data class UploadProperties(val maxFileSizeMb: Int = 100)
-
-    /**
-     * Download tracking configuration (`plugwerk.tracking.*`).
-     *
-     * Controls whether and how download events are recorded in the `download_event` audit
-     * log table. All options are privacy-oriented: IP anonymisation is enabled by default,
-     * and individual data fields can be suppressed entirely.
-     *
-     * @property enabled Master switch for download event recording. When `false`, no rows
-     *   are written to `download_event` (the atomic `download_count` counter on
-     *   `plugin_release` is still incremented regardless).
-     *
-     *   Environment variable: `PLUGWERK_TRACKING_ENABLED`
-     *
-     * @property captureIp Whether to store the client IP address. When `false`, the
-     *   `client_ip` column is always set to `null`.
-     *
-     *   Environment variable: `PLUGWERK_TRACKING_CAPTURE_IP`
-     *
-     * @property anonymizeIp Whether to anonymize the client IP before storage. When `true`
-     *   (default), IPv4 addresses are truncated to /24 (last octet zeroed) and IPv6
-     *   addresses are truncated to /48 (last 80 bits zeroed).
-     *
-     *   Environment variable: `PLUGWERK_TRACKING_ANONYMIZE_IP`
-     *
-     * @property captureUserAgent Whether to store the HTTP User-Agent header. When `false`,
-     *   the `user_agent` column is always set to `null`.
-     *
-     *   Environment variable: `PLUGWERK_TRACKING_CAPTURE_USER_AGENT`
-     */
-    data class TrackingProperties(
-        val enabled: Boolean = true,
-        val captureIp: Boolean = true,
-        val anonymizeIp: Boolean = true,
-        val captureUserAgent: Boolean = true,
-    )
 }

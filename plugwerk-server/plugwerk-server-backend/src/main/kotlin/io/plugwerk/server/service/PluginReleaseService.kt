@@ -20,7 +20,6 @@ package io.plugwerk.server.service
 
 import io.plugwerk.descriptor.DescriptorResolver
 import io.plugwerk.descriptor.PlugwerkDescriptor
-import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.domain.FileFormat
 import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.PluginEntity
@@ -28,6 +27,7 @@ import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
+import io.plugwerk.server.service.settings.GeneralSettingsService
 import io.plugwerk.server.service.storage.ArtifactStorageService
 import io.plugwerk.spi.model.ReleaseStatus
 import org.springframework.data.domain.Page
@@ -49,7 +49,7 @@ class PluginReleaseService(
     private val storageService: ArtifactStorageService,
     private val descriptorResolver: DescriptorResolver,
     private val objectMapper: ObjectMapper,
-    private val properties: PlugwerkProperties,
+    private val settingsService: GeneralSettingsService,
     private val downloadEventService: DownloadEventService,
 ) {
 
@@ -121,15 +121,16 @@ class PluginReleaseService(
         contentLength: Long,
         originalFilename: String? = null,
     ): PluginReleaseEntity {
-        val maxBytes = properties.upload.maxFileSizeMb.toLong() * 1_048_576L
+        val maxFileSizeMb = settingsService.maxUploadSizeMb()
+        val maxBytes = maxFileSizeMb.toLong() * 1_048_576L
 
         if (contentLength > 0 && contentLength > maxBytes) {
-            throw FileTooLargeException(contentLength, properties.upload.maxFileSizeMb)
+            throw FileTooLargeException(contentLength, maxFileSizeMb)
         }
 
         val bytes = content.readNBytes(maxBytes.toInt() + 1)
         if (bytes.size > maxBytes) {
-            throw FileTooLargeException(bytes.size.toLong(), properties.upload.maxFileSizeMb)
+            throw FileTooLargeException(bytes.size.toLong(), maxFileSizeMb)
         }
         if (bytes.size < 4 || bytes[0] != 0x50.toByte() || bytes[1] != 0x4B.toByte()) {
             throw InvalidArtifactException("Uploaded file is not a valid JAR/ZIP archive")

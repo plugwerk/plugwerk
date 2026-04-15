@@ -18,10 +18,10 @@
  */
 package io.plugwerk.server.service
 
-import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.domain.DownloadEventEntity
 import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.repository.DownloadEventRepository
+import io.plugwerk.server.service.settings.GeneralSettingsService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
@@ -32,28 +32,30 @@ import java.net.InetAddress
  * Records download events in the audit log table.
  *
  * Runs in its own transaction ([Propagation.REQUIRES_NEW]) so that a failure to record
- * an event never rolls back the actual artifact download. The service respects the
- * `plugwerk.tracking.*` configuration for privacy-aware data capture.
+ * an event never rolls back the actual artifact download. The service reads its
+ * privacy-relevant flags from [GeneralSettingsService], which is backed by the
+ * `application_setting` table (ADR-0016). Changes apply to the next download without a
+ * server restart.
  */
 @Service
 class DownloadEventService(
     private val downloadEventRepository: DownloadEventRepository,
-    private val properties: PlugwerkProperties,
+    private val settingsService: GeneralSettingsService,
 ) {
 
     private val log = LoggerFactory.getLogger(DownloadEventService::class.java)
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun record(release: PluginReleaseEntity, clientIp: String?, userAgent: String?) {
-        if (!properties.tracking.enabled) return
+        if (!settingsService.trackingEnabled()) return
 
         val ip = when {
-            !properties.tracking.captureIp || clientIp == null -> null
-            properties.tracking.anonymizeIp -> anonymizeIpAddress(clientIp)
+            !settingsService.trackingCaptureIp() || clientIp == null -> null
+            settingsService.trackingAnonymizeIp() -> anonymizeIpAddress(clientIp)
             else -> clientIp
         }
 
-        val agent = if (properties.tracking.captureUserAgent) userAgent else null
+        val agent = if (settingsService.trackingCaptureUserAgent()) userAgent else null
 
         downloadEventRepository.save(
             DownloadEventEntity(
