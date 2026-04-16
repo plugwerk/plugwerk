@@ -26,66 +26,15 @@ import {
   MenuItem,
   Select,
   Typography,
-  alpha,
-  useTheme,
 } from "@mui/material";
 import { User, Globe, FolderOpen, Lock, Palette } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Section } from "../components/common/Section";
 import { useAuthStore } from "../stores/authStore";
 import { useNamespaceStore } from "../stores/namespaceStore";
 import { useUserSettingsStore } from "../stores/userSettingsStore";
 import { tokens } from "../theme/tokens";
 import { useUiStore } from "../stores/uiStore";
-
-interface SectionProps {
-  icon: React.ReactNode;
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-}
-
-function Section({ icon, title, description, children }: SectionProps) {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === "dark";
-
-  return (
-    <Box
-      sx={{
-        border: "1px solid",
-        borderColor: "divider",
-        borderRadius: tokens.radius.card,
-        background: isDark ? alpha("#ffffff", 0.02) : tokens.color.white,
-        overflow: "hidden",
-      }}
-    >
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 1.5,
-          px: 3,
-          py: 2,
-          borderBottom: "1px solid",
-          borderColor: "divider",
-          background: isDark ? alpha("#ffffff", 0.03) : tokens.color.gray10,
-        }}
-      >
-        <Box sx={{ color: "text.secondary", display: "flex" }}>{icon}</Box>
-        <Box>
-          <Typography variant="subtitle1" fontWeight={600}>
-            {title}
-          </Typography>
-          {description && (
-            <Typography variant="caption" color="text.secondary">
-              {description}
-            </Typography>
-          )}
-        </Box>
-      </Box>
-      <Box sx={{ px: 3, py: 2.5 }}>{children}</Box>
-    </Box>
-  );
-}
 
 interface InfoRowProps {
   label: string;

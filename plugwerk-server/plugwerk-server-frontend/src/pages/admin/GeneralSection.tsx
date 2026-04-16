@@ -32,11 +32,10 @@ import {
   Switch,
   TextField,
   Typography,
-  alpha,
-  useTheme,
 } from "@mui/material";
 import { Activity, Globe, Upload } from "lucide-react";
 import type { ApplicationSettingDto } from "../../api/generated/model/application-setting-dto";
+import { Section } from "../../components/common/Section";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { tokens } from "../../theme/tokens";
@@ -60,71 +59,6 @@ function computeDirtyPatch(
     }
   }
   return patch;
-}
-
-interface SettingSectionProps {
-  icon: React.ReactNode;
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-}
-
-function SettingSection({
-  icon,
-  title,
-  description,
-  children,
-}: SettingSectionProps) {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === "dark";
-
-  return (
-    <Box
-      sx={{
-        border: "1px solid",
-        borderColor: "divider",
-        borderRadius: tokens.radius.card,
-        background: isDark ? alpha("#ffffff", 0.02) : tokens.color.white,
-        overflow: "hidden",
-      }}
-    >
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 1.5,
-          px: 3,
-          py: 2,
-          borderBottom: "1px solid",
-          borderColor: "divider",
-          background: isDark ? alpha("#ffffff", 0.03) : tokens.color.gray10,
-        }}
-      >
-        <Box sx={{ color: "text.secondary", display: "flex" }}>{icon}</Box>
-        <Box>
-          <Typography variant="subtitle1" fontWeight={600}>
-            {title}
-          </Typography>
-          {description && (
-            <Typography variant="caption" color="text.secondary">
-              {description}
-            </Typography>
-          )}
-        </Box>
-      </Box>
-      <Box
-        sx={{
-          px: 3,
-          py: 2.5,
-          display: "flex",
-          flexDirection: "column",
-          gap: 2.5,
-        }}
-      >
-        {children}
-      </Box>
-    </Box>
-  );
 }
 
 export function GeneralSection() {
@@ -425,26 +359,29 @@ export function GeneralSection() {
 
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
         {/* General */}
-        <SettingSection
+        <Section
+          contentGap={2.5}
           icon={<Globe size={18} />}
           title="General"
           description="Application name and default language"
         >
           {renderField("general.site_name")}
           {renderField("general.default_language")}
-        </SettingSection>
+        </Section>
 
         {/* Upload */}
-        <SettingSection
+        <Section
+          contentGap={2.5}
           icon={<Upload size={18} />}
           title="Upload"
           description="Artifact upload constraints"
         >
           {renderField("upload.max_file_size_mb")}
-        </SettingSection>
+        </Section>
 
         {/* Download Tracking */}
-        <SettingSection
+        <Section
+          contentGap={2.5}
           icon={<Activity size={18} />}
           title="Download Tracking"
           description="Privacy settings for download event recording"
@@ -453,7 +390,7 @@ export function GeneralSection() {
           {renderField("tracking.capture_ip")}
           {renderField("tracking.anonymize_ip")}
           {renderField("tracking.capture_user_agent")}
-        </SettingSection>
+        </Section>
       </Box>
 
       <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
