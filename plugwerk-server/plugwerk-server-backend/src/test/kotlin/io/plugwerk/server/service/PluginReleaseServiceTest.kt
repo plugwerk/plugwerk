@@ -20,7 +20,6 @@ package io.plugwerk.server.service
 
 import io.plugwerk.descriptor.DescriptorResolver
 import io.plugwerk.descriptor.PlugwerkDescriptor
-import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.domain.FileFormat
 import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.PluginEntity
@@ -28,6 +27,7 @@ import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
+import io.plugwerk.server.service.settings.GeneralSettingsService
 import io.plugwerk.server.service.storage.ArtifactStorageService
 import io.plugwerk.spi.model.ReleaseStatus
 import org.assertj.core.api.Assertions.assertThat
@@ -38,6 +38,7 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
+import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -77,13 +78,9 @@ class PluginReleaseServiceTest {
     private val autoApprovePlugin =
         PluginEntity(namespace = autoApproveNamespace, pluginId = "auto-plugin", name = "Auto Plugin")
 
-    private val properties = PlugwerkProperties(
-        auth = PlugwerkProperties.AuthProperties(
-            jwtSecret = "test-only-secret-not-for-production-32ch",
-            encryptionKey = "test-encrypt16c!",
-        ),
-        upload = PlugwerkProperties.UploadProperties(maxFileSizeMb = 1),
-    )
+    private val settingsService: GeneralSettingsService = mock<GeneralSettingsService>().also {
+        whenever(it.maxUploadSizeMb()).thenReturn(1)
+    }
 
     @BeforeEach
     fun setUp() {
@@ -94,7 +91,7 @@ class PluginReleaseServiceTest {
             storageService,
             descriptorResolver,
             ObjectMapper(),
-            properties,
+            settingsService,
             downloadEventService,
         )
     }

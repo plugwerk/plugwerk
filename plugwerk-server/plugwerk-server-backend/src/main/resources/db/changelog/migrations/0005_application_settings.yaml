@@ -1,0 +1,128 @@
+# Persistent global application settings (ADR-0016).
+# Stores admin-manageable values such as default language, site name, max upload size, and
+# download-tracking flags. Supersedes the `plugwerk.upload.*` and `plugwerk.tracking.*`
+# YAML properties, which are removed from application.yml in the same change.
+databaseChangeLog:
+  - changeSet:
+      id: 0005-create-application-setting
+      author: plugwerk
+      changes:
+        - createTable:
+            tableName: application_setting
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: setting_key
+                  type: varchar(128)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uq_application_setting_key
+              - column:
+                  name: setting_value
+                  type: text
+                  constraints:
+                    nullable: true
+              - column:
+                  name: setting_desc
+                  type: text
+                  constraints:
+                    nullable: true
+              - column:
+                  name: value_type
+                  type: varchar(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: varchar(255)
+                  constraints:
+                    nullable: true
+  - changeSet:
+      id: 0005-seed-default-settings
+      author: plugwerk
+      changes:
+        # General application settings
+        - insert:
+            tableName: application_setting
+            columns:
+              - column: { name: id, valueComputed: "gen_random_uuid()" }
+              - column: { name: setting_key, value: "general.default_language" }
+              - column: { name: setting_value, value: "en" }
+              - column: { name: value_type, value: "ENUM" }
+              - column:
+                  name: setting_desc
+                  value: "Default UI language shown to users who have no explicit language preference. Accepted values: en, de."
+        - insert:
+            tableName: application_setting
+            columns:
+              - column: { name: id, valueComputed: "gen_random_uuid()" }
+              - column: { name: setting_key, value: "general.site_name" }
+              - column: { name: setting_value, value: "Plugwerk" }
+              - column: { name: value_type, value: "STRING" }
+              - column:
+                  name: setting_desc
+                  value: "Display name of this Plugwerk instance. Shown in the top bar, page titles, and email notifications."
+        # Upload settings
+        - insert:
+            tableName: application_setting
+            columns:
+              - column: { name: id, valueComputed: "gen_random_uuid()" }
+              - column: { name: setting_key, value: "upload.max_file_size_mb" }
+              - column: { name: setting_value, value: "100" }
+              - column: { name: value_type, value: "INTEGER" }
+              - column:
+                  name: setting_desc
+                  value: "Maximum plugin artifact size accepted on upload, in megabytes. Files exceeding this limit are rejected with HTTP 413. Changes require a server restart to take effect on the Servlet multipart filter (a hard safety ceiling of 1024 MB always applies)."
+        # Download tracking settings
+        - insert:
+            tableName: application_setting
+            columns:
+              - column: { name: id, valueComputed: "gen_random_uuid()" }
+              - column: { name: setting_key, value: "tracking.enabled" }
+              - column: { name: setting_value, value: "true" }
+              - column: { name: value_type, value: "BOOLEAN" }
+              - column:
+                  name: setting_desc
+                  value: "Master switch for recording individual download events in the download_event audit log. When disabled, only the atomic download counter on plugin_release is incremented."
+        - insert:
+            tableName: application_setting
+            columns:
+              - column: { name: id, valueComputed: "gen_random_uuid()" }
+              - column: { name: setting_key, value: "tracking.capture_ip" }
+              - column: { name: setting_value, value: "true" }
+              - column: { name: value_type, value: "BOOLEAN" }
+              - column:
+                  name: setting_desc
+                  value: "Whether to store the client IP address on download events. When disabled, the client_ip column is written as NULL regardless of the anonymize setting."
+        - insert:
+            tableName: application_setting
+            columns:
+              - column: { name: id, valueComputed: "gen_random_uuid()" }
+              - column: { name: setting_key, value: "tracking.anonymize_ip" }
+              - column: { name: setting_value, value: "true" }
+              - column: { name: value_type, value: "BOOLEAN" }
+              - column:
+                  name: setting_desc
+                  value: "Whether to anonymise captured IPs before storage. IPv4 addresses are truncated to /24 and IPv6 addresses to /48. Has no effect when tracking.capture_ip is disabled."
+        - insert:
+            tableName: application_setting
+            columns:
+              - column: { name: id, valueComputed: "gen_random_uuid()" }
+              - column: { name: setting_key, value: "tracking.capture_user_agent" }
+              - column: { name: setting_value, value: "true" }
+              - column: { name: value_type, value: "BOOLEAN" }
+              - column:
+                  name: setting_desc
+                  value: "Whether to store the HTTP User-Agent header on download events. When disabled, the user_agent column is written as NULL."

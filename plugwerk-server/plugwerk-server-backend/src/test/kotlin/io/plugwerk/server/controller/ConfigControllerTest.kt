@@ -18,12 +18,12 @@
  */
 package io.plugwerk.server.controller
 
-import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.security.LoginRateLimitFilter
 import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
 import io.plugwerk.server.security.PasswordChangeRequiredFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.service.VersionProvider
+import io.plugwerk.server.service.settings.GeneralSettingsService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
@@ -51,7 +51,7 @@ class ConfigControllerTest {
 
     @MockitoBean lateinit var jwtDecoder: JwtDecoder
 
-    @MockitoBean lateinit var plugwerkProperties: PlugwerkProperties
+    @MockitoBean lateinit var settingsService: GeneralSettingsService
 
     @MockitoBean lateinit var versionProvider: VersionProvider
 
@@ -59,9 +59,7 @@ class ConfigControllerTest {
 
     @Test
     fun `GET config returns upload limits and version`() {
-        whenever(plugwerkProperties.upload).thenReturn(
-            PlugwerkProperties.UploadProperties(maxFileSizeMb = 200),
-        )
+        whenever(settingsService.maxUploadSizeMb()).thenReturn(200)
         whenever(versionProvider.getVersion()).thenReturn("1.2.3")
 
         mockMvc.get("/api/v1/config")
@@ -74,9 +72,7 @@ class ConfigControllerTest {
 
     @Test
     fun `GET config returns unknown when version is not available`() {
-        whenever(plugwerkProperties.upload).thenReturn(
-            PlugwerkProperties.UploadProperties(maxFileSizeMb = 100),
-        )
+        whenever(settingsService.maxUploadSizeMb()).thenReturn(100)
         whenever(versionProvider.getVersion()).thenReturn("unknown")
 
         mockMvc.get("/api/v1/config")

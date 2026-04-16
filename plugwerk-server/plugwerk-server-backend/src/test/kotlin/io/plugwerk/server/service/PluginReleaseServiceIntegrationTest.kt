@@ -51,6 +51,7 @@ import kotlin.test.assertFailsWith
     PluginService::class,
     NamespaceService::class,
     DownloadEventService::class,
+    io.plugwerk.server.service.settings.GeneralSettingsService::class,
     PluginReleaseServiceIntegrationTest.MockConfig::class,
 )
 @Tag("integration")

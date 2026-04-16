@@ -310,7 +310,13 @@ sudo journalctl -u plugwerk -f    # view logs
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PLUGWERK_BASE_URL` | `http://localhost:8080` | Public base URL (used in download links) |
-| `PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB` | `100` | Max upload file size in MB |
+
+> **Breaking change in 1.0.0-alpha.2 (#208, ADR-0016):** `PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB`
+> is no longer read. Upload size is now stored in the `application_setting` database table
+> and managed via the Admin → Settings UI or `PATCH /api/v1/admin/settings`. On first upgrade
+> the value is seeded to `100` MB. Changing it at runtime still requires a server restart for
+> the multipart filter to pick up the new limit — the Admin UI displays a restart-pending
+> notice when applicable.
 
 ### Authentication
 
@@ -322,12 +328,13 @@ sudo journalctl -u plugwerk -f    # view logs
 
 ### Tracking
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PLUGWERK_TRACKING_ENABLED` | `true` | Enable download event tracking |
-| `PLUGWERK_TRACKING_CAPTURE_IP` | `true` | Record client IP |
-| `PLUGWERK_TRACKING_ANONYMIZE_IP` | `true` | Anonymize IPs to /24 (IPv4) or /48 (IPv6) |
-| `PLUGWERK_TRACKING_CAPTURE_USER_AGENT` | `true` | Record User-Agent header |
+> **Breaking change in 1.0.0-alpha.2 (#208, ADR-0016):** The `PLUGWERK_TRACKING_*`
+> environment variables have been removed. Download-tracking flags are now stored in the
+> `application_setting` database table and managed via the Admin → Settings UI or
+> `PATCH /api/v1/admin/settings`. Existing deployments that relied on the env variables
+> must set the equivalent rows in the Admin UI after the first upgrade. The Liquibase seed
+> applies the previous defaults (`enabled=true`, `capture_ip=true`, `anonymize_ip=true`,
+> `capture_user_agent=true`), so no action is required unless your deployment had overrides.
 
 ### JVM
 
