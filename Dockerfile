@@ -19,7 +19,9 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-RUN addgroup -S plugwerk && adduser -S plugwerk -G plugwerk
+RUN addgroup -S plugwerk && adduser -S plugwerk -G plugwerk \
+    && mkdir -p /var/plugwerk/artifacts \
+    && chown -R plugwerk:plugwerk /var/plugwerk
 USER plugwerk
 
 COPY --from=build --chown=plugwerk:plugwerk /app/plugwerk-server/plugwerk-server-backend/build/libs/*.jar app.jar
