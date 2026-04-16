@@ -1,0 +1,145 @@
+name: Publish SNAPSHOT
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  snapshot-maven:
+    name: Publish Maven SNAPSHOTs to GitHub Packages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for SNAPSHOT version
+        id: check
+        run: |
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          if [[ "$VERSION" != *-SNAPSHOT ]]; then
+            echo "::notice::VERSION is '$VERSION' (not a SNAPSHOT) — skipping publish"
+            echo "is_snapshot=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_snapshot=true" >> "$GITHUB_OUTPUT"
+            echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up JDK 21
+        if: steps.check.outputs.is_snapshot == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Node.js 20
+        if: steps.check.outputs.is_snapshot == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: plugwerk-server/plugwerk-server-frontend/package-lock.json
+
+      - name: Setup Gradle
+        if: steps.check.outputs.is_snapshot == 'true'
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build all modules
+        if: steps.check.outputs.is_snapshot == 'true'
+        run: ./gradlew build -x integrationTest
+
+      - name: Publish SNAPSHOTs to GitHub Packages
+        if: steps.check.outputs.is_snapshot == 'true'
+        run: ./gradlew publishAllPublicationsToGitHubPackagesRepository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+
+  snapshot-docker:
+    name: Publish SNAPSHOT image to GHCR
+    needs: snapshot-maven
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for SNAPSHOT version
+        id: check
+        run: |
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          if [[ "$VERSION" != *-SNAPSHOT ]]; then
+            echo "is_snapshot=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_snapshot=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up JDK 21
+        if: steps.check.outputs.is_snapshot == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Node.js 20
+        if: steps.check.outputs.is_snapshot == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: plugwerk-server/plugwerk-server-frontend/package-lock.json
+
+      - name: Setup Gradle
+        if: steps.check.outputs.is_snapshot == 'true'
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build backend fat JAR
+        if: steps.check.outputs.is_snapshot == 'true'
+        run: ./gradlew :plugwerk-server:plugwerk-server-backend:bootJar -x test
+
+      - name: Stage fat JAR for Docker build
+        if: steps.check.outputs.is_snapshot == 'true'
+        run: |
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          JAR="plugwerk-server/plugwerk-server-backend/build/libs/plugwerk-server-backend-${VERSION}.jar"
+          test -f "$JAR" || { echo "::error::Fat JAR not found: $JAR"; exit 1; }
+          cp "$JAR" plugwerk-server/plugwerk-server-backend/src/dist/
+          ls -lh plugwerk-server/plugwerk-server-backend/src/dist/
+
+      - name: Set up QEMU
+        if: steps.check.outputs.is_snapshot == 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: steps.check.outputs.is_snapshot == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: steps.check.outputs.is_snapshot == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push SNAPSHOT image to GHCR
+        if: steps.check.outputs.is_snapshot == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: plugwerk-server/plugwerk-server-backend/src/dist
+          file: plugwerk-server/plugwerk-server-backend/src/dist/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/plugwerk/plugwerk-server:snapshot
+          labels: |
+            org.opencontainers.image.title=Plugwerk Server
+            org.opencontainers.image.description=Plugin management and marketplace software for the Java/PF4J ecosystem (SNAPSHOT).
+            org.opencontainers.image.source=https://github.com/plugwerk/plugwerk
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

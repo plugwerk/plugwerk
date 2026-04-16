@@ -163,6 +163,8 @@ PRs without labels or milestone are non-compliant. Set them via `gh pr edit <num
   - [ADR-0011](docs/adrs/0011-client-auth-api-key-strategy.md) — Client Plugin authentication (API key primary)
   - [ADR-0014](docs/adrs/0014-dual-license-library-modules.md) — Dual-license: Apache-2.0 for libraries, AGPL-3.0 for server
   - [ADR-0016](docs/adrs/0016-application-settings-precedence.md) — Application settings precedence (DB is authoritative, YAML is infra-only)
+  - [ADR-0017](docs/adrs/0017-dual-registry-publishing-strategy.md) — Dual-registry publishing: GitHub Packages for SNAPSHOTs, Maven Central + Docker Hub for releases
+- Development guide: `docs/development.md` — SNAPSHOT resolution, PAT setup, container images
 - Feature specifications: `docs/features/` — GitHub Issues link to their corresponding spec file
 - Project concept: `docs/concepts/`
 - Design system: `docs/design/` — HTML prototypes and design tokens (`tokens.css`)
@@ -330,6 +332,15 @@ npm run license:add          # Add missing license headers
 
 **Important**: Frontend tests must be run from `plugwerk-server/plugwerk-server-frontend/` — running
 `npx vitest` from the repo root uses the wrong config and picks up unrelated test files.
+
+### Publishing (run from repo root)
+
+```bash
+./gradlew publishAllPublicationsToGitHubPackagesRepository   # Publish SNAPSHOTs to GitHub Packages (requires GITHUB_TOKEN)
+./gradlew publishAggregationToCentralPortal                  # Publish release to Maven Central (CI only)
+```
+
+SNAPSHOT artifacts are published automatically on every push to `main` via the `snapshot-publish.yml` workflow. Release artifacts are published to both Maven Central and GitHub Packages by the `release.yml` workflow on `v*` tags. See [docs/development.md](docs/development.md) for consuming SNAPSHOT artifacts in dependent repositories.
 
 ## Implementation Phases
 
