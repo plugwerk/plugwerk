@@ -340,18 +340,10 @@ export function GeneralSection() {
 
     if (setting.valueType === "INTEGER") {
       return (
-        <Box key={key}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-            {setting.requiresRestart && (
-              <Chip
-                label="Requires restart"
-                size="small"
-                color="warning"
-                variant="outlined"
-                sx={{ height: 20, fontSize: "0.7rem" }}
-              />
-            )}
-          </Box>
+        <Box
+          key={key}
+          sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}
+        >
           <TextField
             label={label}
             type="number"
@@ -368,6 +360,15 @@ export function GeneralSection() {
             }}
             sx={{ maxWidth: 320 }}
           />
+          {setting.requiresRestart && (
+            <Chip
+              label="Requires restart"
+              size="small"
+              color="warning"
+              variant="outlined"
+              sx={{ height: 24, fontSize: "0.75rem", mt: 1 }}
+            />
+          )}
         </Box>
       );
     }
