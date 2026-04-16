@@ -54,7 +54,7 @@ configurations.create("staticResources") {
 }
 
 artifacts {
-    add("staticResources", file("${layout.buildDirectory.get()}/resources/main/static")) {
+    add("staticResources", file("${layout.buildDirectory.get()}/resources/main")) {
         builtBy(copyFrontend)
     }
 }
