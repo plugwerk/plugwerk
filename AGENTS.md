@@ -164,6 +164,7 @@ PRs without labels or milestone are non-compliant. Set them via `gh pr edit <num
   - [ADR-0014](docs/adrs/0014-dual-license-library-modules.md) — Dual-license: Apache-2.0 for libraries, AGPL-3.0 for server
   - [ADR-0016](docs/adrs/0016-application-settings-precedence.md) — Application settings precedence (DB is authoritative, YAML is infra-only)
   - [ADR-0017](docs/adrs/0017-dual-registry-publishing-strategy.md) — Dual-registry publishing: GitHub Packages for SNAPSHOTs, Maven Central + Docker Hub for releases
+  - [ADR-0018](docs/adrs/0018-user-settings-storage-strategy.md) — User settings: separate `user_setting` table with lazy creation, keyed by `user_subject`
 - Development guide: `docs/development.md` — SNAPSHOT resolution, PAT setup, container images
 - Feature specifications: `docs/features/` — GitHub Issues link to their corresponding spec file
 - Project concept: `docs/concepts/`

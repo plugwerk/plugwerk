@@ -16,6 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
+import { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -28,10 +29,11 @@ import {
   alpha,
   useTheme,
 } from "@mui/material";
-import { User, Globe, FolderOpen, Lock } from "lucide-react";
+import { User, Globe, FolderOpen, Lock, Palette } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
 import { useNamespaceStore } from "../stores/namespaceStore";
+import { useUserSettingsStore } from "../stores/userSettingsStore";
 import { tokens } from "../theme/tokens";
 import { useUiStore } from "../stores/uiStore";
 
@@ -109,10 +111,45 @@ export function ProfileSettingsPage() {
   const { username, namespace, setNamespace } = useAuthStore();
   const { namespaces } = useNamespaceStore();
   const { addToast } = useUiStore();
+  const {
+    settings,
+    loaded,
+    loading: settingsLoading,
+    saving,
+    load: loadSettings,
+    update: updateSettings,
+  } = useUserSettingsStore();
 
-  function handleSave() {
-    // TODO: persist profile settings via API once backend endpoint exists
-    addToast({ type: "success", message: "Profile settings saved." });
+  const [language, setLanguage] = useState("en");
+  const [theme, setThemeValue] = useState("system");
+  const [defaultNs, setDefaultNs] = useState(namespace ?? "");
+
+  useEffect(() => {
+    loadSettings().catch(() => {});
+  }, [loadSettings]);
+
+  useEffect(() => {
+    if (loaded) {
+      setLanguage(settings.preferred_language ?? "en");
+      setThemeValue(settings.theme ?? "system");
+      setDefaultNs(settings.default_namespace ?? namespace ?? "");
+    }
+  }, [loaded, settings, namespace]);
+
+  async function handleSave() {
+    try {
+      await updateSettings({
+        preferred_language: language,
+        theme: theme,
+        default_namespace: defaultNs,
+      });
+      if (defaultNs && defaultNs !== namespace) {
+        setNamespace(defaultNs);
+      }
+      addToast({ type: "success", message: "Profile settings saved." });
+    } catch {
+      addToast({ type: "error", message: "Failed to save profile settings." });
+    }
   }
 
   return (
@@ -157,8 +194,32 @@ export function ProfileSettingsPage() {
           >
             <FormControl size="small" sx={{ minWidth: 220 }}>
               <InputLabel>Language</InputLabel>
-              <Select defaultValue="en" label="Language">
+              <Select
+                value={language}
+                label="Language"
+                onChange={(e) => setLanguage(e.target.value)}
+              >
                 <MenuItem value="en">English</MenuItem>
+              </Select>
+            </FormControl>
+          </Section>
+
+          {/* Theme */}
+          <Section
+            icon={<Palette size={18} />}
+            title="Theme"
+            description="Choose your preferred color scheme"
+          >
+            <FormControl size="small" sx={{ minWidth: 220 }}>
+              <InputLabel>Theme</InputLabel>
+              <Select
+                value={theme}
+                label="Theme"
+                onChange={(e) => setThemeValue(e.target.value)}
+              >
+                <MenuItem value="system">System</MenuItem>
+                <MenuItem value="light">Light</MenuItem>
+                <MenuItem value="dark">Dark</MenuItem>
               </Select>
             </FormControl>
           </Section>
@@ -172,9 +233,9 @@ export function ProfileSettingsPage() {
             <FormControl size="small" sx={{ minWidth: 220 }}>
               <InputLabel>Namespace</InputLabel>
               <Select
-                value={namespace ?? ""}
+                value={defaultNs}
                 label="Namespace"
-                onChange={(e) => setNamespace(e.target.value)}
+                onChange={(e) => setDefaultNs(e.target.value)}
               >
                 {namespaces.map((ns) => (
                   <MenuItem key={ns.slug} value={ns.slug}>
@@ -190,8 +251,9 @@ export function ProfileSettingsPage() {
               variant="contained"
               sx={{ borderRadius: tokens.radius.btn }}
               onClick={handleSave}
+              disabled={saving || settingsLoading}
             >
-              Save Changes
+              {saving ? "Saving…" : "Save Changes"}
             </Button>
           </Box>
         </Box>

@@ -1,0 +1,49 @@
+# Per-user settings storage (ADR-0018).
+# Stores user-specific preferences keyed by user_subject (username or OIDC sub claim).
+# No FK to plugwerk_user — works for any authentication method.
+# Rows are created lazily on first PATCH /api/v1/users/me/settings.
+databaseChangeLog:
+  - changeSet:
+      id: 0006-create-user-setting
+      author: plugwerk
+      changes:
+        - createTable:
+            tableName: user_setting
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_subject
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: setting_key
+                  type: varchar(128)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: setting_value
+                  type: text
+                  constraints:
+                    nullable: true
+              - column:
+                  name: updated_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: user_setting
+            columnNames: user_subject, setting_key
+            constraintName: uq_user_setting_subject_key
+        - createIndex:
+            tableName: user_setting
+            indexName: idx_user_setting_subject
+            columns:
+              - column:
+                  name: user_subject
