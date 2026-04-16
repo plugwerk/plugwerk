@@ -23,7 +23,6 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Divider,
   FormControl,
   FormControlLabel,
   FormHelperText,
@@ -33,17 +32,21 @@ import {
   Switch,
   TextField,
   Typography,
+  alpha,
+  useTheme,
 } from "@mui/material";
+import { Activity, Globe, Upload } from "lucide-react";
 import type { ApplicationSettingDto } from "../../api/generated/model/application-setting-dto";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
+import { tokens } from "../../theme/tokens";
 
-/**
- * Sparse map of user-edited fields, keyed by setting key. Only contains keys whose value
- * differs from the canonical [ApplicationSettingDto.value] that was last loaded from the
- * server. Cleared after a successful save or an explicit discard.
- */
 type DraftMap = Record<string, string>;
+
+const LANGUAGE_LABELS: Record<string, string> = {
+  en: "English",
+  de: "Deutsch",
+};
 
 function computeDirtyPatch(
   settings: ApplicationSettingDto[],
@@ -58,6 +61,71 @@ function computeDirtyPatch(
     }
   }
   return patch;
+}
+
+interface SettingSectionProps {
+  icon: React.ReactNode;
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}
+
+function SettingSection({
+  icon,
+  title,
+  description,
+  children,
+}: SettingSectionProps) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+
+  return (
+    <Box
+      sx={{
+        border: "1px solid",
+        borderColor: "divider",
+        borderRadius: tokens.radius.card,
+        background: isDark ? alpha("#ffffff", 0.02) : tokens.color.white,
+        overflow: "hidden",
+      }}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1.5,
+          px: 3,
+          py: 2,
+          borderBottom: "1px solid",
+          borderColor: "divider",
+          background: isDark ? alpha("#ffffff", 0.03) : tokens.color.gray10,
+        }}
+      >
+        <Box sx={{ color: "text.secondary", display: "flex" }}>{icon}</Box>
+        <Box>
+          <Typography variant="subtitle1" fontWeight={600}>
+            {title}
+          </Typography>
+          {description && (
+            <Typography variant="caption" color="text.secondary">
+              {description}
+            </Typography>
+          )}
+        </Box>
+      </Box>
+      <Box
+        sx={{
+          px: 3,
+          py: 2.5,
+          display: "flex",
+          flexDirection: "column",
+          gap: 2.5,
+        }}
+      >
+        {children}
+      </Box>
+    </Box>
+  );
 }
 
 export function GeneralSection() {
@@ -93,6 +161,16 @@ export function GeneralSection() {
     () => settings.filter((s) => s.restartPending).map((s) => s.key),
     [settings],
   );
+
+  const byKey = useMemo(() => {
+    const map = new Map<string, ApplicationSettingDto>();
+    for (const s of settings) map.set(s.key, s);
+    return map;
+  }, [settings]);
+
+  function effectiveValue(key: string): string {
+    return draft[key] ?? byKey.get(key)?.value ?? "";
+  }
 
   function handleFieldChange(key: string, rawValue: string): void {
     setDraft((prev) => ({ ...prev, [key]: rawValue }));
@@ -157,10 +235,7 @@ export function GeneralSection() {
       await updateSettings(dirtyPatch);
       setDraft({});
       setFieldErrors({});
-      addToast({
-        type: "success",
-        message: "Settings saved.",
-      });
+      addToast({ type: "success", message: "Settings saved." });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to save settings.";
@@ -173,10 +248,160 @@ export function GeneralSection() {
     setFieldErrors({});
   }
 
-  const sortedSettings = useMemo(
-    () => [...settings].sort((a, b) => a.key.localeCompare(b.key)),
-    [settings],
-  );
+  function renderField(key: string) {
+    const setting = byKey.get(key);
+    if (!setting) return null;
+    const value = effectiveValue(key);
+    const error = fieldErrors[key];
+    const helperText = error ?? setting.description ?? undefined;
+    const label = formatLabel(key);
+
+    if (setting.valueType === "BOOLEAN") {
+      return (
+        <FormControl key={key} error={Boolean(error)}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={value === "true"}
+                onChange={(e) =>
+                  handleFieldChange(key, e.target.checked ? "true" : "false")
+                }
+                disabled={saving}
+                inputProps={{ "aria-label": label }}
+              />
+            }
+            label={label}
+          />
+          {helperText && <FormHelperText>{helperText}</FormHelperText>}
+        </FormControl>
+      );
+    }
+
+    if (key === "general.default_language") {
+      const allowed = setting.allowedValues ?? ["en", "de"];
+      return (
+        <FormControl
+          key={key}
+          size="small"
+          sx={{ minWidth: 240 }}
+          error={Boolean(error)}
+        >
+          <InputLabel id={`label-${key}`}>{label}</InputLabel>
+          <Select
+            labelId={`label-${key}`}
+            label={label}
+            value={value}
+            onChange={(e) => handleFieldChange(key, e.target.value)}
+            disabled={saving}
+            inputProps={{ "aria-label": label }}
+          >
+            {allowed.map((v) => (
+              <MenuItem key={v} value={v}>
+                {LANGUAGE_LABELS[v] ?? v}
+              </MenuItem>
+            ))}
+          </Select>
+          {helperText && <FormHelperText>{helperText}</FormHelperText>}
+        </FormControl>
+      );
+    }
+
+    if (
+      setting.valueType === "ENUM" &&
+      setting.allowedValues &&
+      setting.allowedValues.length > 0
+    ) {
+      return (
+        <FormControl
+          key={key}
+          size="small"
+          sx={{ minWidth: 240 }}
+          error={Boolean(error)}
+        >
+          <InputLabel id={`label-${key}`}>{label}</InputLabel>
+          <Select
+            labelId={`label-${key}`}
+            label={label}
+            value={value}
+            onChange={(e) => handleFieldChange(key, e.target.value)}
+            disabled={saving}
+            inputProps={{ "aria-label": label }}
+          >
+            {setting.allowedValues.map((v) => (
+              <MenuItem key={v} value={v}>
+                {v}
+              </MenuItem>
+            ))}
+          </Select>
+          {helperText && <FormHelperText>{helperText}</FormHelperText>}
+        </FormControl>
+      );
+    }
+
+    if (setting.valueType === "INTEGER") {
+      return (
+        <Box key={key}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+            {setting.requiresRestart && (
+              <Chip
+                label="Requires restart"
+                size="small"
+                color="warning"
+                variant="outlined"
+                sx={{ height: 20, fontSize: "0.7rem" }}
+              />
+            )}
+          </Box>
+          <TextField
+            label={label}
+            type="number"
+            size="small"
+            value={value}
+            onChange={(e) => handleFieldChange(key, e.target.value)}
+            error={Boolean(error)}
+            helperText={helperText}
+            disabled={saving}
+            inputProps={{
+              min: setting.minInt,
+              max: setting.maxInt,
+              "aria-label": label,
+            }}
+            sx={{ maxWidth: 320 }}
+          />
+        </Box>
+      );
+    }
+
+    return (
+      <TextField
+        key={key}
+        label={label}
+        size="small"
+        value={value}
+        onChange={(e) => handleFieldChange(key, e.target.value)}
+        error={Boolean(error)}
+        helperText={helperText}
+        disabled={saving}
+        inputProps={{ "aria-label": label }}
+        sx={{ maxWidth: 480 }}
+      />
+    );
+  }
+
+  if (!loaded && loading) {
+    return (
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, py: 4 }}>
+        <CircularProgress size={18} />
+        <Typography variant="body2">Loading settings…</Typography>
+      </Box>
+    );
+  }
+
+  if (loaded && settings.length === 0) {
+    return (
+      <Alert severity="info">No application settings are available.</Alert>
+    );
+  }
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -184,8 +409,7 @@ export function GeneralSection() {
         <Typography variant="h2" gutterBottom>
           General Settings
         </Typography>
-        <Divider sx={{ mb: 2 }} />
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           These settings are stored in the database and apply to all users.
         </Typography>
       </Box>
@@ -199,55 +423,59 @@ export function GeneralSection() {
         </Alert>
       )}
 
-      {!loaded && loading && (
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <CircularProgress size={18} />
-          <Typography variant="body2">Loading settings…</Typography>
-        </Box>
-      )}
-
-      {loaded && settings.length === 0 && (
-        <Alert severity="info">No application settings are available.</Alert>
-      )}
-
-      {loaded &&
-        sortedSettings.map((setting) => (
-          <SettingField
-            key={setting.key}
-            setting={setting}
-            value={draft[setting.key] ?? setting.value}
-            onChange={(v) => handleFieldChange(setting.key, v)}
-            error={fieldErrors[setting.key]}
-            disabled={saving}
-          />
-        ))}
-
-      <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
-        <Button
-          variant="contained"
-          onClick={handleSave}
-          disabled={!hasChanges || saving || !loaded}
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+        {/* General */}
+        <SettingSection
+          icon={<Globe size={18} />}
+          title="General"
+          description="Application name and default language"
         >
-          {saving ? "Saving…" : "Save Changes"}
-        </Button>
+          {renderField("general.site_name")}
+          {renderField("general.default_language")}
+        </SettingSection>
+
+        {/* Upload */}
+        <SettingSection
+          icon={<Upload size={18} />}
+          title="Upload"
+          description="Artifact upload constraints"
+        >
+          {renderField("upload.max_file_size_mb")}
+        </SettingSection>
+
+        {/* Download Tracking */}
+        <SettingSection
+          icon={<Activity size={18} />}
+          title="Download Tracking"
+          description="Privacy settings for download event recording"
+        >
+          {renderField("tracking.enabled")}
+          {renderField("tracking.capture_ip")}
+          {renderField("tracking.anonymize_ip")}
+          {renderField("tracking.capture_user_agent")}
+        </SettingSection>
+      </Box>
+
+      <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
         <Button
           variant="text"
           onClick={handleDiscard}
           disabled={!hasChanges || saving}
+          sx={{ borderRadius: tokens.radius.btn }}
         >
           Discard
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleSave}
+          disabled={!hasChanges || saving || !loaded}
+          sx={{ borderRadius: tokens.radius.btn }}
+        >
+          {saving ? "Saving…" : "Save Changes"}
         </Button>
       </Box>
     </Box>
   );
-}
-
-interface SettingFieldProps {
-  readonly setting: ApplicationSettingDto;
-  readonly value: string;
-  readonly onChange: (next: string) => void;
-  readonly error: string | undefined;
-  readonly disabled: boolean;
 }
 
 function formatLabel(key: string): string {
@@ -257,130 +485,4 @@ function formatLabel(key: string): string {
     .split("_")
     .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
     .join(" ");
-}
-
-function FieldLabel({
-  label,
-  requiresRestart,
-}: {
-  label: string;
-  requiresRestart: boolean;
-}) {
-  if (!requiresRestart) return <>{label}</>;
-  return (
-    <Box sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}>
-      {label}
-      <Chip
-        label="Requires restart"
-        size="small"
-        color="warning"
-        variant="outlined"
-        sx={{ height: 20, fontSize: "0.7rem" }}
-      />
-    </Box>
-  );
-}
-
-function SettingField({
-  setting,
-  value,
-  onChange,
-  error,
-  disabled,
-}: SettingFieldProps) {
-  const label = formatLabel(setting.key);
-  const helperText = error ?? setting.description ?? undefined;
-
-  if (setting.valueType === "BOOLEAN") {
-    const checked = value === "true";
-    return (
-      <FormControl error={Boolean(error)}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={checked}
-              onChange={(e) => onChange(e.target.checked ? "true" : "false")}
-              disabled={disabled}
-              inputProps={{ "aria-label": label }}
-            />
-          }
-          label={
-            <FieldLabel
-              label={label}
-              requiresRestart={setting.requiresRestart}
-            />
-          }
-        />
-        {helperText && <FormHelperText>{helperText}</FormHelperText>}
-      </FormControl>
-    );
-  }
-
-  if (
-    setting.valueType === "ENUM" &&
-    setting.allowedValues &&
-    setting.allowedValues.length > 0
-  ) {
-    return (
-      <FormControl size="small" sx={{ minWidth: 240 }} error={Boolean(error)}>
-        <InputLabel id={`label-${setting.key}`}>
-          <FieldLabel label={label} requiresRestart={setting.requiresRestart} />
-        </InputLabel>
-        <Select
-          labelId={`label-${setting.key}`}
-          label={label}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-          inputProps={{ "aria-label": label }}
-        >
-          {setting.allowedValues.map((v) => (
-            <MenuItem key={v} value={v}>
-              {v}
-            </MenuItem>
-          ))}
-        </Select>
-        {helperText && <FormHelperText>{helperText}</FormHelperText>}
-      </FormControl>
-    );
-  }
-
-  if (setting.valueType === "INTEGER") {
-    return (
-      <TextField
-        label={
-          <FieldLabel label={label} requiresRestart={setting.requiresRestart} />
-        }
-        type="number"
-        size="small"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        error={Boolean(error)}
-        helperText={helperText}
-        disabled={disabled}
-        inputProps={{
-          min: setting.minInt,
-          max: setting.maxInt,
-          "aria-label": label,
-        }}
-        sx={{ maxWidth: 320 }}
-      />
-    );
-  }
-
-  return (
-    <TextField
-      label={
-        <FieldLabel label={label} requiresRestart={setting.requiresRestart} />
-      }
-      size="small"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      error={Boolean(error)}
-      helperText={helperText}
-      disabled={disabled}
-      inputProps={{ "aria-label": label }}
-      sx={{ maxWidth: 480 }}
-    />
-  );
 }

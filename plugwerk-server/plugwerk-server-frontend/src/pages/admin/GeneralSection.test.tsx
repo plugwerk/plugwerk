@@ -106,7 +106,9 @@ describe("GeneralSection", () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Max File Size Mb")).toHaveValue(100);
     expect(screen.getByLabelText("Enabled")).toBeChecked();
-    expect(screen.getByLabelText("Default Language")).toHaveTextContent("en");
+    expect(screen.getByLabelText("Default Language")).toHaveTextContent(
+      "English",
+    );
   });
 
   it("shows a 'Requires restart' chip on fields with requiresRestart=true", async () => {
