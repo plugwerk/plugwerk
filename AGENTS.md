@@ -153,6 +153,23 @@ Every pull request **must** be created with:
 
 PRs without labels or milestone are non-compliant. Set them via `gh pr edit <number> --add-label "<label>" --milestone "<milestone>"` or through the GitHub UI before requesting review.
 
+### Adding commits to an existing PR
+
+Before pushing follow-up commits to a feature branch, **always verify that the existing PR is still open**:
+
+```bash
+gh pr view <number> --json state,mergedAt
+```
+
+- If `state` is `OPEN` → push the new commits to the existing branch as usual.
+- If `state` is `MERGED` or `CLOSED` → **do not** push to the merged branch. Instead:
+  1. Switch to `main` and pull the latest state.
+  2. Create a new feature branch (`feature/<issue-id>_<short-description>` or `fix/<short-description>`).
+  3. Cherry-pick or re-apply the commits on the new branch.
+  4. Open a new PR that references the original via `Follow-up to #<original-pr>`.
+
+Rationale: pushing to a merged PR's branch does not reopen the PR; the commits end up orphaned on a stale branch and are never reviewed or merged.
+
 ## Documentation
 
 - Architecture Decision Records: `docs/adrs/` — use `docs/adrs/TEMPLATE.md` for new ADRs
