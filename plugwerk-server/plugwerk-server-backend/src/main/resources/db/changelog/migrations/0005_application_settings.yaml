@@ -63,7 +63,7 @@ databaseChangeLog:
               - column: { name: value_type, value: "ENUM" }
               - column:
                   name: setting_desc
-                  value: "Default UI language shown to users who have no explicit language preference. Accepted values: en, de."
+                  value: "Default UI language shown to users who have no explicit language preference. Currently only English (en) is supported."
         - insert:
             tableName: application_setting
             columns:

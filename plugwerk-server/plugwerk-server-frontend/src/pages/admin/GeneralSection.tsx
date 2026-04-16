@@ -45,7 +45,6 @@ type DraftMap = Record<string, string>;
 
 const LANGUAGE_LABELS: Record<string, string> = {
   en: "English",
-  de: "Deutsch",
 };
 
 function computeDirtyPatch(

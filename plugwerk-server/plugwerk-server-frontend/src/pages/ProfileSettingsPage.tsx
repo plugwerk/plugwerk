@@ -159,7 +159,6 @@ export function ProfileSettingsPage() {
               <InputLabel>Language</InputLabel>
               <Select defaultValue="en" label="Language">
                 <MenuItem value="en">English</MenuItem>
-                <MenuItem value="de">Deutsch</MenuItem>
               </Select>
             </FormControl>
           </Section>
