@@ -65,6 +65,11 @@ const NamespacesSection = lazy(() =>
     default: m.NamespacesSection,
   })),
 );
+const NamespaceDetailPage = lazy(() =>
+  import("../components/admin/NamespaceDetailView").then((m) => ({
+    default: m.NamespaceDetailView,
+  })),
+);
 
 function LazyFallback() {
   return (
@@ -136,6 +141,14 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<LazyFallback />}>
                 <NamespacesSection />
+              </Suspense>
+            ),
+          },
+          {
+            path: "namespaces/:slug",
+            element: (
+              <Suspense fallback={<LazyFallback />}>
+                <NamespaceDetailPage />
               </Suspense>
             ),
           },
