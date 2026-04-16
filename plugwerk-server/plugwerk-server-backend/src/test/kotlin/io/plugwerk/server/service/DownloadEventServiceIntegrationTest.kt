@@ -53,6 +53,7 @@ import java.io.ByteArrayInputStream
     PluginReleaseService::class,
     PluginService::class,
     NamespaceService::class,
+    io.plugwerk.server.service.settings.GeneralSettingsService::class,
     DownloadEventServiceIntegrationTest.MockConfig::class,
 )
 @Tag("integration")
