@@ -2,7 +2,12 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-RUN addgroup -S plugwerk && adduser -S plugwerk -G plugwerk
+# Create the plugwerk user and the artifact storage directory with correct ownership
+# so the non-root user can write uploads. Matches the default PLUGWERK_STORAGE_ROOT
+# in application.yml (/var/plugwerk/artifacts).
+RUN addgroup -S plugwerk && adduser -S plugwerk -G plugwerk \
+    && mkdir -p /var/plugwerk/artifacts \
+    && chown -R plugwerk:plugwerk /var/plugwerk
 USER plugwerk
 
 COPY plugwerk-server-backend-*.jar app.jar
