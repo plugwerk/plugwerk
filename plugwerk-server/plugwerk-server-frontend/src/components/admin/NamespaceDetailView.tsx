@@ -211,22 +211,6 @@ export function NamespaceDetailView() {
           </FormHelperText>
         </Section>
 
-        <Section
-          icon={<Users size={18} />}
-          title="Members"
-          description="Users with access to this namespace"
-        >
-          <MembersSection slug={slug} />
-        </Section>
-
-        <Section
-          icon={<KeyRound size={18} />}
-          title="Access Keys"
-          description="API keys for CI/CD and automation"
-        >
-          <ApiKeysSection slug={slug} />
-        </Section>
-
         <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
           <Button
             variant="text"
@@ -245,6 +229,22 @@ export function NamespaceDetailView() {
             {saving ? "Saving…" : "Save Changes"}
           </Button>
         </Box>
+
+        <Section
+          icon={<Users size={18} />}
+          title="Members"
+          description="Users with access to this namespace"
+        >
+          <MembersSection slug={slug} />
+        </Section>
+
+        <Section
+          icon={<KeyRound size={18} />}
+          title="Access Keys"
+          description="API keys for CI/CD and automation"
+        >
+          <ApiKeysSection slug={slug} />
+        </Section>
       </Box>
     </Box>
   );
