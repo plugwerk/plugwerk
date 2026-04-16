@@ -21,6 +21,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Divider,
   FormControl,
@@ -185,9 +186,7 @@ export function GeneralSection() {
         </Typography>
         <Divider sx={{ mb: 2 }} />
         <Typography variant="body2" color="text.secondary">
-          These settings are stored in the database and shared across all users.
-          Changes marked as requiring a restart take effect after the next
-          server restart.
+          These settings are stored in the database and apply to all users.
         </Typography>
       </Box>
 
@@ -260,6 +259,28 @@ function formatLabel(key: string): string {
     .join(" ");
 }
 
+function FieldLabel({
+  label,
+  requiresRestart,
+}: {
+  label: string;
+  requiresRestart: boolean;
+}) {
+  if (!requiresRestart) return <>{label}</>;
+  return (
+    <Box sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}>
+      {label}
+      <Chip
+        label="Requires restart"
+        size="small"
+        color="warning"
+        variant="outlined"
+        sx={{ height: 20, fontSize: "0.7rem" }}
+      />
+    </Box>
+  );
+}
+
 function SettingField({
   setting,
   value,
@@ -283,7 +304,12 @@ function SettingField({
               inputProps={{ "aria-label": label }}
             />
           }
-          label={label}
+          label={
+            <FieldLabel
+              label={label}
+              requiresRestart={setting.requiresRestart}
+            />
+          }
         />
         {helperText && <FormHelperText>{helperText}</FormHelperText>}
       </FormControl>
@@ -297,7 +323,9 @@ function SettingField({
   ) {
     return (
       <FormControl size="small" sx={{ minWidth: 240 }} error={Boolean(error)}>
-        <InputLabel id={`label-${setting.key}`}>{label}</InputLabel>
+        <InputLabel id={`label-${setting.key}`}>
+          <FieldLabel label={label} requiresRestart={setting.requiresRestart} />
+        </InputLabel>
         <Select
           labelId={`label-${setting.key}`}
           label={label}
@@ -320,7 +348,9 @@ function SettingField({
   if (setting.valueType === "INTEGER") {
     return (
       <TextField
-        label={label}
+        label={
+          <FieldLabel label={label} requiresRestart={setting.requiresRestart} />
+        }
         type="number"
         size="small"
         value={value}
@@ -340,7 +370,9 @@ function SettingField({
 
   return (
     <TextField
-      label={label}
+      label={
+        <FieldLabel label={label} requiresRestart={setting.requiresRestart} />
+      }
       size="small"
       value={value}
       onChange={(e) => onChange(e.target.value)}

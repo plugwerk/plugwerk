@@ -109,6 +109,22 @@ describe("GeneralSection", () => {
     expect(screen.getByLabelText("Default Language")).toHaveTextContent("en");
   });
 
+  it("shows a 'Requires restart' chip on fields with requiresRestart=true", async () => {
+    vi.mocked(
+      apiConfig.adminSettingsApi.listApplicationSettings,
+    ).mockResolvedValue({
+      data: { settings: SAMPLE_SETTINGS },
+    } as never);
+
+    renderWithTheme(<GeneralSection />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Max File Size Mb")).toBeInTheDocument();
+    });
+    const chips = screen.getAllByText(/Requires restart/i);
+    expect(chips.length).toBeGreaterThanOrEqual(1);
+  });
+
   it("disables Save Changes until at least one field is edited", async () => {
     vi.mocked(
       apiConfig.adminSettingsApi.listApplicationSettings,
