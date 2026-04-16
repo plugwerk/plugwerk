@@ -134,10 +134,27 @@ class SecurityConfiguration(
                     .requestMatchers(HttpMethod.GET, "/api/v1/config").permitAll()
                     // Actuator health is public; info and prometheus require authentication
                     .requestMatchers("/actuator/health").permitAll()
-                    // SPA static assets are always public
+                    // SPA static assets and routes are always public — they only serve index.html
+                    // or static bundles. Real authorization happens in the frontend via the API.
                     .requestMatchers(HttpMethod.GET, "/", "/index.html", "/assets/**", "/*.svg", "/*.ico").permitAll()
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/login",
+                        "/register",
+                        "/forgot-password",
+                        "/reset-password",
+                    ).permitAll()
+                    .requestMatchers(HttpMethod.GET, "/403", "/404", "/500", "/503").permitAll()
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/admin/**",
+                        "/profile",
+                        "/change-password",
+                        "/onboarding",
+                    ).permitAll()
+                    .requestMatchers(HttpMethod.GET, "/namespaces/*/plugins", "/namespaces/*/plugins/**").permitAll()
                     // OpenAPI spec is public (used by API docs page without login)
-                    .requestMatchers(HttpMethod.GET, "/api-docs/**").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api-docs", "/api-docs/**").permitAll()
                     // Everything else requires authentication
                     // (public namespace GET requests are handled by PublicNamespaceFilter)
                     .anyRequest().authenticated()
