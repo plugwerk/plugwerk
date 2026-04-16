@@ -75,4 +75,9 @@ class UserSettingsService(private val repository: UserSettingRepository) {
     fun deleteAll(userSubject: String) {
         repository.deleteByUserSubject(userSubject)
     }
+
+    @Transactional
+    fun clearDefaultNamespace(namespaceSlug: String) {
+        repository.nullifyBySettingKeyAndValue(UserSettingKey.DEFAULT_NAMESPACE.key, namespaceSlug)
+    }
 }

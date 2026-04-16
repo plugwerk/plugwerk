@@ -20,6 +20,8 @@ package io.plugwerk.server.repository
 
 import io.plugwerk.server.domain.UserSettingEntity
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
+import org.springframework.data.jpa.repository.Query
 import org.springframework.stereotype.Repository
 import java.util.Optional
 import java.util.UUID
@@ -29,4 +31,10 @@ interface UserSettingRepository : JpaRepository<UserSettingEntity, UUID> {
     fun findByUserSubject(userSubject: String): List<UserSettingEntity>
     fun findByUserSubjectAndSettingKey(userSubject: String, settingKey: String): Optional<UserSettingEntity>
     fun deleteByUserSubject(userSubject: String)
+
+    @Modifying
+    @Query(
+        "UPDATE UserSettingEntity e SET e.settingValue = NULL WHERE e.settingKey = :settingKey AND e.settingValue = :value",
+    )
+    fun nullifyBySettingKeyAndValue(settingKey: String, value: String)
 }
