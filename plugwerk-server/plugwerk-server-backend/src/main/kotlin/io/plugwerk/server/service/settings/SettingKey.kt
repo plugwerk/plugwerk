@@ -50,7 +50,7 @@ enum class SettingKey(
         key = "general.default_language",
         valueType = SettingValueType.ENUM,
         defaultValue = "en",
-        allowedValues = setOf("en", "de"),
+        allowedValues = setOf("en"),
     ),
     GENERAL_SITE_NAME(
         key = "general.site_name",

@@ -15,6 +15,8 @@
  */
 package io.plugwerk.spi.model
 
+import java.util.function.Consumer
+
 /**
  * Result of a [PlugwerkInstaller.install] or [PlugwerkInstaller.uninstall] operation.
  *
@@ -32,8 +34,8 @@ package io.plugwerk.spi.model
  * Java:
  * ```java
  * installer.install("io.example.my-plugin", "2.0.0")
- *     .onSuccess(s -> System.out.println("Installed " + s.getPluginId()))
- *     .onFailure(f -> System.out.println("Failed: " + f.getReason()));
+ *     .onSuccess(s -> System.out.printf("Installed: %s%n", s.getPluginId()))
+ *     .onFailure(f -> System.out.printf("Failed: %s%n", f.getReason()));
  * ```
  *
  * The `when` / `instanceof` pattern is still fully supported for exhaustive matching.
@@ -73,24 +75,29 @@ sealed class InstallResult {
     /**
      * Executes [action] if this is a [Success], then returns `this` for chaining.
      *
+     * Uses [Consumer] so Java callers can pass expression lambdas directly
+     * (`s -> System.out.printf(...)`) without `Unit.INSTANCE` boilerplate.
+     *
      * ```java
      * result.onSuccess(s -> log.info("Installed: {}", s.getPluginId()));
      * ```
      */
-    fun onSuccess(action: (Success) -> Unit): InstallResult {
-        if (this is Success) action(this)
+    fun onSuccess(action: Consumer<Success>): InstallResult {
+        if (this is Success) action.accept(this)
         return this
     }
 
     /**
      * Executes [action] if this is a [Failure], then returns `this` for chaining.
      *
+     * Uses [Consumer] so Java callers can pass expression lambdas directly.
+     *
      * ```java
      * result.onFailure(f -> log.warn("Failed: {}", f.getReason()));
      * ```
      */
-    fun onFailure(action: (Failure) -> Unit): InstallResult {
-        if (this is Failure) action(this)
+    fun onFailure(action: Consumer<Failure>): InstallResult {
+        if (this is Failure) action.accept(this)
         return this
     }
 
