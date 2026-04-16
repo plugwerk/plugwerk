@@ -107,7 +107,7 @@ public class UpdateCommand implements Runnable {
               });
     }
     System.out.printf("%nDone: %d updated, %d failed.%n", counts[0], counts[1]);
-    if (failed > 0) {
+    if (counts[1] > 0) {
       System.exit(1);
     }
   }
