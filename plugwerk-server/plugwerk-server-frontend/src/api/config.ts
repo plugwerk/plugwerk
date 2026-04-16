@@ -29,6 +29,7 @@ import { NamespacesApi } from "./generated/api/namespaces-api";
 import { OidcProvidersApi } from "./generated/api/oidc-providers-api";
 import { ReviewsApi } from "./generated/api/reviews-api";
 import { UpdatesApi } from "./generated/api/updates-api";
+import { UserSettingsApi } from "./generated/api/user-settings-api";
 
 const BASE_PATH = "/api/v1";
 
@@ -97,5 +98,10 @@ export const oidcProvidersApi = new OidcProvidersApi(
 );
 export const reviewsApi = new ReviewsApi(apiConfig, BASE_PATH, axiosInstance);
 export const updatesApi = new UpdatesApi(apiConfig, BASE_PATH, axiosInstance);
+export const userSettingsApi = new UserSettingsApi(
+  apiConfig,
+  BASE_PATH,
+  axiosInstance,
+);
 
 export { axiosInstance };

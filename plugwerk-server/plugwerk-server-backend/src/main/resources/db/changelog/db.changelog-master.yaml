@@ -9,3 +9,5 @@ databaseChangeLog:
       file: db/changelog/migrations/0004_token_revocation.yaml
   - include:
       file: db/changelog/migrations/0005_application_settings.yaml
+  - include:
+      file: db/changelog/migrations/0006_user_settings.yaml

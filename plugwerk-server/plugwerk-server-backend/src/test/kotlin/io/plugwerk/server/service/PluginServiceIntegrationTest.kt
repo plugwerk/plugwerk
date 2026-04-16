@@ -39,7 +39,11 @@ import kotlin.test.assertFailsWith
 @DataJpaTest
 @ActiveProfiles("test")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import(PluginService::class, NamespaceService::class)
+@Import(
+    PluginService::class,
+    NamespaceService::class,
+    io.plugwerk.server.service.settings.UserSettingsService::class,
+)
 @Tag("integration")
 class PluginServiceIntegrationTest {
 

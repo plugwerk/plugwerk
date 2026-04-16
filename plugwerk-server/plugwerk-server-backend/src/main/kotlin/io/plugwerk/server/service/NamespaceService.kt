@@ -22,6 +22,7 @@ import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
+import io.plugwerk.server.service.settings.UserSettingsService
 import io.plugwerk.server.service.storage.ArtifactStorageService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -34,6 +35,7 @@ class NamespaceService(
     private val pluginRepository: PluginRepository,
     private val pluginReleaseRepository: PluginReleaseRepository,
     private val storageService: ArtifactStorageService,
+    private val userSettingsService: UserSettingsService,
 ) {
 
     private val log = LoggerFactory.getLogger(NamespaceService::class.java)
@@ -83,6 +85,7 @@ class NamespaceService(
     fun delete(slug: String) {
         val entity = findBySlug(slug)
         deleteStorageArtifacts(entity)
+        userSettingsService.clearDefaultNamespace(slug)
         namespaceRepository.delete(entity)
     }
 

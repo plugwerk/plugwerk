@@ -183,6 +183,13 @@ tags:
       once at creation time — only the SHA-256 hash is stored on the server.
 
       All endpoints require `ADMIN` role on the namespace.
+  - name: UserSettings
+    description: |
+      Per-user settings for the authenticated user (ADR-0018).
+
+      Each user can store preferences such as preferred language, theme, and default namespace.
+      Settings are created lazily on first write. The user subject is derived from the JWT
+      `sub` claim, so both local and OIDC-authenticated users are supported.
   - name: ServerConfig
     description: |
       Public, unauthenticated endpoint exposing non-sensitive server configuration.
@@ -1027,6 +1034,55 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+
+  /users/me/settings:
+    get:
+      tags:
+        - UserSettings
+      summary: Get current user's settings
+      description: |
+        Returns all per-user settings for the authenticated user, with defaults filled in for
+        keys that the user has not explicitly set.
+      operationId: getUserSettings
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current user settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSettingsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags:
+        - UserSettings
+      summary: Update current user's settings
+      description: |
+        Updates one or more per-user settings. Only the keys included in the request body are
+        changed; all other keys retain their current values. Unknown keys are rejected with
+        HTTP 400.
+      operationId: updateUserSettings
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserSettingsUpdateRequest'
+      responses:
+        '200':
+          description: Updated user settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSettingsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /admin/users:
     get:
@@ -2751,6 +2807,39 @@ components:
           example:
             upload.max_file_size_mb: "200"
             tracking.enabled: "false"
+      required:
+        - settings
+
+    UserSettingsResponse:
+      type: object
+      description: All per-user settings with defaults filled in for unset keys.
+      properties:
+        settings:
+          type: object
+          additionalProperties:
+            type: string
+          description: Map of setting key to effective value
+          example:
+            preferred_language: "en"
+            default_namespace: "acme-corp"
+            theme: "system"
+      required:
+        - settings
+
+    UserSettingsUpdateRequest:
+      type: object
+      description: |
+        Partial write — only the keys present in `settings` are updated. Unknown keys are
+        rejected with HTTP 400.
+      properties:
+        settings:
+          type: object
+          additionalProperties:
+            type: string
+          description: Map of setting key to raw string value
+          example:
+            preferred_language: "en"
+            theme: "dark"
       required:
         - settings
 
