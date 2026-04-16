@@ -25,6 +25,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { DataTable } from "../common/DataTable";
 import type { DataColumn } from "../common/DataTable";
 import { ActionIconButton } from "../common/ActionIconButton";
@@ -32,7 +33,6 @@ import { namespacesApi } from "../../api/config";
 import type { NamespaceSummary } from "../../api/generated/model";
 import { CreateNamespaceDialog } from "./CreateNamespaceDialog";
 import { DeleteNamespaceDialog } from "./DeleteNamespaceDialog";
-import { NamespaceDetailView } from "./NamespaceDetailView";
 import { useNamespaceStore } from "../../stores/namespaceStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useUiStore } from "../../stores/uiStore";
@@ -44,7 +44,7 @@ export function NamespacesSection() {
   const [deleteTarget, setDeleteTarget] = useState<NamespaceSummary | null>(
     null,
   );
-  const [editingSlug, setEditingSlug] = useState<string | null>(null);
+  const navigate = useNavigate();
   const { addToast } = useUiStore();
 
   const loadNamespaces = useCallback(async () => {
@@ -118,7 +118,7 @@ export function NamespacesSection() {
           <ActionIconButton
             icon={Pencil}
             tooltip="Edit"
-            onClick={() => setEditingSlug(ns.slug)}
+            onClick={() => navigate(`/admin/namespaces/${ns.slug}`)}
           />
           <ActionIconButton
             icon={Trash2}
@@ -130,15 +130,6 @@ export function NamespacesSection() {
       ),
     },
   ];
-
-  if (editingSlug) {
-    return (
-      <NamespaceDetailView
-        slug={editingSlug}
-        onBack={() => setEditingSlug(null)}
-      />
-    );
-  }
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>

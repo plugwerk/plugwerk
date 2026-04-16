@@ -35,6 +35,7 @@ import {
   Users,
   KeyRound,
 } from "lucide-react";
+import { useParams, Link } from "react-router-dom";
 import { Section } from "../common/Section";
 import { MembersSection } from "./namespace-detail/MembersSection";
 import { ApiKeysSection } from "./namespace-detail/ApiKeysSection";
@@ -42,15 +43,9 @@ import { namespacesApi } from "../../api/config";
 import { useUiStore } from "../../stores/uiStore";
 import { tokens } from "../../theme/tokens";
 
-interface NamespaceDetailViewProps {
-  slug: string;
-  onBack: () => void;
-}
-
-export function NamespaceDetailView({
-  slug,
-  onBack,
-}: NamespaceDetailViewProps) {
+export function NamespaceDetailView() {
+  const { slug: slugParam } = useParams<{ slug: string }>();
+  const slug = slugParam!;
   const addToast = useUiStore((s) => s.addToast);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -141,9 +136,10 @@ export function NamespaceDetailView({
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
       <Box>
         <Button
+          component={Link}
+          to="/admin/namespaces"
           size="small"
           startIcon={<ArrowLeft size={14} />}
-          onClick={onBack}
           sx={{ mb: 1 }}
         >
           Back to Namespaces
