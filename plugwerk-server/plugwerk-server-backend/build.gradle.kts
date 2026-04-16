@@ -136,6 +136,17 @@ publishing {
             }
         }
     }
+
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/plugwerk/plugwerk")
+            credentials {
+                username = providers.environmentVariable("GITHUB_ACTOR").getOrElse("")
+                password = providers.environmentVariable("GITHUB_TOKEN").getOrElse("")
+            }
+        }
+    }
 }
 
 signing {
