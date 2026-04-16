@@ -53,6 +53,7 @@ import kotlin.test.assertFailsWith
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import(
     NamespaceService::class,
+    io.plugwerk.server.service.settings.UserSettingsService::class,
     NamespaceServiceIntegrationTest.MockConfig::class,
 )
 @Tag("integration")
