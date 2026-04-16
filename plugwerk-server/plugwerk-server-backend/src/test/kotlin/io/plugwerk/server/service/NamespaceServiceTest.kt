@@ -24,6 +24,7 @@ import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
+import io.plugwerk.server.service.settings.UserSettingsService
 import io.plugwerk.server.service.storage.ArtifactStorageService
 import io.plugwerk.spi.model.ReleaseStatus
 import org.assertj.core.api.Assertions.assertThat
@@ -55,6 +56,9 @@ class NamespaceServiceTest {
 
     @Mock
     lateinit var storageService: ArtifactStorageService
+
+    @Mock
+    lateinit var userSettingsService: UserSettingsService
 
     @InjectMocks
     lateinit var namespaceService: NamespaceService
@@ -146,6 +150,7 @@ class NamespaceServiceTest {
 
         verify(storageService).delete("to-delete/p1/1.0.0.jar")
         verify(storageService).delete("to-delete/p2/2.0.0.jar")
+        verify(userSettingsService).clearDefaultNamespace("to-delete")
         verify(namespaceRepository).delete(namespace)
     }
 
