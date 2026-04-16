@@ -25,7 +25,6 @@ import {
   Switch,
   FormControlLabel,
   FormHelperText,
-  Chip,
   CircularProgress,
 } from "@mui/material";
 import {
@@ -178,21 +177,6 @@ export function NamespaceDetailView() {
             fullWidth
             sx={{ maxWidth: 480 }}
           />
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ fontWeight: 500 }}
-            >
-              Slug
-            </Typography>
-            <Chip
-              label={slug}
-              size="small"
-              variant="outlined"
-              sx={{ fontFamily: "monospace", fontSize: "0.8rem" }}
-            />
-          </Box>
           <FormControlLabel
             control={
               <Switch
