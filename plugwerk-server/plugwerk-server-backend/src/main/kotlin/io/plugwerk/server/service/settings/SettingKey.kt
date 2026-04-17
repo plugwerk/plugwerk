@@ -68,8 +68,8 @@ enum class SettingKey(
         valueType = SettingValueType.STRING,
         defaultValue = "Plugwerk",
     ),
-    GENERAL_TIMEZONE(
-        key = "general.timezone",
+    GENERAL_DEFAULT_TIMEZONE(
+        key = "general.default_timezone",
         valueType = SettingValueType.STRING,
         defaultValue = "UTC",
         extraValidator = ::validateTimezone,

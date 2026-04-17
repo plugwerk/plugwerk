@@ -211,7 +211,7 @@ export function GeneralSection() {
       );
     }
 
-    if (key === "general.timezone") {
+    if (key === "general.default_timezone") {
       return (
         <FormControl
           key={key}
@@ -221,7 +221,7 @@ export function GeneralSection() {
           <TimezoneSelect
             value={value}
             onChange={(v) => handleFieldChange(key, v)}
-            label="Default Timezone"
+            label={label}
             helperText={helperText}
             error={Boolean(error)}
             disabled={saving}
@@ -387,7 +387,7 @@ export function GeneralSection() {
         >
           {renderField("general.site_name")}
           {renderField("general.default_language")}
-          {renderField("general.timezone")}
+          {renderField("general.default_timezone")}
         </Section>
 
         {/* Upload */}
