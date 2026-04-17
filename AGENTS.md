@@ -183,6 +183,7 @@ Rationale: pushing to a merged PR's branch does not reopen the PR; the commits e
   - [ADR-0017](docs/adrs/0017-dual-registry-publishing-strategy.md) — Dual-registry publishing: GitHub Packages for SNAPSHOTs, Maven Central + Docker Hub for releases
   - [ADR-0018](docs/adrs/0018-user-settings-storage-strategy.md) — User settings: separate `user_setting` table with lazy creation, keyed by `user_subject`
 - Development guide: `docs/development.md` — SNAPSHOT resolution, PAT setup, container images
+- Release pipeline reference: [`docs/release-artifacts.md`](docs/release-artifacts.md) — map of files consumed/produced by the release, snapshot, and prepare-release workflows
 - Feature specifications: `docs/features/` — GitHub Issues link to their corresponding spec file
 - Project concept: `docs/concepts/`
 - Design system: `docs/design/` — HTML prototypes and design tokens (`tokens.css`)
