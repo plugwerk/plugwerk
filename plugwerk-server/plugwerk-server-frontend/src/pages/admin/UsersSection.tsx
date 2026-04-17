@@ -33,6 +33,7 @@ import { ConfirmDeleteDialog } from "../../components/common/ConfirmDeleteDialog
 import { DataTable } from "../../components/common/DataTable";
 import type { DataColumn } from "../../components/common/DataTable";
 import { ActionIconButton } from "../../components/common/ActionIconButton";
+import { Timestamp } from "../../components/common/Timestamp";
 import { adminUsersApi } from "../../api/config";
 import { useUiStore } from "../../stores/uiStore";
 import type { UserDto } from "../../api/generated/model";
@@ -192,11 +193,7 @@ export function UsersSection() {
       header: "Created",
       render: (user) => (
         <Typography variant="caption" color="text.disabled">
-          {new Date(user.createdAt).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
+          <Timestamp date={user.createdAt} />
         </Typography>
       ),
     },

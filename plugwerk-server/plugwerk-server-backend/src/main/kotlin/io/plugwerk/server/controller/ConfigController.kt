@@ -39,10 +39,14 @@ class ConfigController(
             upload = ServerConfigResponse.UploadConfig(
                 maxFileSizeMb = settingsService.maxUploadSizeMb(),
             ),
+            general = ServerConfigResponse.GeneralConfig(
+                defaultTimezone = settingsService.defaultTimezone(),
+            ),
         ),
     )
 
-    data class ServerConfigResponse(val version: String, val upload: UploadConfig) {
+    data class ServerConfigResponse(val version: String, val upload: UploadConfig, val general: GeneralConfig) {
         data class UploadConfig(val maxFileSizeMb: Int)
+        data class GeneralConfig(val defaultTimezone: String)
     }
 }

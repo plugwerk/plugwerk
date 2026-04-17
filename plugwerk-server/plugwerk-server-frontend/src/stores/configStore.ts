@@ -22,17 +22,25 @@ import { axiosInstance } from "../api/config";
 interface ConfigState {
   readonly version: string;
   readonly maxFileSizeMb: number;
+  readonly defaultTimezone: string;
   readonly loaded: boolean;
-  fetchConfig: () => Promise<void>;
+  /**
+   * Fetches `/api/v1/config`. Skips the request when the store is already
+   * loaded unless `{ force: true }` is passed — call with `force` after any
+   * mutation that changes `application_setting` so cached values
+   * (defaultTimezone, maxFileSizeMb) stay in sync with the DB.
+   */
+  fetchConfig: (options?: { force?: boolean }) => Promise<void>;
 }
 
 export const useConfigStore = create<ConfigState>((set, get) => ({
   version: "…",
   maxFileSizeMb: 100,
+  defaultTimezone: "UTC",
   loaded: false,
 
-  async fetchConfig() {
-    if (get().loaded) return;
+  async fetchConfig(options) {
+    if (get().loaded && !options?.force) return;
     try {
       const res = await axiosInstance.get("/config");
       set({
@@ -41,6 +49,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
           typeof res.data?.upload?.maxFileSizeMb === "number"
             ? res.data.upload.maxFileSizeMb
             : 100,
+        defaultTimezone:
+          typeof res.data?.general?.defaultTimezone === "string" &&
+          res.data.general.defaultTimezone.length > 0
+            ? res.data.general.defaultTimezone
+            : "UTC",
         loaded: true,
       });
     } catch {

@@ -29,6 +29,7 @@ import { tokens } from "../../theme/tokens";
 import { formatFileSize } from "../../utils/formatFileSize";
 import { formatDateTime, formatRelativeTime } from "../../utils/formatDateTime";
 import { downloadArtifact } from "../../utils/downloadArtifact";
+import { useEffectiveTimezone } from "../../hooks/useEffectiveTimezone";
 
 const STATUS_BADGE: Record<string, BadgeVariant> = {
   suspended: "suspended",
@@ -46,6 +47,7 @@ export const PluginListRow = memo(function PluginListRow({
   plugin,
   namespace,
 }: PluginListRowProps) {
+  const timezone = useEffectiveTimezone();
   const isDraftOnly = plugin.hasDraftOnly === true;
   const statusBadge = plugin.status ? STATUS_BADGE[plugin.status] : undefined;
   const latestRelease = plugin.latestRelease;
@@ -172,7 +174,10 @@ export const PluginListRow = memo(function PluginListRow({
             </Typography>
           </Box>
         )}
-        <Tooltip title={formatDateTime(plugin.updatedAt)} placement="top">
+        <Tooltip
+          title={formatDateTime(plugin.updatedAt, { timezone })}
+          placement="top"
+        >
           <Box
             sx={{
               display: "flex",

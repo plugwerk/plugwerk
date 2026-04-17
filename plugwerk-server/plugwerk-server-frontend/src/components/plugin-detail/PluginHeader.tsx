@@ -38,7 +38,7 @@ import type { BadgeVariant } from "../common/Badge";
 import { CopyablePluginId } from "../common/CopyablePluginId";
 import type { PluginDto, PluginReleaseDto } from "../../api/generated/model";
 import { tokens } from "../../theme/tokens";
-import { formatDateTime } from "../../utils/formatDateTime";
+import { Timestamp } from "../common/Timestamp";
 import { downloadArtifact } from "../../utils/downloadArtifact";
 import { formatCount, formatCountFull } from "../../utils/formatCount";
 import { managementApi } from "../../api/config";
@@ -208,7 +208,7 @@ export function PluginHeader({
             >
               <Calendar size={14} aria-hidden="true" />
               <Typography variant="caption">
-                Updated {formatDateTime(plugin.updatedAt)}
+                Updated <Timestamp date={plugin.updatedAt} />
               </Typography>
             </Box>
           )}

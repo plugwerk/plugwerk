@@ -34,7 +34,7 @@ import { ActionIconButton } from "../../common/ActionIconButton";
 import { accessKeysApi } from "../../../api/config";
 import { isAxiosError } from "axios";
 import type { AccessKeyDto } from "../../../api/generated/model";
-import { formatDateTime } from "../../../utils/formatDateTime";
+import { Timestamp } from "../../common/Timestamp";
 import { useUiStore } from "../../../stores/uiStore";
 
 export function ApiKeysSection({ slug }: { slug: string }) {
@@ -149,18 +149,23 @@ export function ApiKeysSection({ slug }: { slug: string }) {
     {
       key: "expires",
       header: "Expires",
-      render: (key) => (
-        <Typography variant="caption" color="text.disabled">
-          {key.expiresAt ? formatDateTime(key.expiresAt) : "Never"}
-        </Typography>
-      ),
+      render: (key) =>
+        key.expiresAt ? (
+          <Typography variant="caption" color="text.disabled">
+            <Timestamp date={key.expiresAt} />
+          </Typography>
+        ) : (
+          <Typography variant="caption" color="text.disabled">
+            Never
+          </Typography>
+        ),
     },
     {
       key: "created",
       header: "Created",
       render: (key) => (
         <Typography variant="caption" color="text.disabled">
-          {formatDateTime(key.createdAt)}
+          <Timestamp date={key.createdAt} />
         </Typography>
       ),
     },

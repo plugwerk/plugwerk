@@ -19,9 +19,19 @@
 package io.plugwerk.server.service.settings
 
 import io.plugwerk.server.domain.SettingValueType
+import java.time.DateTimeException
+import java.time.ZoneId
 
 /** Hard safety ceiling in MB for [SettingKey.UPLOAD_MAX_FILE_SIZE_MB]. */
 const val MAX_ALLOWED_UPLOAD_MB: Int = 1024
+
+/** Validates that [rawValue] is a known IANA timezone identifier. */
+private fun validateTimezone(rawValue: String): String? = try {
+    ZoneId.of(rawValue)
+    null
+} catch (_: DateTimeException) {
+    "value must be an IANA timezone identifier (e.g. UTC, Europe/Berlin), got '$rawValue'"
+}
 
 /**
  * Central registry of every admin-manageable application setting (ADR-0016).
@@ -45,6 +55,7 @@ enum class SettingKey(
     val allowedValues: Set<String>? = null,
     val minInt: Int? = null,
     val maxInt: Int? = null,
+    val extraValidator: ((String) -> String?)? = null,
 ) {
     GENERAL_DEFAULT_LANGUAGE(
         key = "general.default_language",
@@ -56,6 +67,12 @@ enum class SettingKey(
         key = "general.site_name",
         valueType = SettingValueType.STRING,
         defaultValue = "Plugwerk",
+    ),
+    GENERAL_DEFAULT_TIMEZONE(
+        key = "general.default_timezone",
+        valueType = SettingValueType.STRING,
+        defaultValue = "UTC",
+        extraValidator = ::validateTimezone,
     ),
     UPLOAD_MAX_FILE_SIZE_MB(
         key = "upload.max_file_size_mb",
@@ -93,7 +110,7 @@ enum class SettingKey(
      * @return `null` if the value is acceptable, or a human-readable error message otherwise.
      */
     fun validate(rawValue: String): String? {
-        return when (valueType) {
+        val typeError = when (valueType) {
             SettingValueType.STRING -> if (rawValue.isBlank()) "value must not be blank" else null
 
             SettingValueType.INTEGER -> {
@@ -123,6 +140,7 @@ enum class SettingKey(
                 }
             }
         }
+        return typeError ?: extraValidator?.invoke(rawValue)
     }
 
     companion object {

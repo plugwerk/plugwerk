@@ -58,8 +58,9 @@ class ConfigControllerTest {
     @Autowired private lateinit var mockMvc: MockMvc
 
     @Test
-    fun `GET config returns upload limits and version`() {
+    fun `GET config returns upload limits, version, and default timezone`() {
         whenever(settingsService.maxUploadSizeMb()).thenReturn(200)
+        whenever(settingsService.defaultTimezone()).thenReturn("Europe/Berlin")
         whenever(versionProvider.getVersion()).thenReturn("1.2.3")
 
         mockMvc.get("/api/v1/config")
@@ -67,12 +68,14 @@ class ConfigControllerTest {
                 status { isOk() }
                 jsonPath("$.version") { value("1.2.3") }
                 jsonPath("$.upload.maxFileSizeMb") { value(200) }
+                jsonPath("$.general.defaultTimezone") { value("Europe/Berlin") }
             }
     }
 
     @Test
     fun `GET config returns unknown when version is not available`() {
         whenever(settingsService.maxUploadSizeMb()).thenReturn(100)
+        whenever(settingsService.defaultTimezone()).thenReturn("UTC")
         whenever(versionProvider.getVersion()).thenReturn("unknown")
 
         mockMvc.get("/api/v1/config")

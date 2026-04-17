@@ -112,6 +112,9 @@ class GeneralSettingsService(private val repository: ApplicationSettingRepositor
     /** Typed accessor: `general.site_name`. */
     fun siteName(): String = getRaw(SettingKey.GENERAL_SITE_NAME)
 
+    /** Typed accessor: `general.default_timezone` (IANA id, e.g. `UTC`, `Europe/Berlin`). */
+    fun defaultTimezone(): String = getRaw(SettingKey.GENERAL_DEFAULT_TIMEZONE)
+
     /**
      * Returns a complete snapshot of every key, including its effective value, description,
      * source (`DATABASE` if a row exists, `DEFAULT` otherwise), and a `restartPending` flag

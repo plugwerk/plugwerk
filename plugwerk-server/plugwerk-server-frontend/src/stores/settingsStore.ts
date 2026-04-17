@@ -20,6 +20,7 @@ import axios from "axios";
 import { create } from "zustand";
 import { adminSettingsApi } from "../api/config";
 import type { ApplicationSettingDto } from "../api/generated/model/application-setting-dto";
+import { useConfigStore } from "./configStore";
 
 interface SettingsState {
   readonly settings: ApplicationSettingDto[];
@@ -80,6 +81,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         applicationSettingsUpdateRequest: { settings: patch },
       });
       set({ settings: response.data.settings, saving: false });
+      // Values surfaced by the public /api/v1/config endpoint
+      // (defaultTimezone, maxFileSizeMb) are cached in useConfigStore; refresh
+      // them so the new admin settings take effect immediately across the UI
+      // without a page reload.
+      void useConfigStore.getState().fetchConfig({ force: true });
     } catch (err) {
       set({ saving: false, error: extractErrorMessage(err) });
       throw err;

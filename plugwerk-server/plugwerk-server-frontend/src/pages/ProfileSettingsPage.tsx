@@ -28,6 +28,7 @@ import {
   Typography,
 } from "@mui/material";
 import { User, Globe, FolderOpen, Lock, Palette } from "lucide-react";
+import { TimezoneSelect } from "../components/common/TimezoneSelect";
 import { Link } from "react-router-dom";
 import { Section } from "../components/common/Section";
 import { useAuthStore } from "../stores/authStore";
@@ -58,7 +59,7 @@ function InfoRow({ label, value }: InfoRowProps) {
 
 export function ProfileSettingsPage() {
   const { username, namespace, setNamespace } = useAuthStore();
-  const { namespaces } = useNamespaceStore();
+  const { namespaces, fetchNamespaces } = useNamespaceStore();
   const { addToast } = useUiStore();
   const {
     settings,
@@ -70,6 +71,7 @@ export function ProfileSettingsPage() {
   } = useUserSettingsStore();
 
   const [language, setLanguage] = useState("en");
+  const [timezone, setTimezone] = useState("");
   const [theme, setThemeValue] = useState("system");
   const [defaultNs, setDefaultNs] = useState(namespace ?? "");
 
@@ -78,8 +80,15 @@ export function ProfileSettingsPage() {
   }, [loadSettings]);
 
   useEffect(() => {
+    // Ensure the Default Namespace dropdown is populated even when the user
+    // lands on /profile directly (without having visited the catalog first).
+    fetchNamespaces().catch(() => {});
+  }, [fetchNamespaces]);
+
+  useEffect(() => {
     if (loaded) {
       setLanguage(settings.preferred_language ?? "en");
+      setTimezone(settings.timezone ?? "");
       setThemeValue(settings.theme ?? "system");
       setDefaultNs(settings.default_namespace ?? namespace ?? "");
     }
@@ -89,6 +98,7 @@ export function ProfileSettingsPage() {
     try {
       await updateSettings({
         preferred_language: language,
+        timezone: timezone,
         theme: theme,
         default_namespace: defaultNs,
       });
@@ -135,22 +145,39 @@ export function ProfileSettingsPage() {
             </Button>
           </Section>
 
-          {/* Language */}
+          {/* Language & Region */}
           <Section
             icon={<Globe size={18} />}
-            title="Language"
-            description="Overrides the system default set by the administrator"
+            title="Language & Region"
+            description="Override the system defaults set by the administrator"
           >
-            <FormControl size="small" sx={{ minWidth: 220 }}>
-              <InputLabel>Language</InputLabel>
-              <Select
-                value={language}
-                label="Language"
-                onChange={(e) => setLanguage(e.target.value)}
-              >
-                <MenuItem value="en">English</MenuItem>
-              </Select>
-            </FormControl>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+                mb: 1,
+                maxWidth: 480,
+              }}
+            >
+              <FormControl size="small" fullWidth>
+                <InputLabel>Language</InputLabel>
+                <Select
+                  value={language}
+                  label="Language"
+                  onChange={(e) => setLanguage(e.target.value)}
+                >
+                  <MenuItem value="en">English</MenuItem>
+                </Select>
+              </FormControl>
+              <TimezoneSelect
+                value={timezone}
+                onChange={setTimezone}
+                label="Timezone"
+                helperText="Leave empty to use the system default timezone."
+                allowEmpty
+              />
+            </Box>
           </Section>
 
           {/* Theme */}
@@ -159,7 +186,7 @@ export function ProfileSettingsPage() {
             title="Theme"
             description="Choose your preferred color scheme"
           >
-            <FormControl size="small" sx={{ minWidth: 220 }}>
+            <FormControl size="small" fullWidth sx={{ maxWidth: 480 }}>
               <InputLabel>Theme</InputLabel>
               <Select
                 value={theme}
@@ -179,7 +206,7 @@ export function ProfileSettingsPage() {
             title="Default Namespace"
             description="Used by default for catalog and upload operations"
           >
-            <FormControl size="small" sx={{ minWidth: 220 }}>
+            <FormControl size="small" fullWidth sx={{ maxWidth: 480 }}>
               <InputLabel>Namespace</InputLabel>
               <Select
                 value={defaultNs}

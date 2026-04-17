@@ -29,6 +29,7 @@ import { tokens } from "../../theme/tokens";
 import { useIsOverflowing } from "../../hooks/useIsOverflowing";
 import { formatFileSize } from "../../utils/formatFileSize";
 import { formatDateTime, formatRelativeTime } from "../../utils/formatDateTime";
+import { useEffectiveTimezone } from "../../hooks/useEffectiveTimezone";
 import { downloadArtifact } from "../../utils/downloadArtifact";
 
 const STATUS_BADGE: Record<string, BadgeVariant> = {
@@ -47,6 +48,7 @@ export const PluginCard = memo(function PluginCard({
   plugin,
   namespace,
 }: PluginCardProps) {
+  const timezone = useEffectiveTimezone();
   const isDraftOnly = plugin.hasDraftOnly === true;
   const statusBadge = plugin.status ? STATUS_BADGE[plugin.status] : undefined;
   const latestRelease = plugin.latestRelease;
@@ -260,7 +262,10 @@ export const PluginCard = memo(function PluginCard({
               </Typography>
             </Box>
           )}
-          <Tooltip title={formatDateTime(plugin.updatedAt)} placement="top">
+          <Tooltip
+            title={formatDateTime(plugin.updatedAt, { timezone })}
+            placement="top"
+          >
             <Box
               sx={{
                 display: "flex",
