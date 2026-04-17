@@ -180,7 +180,7 @@ export function ProfileSettingsPage() {
             title="Theme"
             description="Choose your preferred color scheme"
           >
-            <FormControl size="small" sx={{ minWidth: 220 }}>
+            <FormControl size="small" fullWidth sx={{ maxWidth: 480 }}>
               <InputLabel>Theme</InputLabel>
               <Select
                 value={theme}
@@ -200,7 +200,7 @@ export function ProfileSettingsPage() {
             title="Default Namespace"
             description="Used by default for catalog and upload operations"
           >
-            <FormControl size="small" sx={{ minWidth: 220 }}>
+            <FormControl size="small" fullWidth sx={{ maxWidth: 480 }}>
               <InputLabel>Namespace</InputLabel>
               <Select
                 value={defaultNs}
