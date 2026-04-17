@@ -24,7 +24,13 @@ interface ConfigState {
   readonly maxFileSizeMb: number;
   readonly defaultTimezone: string;
   readonly loaded: boolean;
-  fetchConfig: () => Promise<void>;
+  /**
+   * Fetches `/api/v1/config`. Skips the request when the store is already
+   * loaded unless `{ force: true }` is passed — call with `force` after any
+   * mutation that changes `application_setting` so cached values
+   * (defaultTimezone, maxFileSizeMb) stay in sync with the DB.
+   */
+  fetchConfig: (options?: { force?: boolean }) => Promise<void>;
 }
 
 export const useConfigStore = create<ConfigState>((set, get) => ({
@@ -33,8 +39,8 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   defaultTimezone: "UTC",
   loaded: false,
 
-  async fetchConfig() {
-    if (get().loaded) return;
+  async fetchConfig(options) {
+    if (get().loaded && !options?.force) return;
     try {
       const res = await axiosInstance.get("/config");
       set({
