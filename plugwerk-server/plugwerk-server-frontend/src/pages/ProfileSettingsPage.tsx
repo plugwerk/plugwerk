@@ -146,9 +146,15 @@ export function ProfileSettingsPage() {
             description="Override the system defaults set by the administrator"
           >
             <Box
-              sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 1 }}
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+                mb: 1,
+                maxWidth: 480,
+              }}
             >
-              <FormControl size="small" sx={{ minWidth: 220 }}>
+              <FormControl size="small" fullWidth>
                 <InputLabel>Language</InputLabel>
                 <Select
                   value={language}
@@ -164,7 +170,6 @@ export function ProfileSettingsPage() {
                 label="Timezone"
                 helperText="Leave empty to use the system default timezone."
                 allowEmpty
-                sx={{ maxWidth: 480 }}
               />
             </Box>
           </Section>
