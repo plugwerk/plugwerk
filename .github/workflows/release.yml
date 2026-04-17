@@ -206,3 +206,12 @@ jobs:
           provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Sync Docker Hub README
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: plugwerk/plugwerk-server
+          short-description: Plugin management and marketplace software for the Java/PF4J ecosystem
+          readme-filepath: ./docker/dockerhub-readme.md
