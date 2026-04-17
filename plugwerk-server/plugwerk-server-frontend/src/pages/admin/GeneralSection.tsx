@@ -34,6 +34,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Activity, Globe, Upload } from "lucide-react";
+import { TimezoneSelect } from "../../components/common/TimezoneSelect";
 import type { ApplicationSettingDto } from "../../api/generated/model/application-setting-dto";
 import { Section } from "../../components/common/Section";
 import { useSettingsStore } from "../../stores/settingsStore";
@@ -210,6 +211,21 @@ export function GeneralSection() {
       );
     }
 
+    if (key === "general.timezone") {
+      return (
+        <FormControl key={key} error={Boolean(error)} sx={{ maxWidth: 480 }}>
+          <TimezoneSelect
+            value={value}
+            onChange={(v) => handleFieldChange(key, v)}
+            label={label}
+            helperText={helperText}
+            error={Boolean(error)}
+            disabled={saving}
+          />
+        </FormControl>
+      );
+    }
+
     if (key === "general.default_language") {
       const allowed = setting.allowedValues ?? ["en", "de"];
       return (
@@ -367,6 +383,7 @@ export function GeneralSection() {
         >
           {renderField("general.site_name")}
           {renderField("general.default_language")}
+          {renderField("general.timezone")}
         </Section>
 
         {/* Upload */}

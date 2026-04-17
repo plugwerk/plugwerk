@@ -38,7 +38,7 @@ import { tokens } from "../../theme/tokens";
 import type { BadgeVariant } from "../common/Badge";
 import { managementApi, reviewsApi } from "../../api/config";
 import { formatFileSize } from "../../utils/formatFileSize";
-import { formatDateTime } from "../../utils/formatDateTime";
+import { Timestamp } from "../common/Timestamp";
 import { downloadArtifact } from "../../utils/downloadArtifact";
 import { formatCount, formatCountFull } from "../../utils/formatCount";
 import { useUiStore } from "../../stores/uiStore";
@@ -261,7 +261,7 @@ export function VersionsTab({
       header: "Uploaded",
       render: (rel) => (
         <Typography variant="caption" color="text.disabled">
-          {formatDateTime(rel.createdAt)}
+          <Timestamp date={rel.createdAt} />
         </Typography>
       ),
     },

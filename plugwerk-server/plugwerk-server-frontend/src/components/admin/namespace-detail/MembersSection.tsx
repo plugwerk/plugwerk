@@ -35,6 +35,7 @@ import { AppDialog } from "../../common/AppDialog";
 import { DataTable } from "../../common/DataTable";
 import type { DataColumn } from "../../common/DataTable";
 import { ActionIconButton } from "../../common/ActionIconButton";
+import { Timestamp } from "../../common/Timestamp";
 import { adminUsersApi, namespaceMembersApi } from "../../../api/config";
 import { isAxiosError } from "axios";
 import type {
@@ -210,11 +211,7 @@ export function MembersSection({ slug }: { slug: string }) {
       header: "Created",
       render: (member) => (
         <Typography variant="caption" color="text.disabled">
-          {new Date(member.createdAt).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
+          <Timestamp date={member.createdAt} />
         </Typography>
       ),
     },

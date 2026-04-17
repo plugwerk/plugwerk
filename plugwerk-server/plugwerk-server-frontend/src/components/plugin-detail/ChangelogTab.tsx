@@ -20,7 +20,7 @@ import { Box, Typography } from "@mui/material";
 import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import type { PluginReleaseDto } from "../../api/generated/model";
-import { formatDateTime } from "../../utils/formatDateTime";
+import { Timestamp } from "../common/Timestamp";
 
 interface ChangelogTabProps {
   releases: PluginReleaseDto[];
@@ -65,7 +65,7 @@ export function ChangelogTab({ releases }: ChangelogTabProps) {
                   ml: 1,
                 }}
               >
-                – {formatDateTime(rel.createdAt)}
+                – <Timestamp date={rel.createdAt} />
               </Box>
             )}
           </Typography>

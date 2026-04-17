@@ -19,6 +19,19 @@
 package io.plugwerk.server.service.settings
 
 import io.plugwerk.server.domain.SettingValueType
+import java.time.DateTimeException
+import java.time.ZoneId
+
+/** Validates that [rawValue] is a known IANA timezone identifier, or empty (= fall back to system default). */
+private fun validateTimezoneOrEmpty(rawValue: String): String? {
+    if (rawValue.isEmpty()) return null
+    return try {
+        ZoneId.of(rawValue)
+        null
+    } catch (_: DateTimeException) {
+        "value must be an IANA timezone identifier (e.g. UTC, Europe/Berlin) or empty, got '$rawValue'"
+    }
+}
 
 /**
  * Registry of per-user settings (ADR-0018).
@@ -32,6 +45,7 @@ enum class UserSettingKey(
     val valueType: SettingValueType,
     val defaultValue: String,
     val allowedValues: Set<String>? = null,
+    val extraValidator: ((String) -> String?)? = null,
 ) {
     PREFERRED_LANGUAGE(
         key = "preferred_language",
@@ -50,23 +64,32 @@ enum class UserSettingKey(
         defaultValue = "system",
         allowedValues = setOf("light", "dark", "system"),
     ),
+    TIMEZONE(
+        key = "timezone",
+        valueType = SettingValueType.STRING,
+        defaultValue = "",
+        extraValidator = ::validateTimezoneOrEmpty,
+    ),
     ;
 
-    fun validate(rawValue: String): String? = when (valueType) {
-        SettingValueType.STRING -> null
+    fun validate(rawValue: String): String? {
+        val typeError = when (valueType) {
+            SettingValueType.STRING -> null
 
-        SettingValueType.INTEGER -> if (rawValue.toIntOrNull() == null) "value must be an integer" else null
+            SettingValueType.INTEGER -> if (rawValue.toIntOrNull() == null) "value must be an integer" else null
 
-        SettingValueType.BOOLEAN -> if (rawValue !in BOOLEAN_LITERALS) "value must be 'true' or 'false'" else null
+            SettingValueType.BOOLEAN -> if (rawValue !in BOOLEAN_LITERALS) "value must be 'true' or 'false'" else null
 
-        SettingValueType.ENUM -> {
-            val allowed = allowedValues
-            when {
-                allowed == null -> "ENUM key '$key' has no allowedValues declared"
-                rawValue !in allowed -> "value must be one of $allowed, got '$rawValue'"
-                else -> null
+            SettingValueType.ENUM -> {
+                val allowed = allowedValues
+                when {
+                    allowed == null -> "ENUM key '$key' has no allowedValues declared"
+                    rawValue !in allowed -> "value must be one of $allowed, got '$rawValue'"
+                    else -> null
+                }
             }
         }
+        return typeError ?: extraValidator?.invoke(rawValue)
     }
 
     companion object {

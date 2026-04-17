@@ -1,0 +1,20 @@
+# Seeds the default `general.timezone` application setting (issue #229).
+# Operator-configurable timezone used as the fallback display timezone for
+# all users who have no personal `timezone` user_setting. Stored as an IANA
+# identifier (e.g. UTC, Europe/Berlin). Validation happens in SettingKey via
+# java.time.ZoneId.of().
+databaseChangeLog:
+  - changeSet:
+      id: 0007-seed-general-timezone
+      author: plugwerk
+      changes:
+        - insert:
+            tableName: application_setting
+            columns:
+              - column: { name: id, valueComputed: "gen_random_uuid()" }
+              - column: { name: setting_key, value: "general.timezone" }
+              - column: { name: setting_value, value: "UTC" }
+              - column: { name: value_type, value: "STRING" }
+              - column:
+                  name: setting_desc
+                  value: "Default timezone for date and time display in the UI. Uses IANA timezone identifiers (e.g. Europe/Berlin, America/New_York, UTC). Applied to all users who have no personal timezone preference."

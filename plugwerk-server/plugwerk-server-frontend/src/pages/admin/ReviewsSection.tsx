@@ -22,6 +22,7 @@ import { CheckCircle, XCircle } from "lucide-react";
 import { DataTable } from "../../components/common/DataTable";
 import type { DataColumn } from "../../components/common/DataTable";
 import { ActionIconButton } from "../../components/common/ActionIconButton";
+import { Timestamp } from "../../components/common/Timestamp";
 import { reviewsApi } from "../../api/config";
 import { useAuthStore } from "../../stores/authStore";
 import { useUiStore } from "../../stores/uiStore";
@@ -129,11 +130,7 @@ export function ReviewsSection() {
       header: "Submitted",
       render: (item) => (
         <Typography variant="caption" color="text.disabled">
-          {new Date(item.submittedAt).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
+          <Timestamp date={item.submittedAt} />
         </Typography>
       ),
     },
