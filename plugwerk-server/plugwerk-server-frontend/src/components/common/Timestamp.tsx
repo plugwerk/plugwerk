@@ -33,9 +33,17 @@ interface TimestampProps {
    */
   readonly variant?: TimestampVariant;
   /**
-   * Whether to show a tooltip with the full timestamp (and timezone abbreviation)
-   * on hover. Enabled by default for `relative`; also enabled for `full` so users
-   * see the timezone context even when the primary label already shows the date.
+   * Whether to show a tooltip with the full timestamp and timezone
+   * abbreviation on hover.
+   *
+   * Default:
+   * - `relative` → `true` (primary label lacks the absolute date; the
+   *   tooltip adds the anchor)
+   * - `full` → `false` (primary label already shows the full date;
+   *   extra tooltip chrome would be noise)
+   *
+   * Pass `withTooltip={true}` explicitly when the timezone abbreviation
+   * is especially useful for the reader.
    */
   readonly withTooltip?: boolean;
   /** Optional CSS class for the rendered `<span>`. */
@@ -44,16 +52,18 @@ interface TimestampProps {
 
 /**
  * Renders a backend timestamp (UTC `OffsetDateTime`) in the effective user
- * timezone. Hover shows the full timestamp plus the timezone abbreviation
- * (e.g. "CET", "PST", "UTC") so readers can anchor the value to a zone.
+ * timezone. For `relative` variants the tooltip (enabled by default) shows
+ * the full timestamp plus the timezone abbreviation (e.g. "CET", "PST",
+ * "UTC") so readers can anchor the value to a zone.
  */
 export function Timestamp({
   date,
   variant = "full",
-  withTooltip = true,
+  withTooltip,
   className,
 }: TimestampProps) {
   const timezone = useEffectiveTimezone();
+  const tooltipEnabled = withTooltip ?? variant === "relative";
 
   if (!date) {
     return (
@@ -68,7 +78,7 @@ export function Timestamp({
       ? formatRelativeTime(date)
       : formatDateTime(date, { timezone });
 
-  if (!withTooltip) {
+  if (!tooltipEnabled) {
     return (
       <Box component="span" className={className}>
         {primary}
