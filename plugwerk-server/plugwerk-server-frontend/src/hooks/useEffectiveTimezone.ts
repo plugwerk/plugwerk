@@ -16,6 +16,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
+import { useEffect } from "react";
+import { useConfigStore } from "../stores/configStore";
 import { useUserSettingsStore } from "../stores/userSettingsStore";
 
 function browserLocalTimezone(): string {
@@ -33,18 +35,30 @@ function browserLocalTimezone(): string {
  *
  * Fallback chain:
  * 1. User preference (`userSettings.timezone` when non-empty)
- * 2. Browser local timezone
- * 3. `"UTC"` as a last resort
+ * 2. Server-wide default (`general.default_timezone` from the public
+ *    `/api/v1/config` endpoint, cached in `useConfigStore`)
+ * 3. Browser local timezone
+ * 4. `"UTC"` as a last resort
  *
- * The server-wide `general.timezone` setting drives the initial default that is
- * seeded into the user's preference the first time they save their profile; it
- * is not consulted here because the admin settings store is not loaded for
- * non-admin users.
+ * The hook triggers a `fetchConfig` on first use so rendering does not depend
+ * on another component having populated the public config first. Subsequent
+ * lookups are served from the cached store.
  */
 export function useEffectiveTimezone(): string {
   const userTimezone = useUserSettingsStore((s) => s.settings.timezone);
+  const systemTimezone = useConfigStore((s) => s.defaultTimezone);
+  const configLoaded = useConfigStore((s) => s.loaded);
+  const fetchConfig = useConfigStore((s) => s.fetchConfig);
+
+  useEffect(() => {
+    if (!configLoaded) void fetchConfig();
+  }, [configLoaded, fetchConfig]);
+
   if (userTimezone && userTimezone.length > 0) {
     return userTimezone;
+  }
+  if (configLoaded && systemTimezone.length > 0) {
+    return systemTimezone;
   }
   return browserLocalTimezone();
 }

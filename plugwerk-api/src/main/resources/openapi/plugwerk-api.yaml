@@ -2660,9 +2660,23 @@ components:
               example: 100
           required:
             - maxFileSizeMb
+        general:
+          type: object
+          description: General application-wide configuration
+          properties:
+            defaultTimezone:
+              type: string
+              description: |
+                Server-configured default timezone (IANA identifier, e.g. `UTC`,
+                `Europe/Berlin`). Used as the display-time fallback for any user who has
+                not set a personal timezone preference.
+              example: "UTC"
+          required:
+            - defaultTimezone
       required:
         - version
         - upload
+        - general
 
     AccessKeyDto:
       type: object

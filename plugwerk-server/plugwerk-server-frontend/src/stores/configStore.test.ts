@@ -32,29 +32,48 @@ describe("configStore", () => {
     useConfigStore.setState({
       version: "…",
       maxFileSizeMb: 100,
+      defaultTimezone: "UTC",
       loaded: false,
     });
     vi.mocked(apiConfig.axiosInstance.get).mockReset();
   });
 
   it("has correct initial state", () => {
-    const { version, maxFileSizeMb, loaded } = useConfigStore.getState();
+    const { version, maxFileSizeMb, defaultTimezone, loaded } =
+      useConfigStore.getState();
     expect(version).toBe("…");
     expect(maxFileSizeMb).toBe(100);
+    expect(defaultTimezone).toBe("UTC");
     expect(loaded).toBe(false);
   });
 
-  it("fetches config and sets version and maxFileSizeMb", async () => {
+  it("fetches config and sets version, maxFileSizeMb, defaultTimezone", async () => {
     vi.mocked(apiConfig.axiosInstance.get).mockResolvedValue({
-      data: { version: "0.1.0-SNAPSHOT", upload: { maxFileSizeMb: 200 } },
+      data: {
+        version: "0.1.0-SNAPSHOT",
+        upload: { maxFileSizeMb: 200 },
+        general: { defaultTimezone: "Europe/Berlin" },
+      },
     });
 
     await useConfigStore.getState().fetchConfig();
 
-    const { version, maxFileSizeMb, loaded } = useConfigStore.getState();
+    const { version, maxFileSizeMb, defaultTimezone, loaded } =
+      useConfigStore.getState();
     expect(version).toBe("0.1.0-SNAPSHOT");
     expect(maxFileSizeMb).toBe(200);
+    expect(defaultTimezone).toBe("Europe/Berlin");
     expect(loaded).toBe(true);
+  });
+
+  it("falls back to UTC when defaultTimezone is missing from response", async () => {
+    vi.mocked(apiConfig.axiosInstance.get).mockResolvedValue({
+      data: { version: "1.0.0", upload: { maxFileSizeMb: 100 } },
+    });
+
+    await useConfigStore.getState().fetchConfig();
+
+    expect(useConfigStore.getState().defaultTimezone).toBe("UTC");
   });
 
   it("sets version to unknown on fetch error", async () => {
