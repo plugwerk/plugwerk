@@ -63,13 +63,14 @@ export function TimezoneSelect({
   const selected = options.find((o) => o.id === value) ?? null;
 
   return (
-    <Autocomplete<TimezoneOption, false, false, false>
+    <Autocomplete<TimezoneOption, false, boolean, false>
       value={selected}
       onChange={(_, option) => onChange(option?.id ?? "")}
       options={options}
       groupBy={(option) => option.region}
       getOptionLabel={(option) => option.label}
       isOptionEqualToValue={(opt, val) => opt.id === val.id}
+      disableClearable={!allowEmpty}
       disabled={disabled}
       size={size}
       sx={sx}
