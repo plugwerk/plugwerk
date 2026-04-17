@@ -130,6 +130,14 @@ jobs:
           event-type: openapi-update
           client-payload: '{"version": "${{ steps.version.outputs.VERSION }}"}'
 
+      - name: Sync docker-compose.yml to website
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.RELEASE_TOKEN }}
+          repository: plugwerk/website
+          event-type: docker-compose-update
+          client-payload: '{"version": "${{ steps.version.outputs.VERSION }}"}'
+
   docker-publish:
     name: Build and push Docker image
     needs: publish
