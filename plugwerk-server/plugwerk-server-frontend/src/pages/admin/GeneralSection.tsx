@@ -213,11 +213,15 @@ export function GeneralSection() {
 
     if (key === "general.timezone") {
       return (
-        <FormControl key={key} error={Boolean(error)} sx={{ maxWidth: 480 }}>
+        <FormControl
+          key={key}
+          error={Boolean(error)}
+          sx={{ minWidth: 240, maxWidth: 480 }}
+        >
           <TimezoneSelect
             value={value}
             onChange={(v) => handleFieldChange(key, v)}
-            label={label}
+            label="Default Timezone"
             helperText={helperText}
             error={Boolean(error)}
             disabled={saving}
@@ -232,7 +236,7 @@ export function GeneralSection() {
         <FormControl
           key={key}
           size="small"
-          sx={{ minWidth: 240 }}
+          sx={{ minWidth: 240, maxWidth: 480 }}
           error={Boolean(error)}
         >
           <InputLabel id={`label-${key}`}>{label}</InputLabel>

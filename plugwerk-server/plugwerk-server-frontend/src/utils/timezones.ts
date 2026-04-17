@@ -98,18 +98,30 @@ export interface TimezoneOption {
   readonly label: string; // "Europe/Berlin (UTC+01:00)"
 }
 
+// `Intl.supportedValuesOf("timeZone")` omits plain "UTC" and the `Etc/*`
+// zones in Node/V8 and several browser engines. These are valid IANA
+// identifiers accepted by both `ZoneId.of` on the backend and
+// `Intl.DateTimeFormat` on the frontend, so we always surface them to avoid
+// a non-matching selection when the seeded default is `"UTC"`.
+const ALWAYS_INCLUDE: readonly string[] = ["UTC", "Etc/UTC", "Etc/GMT"];
+
 function listAvailableTimezones(): readonly string[] {
   const intlWithSupport = Intl as typeof Intl & {
     supportedValuesOf?: (key: "timeZone") => string[];
   };
-  if (typeof intlWithSupport.supportedValuesOf === "function") {
-    try {
-      return intlWithSupport.supportedValuesOf("timeZone");
-    } catch {
-      return FALLBACK_TIMEZONES;
-    }
-  }
-  return FALLBACK_TIMEZONES;
+  const base: readonly string[] =
+    typeof intlWithSupport.supportedValuesOf === "function"
+      ? (() => {
+          try {
+            return intlWithSupport.supportedValuesOf!("timeZone");
+          } catch {
+            return FALLBACK_TIMEZONES;
+          }
+        })()
+      : FALLBACK_TIMEZONES;
+  const deduped = new Set<string>(base);
+  for (const id of ALWAYS_INCLUDE) deduped.add(id);
+  return Array.from(deduped);
 }
 
 /**
