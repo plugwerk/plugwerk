@@ -19,6 +19,8 @@ Multi-architecture: `linux/amd64`, `linux/arm64`.
 
 ## Quick start
 
+> **Warning — placeholders in this snippet are intentionally invalid.** `PLUGWERK_JWT_SECRET` and `PLUGWERK_ENCRYPTION_KEY` below fail the server's minimum-length validation on purpose, so a verbatim `docker compose up` aborts at startup with a clear property-validation error. Replace the database password and export real secrets as shown in the next step before running the stack.
+
 Create a `docker-compose.yml`:
 
 ```yaml
@@ -28,7 +30,7 @@ services:
     environment:
       POSTGRES_DB: plugwerk
       POSTGRES_USER: plugwerk
-      POSTGRES_PASSWORD: plugwerk
+      POSTGRES_PASSWORD: REPLACE_ME_STRONG_PASSWORD
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -46,10 +48,11 @@ services:
     environment:
       PLUGWERK_DB_URL: jdbc:postgresql://postgres:5432/plugwerk
       PLUGWERK_DB_USERNAME: plugwerk
-      PLUGWERK_DB_PASSWORD: plugwerk
-      PLUGWERK_JWT_SECRET: "change-me-min-32-characters-long!"
-      PLUGWERK_ENCRYPTION_KEY: "exactly16charss"
-      PLUGWERK_AUTH_ADMIN_PASSWORD: admin
+      PLUGWERK_DB_PASSWORD: REPLACE_ME_STRONG_PASSWORD
+      # Short placeholder — fails @Size(min=32) and aborts startup until replaced.
+      PLUGWERK_JWT_SECRET: "REPLACE_ME_SEE_README"
+      # Short placeholder — fails @Size(min=16, max=16) and aborts startup until replaced.
+      PLUGWERK_ENCRYPTION_KEY: "REPLACE_ME"
     volumes:
       - plugwerk-artifacts:/var/plugwerk/artifacts
 
@@ -61,12 +64,24 @@ volumes:
 Generate secure secrets and start:
 
 ```bash
+# 1) Edit docker-compose.yml and replace each REPLACE_ME_* literal with the
+#    value you want to pin (the database password is a plain string; the two
+#    server secrets are easier to export and substitute, see below).
+# 2) Export real secrets into your shell:
 export PLUGWERK_JWT_SECRET="$(openssl rand -base64 32)"
 export PLUGWERK_ENCRYPTION_KEY="$(openssl rand -hex 8)"
+# 3) Substitute them in-place (or paste the values into the compose file).
+# 4) Launch:
 docker compose up -d
 ```
 
-Open http://localhost:8080 and log in with `admin` / your `PLUGWERK_AUTH_ADMIN_PASSWORD` value.
+On first start the server generates a random superadmin password and prints it once to the container log. Retrieve it and log in:
+
+```bash
+docker compose logs plugwerk-server | grep -A 6 "Initial Superadmin Password"
+```
+
+Open http://localhost:8080 and log in with `admin` / that value. You will be required to change the password on first login.
 
 ## Configuration
 
@@ -78,7 +93,7 @@ Open http://localhost:8080 and log in with `admin` / your `PLUGWERK_AUTH_ADMIN_P
 | `PLUGWERK_DB_USERNAME` | no | `plugwerk` | DB user |
 | `PLUGWERK_DB_PASSWORD` | no | `plugwerk` | DB password |
 | `PLUGWERK_STORAGE_ROOT` | no | `/var/plugwerk/artifacts` | Artifact storage directory |
-| `PLUGWERK_AUTH_ADMIN_PASSWORD` | no | *(random, logged)* | Initial superadmin password |
+| `PLUGWERK_AUTH_ADMIN_PASSWORD` | no | *(random, logged, `passwordChangeRequired`)* | Pin the initial superadmin password (CI/smoke-test only — **do not set in production**). Blank or whitespace-only values are treated the same as unset. |
 | `JAVA_OPTS` | no | `-Xms256m -Xmx512m -XX:+UseG1GC` | JVM options |
 
 Full reference: https://plugwerk.io/server/configuration/

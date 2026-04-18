@@ -1,3 +1,24 @@
+# ---------------------------------------------------------------------------
+# Plugwerk server — minimal local/dev compose template.
+#
+# This file is bundled in the server distribution as a starting point. It is
+# NOT production-ready as-is:
+#
+#   - The Postgres credentials (POSTGRES_PASSWORD, PLUGWERK_DB_PASSWORD) are
+#     placeholder values. Replace them with strong secrets before any non-
+#     local-dev use.
+#   - PLUGWERK_JWT_SECRET and PLUGWERK_ENCRYPTION_KEY are passed through from
+#     the host environment (`${VAR:?…}`) and fail fast if missing.
+#   - The admin bootstrap password is auto-generated on first start and
+#     printed to `docker compose logs plugwerk-server`; `passwordChangeRequired`
+#     is set, so the operator is forced to change it on first login. To pin
+#     a fixed admin password for CI/smoke-test environments, export
+#     `PLUGWERK_AUTH_ADMIN_PASSWORD` in your own shell or `.env` before
+#     running `docker compose up` — never commit that value.
+#
+# See the Docker Hub README for a guided setup (strong secret generation,
+# login instructions, operational caveats).
+# ---------------------------------------------------------------------------
 services:
   postgres:
     image: postgres:18-alpine
@@ -26,7 +47,11 @@ services:
       PLUGWERK_DB_PASSWORD: plugwerk
       PLUGWERK_JWT_SECRET: "${PLUGWERK_JWT_SECRET:?Set PLUGWERK_JWT_SECRET (min 32 chars)}"
       PLUGWERK_ENCRYPTION_KEY: "${PLUGWERK_ENCRYPTION_KEY:?Set PLUGWERK_ENCRYPTION_KEY (exactly 16 chars)}"
-      PLUGWERK_AUTH_ADMIN_PASSWORD: ${PLUGWERK_AUTH_ADMIN_PASSWORD:-}
+      # PLUGWERK_AUTH_ADMIN_PASSWORD is intentionally NOT declared here.
+      # If unset, the server generates a random admin password on first start
+      # and forces a change on first login. Export it only for CI / smoke-test
+      # environments where a deterministic password is required; the process
+      # environment is picked up by Spring Boot without needing a compose entry.
     volumes:
       - plugwerk-artifacts:/var/plugwerk/artifacts
     ports:
