@@ -28,6 +28,7 @@ import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.service.OidcProviderService
 import io.plugwerk.server.service.UnauthorizedException
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -49,6 +50,7 @@ class OidcProviderController(
         return ResponseEntity.ok(oidcProviderService.findAll().map { it.toDto() })
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
     override fun createOidcProvider(
         oidcProviderCreateRequest: OidcProviderCreateRequest,
     ): ResponseEntity<OidcProviderDto> {
@@ -66,6 +68,7 @@ class OidcProviderController(
         return ResponseEntity.created(URI("/api/v1/admin/oidc-providers/${provider.id}")).body(provider.toDto())
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
     override fun updateOidcProvider(
         providerId: UUID,
         oidcProviderUpdateRequest: OidcProviderUpdateRequest,
@@ -81,6 +84,7 @@ class OidcProviderController(
         return ResponseEntity.ok(provider.toDto())
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
     override fun deleteOidcProvider(providerId: UUID): ResponseEntity<Unit> {
         val auth = SecurityContextHolder.getContext().authentication
             ?: throw UnauthorizedException("Not authenticated")

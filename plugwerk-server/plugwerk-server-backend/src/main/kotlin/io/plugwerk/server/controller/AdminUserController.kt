@@ -26,6 +26,7 @@ import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.service.UnauthorizedException
 import io.plugwerk.server.service.UserService
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -48,6 +49,7 @@ class AdminUserController(
         return ResponseEntity.ok(users.map { it.toDto() })
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
     override fun createUser(userCreateRequest: UserCreateRequest): ResponseEntity<UserDto> {
         val auth = SecurityContextHolder.getContext().authentication
             ?: throw UnauthorizedException("Not authenticated")
@@ -60,6 +62,7 @@ class AdminUserController(
         return ResponseEntity.created(URI("/api/v1/admin/users/${user.id}")).body(user.toDto())
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
     override fun updateUser(userId: UUID, userUpdateRequest: UserUpdateRequest): ResponseEntity<UserDto> {
         val auth = SecurityContextHolder.getContext().authentication
             ?: throw UnauthorizedException("Not authenticated")
@@ -70,6 +73,7 @@ class AdminUserController(
         return ResponseEntity.ok(user.toDto())
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
     override fun deleteUser(userId: UUID): ResponseEntity<Unit> {
         val auth = SecurityContextHolder.getContext().authentication
             ?: throw UnauthorizedException("Not authenticated")

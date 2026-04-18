@@ -28,6 +28,7 @@ import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.service.PluginReleaseService
 import io.plugwerk.spi.model.ReleaseStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -60,6 +61,7 @@ class ReviewsController(
         return ResponseEntity.ok(pending)
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'ADMIN')")
     override fun approveRelease(
         ns: String,
         releaseId: UUID,
@@ -77,6 +79,7 @@ class ReviewsController(
         return ResponseEntity.ok(releaseMapper.toDto(release, release.plugin.pluginId))
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'ADMIN')")
     override fun rejectRelease(
         ns: String,
         releaseId: UUID,

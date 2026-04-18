@@ -24,6 +24,7 @@ import io.plugwerk.api.model.UserSettingsUpdateRequest
 import io.plugwerk.server.service.UnauthorizedException
 import io.plugwerk.server.service.settings.UserSettingsService
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -38,6 +39,7 @@ class UserSettingsController(private val userSettingsService: UserSettingsServic
         return ResponseEntity.ok(UserSettingsResponse(settings = settings))
     }
 
+    @PreAuthorize("isAuthenticated() and !authentication.name.startsWith('key:')")
     override fun updateUserSettings(
         userSettingsUpdateRequest: UserSettingsUpdateRequest,
     ): ResponseEntity<UserSettingsResponse> {
