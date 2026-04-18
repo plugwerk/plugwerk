@@ -19,6 +19,7 @@
 package io.plugwerk.server.config
 
 import io.plugwerk.server.PlugwerkProperties
+import io.plugwerk.server.security.ChangePasswordRateLimitFilter
 import io.plugwerk.server.security.DelegatingJwtDecoder
 import io.plugwerk.server.security.LoginRateLimitFilter
 import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
@@ -36,6 +37,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.encrypt.Encryptors
 import org.springframework.security.crypto.encrypt.TextEncryptor
 import org.springframework.security.crypto.password.PasswordEncoder
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
@@ -46,6 +48,7 @@ import java.security.MessageDigest
 @EnableWebSecurity
 class SecurityConfiguration(
     private val loginRateLimitFilter: LoginRateLimitFilter,
+    private val changePasswordRateLimitFilter: ChangePasswordRateLimitFilter,
     private val apiKeyAuthFilter: NamespaceAccessKeyAuthFilter,
     private val publicNamespaceFilter: PublicNamespaceFilter,
     private val passwordChangeRequiredFilter: PasswordChangeRequiredFilter,
@@ -167,6 +170,11 @@ class SecurityConfiguration(
             .addFilterAfter(apiKeyAuthFilter, PublicNamespaceFilter::class.java)
             // PasswordChangeRequiredFilter runs last — blocks all API access when passwordChangeRequired = true
             .addFilterAfter(passwordChangeRequiredFilter, NamespaceAccessKeyAuthFilter::class.java)
+            // ChangePasswordRateLimitFilter runs after BearerTokenAuthenticationFilter so the
+            // SecurityContext is populated with the JWT principal — the filter keys its bucket
+            // on the authenticated subject. Unauthenticated requests pass through without
+            // consuming a bucket token.
+            .addFilterAfter(changePasswordRateLimitFilter, BearerTokenAuthenticationFilter::class.java)
 
         return http.build()
     }

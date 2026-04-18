@@ -18,23 +18,10 @@
  */
 package io.plugwerk.server.security
 
-import io.plugwerk.server.PlugwerkProperties
-import org.springframework.stereotype.Component
-
 /**
- * IP-keyed rate limiting for the login endpoint. Thin facade over
- * [BucketRateLimitService] scoped with `"login"`.
+ * Result of a rate-limit check. Shared by every rate-limit service in the security package.
  */
-@Component
-class LoginRateLimitService(private val bucketService: BucketRateLimitService, props: PlugwerkProperties) {
-
-    private val maxAttempts = props.auth.rateLimit.maxAttempts
-    private val windowSeconds = props.auth.rateLimit.windowSeconds
-
-    fun tryConsume(ipAddress: String): RateLimitResult =
-        bucketService.tryConsume(SCOPE, ipAddress, maxAttempts, windowSeconds)
-
-    private companion object {
-        const val SCOPE = "login"
-    }
+sealed interface RateLimitResult {
+    data class Allowed(val remainingTokens: Long) : RateLimitResult
+    data class Rejected(val retryAfterSeconds: Long) : RateLimitResult
 }

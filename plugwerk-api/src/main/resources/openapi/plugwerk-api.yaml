@@ -1034,6 +1034,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /users/me/settings:
     get:
@@ -2887,6 +2889,20 @@ components:
         The uploaded artifact exceeds the server's maximum allowed file size.
         Use `GET /config` to query the current limit. The default is 100 MB,
         configurable via the `PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB` environment variable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    TooManyRequests:
+      description: |
+        The caller has exceeded the endpoint's rate limit. The `Retry-After`
+        header indicates how many seconds to wait before retrying.
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying the request.
+          schema:
+            type: integer
+            format: int64
       content:
         application/json:
           schema:

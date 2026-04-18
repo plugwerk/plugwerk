@@ -55,9 +55,9 @@ plugwerk:
     # No environment variable override — change this value directly when needed.
     token-validity-hours: 8
 
-    # IP-based brute-force protection for the login endpoint.
+    # Brute-force protection for authentication endpoints.
     # Uses an in-memory token bucket (Bucket4j + Caffeine).
-    # Exceeding the limit returns HTTP 429 with a Retry-After header.
+    # Exceeding a limit returns HTTP 429 with a Retry-After header.
     rate-limit:
       # Maximum login attempts per IP within the time window.
       # Env: PLUGWERK_AUTH_RATE_LIMIT_MAX_ATTEMPTS
@@ -65,6 +65,14 @@ plugwerk:
       # Time window in seconds. Buckets auto-expire after this period.
       # Env: PLUGWERK_AUTH_RATE_LIMIT_WINDOW_SECONDS
       window-seconds: ${PLUGWERK_AUTH_RATE_LIMIT_WINDOW_SECONDS:60}
+      # Change-password rate limiting (keyed by authenticated subject).
+      # Independent bucket — login attempts and change-password attempts never share state.
+      change-password:
+        # Maximum change-password attempts per subject within the time window.
+        # Env: PLUGWERK_AUTH_RATE_LIMIT_CHANGE_PASSWORD_MAX_ATTEMPTS
+        max-attempts: ${PLUGWERK_AUTH_RATE_LIMIT_CHANGE_PASSWORD_MAX_ATTEMPTS:5}
+        # Env: PLUGWERK_AUTH_RATE_LIMIT_CHANGE_PASSWORD_WINDOW_SECONDS
+        window-seconds: ${PLUGWERK_AUTH_RATE_LIMIT_CHANGE_PASSWORD_WINDOW_SECONDS:300}
 
   # Upload and download-tracking settings were moved to the `application_setting` database
   # table in 1.0.0-alpha.2 (ADR-0016). The environment variables PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB,

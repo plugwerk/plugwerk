@@ -185,11 +185,12 @@ data class PlugwerkProperties(
         val rateLimit: RateLimitProperties = RateLimitProperties(),
     ) {
         /**
-         * Login rate limiting configuration (`plugwerk.auth.rate-limit.*`).
+         * Rate limiting configuration (`plugwerk.auth.rate-limit.*`).
          *
-         * Controls IP-based brute-force protection on the login endpoint. Uses an in-memory
-         * token-bucket algorithm (Bucket4j) with per-IP buckets that auto-expire after the
-         * configured window.
+         * Controls brute-force protection on authentication endpoints. Uses an in-memory
+         * token-bucket algorithm (Bucket4j). Login is keyed by client IP; change-password
+         * is keyed by the authenticated subject so attackers on a hijacked session cannot
+         * drain other users' buckets.
          *
          * @property maxAttempts Maximum number of login attempts allowed per IP address within
          *   the configured time window. Requests exceeding this limit receive HTTP 429.
@@ -208,7 +209,34 @@ data class PlugwerkProperties(
          *   ```yaml
          *   plugwerk.auth.rate-limit.window-seconds: 60
          *   ```
+         *
+         * @property changePassword Rate limit for `POST /api/v1/auth/change-password`.
+         *   Keyed by authenticated subject, with its own Bucket4j configuration so login
+         *   and change-password cannot drain each other's buckets.
          */
-        data class RateLimitProperties(val maxAttempts: Int = 10, val windowSeconds: Long = 60)
+        data class RateLimitProperties(
+            val maxAttempts: Int = 10,
+            val windowSeconds: Long = 60,
+            val changePassword: ChangePasswordRateLimitProperties = ChangePasswordRateLimitProperties(),
+        )
+
+        /**
+         * Subject-keyed rate limiting for `POST /api/v1/auth/change-password`.
+         *
+         * Defaults to 5 attempts per 5 minutes: tolerates legitimate password-rotation
+         * UX glitches (retyped current password, paste errors) while stopping online
+         * brute-force attempts against the current password.
+         *
+         * @property maxAttempts Maximum change-password attempts per authenticated subject
+         *   within the configured time window. Exceeding this limit returns HTTP 429.
+         *
+         *   Environment variable: `PLUGWERK_AUTH_RATE_LIMIT_CHANGE_PASSWORD_MAX_ATTEMPTS`
+         *
+         * @property windowSeconds Duration of the change-password rate-limit window in
+         *   seconds.
+         *
+         *   Environment variable: `PLUGWERK_AUTH_RATE_LIMIT_CHANGE_PASSWORD_WINDOW_SECONDS`
+         */
+        data class ChangePasswordRateLimitProperties(val maxAttempts: Int = 5, val windowSeconds: Long = 300)
     }
 }
