@@ -104,6 +104,20 @@ class SecurityConfiguration(
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
+            // CSRF is safe to disable here because:
+            //   1. The server is a pure REST API with `SessionCreationPolicy.STATELESS`
+            //      (see below) — no HTTP session is created or consulted.
+            //   2. Authentication is by Bearer JWT or `X-Api-Key` header, both of which
+            //      an attacker cannot automatically attach to a cross-origin request.
+            //   3. No endpoint reads ambient cookies for authentication.
+            //   4. The OIDC callback uses the `state` / `nonce` parameters, not a session
+            //      cookie, so it is not a CSRF surface.
+            //
+            // **Must be re-enabled if any of these become false.** Concretely: if a future
+            // change moves the access token (or refresh token) into a cookie — the path
+            // tracked by #294 (H-08, JWT-in-localStorage hardening) — cookies become a
+            // CSRF surface and this call must be removed. See ADR-0020 for the full
+            // decision record and revisit conditions.
             .csrf { it.disable() }
             .headers { headers ->
                 headers.contentTypeOptions { }
