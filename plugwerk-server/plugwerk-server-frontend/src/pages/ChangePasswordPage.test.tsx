@@ -19,6 +19,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { AxiosError, AxiosHeaders } from "axios";
 import { renderWithRouter } from "../test/renderWithTheme";
 import { ChangePasswordPage } from "./ChangePasswordPage";
 import { useAuthStore } from "../stores/authStore";
@@ -128,6 +129,40 @@ describe("ChangePasswordPage", () => {
     await waitFor(() => {
       expect(
         screen.getByText(/failed to change password/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("shows rate-limit message with retry-after on 429", async () => {
+    const headers = new AxiosHeaders({ "retry-after": "120" });
+    const axiosError = new AxiosError(
+      "Too Many Requests",
+      "ERR_BAD_REQUEST",
+      undefined,
+      undefined,
+      {
+        status: 429,
+        statusText: "Too Many Requests",
+        headers,
+        config: { headers } as never,
+        data: { message: "Too many password-change attempts" },
+      },
+    );
+    vi.mocked(authApi.changePassword).mockRejectedValue(axiosError);
+
+    const user = userEvent.setup();
+    renderWithRouter(<ChangePasswordPage />);
+    await user.type(screen.getByLabelText(/current password/i), "oldpassword");
+    await user.type(screen.getByLabelText(/^new password/i), "newpassword12");
+    await user.type(
+      screen.getByLabelText(/confirm new password/i),
+      "newpassword12",
+    );
+    await user.click(screen.getByRole("button", { name: /set new password/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/too many password-change attempts.*120 seconds/i),
       ).toBeInTheDocument();
     });
   });

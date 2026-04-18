@@ -35,7 +35,7 @@ class LoginRateLimitServiceTest {
                 ),
             ),
         )
-        return LoginRateLimitService(props)
+        return LoginRateLimitService(BucketRateLimitService(), props)
     }
 
     @Test

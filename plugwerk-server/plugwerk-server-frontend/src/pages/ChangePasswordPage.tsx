@@ -19,9 +19,22 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, TextField, Button, Alert } from "@mui/material";
+import axios from "axios";
 import { AuthCard } from "../components/auth/AuthCard";
 import { authApi } from "../api/config";
 import { useAuthStore } from "../stores/authStore";
+
+function parseError(err: unknown): string {
+  if (axios.isAxiosError(err) && err.response?.status === 429) {
+    const retryAfter = err.response.headers["retry-after"];
+    const seconds = Number.parseInt(retryAfter ?? "", 10);
+    if (Number.isFinite(seconds) && seconds > 0) {
+      return `Too many password-change attempts. Please try again in ${seconds} seconds.`;
+    }
+    return "Too many password-change attempts. Please try again later.";
+  }
+  return "Failed to change password. Please check your current password.";
+}
 
 export function ChangePasswordPage() {
   const navigate = useNavigate();
@@ -51,10 +64,8 @@ export function ChangePasswordPage() {
       });
       clearPasswordChangeRequired();
       navigate("/", { replace: true });
-    } catch {
-      setError(
-        "Failed to change password. Please check your current password.",
-      );
+    } catch (err: unknown) {
+      setError(parseError(err));
     } finally {
       setLoading(false);
     }

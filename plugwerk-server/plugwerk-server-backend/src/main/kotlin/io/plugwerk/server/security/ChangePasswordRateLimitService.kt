@@ -22,19 +22,20 @@ import io.plugwerk.server.PlugwerkProperties
 import org.springframework.stereotype.Component
 
 /**
- * IP-keyed rate limiting for the login endpoint. Thin facade over
- * [BucketRateLimitService] scoped with `"login"`.
+ * Subject-keyed rate limiting for the change-password endpoint. Thin facade over
+ * [BucketRateLimitService] scoped with `"changePassword"` — independent of the
+ * login bucket so neither endpoint can drain the other.
  */
 @Component
-class LoginRateLimitService(private val bucketService: BucketRateLimitService, props: PlugwerkProperties) {
+class ChangePasswordRateLimitService(private val bucketService: BucketRateLimitService, props: PlugwerkProperties) {
 
-    private val maxAttempts = props.auth.rateLimit.maxAttempts
-    private val windowSeconds = props.auth.rateLimit.windowSeconds
+    private val maxAttempts = props.auth.rateLimit.changePassword.maxAttempts
+    private val windowSeconds = props.auth.rateLimit.changePassword.windowSeconds
 
-    fun tryConsume(ipAddress: String): RateLimitResult =
-        bucketService.tryConsume(SCOPE, ipAddress, maxAttempts, windowSeconds)
+    fun tryConsume(subject: String): RateLimitResult =
+        bucketService.tryConsume(SCOPE, subject, maxAttempts, windowSeconds)
 
     private companion object {
-        const val SCOPE = "login"
+        const val SCOPE = "changePassword"
     }
 }

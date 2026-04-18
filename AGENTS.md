@@ -227,6 +227,7 @@ plugwerk/
 - **API-First** – OpenAPI 3.1 spec in `plugwerk-api` is the single source of truth
 - **Transactional installation** – no partial state on failure; rollback requires retaining previous version
 - **Namespace isolation** – all resources are scoped to a namespace; one server serves multiple products/organizations
+- **Rate-limiting on auth endpoints** – `POST /auth/login` is IP-keyed (`LoginRateLimitFilter`, runs before `UsernamePasswordAuthenticationFilter`). `POST /auth/change-password` is subject-keyed (`ChangePasswordRateLimitFilter`, runs after `BearerTokenAuthenticationFilter` so the JWT principal is populated). Both buckets are independent (distinct scope prefixes via `BucketRateLimitService`) so one endpoint cannot drain the other. Limits are tunable via `PLUGWERK_AUTH_RATE_LIMIT_*` env vars — defaults: login 10/60s, change-password 5/300s.
 - **Shared `DataTable` component** – all tabular views use `src/components/common/DataTable.tsx` for consistent styling (see [ADR-0004](docs/adrs/0004-frontend-conventions.md) § Tables)
 - **Shared `Toast` component** – all user-facing notifications must use `useUiStore.addToast()` from `src/stores/uiStore.ts`, rendered by `src/components/common/Toast.tsx`. Never use MUI `<Snackbar>` or `<Alert>` for toast notifications — they bypass the centralized styling and produce inconsistent UI
 
