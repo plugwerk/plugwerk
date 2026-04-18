@@ -29,6 +29,7 @@ import io.plugwerk.server.service.NamespaceAlreadyExistsException
 import io.plugwerk.server.service.NamespaceService
 import io.plugwerk.server.service.UnauthorizedException
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -49,6 +50,7 @@ class NamespaceController(
         return ResponseEntity.ok(namespaces)
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
     override fun createNamespace(namespaceCreateRequest: NamespaceCreateRequest): ResponseEntity<NamespaceSummary> {
         val auth = SecurityContextHolder.getContext().authentication
             ?: throw UnauthorizedException("Not authenticated")
@@ -67,6 +69,7 @@ class NamespaceController(
         }
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'ADMIN')")
     override fun updateNamespace(
         ns: String,
         namespaceUpdateRequest: NamespaceUpdateRequest,
@@ -84,6 +87,7 @@ class NamespaceController(
         return ResponseEntity.ok(entity.toSummary())
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
     override fun deleteNamespace(ns: String): ResponseEntity<Unit> {
         val auth = SecurityContextHolder.getContext().authentication
             ?: throw UnauthorizedException("Not authenticated")

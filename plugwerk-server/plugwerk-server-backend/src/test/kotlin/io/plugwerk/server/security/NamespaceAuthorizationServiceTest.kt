@@ -28,6 +28,7 @@ import io.plugwerk.server.service.ForbiddenException
 import io.plugwerk.server.service.NamespaceNotFoundException
 import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
@@ -37,6 +38,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.whenever
 import org.springframework.security.authentication.TestingAuthenticationToken
+import org.springframework.security.core.context.SecurityContextHolder
 import java.util.Optional
 import java.util.UUID
 
@@ -214,5 +216,101 @@ class NamespaceAuthorizationServiceTest {
         // Access key principals are never superadmin
         assertThatThrownBy { service.requireSuperadmin(auth("key:acme-production")) }
             .isInstanceOf(ForbiddenException::class.java)
+    }
+
+    // ---------------------------------------------------------------------------------
+    // SpEL-friendly boolean mirrors used by @PreAuthorize (issue #257)
+    // ---------------------------------------------------------------------------------
+
+    @AfterEach
+    fun clearSecurityContext() {
+        SecurityContextHolder.clearContext()
+    }
+
+    private fun withAuth(subject: String) {
+        SecurityContextHolder.getContext().authentication = auth(subject)
+    }
+
+    @Test
+    fun `hasRole returns true when principal holds the minimum role`() {
+        withAuth("alice")
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.empty())
+        whenever(
+            namespaceMemberRepository.existsByNamespaceIdAndUserSubjectAndRoleIn(
+                eq(nsId),
+                eq("alice"),
+                any(),
+            ),
+        ).thenReturn(true)
+
+        assertThatCode { service.hasRole("acme", NamespaceRole.MEMBER) }.doesNotThrowAnyException()
+        assert(service.hasRole("acme", NamespaceRole.MEMBER))
+    }
+
+    @Test
+    fun `hasRole returns false when principal lacks the role`() {
+        withAuth("alice")
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.empty())
+        whenever(
+            namespaceMemberRepository.existsByNamespaceIdAndUserSubjectAndRoleIn(
+                eq(nsId),
+                eq("alice"),
+                any(),
+            ),
+        ).thenReturn(false)
+
+        assert(!service.hasRole("acme", NamespaceRole.ADMIN))
+    }
+
+    @Test
+    fun `hasRole returns false when no authentication is present`() {
+        // SecurityContextHolder is clear thanks to @AfterEach
+        assert(!service.hasRole("acme", NamespaceRole.READ_ONLY))
+    }
+
+    @Test
+    fun `hasRole returns false for unknown namespace`() {
+        withAuth("alice")
+        whenever(namespaceRepository.findBySlug("ghost")).thenReturn(Optional.empty())
+        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.empty())
+
+        assert(!service.hasRole("ghost", NamespaceRole.READ_ONLY))
+    }
+
+    @Test
+    fun `hasRole returns false for write role from access key`() {
+        withAuth("key:acme")
+
+        assert(!service.hasRole("acme", NamespaceRole.MEMBER))
+    }
+
+    @Test
+    fun `hasRole string overload delegates to enum-typed hasRole`() {
+        withAuth("key:acme")
+
+        assert(service.hasRole("acme", "READ_ONLY"))
+        assert(!service.hasRole("acme", "ADMIN"))
+    }
+
+    @Test
+    fun `isCurrentUserSuperadmin returns true for superadmin`() {
+        withAuth("superadmin")
+        whenever(userRepository.findByUsername("superadmin")).thenReturn(Optional.of(superadminUser("superadmin")))
+
+        assert(service.isCurrentUserSuperadmin())
+    }
+
+    @Test
+    fun `isCurrentUserSuperadmin returns false without authentication`() {
+        assert(!service.isCurrentUserSuperadmin())
+    }
+
+    @Test
+    fun `isCurrentUserSuperadmin returns false for access key principal`() {
+        withAuth("key:acme")
+
+        assert(!service.isCurrentUserSuperadmin())
     }
 }

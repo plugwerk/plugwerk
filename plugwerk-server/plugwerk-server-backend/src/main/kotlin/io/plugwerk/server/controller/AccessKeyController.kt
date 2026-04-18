@@ -26,6 +26,7 @@ import io.plugwerk.server.domain.NamespaceAccessKeyEntity
 import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.service.AccessKeyService
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -50,6 +51,7 @@ class AccessKeyController(
         return ResponseEntity.ok(keys)
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'ADMIN')")
     override fun createAccessKey(
         ns: String,
         accessKeyCreateRequest: AccessKeyCreateRequest,
@@ -75,6 +77,7 @@ class AccessKeyController(
             .body(response)
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'ADMIN')")
     override fun revokeAccessKey(ns: String, keyId: UUID): ResponseEntity<Unit> {
         namespaceAuthorizationService.requireRole(
             ns,

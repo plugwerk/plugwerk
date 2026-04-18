@@ -32,6 +32,7 @@ import io.plugwerk.server.service.PluginService
 import io.plugwerk.spi.model.PluginStatus
 import io.plugwerk.spi.model.ReleaseStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -48,6 +49,7 @@ class ManagementController(
     private val namespaceAuthorizationService: NamespaceAuthorizationService,
 ) : ManagementApi {
 
+    @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'MEMBER')")
     override fun updatePlugin(
         ns: String,
         pluginId: String,
@@ -80,6 +82,7 @@ class ManagementController(
         return ResponseEntity.ok(pluginMapper.toDto(plugin, ns, latestRelease = null))
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'MEMBER')")
     override fun uploadPluginRelease(ns: String, artifact: MultipartFile): ResponseEntity<PluginReleaseDto> {
         namespaceAuthorizationService.requireRole(
             ns,
@@ -98,6 +101,7 @@ class ManagementController(
         ).body(dto)
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'ADMIN')")
     override fun updateReleaseStatus(
         ns: String,
         pluginId: String,
@@ -114,6 +118,7 @@ class ManagementController(
         return ResponseEntity.ok(releaseMapper.toDto(release, pluginId))
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'ADMIN')")
     override fun deletePlugin(ns: String, pluginId: String): ResponseEntity<Unit> {
         namespaceAuthorizationService.requireRole(
             ns,
@@ -124,6 +129,7 @@ class ManagementController(
         return ResponseEntity.noContent().build()
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'ADMIN')")
     override fun deleteRelease(ns: String, pluginId: String, version: String): ResponseEntity<Unit> {
         namespaceAuthorizationService.requireRole(
             ns,

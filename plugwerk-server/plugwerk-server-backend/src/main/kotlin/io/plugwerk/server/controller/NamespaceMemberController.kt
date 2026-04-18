@@ -33,6 +33,7 @@ import io.plugwerk.server.service.ConflictException
 import io.plugwerk.server.service.EntityNotFoundException
 import io.plugwerk.server.service.NamespaceNotFoundException
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.RequestMapping
@@ -84,6 +85,7 @@ class NamespaceMemberController(
         return ResponseEntity.ok(members)
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'ADMIN')")
     override fun addNamespaceMember(
         ns: String,
         namespaceMemberCreateRequest: NamespaceMemberCreateRequest,
@@ -117,6 +119,7 @@ class NamespaceMemberController(
         return ResponseEntity.created(URI("/api/v1/namespaces/$ns/members/${member.userSubject}")).body(member.toDto())
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'ADMIN')")
     override fun updateNamespaceMember(
         ns: String,
         userSubject: String,
@@ -134,6 +137,7 @@ class NamespaceMemberController(
         return ResponseEntity.ok(namespaceMemberRepository.save(member).toDto())
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'ADMIN')")
     override fun removeNamespaceMember(ns: String, userSubject: String): ResponseEntity<Unit> {
         namespaceAuthorizationService.requireRole(
             ns,

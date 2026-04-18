@@ -29,6 +29,7 @@ import io.plugwerk.server.service.settings.SettingKey
 import io.plugwerk.server.service.settings.SettingSnapshot
 import io.plugwerk.server.service.settings.SettingSource
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -55,6 +56,7 @@ class AdminSettingsController(
         return ResponseEntity.ok(buildResponse())
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
     override fun updateApplicationSettings(
         applicationSettingsUpdateRequest: ApplicationSettingsUpdateRequest,
     ): ResponseEntity<ApplicationSettingsResponse> {

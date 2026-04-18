@@ -40,6 +40,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.security.access.AccessDeniedException
+import org.springframework.security.authorization.AuthorizationDeniedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -77,6 +79,16 @@ class GlobalExceptionHandler {
     @ExceptionHandler(ForbiddenException::class)
     fun handleForbidden(ex: ForbiddenException): ResponseEntity<ErrorResponse> =
         errorResponse(HttpStatus.FORBIDDEN, ex.message ?: "Forbidden")
+
+    /**
+     * Maps `@PreAuthorize`-denied requests (Spring Security 7's
+     * [AuthorizationDeniedException] and its parent [AccessDeniedException]) to the
+     * same 403 JSON envelope used for [ForbiddenException]. Without this handler Spring
+     * falls back to a plain 403 response that bypasses the API's error-envelope contract.
+     */
+    @ExceptionHandler(AuthorizationDeniedException::class, AccessDeniedException::class)
+    fun handleAuthorizationDenied(ex: RuntimeException): ResponseEntity<ErrorResponse> =
+        errorResponse(HttpStatus.FORBIDDEN, "Access denied")
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidation(ex: MethodArgumentNotValidException): ResponseEntity<ErrorResponse> {
