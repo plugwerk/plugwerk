@@ -1,3 +1,34 @@
+# ---------------------------------------------------------------------------
+# CLA Assistant
+#
+# SECURITY NOTE (ADR-0019)
+#
+# This workflow uses `pull_request_target`, which runs in the context of the
+# base repo with access to repo secrets — even for PRs from forks. That makes
+# it the single highest-risk workflow in this repository.
+#
+# The audit (H-10 / SEC-048) identified three layered hardenings:
+#
+#   1. The `contributor-assistant/github-action` reference is pinned to a
+#      full commit SHA below. Renovate (`.github/renovate.json`, group
+#      "GitHub Actions") opens update PRs when the action releases a new
+#      version. Do not revert to a floating tag.
+#
+#   2. Permissions live at job level, not workflow level. The workflow-level
+#      `permissions: {}` drops every default; future jobs added to this file
+#      do NOT inherit the CLA job's write permissions.
+#
+#   3. This workflow must NEVER add `actions/checkout` or otherwise execute
+#      code from the PR head. `pull_request_target` + checkout + fork is the
+#      classic supply-chain exploit pattern. If you need to build/lint a
+#      PR's code, do it in a separate workflow on `pull_request` (fork-safe,
+#      no secrets). See ADR-0019 for the full threat model.
+#
+# The `actions: write`, `contents: write`, `pull-requests: write`, and
+# `statuses: write` permissions on the CLA job match the action's README
+# requirements at the pinned SHA — do not narrow without re-reading the
+# action's docs at the pinned version.
+# ---------------------------------------------------------------------------
 name: CLA
 
 on:
@@ -6,18 +37,25 @@ on:
   pull_request_target:
     types: [opened, closed, synchronize]
 
-permissions:
-  actions: write
-  contents: write
-  pull-requests: write
-  statuses: write
+permissions: {}
 
 jobs:
   cla-check:
     runs-on: ubuntu-latest
+
+    # Match the action's documented permission requirements. Scoped to this
+    # job only so future jobs in this file do not inherit write access.
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+      statuses: write
+
     steps:
       - name: CLA Assistant
-        uses: contributor-assistant/github-action@v2.6.1
+        # v2.6.1 pinned by commit SHA (resolved 2026-04-18). See ADR-0019.
+        # Maintained by Renovate (`.github/renovate.json`, group "GitHub Actions").
+        uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08 # v2.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PERSONAL_ACCESS_TOKEN: ${{ secrets.CLA_TOKEN }}
