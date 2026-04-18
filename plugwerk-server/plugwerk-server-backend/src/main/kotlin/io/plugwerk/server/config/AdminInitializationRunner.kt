@@ -32,8 +32,11 @@ import java.security.SecureRandom
  * Bootstraps the initial superadmin user on first startup.
  *
  * If no user named [ADMIN_USERNAME] exists in the database, this runner:
- * 1. Uses [PlugwerkProperties.AuthProperties.adminPassword] if set (CI/smoke-test), or
- *    generates a cryptographically random initial password (production).
+ * 1. Uses [PlugwerkProperties.AuthProperties.adminPassword] if set to a non-blank value
+ *    (CI/smoke-test), or generates a cryptographically random initial password
+ *    (production). A blank or whitespace-only value is treated the same as unset —
+ *    defense-in-depth against a stale compose file or env export that pre-declares
+ *    the variable as the empty string (see audit finding SEC-044).
  * 2. Creates the superadmin user with [isSuperadmin = true]. If the password was generated,
  *    `passwordChangeRequired = true` is set so the operator must change it on first login.
  * 3. Logs the password **once** at INFO level when it was auto-generated.
@@ -60,7 +63,11 @@ class AdminInitializationRunner(
     override fun run(args: ApplicationArguments) {
         if (userRepository.existsByUsername(ADMIN_USERNAME)) return
 
-        val fixedPassword = properties.auth.adminPassword
+        // takeUnless treats blank / whitespace-only values the same as unset.
+        // SEC-044: the bundled docker-compose.yml previously pre-declared the env var as
+        // empty string, which bound to a non-null "" and silently took the fixed-password
+        // branch with an empty credential. That default is gone, but this guard stays.
+        val fixedPassword = properties.auth.adminPassword?.takeUnless { it.isBlank() }
         val initialPassword = fixedPassword ?: generatePassword()
         val passwordChangeRequired = fixedPassword == null
 
