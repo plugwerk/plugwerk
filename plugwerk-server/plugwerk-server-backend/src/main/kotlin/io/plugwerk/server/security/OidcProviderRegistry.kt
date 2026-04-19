@@ -68,16 +68,16 @@ class OidcProviderRegistry(private val oidcProviderRepository: OidcProviderRepos
         val providers = oidcProviderRepository.findAllByEnabledTrue()
         val decoders = providers.mapNotNull { provider ->
             runCatching {
-                when (provider.providerType) {
+                val decoder: NimbusJwtDecoder = when (provider.providerType) {
                     OidcProviderType.GENERIC_OIDC, OidcProviderType.KEYCLOAK -> {
                         val issuerUri = requireNotNull(provider.issuerUri) {
                             "issuerUri is required for provider type ${provider.providerType}"
                         }
-                        JwtDecoders.fromIssuerLocation(issuerUri)
+                        JwtDecoders.fromIssuerLocation(issuerUri) as NimbusJwtDecoder
                     }
 
                     OidcProviderType.GOOGLE ->
-                        JwtDecoders.fromIssuerLocation("https://accounts.google.com")
+                        JwtDecoders.fromIssuerLocation(OidcJwtValidators.GOOGLE_ISSUER) as NimbusJwtDecoder
 
                     OidcProviderType.GITHUB ->
                         NimbusJwtDecoder.withJwkSetUri(
@@ -89,6 +89,19 @@ class OidcProviderRegistry(private val oidcProviderRepository: OidcProviderRepos
                             "https://www.facebook.com/.well-known/oauth/openid/jwks/",
                         ).build()
                 }
+                // Replace Spring's default validator chain with our unified
+                // timestamp + issuer + audience chain. This closes audit findings
+                // SBS-010 (GitHub audience missing) and SBS-011 (Facebook issuer
+                // missing), and also adds audience enforcement to GENERIC_OIDC,
+                // KEYCLOAK, and GOOGLE so every provider type behaves uniformly.
+                decoder.setJwtValidator(
+                    OidcJwtValidators.forProvider(
+                        providerType = provider.providerType,
+                        issuerUri = provider.issuerUri,
+                        expectedAudience = provider.clientId,
+                    ),
+                )
+                decoder
             }.onFailure { ex ->
                 log.warn(
                     "Failed to initialise OIDC decoder for provider '${provider.name}' (${provider.providerType}): ${ex.message}",

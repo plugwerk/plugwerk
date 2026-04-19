@@ -75,11 +75,19 @@ enum class OidcProviderType {
  * @property name Human-readable display name shown in the admin UI (e.g. `Company Keycloak`).
  * @property providerType Determines which well-known endpoints to use. See [OidcProviderType].
  * @property enabled When `false`, this provider is ignored by the JWT decoder registry.
- * @property clientId OAuth2 client ID registered with the provider.
+ * @property clientId OAuth2 client ID registered with the provider. Also used as the
+ *   expected value of the `aud` claim in incoming OIDC tokens — a token whose `aud`
+ *   claim does not contain this client_id is rejected by
+ *   [io.plugwerk.server.security.OidcJwtValidators]. Operators who set `clientId` to
+ *   a human-readable name rather than the provider-registered audience string will
+ *   see every token rejected.
  * @property clientSecretEncrypted Encrypted client secret. Use [OidcProviderService] to
  *   encrypt/decrypt — never access this field directly from controllers.
  * @property issuerUri OIDC issuer URI (required for [OidcProviderType.GENERIC_OIDC] and
- *   [OidcProviderType.KEYCLOAK]). Used for JWKS endpoint discovery.
+ *   [OidcProviderType.KEYCLOAK]). Used for JWKS endpoint discovery. Ignored for the three
+ *   vendor types ([OidcProviderType.GITHUB], [OidcProviderType.GOOGLE],
+ *   [OidcProviderType.FACEBOOK]) which use hardcoded canonical issuers — see
+ *   [io.plugwerk.server.security.OidcJwtValidators].
  * @property scope Space-separated OAuth2 scopes requested during token validation.
  * @property createdAt Creation timestamp (immutable).
  * @property updatedAt Last modification timestamp.
