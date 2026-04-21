@@ -18,44 +18,61 @@
  */
 package io.plugwerk.server.repository
 
-import io.plugwerk.server.SharedPostgresContainer
+import liquibase.Contexts
+import liquibase.LabelExpression
+import liquibase.Liquibase
+import liquibase.database.DatabaseFactory
+import liquibase.database.jvm.JdbcConnection
+import liquibase.resource.ClassLoaderResourceAccessor
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.test.context.ActiveProfiles
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
+import org.junit.jupiter.api.TestInstance
+import org.testcontainers.containers.PostgreSQLContainer
+import java.sql.DriverManager
 
 /**
  * Verifies that Liquibase migration 0008 installs the foreign-key-coverage indexes
  * required by audit findings DB-008..011 (issue #269) and that the composite unique
- * constraints that provide leading-column coverage for DB-008, DB-009 and DB-010
- * remain intact.
+ * constraints providing leading-column coverage for DB-008, DB-009 and DB-010 remain
+ * intact.
  *
- * Runs against the shared PostgreSQL 18 Testcontainer with the `integration`
- * profile so Liquibase executes the full changelog (including 0008).
+ * Runs against a dedicated short-lived PostgreSQL 18 Testcontainer and invokes
+ * Liquibase directly (no Spring context) to avoid sharing the Spring context cache
+ * with other `@SpringBootTest` integration tests — a second top-level context
+ * caused context-eviction flakes on memory-constrained CI runners (see PR #304).
  */
 @Tag("integration")
-@SpringBootTest
-@ActiveProfiles("integration")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class FkIndexMigrationIT {
 
-    companion object {
-        @DynamicPropertySource
-        @JvmStatic
-        fun overrideDataSource(registry: DynamicPropertyRegistry) {
-            val postgres = SharedPostgresContainer.instance
-            registry.add("spring.datasource.url", postgres::getJdbcUrl)
-            registry.add("spring.datasource.username", postgres::getUsername)
-            registry.add("spring.datasource.password", postgres::getPassword)
-        }
+    private lateinit var postgres: PostgreSQLContainer<*>
+
+    @BeforeAll
+    fun setUp() {
+        postgres = PostgreSQLContainer("postgres:18-alpine").apply { start() }
+        runLiquibaseMigrations()
     }
 
-    @Autowired
-    private lateinit var jdbcTemplate: JdbcTemplate
+    @AfterAll
+    fun tearDown() {
+        postgres.stop()
+    }
+
+    private fun runLiquibaseMigrations() {
+        DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password).use { conn ->
+            val database = DatabaseFactory.getInstance().findCorrectDatabaseImplementation(JdbcConnection(conn))
+            Liquibase(
+                "db/changelog/db.changelog-master.yaml",
+                ClassLoaderResourceAccessor(),
+                database,
+            ).use { liquibase ->
+                liquibase.update(Contexts(), LabelExpression())
+            }
+        }
+    }
 
     @Test
     fun `DB-011 idx_access_key_namespace exists on namespace_access_key(namespace_id)`() {
@@ -80,11 +97,6 @@ class FkIndexMigrationIT {
         assertThat(indexDef!!).contains("(user_subject)")
     }
 
-    /**
-     * DB-008 is intentionally covered by the composite unique constraint, not by a
-     * dedicated single-column index. Pin this contract so a future schema change that
-     * drops or reorders the composite constraint surfaces here instead of in prod.
-     */
     @Test
     fun `DB-008 uq_plugin_namespace_plugin_id still leads on namespace_id`() {
         val indexDef = indexDefinition("plugin", "uq_plugin_namespace_plugin_id")
@@ -106,10 +118,17 @@ class FkIndexMigrationIT {
         assertThat(indexDef!!).contains("(namespace_id, user_subject)")
     }
 
-    private fun indexDefinition(table: String, indexName: String): String? = jdbcTemplate.query(
-        "SELECT indexdef FROM pg_indexes WHERE schemaname = 'public' AND tablename = ? AND indexname = ?",
-        { rs, _ -> rs.getString("indexdef") },
-        table,
-        indexName,
-    ).firstOrNull()
+    private fun indexDefinition(table: String, indexName: String): String? {
+        DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password).use { conn ->
+            conn.prepareStatement(
+                "SELECT indexdef FROM pg_indexes WHERE schemaname = 'public' AND tablename = ? AND indexname = ?",
+            ).use { stmt ->
+                stmt.setString(1, table)
+                stmt.setString(2, indexName)
+                stmt.executeQuery().use { rs ->
+                    return if (rs.next()) rs.getString("indexdef") else null
+                }
+            }
+        }
+    }
 }
