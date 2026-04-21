@@ -49,7 +49,7 @@ import org.springframework.validation.annotation.Validated
 @ConfigurationProperties(prefix = "plugwerk")
 data class PlugwerkProperties(
     val storage: StorageProperties = StorageProperties(),
-    val server: ServerProperties = ServerProperties(),
+    @field:Valid val server: ServerProperties = ServerProperties(),
     @field:Valid val auth: AuthProperties = AuthProperties(),
 ) {
     /**

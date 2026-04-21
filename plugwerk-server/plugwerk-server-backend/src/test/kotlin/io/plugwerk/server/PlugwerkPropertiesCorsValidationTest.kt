@@ -83,4 +83,31 @@ class PlugwerkPropertiesCorsValidationTest {
         assertThat(violations).hasSize(1)
         assertThat(violations.single().propertyPath.toString()).isEqualTo("maxAge")
     }
+
+    /**
+     * Verifies the `@field:Valid` cascade from the top-level [PlugwerkProperties] through
+     * `server` into the nested `CorsProperties`. Without this cascade the wildcard-
+     * credentials footgun would not fire at Spring Boot startup, silently permitting the
+     * exact misconfiguration the validator is meant to block.
+     */
+    @Test
+    fun `wildcard-credentials combination is rejected via the full PlugwerkProperties tree`() {
+        val props = PlugwerkProperties(
+            server = PlugwerkProperties.ServerProperties(
+                cors = PlugwerkProperties.ServerProperties.CorsProperties(
+                    allowedOrigins = listOf("*"),
+                    allowCredentials = true,
+                ),
+            ),
+            auth = PlugwerkProperties.AuthProperties(
+                jwtSecret = "a".repeat(32),
+                encryptionKey = "b".repeat(16),
+            ),
+        )
+        val violations = validator.validate(props)
+        assertThat(violations).hasSize(1)
+        assertThat(violations.single().message).contains("must not contain '*'")
+        assertThat(violations.single().propertyPath.toString())
+            .isEqualTo("server.cors.wildcardCredentialsCombinationValid")
+    }
 }
