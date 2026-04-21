@@ -40,15 +40,15 @@ plugwerk:
     # Minimum 32 characters. Must be kept secret and rotated if compromised.
     # REQUIRED — the server will refuse to start without this value.
     # Generate with: openssl rand -base64 32
-    # Env: PLUGWERK_JWT_SECRET
-    jwt-secret: ${PLUGWERK_JWT_SECRET:}
+    # Env: PLUGWERK_AUTH_JWT_SECRET
+    jwt-secret: ${PLUGWERK_AUTH_JWT_SECRET:}
 
     # AES encryption key for OIDC provider client secrets at rest.
     # Must be exactly 16 characters (AES-128).
     # REQUIRED — the server will refuse to start without this value.
     # Generate with: openssl rand -hex 8
-    # Env: PLUGWERK_ENCRYPTION_KEY
-    encryption-key: ${PLUGWERK_ENCRYPTION_KEY:}
+    # Env: PLUGWERK_AUTH_ENCRYPTION_KEY
+    encryption-key: ${PLUGWERK_AUTH_ENCRYPTION_KEY:}
 
     # How long a JWT token remains valid after issuance.
     # Default: 8 hours. Increase for long-running CLI tools; decrease for higher security.
