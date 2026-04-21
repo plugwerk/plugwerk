@@ -45,5 +45,5 @@ jobs:
         run: ./scripts/smoke-test.sh
         env:
           PLUGWERK_AUTH_ADMIN_PASSWORD: admin
-          PLUGWERK_JWT_SECRET: ci-smoke-test-secret-min-32-characters!!
-          PLUGWERK_ENCRYPTION_KEY: ci-encrypt-16chr
+          PLUGWERK_AUTH_JWT_SECRET: ci-smoke-test-secret-min-32-characters!!
+          PLUGWERK_AUTH_ENCRYPTION_KEY: ci-encrypt-16chr

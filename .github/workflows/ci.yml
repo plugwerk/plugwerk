@@ -47,8 +47,8 @@ jobs:
       - name: Run integration tests
         run: ./gradlew :plugwerk-server:plugwerk-server-backend:integrationTest
         env:
-          PLUGWERK_JWT_SECRET: ci-integration-test-secret-min-32-characters!!
-          PLUGWERK_ENCRYPTION_KEY: ci-encrypt-16chr
+          PLUGWERK_AUTH_JWT_SECRET: ci-integration-test-secret-min-32-characters!!
+          PLUGWERK_AUTH_ENCRYPTION_KEY: ci-encrypt-16chr
 
       - name: Upload unit test reports
         if: always()

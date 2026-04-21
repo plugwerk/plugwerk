@@ -222,8 +222,8 @@ http://localhost:8080/api-docs/openapi.yaml
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `PLUGWERK_JWT_SECRET` | **yes** | — | HMAC-SHA256 signing secret, minimum 32 characters. Generate with `openssl rand -base64 32`. |
-| `PLUGWERK_ENCRYPTION_KEY` | **yes** | — | AES encryption key for OIDC client secrets at rest, exactly 16 characters. Generate with `openssl rand -hex 8`. |
+| `PLUGWERK_AUTH_JWT_SECRET` | **yes** | — | HMAC-SHA256 signing secret, minimum 32 characters. Generate with `openssl rand -base64 32`. |
+| `PLUGWERK_AUTH_ENCRYPTION_KEY` | **yes** | — | AES encryption key for OIDC client secrets at rest, exactly 16 characters. Generate with `openssl rand -hex 8`. |
 | `PLUGWERK_AUTH_ADMIN_PASSWORD` | no | _(random)_ | Fixed initial admin password. When set, skips random generation and the forced password change. When absent, a random password is generated and logged once. |
 | `PLUGWERK_DB_URL` | no | `jdbc:postgresql://localhost:5432/plugwerk` | PostgreSQL JDBC URL |
 | `PLUGWERK_DB_USERNAME` | no | `plugwerk` | Database username |

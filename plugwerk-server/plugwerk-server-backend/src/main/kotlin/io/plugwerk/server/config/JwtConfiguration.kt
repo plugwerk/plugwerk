@@ -43,7 +43,7 @@ class JwtConfiguration(private val props: PlugwerkProperties) {
 
     private val secretKey: SecretKey by lazy {
         val bytes = props.auth.jwtSecret.toByteArray(Charsets.UTF_8)
-        require(bytes.size >= 32) { "PLUGWERK_JWT_SECRET must be at least 32 characters (got ${bytes.size})" }
+        require(bytes.size >= 32) { "PLUGWERK_AUTH_JWT_SECRET must be at least 32 characters (got ${bytes.size})" }
         SecretKeySpec(bytes, "HmacSHA256")
     }
 
