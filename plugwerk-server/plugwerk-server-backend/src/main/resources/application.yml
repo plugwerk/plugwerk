@@ -35,6 +35,23 @@ plugwerk:
       root: ${PLUGWERK_STORAGE_ROOT:/var/plugwerk/artifacts}
   server:
     base-url: ${PLUGWERK_BASE_URL:http://localhost:8080}
+    # CORS configuration. See ADR-0021.
+    # Default allowed-origins is empty = same-origin-only, which matches the bundled-frontend
+    # deployment model. Add origins only if the frontend is deployed separately from the backend.
+    cors:
+      # Comma-separated exact origin values (scheme + host + port). Case-sensitive.
+      # Env: PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS
+      allowed-origins: ${PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS:}
+      # Env: PLUGWERK_SERVER_CORS_ALLOWED_METHODS
+      allowed-methods: ${PLUGWERK_SERVER_CORS_ALLOWED_METHODS:GET,POST,PUT,PATCH,DELETE,OPTIONS}
+      # Env: PLUGWERK_SERVER_CORS_ALLOWED_HEADERS
+      allowed-headers: ${PLUGWERK_SERVER_CORS_ALLOWED_HEADERS:Authorization,Content-Type,X-Api-Key}
+      # Must be false when allowed-origins contains "*" — startup validator enforces this.
+      # Env: PLUGWERK_SERVER_CORS_ALLOW_CREDENTIALS
+      allow-credentials: ${PLUGWERK_SERVER_CORS_ALLOW_CREDENTIALS:true}
+      # Preflight cache duration in seconds (0 to 86400).
+      # Env: PLUGWERK_SERVER_CORS_MAX_AGE
+      max-age: ${PLUGWERK_SERVER_CORS_MAX_AGE:3600}
   auth:
     # HMAC-SHA256 signing key for self-issued JWTs.
     # Minimum 32 characters. Must be kept secret and rotated if compromised.

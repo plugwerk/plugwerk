@@ -19,6 +19,9 @@
 package io.plugwerk.server
 
 import jakarta.validation.Valid
+import jakarta.validation.constraints.AssertTrue
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import org.springframework.boot.context.properties.ConfigurationProperties
@@ -46,7 +49,7 @@ import org.springframework.validation.annotation.Validated
 @ConfigurationProperties(prefix = "plugwerk")
 data class PlugwerkProperties(
     val storage: StorageProperties = StorageProperties(),
-    val server: ServerProperties = ServerProperties(),
+    @field:Valid val server: ServerProperties = ServerProperties(),
     @field:Valid val auth: AuthProperties = AuthProperties(),
 ) {
     /**
@@ -130,7 +133,72 @@ data class PlugwerkProperties(
      *   plugwerk.server.base-url: https://example.com/plugwerk
      *   ```
      */
-    data class ServerProperties(val baseUrl: String = "http://localhost:8080")
+    data class ServerProperties(
+        val baseUrl: String = "http://localhost:8080",
+        @field:Valid val cors: CorsProperties = CorsProperties(),
+    ) {
+        /**
+         * CORS configuration (`plugwerk.server.cors.*`). See [ADR-0021](../../../../../../../../docs/adrs/0021-cors-same-origin-default.md).
+         *
+         * Plugwerk's frontend is bundled into the server JAR and served from the same
+         * origin as the REST API, so **no cross-origin requests are needed by default**.
+         * [allowedOrigins] therefore defaults to an empty list, which preserves the
+         * same-origin-only behaviour bit-for-bit but makes the intent explicit at
+         * code-read time (vs. Spring Boot's implicit default).
+         *
+         * Add origins to [allowedOrigins] only if the frontend is deployed separately
+         * from the backend (CDN, subdomain, etc.).
+         *
+         * @property allowedOrigins Exact browser-`Origin` values that may send
+         *   cross-origin requests to API paths under `/api/v1`. Case-sensitive,
+         *   scheme and host must match exactly. Wildcards are not supported here —
+         *   use multiple explicit entries.
+         *
+         *   Environment variable: `PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS`
+         *   (comma-separated).
+         *
+         * @property allowedMethods HTTP methods browsers may use in cross-origin
+         *   requests. Defaults to the standard REST set.
+         *
+         *   Environment variable: `PLUGWERK_SERVER_CORS_ALLOWED_METHODS`
+         *
+         * @property allowedHeaders Request headers browsers may send on cross-origin
+         *   requests. Includes `Authorization` (JWT Bearer), `Content-Type`, and
+         *   `X-Api-Key` (namespace access keys).
+         *
+         *   Environment variable: `PLUGWERK_SERVER_CORS_ALLOWED_HEADERS`
+         *
+         * @property allowCredentials Whether the browser may include credentials
+         *   (cookies, `Authorization` header, client certs) on cross-origin requests.
+         *   Required for JWT Bearer auth to reach the server from a different origin.
+         *   **Must not be combined with `allowedOrigins: ["*"]`** — the combination is
+         *   explicitly rejected by Spring Security at runtime, and by this property's
+         *   [isWildcardCredentialsCombinationValid] validator at startup.
+         *
+         *   Environment variable: `PLUGWERK_SERVER_CORS_ALLOW_CREDENTIALS`
+         *
+         * @property maxAge Seconds a browser may cache the preflight response. Capped
+         *   at 24 hours, which is also the effective ceiling most browsers enforce.
+         *
+         *   Environment variable: `PLUGWERK_SERVER_CORS_MAX_AGE`
+         */
+        data class CorsProperties(
+            val allowedOrigins: List<String> = emptyList(),
+            val allowedMethods: List<String> = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"),
+            val allowedHeaders: List<String> = listOf("Authorization", "Content-Type", "X-Api-Key"),
+            val allowCredentials: Boolean = true,
+            @field:Min(0) @field:Max(86400) val maxAge: Long = 3600,
+        ) {
+            /**
+             * `allowedOrigins: ["*"]` combined with `allowCredentials: true` is rejected
+             * by Spring Security at runtime. Catch it at startup with a clear message.
+             */
+            @AssertTrue(
+                message = "plugwerk.server.cors: allowed-origins must not contain '*' when allow-credentials=true",
+            )
+            fun isWildcardCredentialsCombinationValid(): Boolean = !(allowCredentials && allowedOrigins.contains("*"))
+        }
+    }
 
     /**
      * Authentication configuration (`plugwerk.auth.*`).

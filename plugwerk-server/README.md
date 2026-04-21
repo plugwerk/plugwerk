@@ -67,13 +67,18 @@ The Gradle build calls `npm run build` via the `plugwerk-server-frontend` submod
 # Start database
 docker compose up -d postgres
 
-# Backend (port 8080) — requires PLUGWERK_AUTH_JWT_SECRET and PLUGWERK_AUTH_ENCRYPTION_KEY
+# Backend (port 8080) — requires PLUGWERK_AUTH_JWT_SECRET and PLUGWERK_AUTH_ENCRYPTION_KEY.
+# When the frontend runs separately on the Vite dev server (port 5173), its proxy
+# forwards the Origin header to the backend, so CORS must allow that origin.
+export PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS=http://localhost:5173
 ./gradlew :plugwerk-server:plugwerk-server-backend:bootRun
 
 # Frontend dev server (port 5173, proxies /api to localhost:8080)
 cd plugwerk-server/plugwerk-server-frontend
 npm install && npm run dev
 ```
+
+See [ADR-0021](../docs/adrs/0021-cors-same-origin-default.md) for the full CORS configuration surface (`PLUGWERK_SERVER_CORS_*` env vars).
 
 ## Testing
 

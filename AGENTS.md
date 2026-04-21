@@ -383,6 +383,11 @@ Required environment variables (server refuses to start without them):
 
 Optional:
 - `PLUGWERK_AUTH_ADMIN_PASSWORD` — fixed initial admin password (random if absent)
+- `PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS` — comma-separated origins allowed to make cross-origin requests (default: empty = same-origin only). Set to `http://localhost:5173` when running the Vite dev server against a locally started backend. See [ADR-0021](docs/adrs/0021-cors-same-origin-default.md).
+- `PLUGWERK_SERVER_CORS_ALLOWED_METHODS` — comma-separated HTTP methods for cross-origin requests (default: `GET,POST,PUT,PATCH,DELETE,OPTIONS`)
+- `PLUGWERK_SERVER_CORS_ALLOWED_HEADERS` — comma-separated request headers (default: `Authorization,Content-Type,X-Api-Key`)
+- `PLUGWERK_SERVER_CORS_ALLOW_CREDENTIALS` — whether credentials may be sent cross-origin (default: `true`). Must be `false` when the allowed-origins list contains `*`.
+- `PLUGWERK_SERVER_CORS_MAX_AGE` — preflight cache duration in seconds, 0..86400 (default: `3600`)
 - `PLUGWERK_TRACKING_ENABLED` — enable/disable download event audit log (default: `true`)
 - `PLUGWERK_TRACKING_CAPTURE_IP` — capture client IP in download events (default: `true`)
 - `PLUGWERK_TRACKING_ANONYMIZE_IP` — anonymize IP to /24 IPv4 or /48 IPv6 (default: `true`)

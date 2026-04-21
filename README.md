@@ -231,6 +231,11 @@ http://localhost:8080/api-docs/openapi.yaml
 | `PLUGWERK_BASE_URL` | no | `http://localhost:8080` | Public base URL of the server (used for artifact download links) |
 | `PLUGWERK_STORAGE_ROOT` | no | `/var/plugwerk/artifacts` | Filesystem path for storing artifact binaries |
 | `PLUGWERK_STORAGE_TYPE` | no | `fs` | Storage backend: `fs` (filesystem) |
+| `PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS` | no | _(empty = same-origin)_ | Comma-separated origins allowed to make cross-origin requests (e.g. `http://localhost:5173` for the Vite dev server). See [ADR-0021](docs/adrs/0021-cors-same-origin-default.md). |
+| `PLUGWERK_SERVER_CORS_ALLOWED_METHODS` | no | `GET,POST,PUT,PATCH,DELETE,OPTIONS` | Comma-separated HTTP methods for cross-origin requests |
+| `PLUGWERK_SERVER_CORS_ALLOWED_HEADERS` | no | `Authorization,Content-Type,X-Api-Key` | Comma-separated request headers for cross-origin requests |
+| `PLUGWERK_SERVER_CORS_ALLOW_CREDENTIALS` | no | `true` | Whether browsers may include credentials. Must be `false` when `PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS=*`. |
+| `PLUGWERK_SERVER_CORS_MAX_AGE` | no | `3600` | Preflight cache duration in seconds (0..86400) |
 
 > **Tip:** Copy `.env.example` to `.env` and fill in the required values. The `.env` file is git-ignored.
 
