@@ -42,6 +42,9 @@ import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter
+import org.springframework.web.cors.CorsConfiguration
+import org.springframework.web.cors.CorsConfigurationSource
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 import java.security.MessageDigest
 
 @Configuration
@@ -59,6 +62,31 @@ class SecurityConfiguration(
 
     @Bean
     fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
+
+    /**
+     * CORS configuration source backed by [PlugwerkProperties.ServerProperties.CorsProperties].
+     *
+     * Default `plugwerk.server.cors.allowed-origins: []` installs a configuration with an
+     * empty origin list, which keeps today's same-origin-only behaviour (Plugwerk's frontend
+     * is bundled into the server JAR and served from the same origin as the API). Adding
+     * entries via `PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS` opts specific origins into CORS.
+     *
+     * See ADR-0021 for the full threat model and revisit conditions.
+     */
+    @Bean
+    fun corsConfigurationSource(): CorsConfigurationSource {
+        val cors = props.server.cors
+        val configuration = CorsConfiguration().apply {
+            allowedOrigins = cors.allowedOrigins
+            allowedMethods = cors.allowedMethods
+            allowedHeaders = cors.allowedHeaders
+            allowCredentials = cors.allowCredentials
+            maxAge = cors.maxAge
+        }
+        return UrlBasedCorsConfigurationSource().apply {
+            registerCorsConfiguration("/api/**", configuration)
+        }
+    }
 
     /**
      * AES text encryptor for OIDC provider client secrets stored in the database.
@@ -104,6 +132,16 @@ class SecurityConfiguration(
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
+            // CORS is configured via the corsConfigurationSource() bean above.
+            //
+            // Default = empty allow-list => today's same-origin-only behaviour, explicit.
+            // Operators add origins via PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS when the
+            // frontend is deployed on a separate origin.
+            //
+            // See ADR-0021 for the threat model and revisit conditions. Do NOT add
+            // @CrossOrigin annotations on controllers — this central config is the
+            // only review point for cross-origin policy.
+            .cors { it.configurationSource(corsConfigurationSource()) }
             // CSRF is safe to disable here because:
             //   1. The server is a pure REST API with `SessionCreationPolicy.STATELESS`
             //      (see below) — no HTTP session is created or consulted.
