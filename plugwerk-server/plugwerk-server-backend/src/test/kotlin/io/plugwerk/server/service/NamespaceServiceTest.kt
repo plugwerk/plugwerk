@@ -141,10 +141,8 @@ class NamespaceServiceTest {
             artifactKey = "to-delete/p2/2.0.0.jar",
             status = ReleaseStatus.PUBLISHED,
         )
-        whenever(pluginReleaseRepository.findAllByPluginOrderByCreatedAtDesc(plugin1))
-            .thenReturn(listOf(release1))
-        whenever(pluginReleaseRepository.findAllByPluginOrderByCreatedAtDesc(plugin2))
-            .thenReturn(listOf(release2))
+        whenever(pluginReleaseRepository.findAllByPluginInOrderByCreatedAtDesc(listOf(plugin1, plugin2)))
+            .thenReturn(listOf(release1, release2))
 
         namespaceService.delete("to-delete")
 
@@ -176,7 +174,7 @@ class NamespaceServiceTest {
             artifactKey = "ns/p1/2.0.0.jar",
             status = ReleaseStatus.PUBLISHED,
         )
-        whenever(pluginReleaseRepository.findAllByPluginOrderByCreatedAtDesc(plugin))
+        whenever(pluginReleaseRepository.findAllByPluginInOrderByCreatedAtDesc(listOf(plugin)))
             .thenReturn(listOf(release1, release2))
         doThrow(RuntimeException("storage error")).whenever(storageService).delete(eq("ns/p1/1.0.0.jar"))
 

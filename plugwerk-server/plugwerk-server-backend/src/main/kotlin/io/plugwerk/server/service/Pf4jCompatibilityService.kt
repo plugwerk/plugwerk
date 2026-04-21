@@ -44,27 +44,33 @@ class Pf4jCompatibilityService(
         val namespace = namespaceRepository.findBySlug(namespaceSlug)
             .orElseThrow { NamespaceNotFoundException(namespaceSlug) }
 
-        val pf4jPlugins = pluginRepository.findAllByNamespaceAndStatus(namespace, PluginStatus.ACTIVE)
-            .map { plugin ->
-                val releases = releaseRepository.findAllByPluginAndStatus(plugin, ReleaseStatus.PUBLISHED)
-                    .map { release ->
-                        Pf4jReleaseInfo(
-                            version = release.version,
-                            url = URI(
-                                "${properties.server.baseUrl}/api/v1/namespaces/$namespaceSlug/plugins/${plugin.pluginId}/releases/${release.version}/download",
-                            ),
-                            date = release.createdAt.toLocalDate(),
-                            requires = release.requiresSystemVersion,
-                        )
-                    }
-                Pf4jPluginInfo(
-                    id = plugin.pluginId,
-                    description = plugin.description,
-                    provider = plugin.provider,
-                    projectUrl = plugin.homepage,
-                    releases = releases,
+        val plugins = pluginRepository.findAllByNamespaceAndStatus(namespace, PluginStatus.ACTIVE)
+        val releasesByPluginId = if (plugins.isEmpty()) {
+            emptyMap()
+        } else {
+            releaseRepository.findAllByPluginInAndStatus(plugins, ReleaseStatus.PUBLISHED)
+                .groupBy { it.plugin.id!! }
+        }
+
+        val pf4jPlugins = plugins.map { plugin ->
+            val releases = releasesByPluginId[plugin.id!!].orEmpty().map { release ->
+                Pf4jReleaseInfo(
+                    version = release.version,
+                    url = URI(
+                        "${properties.server.baseUrl}/api/v1/namespaces/$namespaceSlug/plugins/${plugin.pluginId}/releases/${release.version}/download",
+                    ),
+                    date = release.createdAt.toLocalDate(),
+                    requires = release.requiresSystemVersion,
                 )
             }
+            Pf4jPluginInfo(
+                id = plugin.pluginId,
+                description = plugin.description,
+                provider = plugin.provider,
+                projectUrl = plugin.homepage,
+                releases = releases,
+            )
+        }
 
         return Pf4jPluginsJson(plugins = pf4jPlugins)
     }

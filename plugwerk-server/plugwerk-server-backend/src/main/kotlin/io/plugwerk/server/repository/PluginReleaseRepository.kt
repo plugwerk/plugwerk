@@ -41,6 +41,43 @@ interface PluginReleaseRepository : JpaRepository<PluginReleaseEntity, UUID> {
 
     fun findAllByPluginAndStatus(plugin: PluginEntity, status: ReleaseStatus): List<PluginReleaseEntity>
 
+    /**
+     * Batch variant of [findAllByPluginAndStatus] — returns every release with the given
+     * [status] across the entire [plugins] collection in a single query. Callers typically
+     * group the result by `release.plugin.id` in memory. Uses `JOIN FETCH` so accessing
+     * `release.plugin` does not trigger a per-release SELECT.
+     *
+     * Audit row DB-016 — replaces the per-plugin loop in `Pf4jCompatibilityService.buildPluginsJson`.
+     */
+    @Query(
+        """
+        SELECT r FROM PluginReleaseEntity r JOIN FETCH r.plugin
+        WHERE r.plugin IN :plugins AND r.status = :status
+        """,
+    )
+    fun findAllByPluginInAndStatus(
+        @Param("plugins") plugins: Collection<PluginEntity>,
+        @Param("status") status: ReleaseStatus,
+    ): List<PluginReleaseEntity>
+
+    /**
+     * Batch variant of [findAllByPluginOrderByCreatedAtDesc] — returns every release for the
+     * entire [plugins] collection in a single query, newest first. Uses `JOIN FETCH` so
+     * accessing `release.plugin` does not trigger a per-release SELECT.
+     *
+     * Audit row DB-017 — replaces the per-plugin loop in `NamespaceService.deleteStorageArtifacts`.
+     */
+    @Query(
+        """
+        SELECT r FROM PluginReleaseEntity r JOIN FETCH r.plugin
+        WHERE r.plugin IN :plugins
+        ORDER BY r.createdAt DESC
+        """,
+    )
+    fun findAllByPluginInOrderByCreatedAtDesc(
+        @Param("plugins") plugins: Collection<PluginEntity>,
+    ): List<PluginReleaseEntity>
+
     fun existsByPluginAndVersion(plugin: PluginEntity, version: String): Boolean
 
     @Modifying

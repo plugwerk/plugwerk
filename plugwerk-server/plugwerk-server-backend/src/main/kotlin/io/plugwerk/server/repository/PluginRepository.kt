@@ -24,6 +24,8 @@ import io.plugwerk.spi.model.PluginStatus
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 import java.util.Optional
 import java.util.UUID
 
@@ -44,4 +46,24 @@ interface PluginRepository : JpaRepository<PluginEntity, UUID> {
     ): Page<PluginEntity>
 
     fun existsByNamespaceAndPluginId(namespace: NamespaceEntity, pluginId: String): Boolean
+
+    /**
+     * Projects only the `tags` column for plugins matching the given namespace and status
+     * set. Each result row is the raw tag array of one plugin; callers flatten and distinct
+     * in memory. Avoids loading full [PluginEntity] instances (including the potentially
+     * large `description` TEXT column) when only tags are needed.
+     *
+     * Audit row DB-015 — replaces `findAllByNamespace(...).flatMap { it.tags }` in
+     * `PluginService.findDistinctTags`.
+     */
+    @Query(
+        """
+        SELECT p.tags FROM PluginEntity p
+        WHERE p.namespace = :namespace AND p.status IN :statuses
+        """,
+    )
+    fun findTagsByNamespaceAndStatusIn(
+        @Param("namespace") namespace: NamespaceEntity,
+        @Param("statuses") statuses: Collection<PluginStatus>,
+    ): List<Array<String>>
 }

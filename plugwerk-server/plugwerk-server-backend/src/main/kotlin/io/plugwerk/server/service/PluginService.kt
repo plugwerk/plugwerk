@@ -19,6 +19,7 @@
 package io.plugwerk.server.service
 
 import io.plugwerk.server.domain.PluginEntity
+import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
 import io.plugwerk.server.service.storage.ArtifactStorageService
@@ -101,14 +102,16 @@ class PluginService(
 
         val allIds = all.mapNotNull { it.id }
 
-        // Determine which plugins have published releases
-        val pluginIdsWithPublishedRelease: Set<java.util.UUID> = if (allIds.isEmpty()) {
-            emptySet()
+        // Single fetch of the latest published release per plugin — reused below for both
+        // the visibility filter (pluginIdsWithPublishedRelease) and the version-compatibility
+        // filter (latestReleases). Audit row DB-015.
+        val latestReleases: Map<java.util.UUID, PluginReleaseEntity> = if (allIds.isEmpty()) {
+            emptyMap()
         } else {
             releaseRepository.findLatestPublishedReleasesForPlugins(allIds)
-                .map { it.plugin.id!! }
-                .toSet()
+                .associateBy { it.plugin.id!! }
         }
+        val pluginIdsWithPublishedRelease: Set<java.util.UUID> = latestReleases.keys
 
         // Determine which plugins are draft-only (for AUTHENTICATED/ADMIN visibility)
         val draftOnlyPluginIds: Set<java.util.UUID> =
@@ -150,12 +153,6 @@ class PluginService(
         val versionFiltered = if (version.isNullOrBlank()) {
             filtered
         } else {
-            val latestReleases = if (allIds.isEmpty()) {
-                emptyMap()
-            } else {
-                releaseRepository.findLatestPublishedReleasesForPlugins(allIds)
-                    .associateBy { it.plugin.id!! }
-            }
             filtered.filter { plugin ->
                 val release = latestReleases[plugin.id] ?: return@filter false
                 matchesVersionConstraint(release.version, version)
@@ -279,16 +276,13 @@ class PluginService(
         visibility: CatalogVisibility = CatalogVisibility.PUBLIC,
     ): List<String> {
         val namespace = namespaceService.findBySlug(namespaceSlug)
-        val all = pluginRepository.findAllByNamespace(namespace)
-        val filtered = all.filter { plugin ->
-            when (visibility) {
-                CatalogVisibility.PUBLIC -> plugin.status == PluginStatus.ACTIVE
-                CatalogVisibility.AUTHENTICATED -> plugin.status != PluginStatus.SUSPENDED
-                CatalogVisibility.ADMIN -> true
-            }
+        val statuses = when (visibility) {
+            CatalogVisibility.PUBLIC -> listOf(PluginStatus.ACTIVE)
+            CatalogVisibility.AUTHENTICATED -> PluginStatus.entries.filter { it != PluginStatus.SUSPENDED }
+            CatalogVisibility.ADMIN -> PluginStatus.entries.toList()
         }
-        return filtered
-            .flatMap { it.tags.toList() }
+        return pluginRepository.findTagsByNamespaceAndStatusIn(namespace, statuses)
+            .flatMap { it.toList() }
             .distinct()
             .sorted()
     }
