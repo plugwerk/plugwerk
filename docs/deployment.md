@@ -311,6 +311,25 @@ sudo journalctl -u plugwerk -f    # view logs
 |----------|---------|-------------|
 | `PLUGWERK_BASE_URL` | `http://localhost:8080` | Public base URL (used in download links) |
 
+### CORS
+
+See [ADR-0021](adrs/0021-cors-same-origin-default.md). Defaults to same-origin-only; the frontend is bundled with the server JAR so no cross-origin request is needed in the standard deployment. Add entries to `PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS` only if the frontend is deployed on a separate origin (CDN, subdomain, dev server on `localhost:5173`, …).
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS` | *(empty = same-origin-only)* | Comma-separated exact origin values. Case-sensitive, scheme and host must match exactly. Example: `http://localhost:5173,https://plugins.example.com`. Wildcards (`*`) are rejected at startup when combined with `PLUGWERK_SERVER_CORS_ALLOW_CREDENTIALS=true`. |
+| `PLUGWERK_SERVER_CORS_ALLOWED_METHODS` | `GET,POST,PUT,PATCH,DELETE,OPTIONS` | Comma-separated HTTP methods browsers may use in cross-origin requests. |
+| `PLUGWERK_SERVER_CORS_ALLOWED_HEADERS` | `Authorization,Content-Type,X-Api-Key` | Comma-separated request headers browsers may send. |
+| `PLUGWERK_SERVER_CORS_ALLOW_CREDENTIALS` | `true` | Whether browsers may include credentials (`Authorization` header, cookies). Required for JWT Bearer auth to reach the server from a different origin. Must be `false` when `PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS` contains `*`. |
+| `PLUGWERK_SERVER_CORS_MAX_AGE` | `3600` | Preflight cache duration in seconds. Bounded at `0..86400`. |
+
+**Local dev with the Vite dev server** (`npm run dev`, port 5173, proxies `/api/**` to the backend) — the proxy forwards the `Origin: http://localhost:5173` header, so the backend rejects it with 403 under the default empty allow-list. Export before starting the backend:
+
+```bash
+export PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS=http://localhost:5173
+./gradlew :plugwerk-server:plugwerk-server-backend:bootRun
+```
+
 > **Breaking change in 1.0.0-alpha.2 (#208, ADR-0016):** `PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB`
 > is no longer read. Upload size is now stored in the `application_setting` database table
 > and managed via the Admin → Settings UI or `PATCH /api/v1/admin/settings`. On first upgrade

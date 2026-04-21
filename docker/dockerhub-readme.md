@@ -94,6 +94,11 @@ Open http://localhost:8080 and log in with `admin` / that value. You will be req
 | `PLUGWERK_DB_PASSWORD` | no | `plugwerk` | DB password |
 | `PLUGWERK_STORAGE_ROOT` | no | `/var/plugwerk/artifacts` | Artifact storage directory |
 | `PLUGWERK_AUTH_ADMIN_PASSWORD` | no | *(random, logged, `passwordChangeRequired`)* | Pin the initial superadmin password (CI/smoke-test only — **do not set in production**). Blank or whitespace-only values are treated the same as unset. |
+| `PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS` | no | *(empty = same-origin-only)* | Comma-separated origins allowed to make cross-origin requests (e.g. `https://frontend.example.com`). Default empty preserves the bundled-frontend same-origin deployment. Wildcards not supported with default credentials. |
+| `PLUGWERK_SERVER_CORS_ALLOWED_METHODS` | no | `GET,POST,PUT,PATCH,DELETE,OPTIONS` | Comma-separated HTTP methods for cross-origin requests |
+| `PLUGWERK_SERVER_CORS_ALLOWED_HEADERS` | no | `Authorization,Content-Type,X-Api-Key` | Comma-separated request headers for cross-origin requests |
+| `PLUGWERK_SERVER_CORS_ALLOW_CREDENTIALS` | no | `true` | Whether browsers may include credentials on cross-origin requests. Must be `false` when `PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS=*`. |
+| `PLUGWERK_SERVER_CORS_MAX_AGE` | no | `3600` | Preflight cache duration in seconds (0..86400) |
 | `JAVA_OPTS` | no | `-Xms256m -Xmx512m -XX:+UseG1GC` | JVM options |
 
 Full reference: https://plugwerk.io/server/configuration/
