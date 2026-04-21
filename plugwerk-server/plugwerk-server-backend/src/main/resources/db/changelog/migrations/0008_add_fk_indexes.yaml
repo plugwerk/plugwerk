@@ -1,0 +1,82 @@
+# Foreign-key index coverage audit (issue #269, audit rows DB-008..011).
+#
+# The 1.0.0-beta.1 security audit flagged four foreign-key columns without a
+# dedicated single-column index. Investigation of the repository query paths
+# shows that only one of the four genuinely needs a new index; the other three
+# are already covered by composite unique constraints via the leading-column
+# rule, and adding redundant single-column indexes would only waste disk and
+# amplify writes.
+#
+# Decisions (see PR #269 for repository-level evidence):
+#
+#   DB-008  plugin.namespace_id
+#     Covered by uq_plugin_namespace_plugin_id (namespace_id, plugin_id) —
+#     all repository queries either filter on (namespace, pluginId) or lead
+#     with namespace_id. No new index.
+#
+#   DB-009  plugin_release.plugin_id
+#     Covered by uq_plugin_release_plugin_version (plugin_id, version) —
+#     every query path leads with plugin_id. No new index.
+#
+#   DB-010  namespace_member.namespace_id
+#     Covered by uq_namespace_member_ns_subject (namespace_id, user_subject) —
+#     namespace-scoped queries lead with namespace_id. No new index on this
+#     column. However, NamespaceMemberRepository has four queries that filter
+#     on user_subject alone (findAllByUserSubject, findNamespacesByUserSubject,
+#     deleteAllByUserSubject, countByUserSubject) which would sequentially
+#     scan the table. This migration therefore adds idx_namespace_member_user_subject.
+#
+#   DB-011  namespace_access_key.namespace_id
+#     Not covered by any index; only idx_access_key_prefix exists on key_prefix.
+#     findAllByNamespace and findAllByNamespaceAndRevokedFalse sequentially
+#     scan the table. This migration adds idx_access_key_namespace (plain) plus
+#     a partial index idx_access_key_namespace_active on (namespace_id)
+#     WHERE revoked = false for the hot listing path.
+databaseChangeLog:
+  - changeSet:
+      id: 0008-idx-access-key-namespace
+      author: plugwerk
+      comment: >
+        DB-011 (#269): add dedicated index on namespace_access_key.namespace_id.
+        Resolves sequential-scan behaviour for findAllByNamespace and
+        existsByNamespaceAndName.
+      changes:
+        - createIndex:
+            tableName: namespace_access_key
+            indexName: idx_access_key_namespace
+            columns:
+              - column:
+                  name: namespace_id
+
+  - changeSet:
+      id: 0008-idx-access-key-namespace-active
+      author: plugwerk
+      comment: >
+        DB-011 (#269): partial index on namespace_access_key(namespace_id)
+        WHERE revoked = false — targets the hot path findAllByNamespaceAndRevokedFalse.
+        Expressed as raw SQL because Liquibase's createIndex change does not
+        support WHERE predicates.
+      changes:
+        - sql:
+            sql: "CREATE INDEX idx_access_key_namespace_active ON namespace_access_key (namespace_id) WHERE revoked = false"
+            stripComments: false
+      rollback:
+        - sql:
+            sql: "DROP INDEX idx_access_key_namespace_active"
+
+  - changeSet:
+      id: 0008-idx-namespace-member-user-subject
+      author: plugwerk
+      comment: >
+        Surfaced during DB-010 investigation (#269): NamespaceMemberRepository
+        queries filtering on user_subject alone (findAllByUserSubject,
+        findNamespacesByUserSubject, deleteAllByUserSubject, countByUserSubject)
+        bypass the leading-column rule of uq_namespace_member_ns_subject and
+        require a dedicated index.
+      changes:
+        - createIndex:
+            tableName: namespace_member
+            indexName: idx_namespace_member_user_subject
+            columns:
+              - column:
+                  name: user_subject
