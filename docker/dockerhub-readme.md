@@ -51,7 +51,7 @@ services:
       PLUGWERK_DB_PASSWORD: REPLACE_ME_STRONG_PASSWORD
       # Short placeholder — fails @Size(min=32) and aborts startup until replaced.
       PLUGWERK_AUTH_JWT_SECRET: "REPLACE_ME_SEE_README"
-      # Short placeholder — fails @Size(min=16, max=16) and aborts startup until replaced.
+      # Short placeholder — fails @Size(min=16) and aborts startup until replaced.
       PLUGWERK_AUTH_ENCRYPTION_KEY: "REPLACE_ME"
     volumes:
       - plugwerk-artifacts:/var/plugwerk/artifacts
@@ -69,7 +69,7 @@ Generate secure secrets and start:
 #    server secrets are easier to export and substitute, see below).
 # 2) Export real secrets into your shell:
 export PLUGWERK_AUTH_JWT_SECRET="$(openssl rand -base64 32)"
-export PLUGWERK_AUTH_ENCRYPTION_KEY="$(openssl rand -hex 8)"
+export PLUGWERK_AUTH_ENCRYPTION_KEY="$(openssl rand -base64 32)"
 # 3) Substitute them in-place (or paste the values into the compose file).
 # 4) Launch:
 docker compose up -d
@@ -88,7 +88,7 @@ Open http://localhost:8080 and log in with `admin` / that value. You will be req
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `PLUGWERK_AUTH_JWT_SECRET` | **yes** | — | HMAC signing key for JWTs, min 32 chars |
-| `PLUGWERK_AUTH_ENCRYPTION_KEY` | **yes** | — | AES key for OIDC secrets, exactly 16 chars |
+| `PLUGWERK_AUTH_ENCRYPTION_KEY` | **yes** | — | Password for the AES-256-CBC text encryptor that protects OIDC client secrets at rest. PBKDF2-derived key, so length controls input entropy (not AES key size). Min 16 chars; 32+ recommended. |
 | `PLUGWERK_DB_URL` | no | `jdbc:postgresql://localhost:5432/plugwerk` | JDBC URL |
 | `PLUGWERK_DB_USERNAME` | no | `plugwerk` | DB user |
 | `PLUGWERK_DB_PASSWORD` | no | `plugwerk` | DB password |

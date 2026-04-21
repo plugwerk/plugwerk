@@ -60,10 +60,12 @@ plugwerk:
     # Env: PLUGWERK_AUTH_JWT_SECRET
     jwt-secret: ${PLUGWERK_AUTH_JWT_SECRET:}
 
-    # AES encryption key for OIDC provider client secrets at rest.
-    # Must be exactly 16 characters (AES-128).
-    # REQUIRED — the server will refuse to start without this value.
-    # Generate with: openssl rand -hex 8
+    # Password for the AES-256-CBC text encryptor (PBKDF2-derived key) that protects
+    # OIDC provider client secrets at rest. Length controls PBKDF2 input entropy — the
+    # AES key size is always 256 bits. Minimum 16 characters; 32+ recommended.
+    # REQUIRED — the server will refuse to start without this value. See ADR-0022.
+    # Generate with: openssl rand -base64 32   (recommended)
+    #            or: openssl rand -hex 8       (legacy minimum)
     # Env: PLUGWERK_AUTH_ENCRYPTION_KEY
     encryption-key: ${PLUGWERK_AUTH_ENCRYPTION_KEY:}
 

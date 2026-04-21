@@ -89,12 +89,18 @@ class SecurityConfiguration(
     }
 
     /**
-     * AES text encryptor for OIDC provider client secrets stored in the database.
+     * AES-256-CBC text encryptor for OIDC provider client secrets stored in the database.
      *
-     * Uses the 16-character [PlugwerkProperties.AuthProperties.encryptionKey].
+     * [PlugwerkProperties.AuthProperties.encryptionKey] is a **password** fed to
+     * Spring Security's `Encryptors.text()`, which uses `PBKDF2WithHmacSHA1` to derive a
+     * 256-bit AES key. The password length controls PBKDF2 input entropy — it does **not**
+     * change the AES key size. See ADR-0022 for the full record of this contract and the
+     * migration procedure when the password is rotated.
+     *
      * The salt is derived deterministically from the encryption key (SHA-256 of the key,
      * first 8 bytes hex-encoded) so that it is unique per deployment but stable across
-     * restarts — existing encrypted values remain decryptable.
+     * restarts — existing encrypted values remain decryptable as long as the password
+     * does not change.
      *
      * Environment variable: `PLUGWERK_AUTH_ENCRYPTION_KEY`
      */

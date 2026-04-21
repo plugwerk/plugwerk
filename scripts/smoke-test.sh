@@ -14,11 +14,11 @@
 #   Required env vars:
 #     PLUGWERK_AUTH_ADMIN_PASSWORD   — fixed admin password for login
 #     PLUGWERK_AUTH_JWT_SECRET            — HMAC signing key, min 32 chars
-#     PLUGWERK_AUTH_ENCRYPTION_KEY        — AES key, exactly 16 chars
+#     PLUGWERK_AUTH_ENCRYPTION_KEY        — password for AES-256-CBC encryptor (PBKDF2), min 16 chars
 #
 #   Example:
 #     PLUGWERK_AUTH_JWT_SECRET="$(openssl rand -base64 32)" \
-#     PLUGWERK_AUTH_ENCRYPTION_KEY="$(openssl rand -hex 8)" \
+#     PLUGWERK_AUTH_ENCRYPTION_KEY="$(openssl rand -base64 32)" \
 #     PLUGWERK_AUTH_ADMIN_PASSWORD=smoketest \
 #     ./scripts/smoke-test.sh
 set -euo pipefail
