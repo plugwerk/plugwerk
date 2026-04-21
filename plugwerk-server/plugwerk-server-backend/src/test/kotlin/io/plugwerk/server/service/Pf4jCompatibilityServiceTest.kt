@@ -50,7 +50,13 @@ class Pf4jCompatibilityServiceTest {
 
     private val namespace = NamespaceEntity(slug = "acme", name = "ACME Corp")
     private val plugin =
-        PluginEntity(namespace = namespace, pluginId = "my-plugin", name = "My Plugin", description = "A plugin")
+        PluginEntity(
+            id = java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"),
+            namespace = namespace,
+            pluginId = "my-plugin",
+            name = "My Plugin",
+            description = "A plugin",
+        )
 
     @BeforeEach
     fun setUp() {
@@ -76,7 +82,7 @@ class Pf4jCompatibilityServiceTest {
             pluginRepository.findAllByNamespaceAndStatus(namespace, PluginStatus.ACTIVE),
         ).thenReturn(listOf(plugin))
         whenever(
-            releaseRepository.findAllByPluginAndStatus(plugin, ReleaseStatus.PUBLISHED),
+            releaseRepository.findAllByPluginInAndStatus(listOf(plugin), ReleaseStatus.PUBLISHED),
         ).thenReturn(listOf(release))
 
         val result = pf4jCompatibilityService.buildPluginsJson("acme")
@@ -125,7 +131,7 @@ class Pf4jCompatibilityServiceTest {
             pluginRepository.findAllByNamespaceAndStatus(namespace, PluginStatus.ACTIVE),
         ).thenReturn(listOf(plugin))
         whenever(
-            releaseRepository.findAllByPluginAndStatus(plugin, ReleaseStatus.PUBLISHED),
+            releaseRepository.findAllByPluginInAndStatus(listOf(plugin), ReleaseStatus.PUBLISHED),
         ).thenReturn(listOf(release))
 
         val result = pf4jCompatibilityService.buildPluginsJson("acme")

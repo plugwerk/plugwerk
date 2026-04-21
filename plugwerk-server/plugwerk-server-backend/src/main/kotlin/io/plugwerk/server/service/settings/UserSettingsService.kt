@@ -48,26 +48,27 @@ class UserSettingsService(private val repository: UserSettingRepository) {
 
     @Transactional
     fun update(userSubject: String, settings: Map<String, String>): Map<String, String> {
+        val existingByKey = repository.findByUserSubject(userSubject).associateBy { it.settingKey }
+        val toSave = mutableListOf<UserSettingEntity>()
         for ((rawKey, rawValue) in settings) {
             val key = UserSettingKey.byKey(rawKey)
                 ?: throw IllegalArgumentException("Unknown user setting key: '$rawKey'")
             key.validate(rawValue)?.let { error ->
                 throw IllegalArgumentException("Invalid value for user setting '$rawKey': $error")
             }
-            val existing = repository.findByUserSubjectAndSettingKey(userSubject, key.key).orElse(null)
+            val existing = existingByKey[key.key]
             if (existing != null) {
                 existing.settingValue = rawValue
-                repository.save(existing)
+                toSave += existing
             } else {
-                repository.save(
-                    UserSettingEntity(
-                        userSubject = userSubject,
-                        settingKey = key.key,
-                        settingValue = rawValue,
-                    ),
+                toSave += UserSettingEntity(
+                    userSubject = userSubject,
+                    settingKey = key.key,
+                    settingValue = rawValue,
                 )
             }
         }
+        repository.saveAll(toSave)
         return getAll(userSubject)
     }
 

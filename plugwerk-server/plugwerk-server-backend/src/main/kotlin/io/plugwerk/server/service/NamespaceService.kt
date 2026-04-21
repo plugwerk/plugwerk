@@ -91,20 +91,19 @@ class NamespaceService(
 
     private fun deleteStorageArtifacts(namespace: NamespaceEntity) {
         val plugins = pluginRepository.findAllByNamespace(namespace)
-        for (plugin in plugins) {
-            val releases = pluginReleaseRepository.findAllByPluginOrderByCreatedAtDesc(plugin)
-            for (release in releases) {
-                try {
-                    storageService.delete(release.artifactKey)
-                } catch (ex: Exception) {
-                    log.warn(
-                        "Failed to delete artifact '{}' for plugin '{}' in namespace '{}': {}",
-                        release.artifactKey,
-                        plugin.pluginId,
-                        namespace.slug,
-                        ex.message,
-                    )
-                }
+        if (plugins.isEmpty()) return
+        val releases = pluginReleaseRepository.findAllByPluginInOrderByCreatedAtDesc(plugins)
+        for (release in releases) {
+            try {
+                storageService.delete(release.artifactKey)
+            } catch (ex: Exception) {
+                log.warn(
+                    "Failed to delete artifact '{}' for plugin '{}' in namespace '{}': {}",
+                    release.artifactKey,
+                    release.plugin.pluginId,
+                    namespace.slug,
+                    ex.message,
+                )
             }
         }
     }
