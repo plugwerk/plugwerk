@@ -87,7 +87,7 @@ export PLUGWERK_VERSION=1.0.0
 
 ```bash
 export PLUGWERK_AUTH_JWT_SECRET="$(openssl rand -base64 32)"
-export PLUGWERK_AUTH_ENCRYPTION_KEY="$(openssl rand -hex 8)"
+export PLUGWERK_AUTH_ENCRYPTION_KEY="$(openssl rand -base64 32)"
 ```
 
 ### 1.2 Start the stack
@@ -177,7 +177,7 @@ export PLUGWERK_DB_URL=jdbc:postgresql://localhost:5432/plugwerk
 export PLUGWERK_DB_USERNAME=plugwerk
 export PLUGWERK_DB_PASSWORD=plugwerk
 export PLUGWERK_AUTH_JWT_SECRET="$(openssl rand -base64 32)"
-export PLUGWERK_AUTH_ENCRYPTION_KEY="$(openssl rand -hex 8)"
+export PLUGWERK_AUTH_ENCRYPTION_KEY="$(openssl rand -base64 32)"
 
 ./start.sh
 ```
@@ -210,7 +210,7 @@ set PLUGWERK_DB_URL=jdbc:postgresql://localhost:5432/plugwerk
 set PLUGWERK_DB_USERNAME=plugwerk
 set PLUGWERK_DB_PASSWORD=plugwerk
 set PLUGWERK_AUTH_JWT_SECRET=<your-secret-min-32-chars>
-set PLUGWERK_AUTH_ENCRYPTION_KEY=<your-key-exactly-16-chars>
+set PLUGWERK_AUTH_ENCRYPTION_KEY=<your-key-min-16-chars-32-recommended>
 
 start.bat
 ```
@@ -288,7 +288,7 @@ sudo journalctl -u plugwerk -f    # view logs
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `PLUGWERK_AUTH_JWT_SECRET` | HMAC-SHA256 signing key for JWTs. Min 32 characters. | `openssl rand -base64 32` |
-| `PLUGWERK_AUTH_ENCRYPTION_KEY` | AES key for OIDC client secrets at rest. Exactly 16 characters. | `openssl rand -hex 8` |
+| `PLUGWERK_AUTH_ENCRYPTION_KEY` | Password for the AES-256-CBC text encryptor that protects OIDC client secrets at rest. PBKDF2-derived key — length controls input entropy, not AES key size. Min 16 chars; 32+ recommended. See [ADR-0022](adrs/0022-encryption-key-size.md). | `openssl rand -base64 32` |
 
 ### Database
 

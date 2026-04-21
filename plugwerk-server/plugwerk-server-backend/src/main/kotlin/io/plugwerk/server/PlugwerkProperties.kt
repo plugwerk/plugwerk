@@ -223,13 +223,24 @@ data class PlugwerkProperties(
      *   plugwerk.auth.token-validity-hours: 8
      *   ```
      *
-     * @property encryptionKey AES encryption key used to encrypt OIDC provider client
-     *   secrets at rest in the `oidc_provider` table. Must be exactly 16 characters
-     *   (AES-128). **Never commit a real key to source control.**
+     * @property encryptionKey Password used to derive the AES-256 key that encrypts OIDC
+     *   provider client secrets at rest in the `oidc_provider` table. Fed to PBKDF2 via
+     *   Spring Security's `Encryptors.text()` — length controls the PBKDF2 *input
+     *   entropy*, not the AES key size (which is fixed at 256 bits). Must be at least
+     *   16 characters; **32+ is recommended**. **Never commit a real value to source
+     *   control.**
+     *
+     *   **Rotating this value invalidates every existing `client_secret_encrypted` row**
+     *   because PBKDF2 derives a different AES key from a new password. See ADR-0022
+     *   for the manual re-encrypt procedure.
      *
      *   Environment variable: `PLUGWERK_AUTH_ENCRYPTION_KEY`
      *
      *   ```bash
+     *   # Recommended: 32+ chars for higher PBKDF2 input entropy
+     *   export PLUGWERK_AUTH_ENCRYPTION_KEY="$(openssl rand -base64 32)"
+     *
+     *   # Legacy minimum (still accepted):
      *   export PLUGWERK_AUTH_ENCRYPTION_KEY="$(openssl rand -hex 8)"
      *   ```
      */
@@ -239,7 +250,11 @@ data class PlugwerkProperties(
         val jwtSecret: String = "",
         val tokenValidityHours: Long = 8,
         @field:NotBlank(message = "plugwerk.auth.encryption-key must not be blank — set PLUGWERK_AUTH_ENCRYPTION_KEY")
-        @field:Size(min = 16, max = 16, message = "plugwerk.auth.encryption-key must be exactly 16 characters")
+        @field:Size(
+            min = 16,
+            max = 256,
+            message = "plugwerk.auth.encryption-key must be at least 16 characters (32+ recommended)",
+        )
         val encryptionKey: String = "",
         /**
          * Optional fixed initial admin password. When set to a non-blank value the admin
