@@ -96,7 +96,7 @@ class SecurityConfiguration(
      * first 8 bytes hex-encoded) so that it is unique per deployment but stable across
      * restarts — existing encrypted values remain decryptable.
      *
-     * Environment variable: `PLUGWERK_ENCRYPTION_KEY`
+     * Environment variable: `PLUGWERK_AUTH_ENCRYPTION_KEY`
      */
     @Bean
     fun textEncryptor(): TextEncryptor {

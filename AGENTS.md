@@ -378,8 +378,8 @@ Docker Compose:
 ```
 
 Required environment variables (server refuses to start without them):
-- `PLUGWERK_JWT_SECRET` — HMAC signing key, min 32 chars
-- `PLUGWERK_ENCRYPTION_KEY` — AES key for OIDC secrets, exactly 16 chars
+- `PLUGWERK_AUTH_JWT_SECRET` — HMAC signing key, min 32 chars
+- `PLUGWERK_AUTH_ENCRYPTION_KEY` — AES key for OIDC secrets, exactly 16 chars
 
 Optional:
 - `PLUGWERK_AUTH_ADMIN_PASSWORD` — fixed initial admin password (random if absent)

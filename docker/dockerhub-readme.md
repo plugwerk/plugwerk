@@ -19,7 +19,7 @@ Multi-architecture: `linux/amd64`, `linux/arm64`.
 
 ## Quick start
 
-> **Warning — placeholders in this snippet are intentionally invalid.** `PLUGWERK_JWT_SECRET` and `PLUGWERK_ENCRYPTION_KEY` below fail the server's minimum-length validation on purpose, so a verbatim `docker compose up` aborts at startup with a clear property-validation error. Replace the database password and export real secrets as shown in the next step before running the stack.
+> **Warning — placeholders in this snippet are intentionally invalid.** `PLUGWERK_AUTH_JWT_SECRET` and `PLUGWERK_AUTH_ENCRYPTION_KEY` below fail the server's minimum-length validation on purpose, so a verbatim `docker compose up` aborts at startup with a clear property-validation error. Replace the database password and export real secrets as shown in the next step before running the stack.
 
 Create a `docker-compose.yml`:
 
@@ -50,9 +50,9 @@ services:
       PLUGWERK_DB_USERNAME: plugwerk
       PLUGWERK_DB_PASSWORD: REPLACE_ME_STRONG_PASSWORD
       # Short placeholder — fails @Size(min=32) and aborts startup until replaced.
-      PLUGWERK_JWT_SECRET: "REPLACE_ME_SEE_README"
+      PLUGWERK_AUTH_JWT_SECRET: "REPLACE_ME_SEE_README"
       # Short placeholder — fails @Size(min=16, max=16) and aborts startup until replaced.
-      PLUGWERK_ENCRYPTION_KEY: "REPLACE_ME"
+      PLUGWERK_AUTH_ENCRYPTION_KEY: "REPLACE_ME"
     volumes:
       - plugwerk-artifacts:/var/plugwerk/artifacts
 
@@ -68,8 +68,8 @@ Generate secure secrets and start:
 #    value you want to pin (the database password is a plain string; the two
 #    server secrets are easier to export and substitute, see below).
 # 2) Export real secrets into your shell:
-export PLUGWERK_JWT_SECRET="$(openssl rand -base64 32)"
-export PLUGWERK_ENCRYPTION_KEY="$(openssl rand -hex 8)"
+export PLUGWERK_AUTH_JWT_SECRET="$(openssl rand -base64 32)"
+export PLUGWERK_AUTH_ENCRYPTION_KEY="$(openssl rand -hex 8)"
 # 3) Substitute them in-place (or paste the values into the compose file).
 # 4) Launch:
 docker compose up -d
@@ -87,8 +87,8 @@ Open http://localhost:8080 and log in with `admin` / that value. You will be req
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `PLUGWERK_JWT_SECRET` | **yes** | — | HMAC signing key for JWTs, min 32 chars |
-| `PLUGWERK_ENCRYPTION_KEY` | **yes** | — | AES key for OIDC secrets, exactly 16 chars |
+| `PLUGWERK_AUTH_JWT_SECRET` | **yes** | — | HMAC signing key for JWTs, min 32 chars |
+| `PLUGWERK_AUTH_ENCRYPTION_KEY` | **yes** | — | AES key for OIDC secrets, exactly 16 chars |
 | `PLUGWERK_DB_URL` | no | `jdbc:postgresql://localhost:5432/plugwerk` | JDBC URL |
 | `PLUGWERK_DB_USERNAME` | no | `plugwerk` | DB user |
 | `PLUGWERK_DB_PASSWORD` | no | `plugwerk` | DB password |

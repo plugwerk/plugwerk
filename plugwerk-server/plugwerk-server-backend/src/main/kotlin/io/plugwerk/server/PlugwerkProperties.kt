@@ -208,10 +208,10 @@ data class PlugwerkProperties(
      * @property jwtSecret HMAC-SHA256 signing key for self-issued JWTs. Must be at least
      *   32 characters. **Never commit a real secret to source control.**
      *
-     *   Environment variable: `PLUGWERK_JWT_SECRET`
+     *   Environment variable: `PLUGWERK_AUTH_JWT_SECRET`
      *
      *   ```bash
-     *   export PLUGWERK_JWT_SECRET="$(openssl rand -base64 32)"
+     *   export PLUGWERK_AUTH_JWT_SECRET="$(openssl rand -base64 32)"
      *   ```
      *
      * @property tokenValidityHours Lifetime of self-issued JWT access tokens in hours.
@@ -227,18 +227,18 @@ data class PlugwerkProperties(
      *   secrets at rest in the `oidc_provider` table. Must be exactly 16 characters
      *   (AES-128). **Never commit a real key to source control.**
      *
-     *   Environment variable: `PLUGWERK_ENCRYPTION_KEY`
+     *   Environment variable: `PLUGWERK_AUTH_ENCRYPTION_KEY`
      *
      *   ```bash
-     *   export PLUGWERK_ENCRYPTION_KEY="$(openssl rand -hex 8)"
+     *   export PLUGWERK_AUTH_ENCRYPTION_KEY="$(openssl rand -hex 8)"
      *   ```
      */
     data class AuthProperties(
-        @field:NotBlank(message = "plugwerk.auth.jwt-secret must not be blank — set PLUGWERK_JWT_SECRET")
+        @field:NotBlank(message = "plugwerk.auth.jwt-secret must not be blank — set PLUGWERK_AUTH_JWT_SECRET")
         @field:Size(min = 32, message = "plugwerk.auth.jwt-secret must be at least 32 characters")
         val jwtSecret: String = "",
         val tokenValidityHours: Long = 8,
-        @field:NotBlank(message = "plugwerk.auth.encryption-key must not be blank — set PLUGWERK_ENCRYPTION_KEY")
+        @field:NotBlank(message = "plugwerk.auth.encryption-key must not be blank — set PLUGWERK_AUTH_ENCRYPTION_KEY")
         @field:Size(min = 16, max = 16, message = "plugwerk.auth.encryption-key must be exactly 16 characters")
         val encryptionKey: String = "",
         /**

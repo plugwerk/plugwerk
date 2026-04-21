@@ -86,8 +86,8 @@ export PLUGWERK_VERSION=1.0.0
 ### 1.1 Generate secrets
 
 ```bash
-export PLUGWERK_JWT_SECRET="$(openssl rand -base64 32)"
-export PLUGWERK_ENCRYPTION_KEY="$(openssl rand -hex 8)"
+export PLUGWERK_AUTH_JWT_SECRET="$(openssl rand -base64 32)"
+export PLUGWERK_AUTH_ENCRYPTION_KEY="$(openssl rand -hex 8)"
 ```
 
 ### 1.2 Start the stack
@@ -146,8 +146,8 @@ docker run -d \
   -e PLUGWERK_DB_URL=jdbc:postgresql://host.docker.internal:5432/plugwerk \
   -e PLUGWERK_DB_USERNAME=plugwerk \
   -e PLUGWERK_DB_PASSWORD=plugwerk \
-  -e PLUGWERK_JWT_SECRET="$(openssl rand -base64 32)" \
-  -e PLUGWERK_ENCRYPTION_KEY="$(openssl rand -hex 8)" \
+  -e PLUGWERK_AUTH_JWT_SECRET="$(openssl rand -base64 32)" \
+  -e PLUGWERK_AUTH_ENCRYPTION_KEY="$(openssl rand -hex 8)" \
   -e PLUGWERK_STORAGE_ROOT=/data/artifacts \
   -v plugwerk-artifacts:/data/artifacts \
   plugwerk-server
@@ -176,8 +176,8 @@ Run directly on the host with the included start script.
 export PLUGWERK_DB_URL=jdbc:postgresql://localhost:5432/plugwerk
 export PLUGWERK_DB_USERNAME=plugwerk
 export PLUGWERK_DB_PASSWORD=plugwerk
-export PLUGWERK_JWT_SECRET="$(openssl rand -base64 32)"
-export PLUGWERK_ENCRYPTION_KEY="$(openssl rand -hex 8)"
+export PLUGWERK_AUTH_JWT_SECRET="$(openssl rand -base64 32)"
+export PLUGWERK_AUTH_ENCRYPTION_KEY="$(openssl rand -hex 8)"
 
 ./start.sh
 ```
@@ -209,8 +209,8 @@ JAVA_OPTS="-Xms512m -Xmx2g" ./start.sh
 set PLUGWERK_DB_URL=jdbc:postgresql://localhost:5432/plugwerk
 set PLUGWERK_DB_USERNAME=plugwerk
 set PLUGWERK_DB_PASSWORD=plugwerk
-set PLUGWERK_JWT_SECRET=<your-secret-min-32-chars>
-set PLUGWERK_ENCRYPTION_KEY=<your-key-exactly-16-chars>
+set PLUGWERK_AUTH_JWT_SECRET=<your-secret-min-32-chars>
+set PLUGWERK_AUTH_ENCRYPTION_KEY=<your-key-exactly-16-chars>
 
 start.bat
 ```
@@ -268,8 +268,8 @@ WantedBy=multi-user.target
 PLUGWERK_DB_URL=jdbc:postgresql://localhost:5432/plugwerk
 PLUGWERK_DB_USERNAME=plugwerk
 PLUGWERK_DB_PASSWORD=<secret>
-PLUGWERK_JWT_SECRET=<secret>
-PLUGWERK_ENCRYPTION_KEY=<secret>
+PLUGWERK_AUTH_JWT_SECRET=<secret>
+PLUGWERK_AUTH_ENCRYPTION_KEY=<secret>
 PLUGWERK_STORAGE_ROOT=/var/plugwerk/artifacts
 ```
 
@@ -287,8 +287,8 @@ sudo journalctl -u plugwerk -f    # view logs
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `PLUGWERK_JWT_SECRET` | HMAC-SHA256 signing key for JWTs. Min 32 characters. | `openssl rand -base64 32` |
-| `PLUGWERK_ENCRYPTION_KEY` | AES key for OIDC client secrets at rest. Exactly 16 characters. | `openssl rand -hex 8` |
+| `PLUGWERK_AUTH_JWT_SECRET` | HMAC-SHA256 signing key for JWTs. Min 32 characters. | `openssl rand -base64 32` |
+| `PLUGWERK_AUTH_ENCRYPTION_KEY` | AES key for OIDC client secrets at rest. Exactly 16 characters. | `openssl rand -hex 8` |
 
 ### Database
 
