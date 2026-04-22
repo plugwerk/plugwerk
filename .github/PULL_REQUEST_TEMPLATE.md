@@ -20,6 +20,7 @@ Closes #
 - [ ] Documentation updated (if applicable)
 - [ ] No secrets or credentials committed
 - [ ] Commit messages follow Conventional Commits
+- [ ] Every new Liquibase changeSet has an explicit `rollback:` block (or a documented empty-rollback rationale for data-only / irreversible changes) — see issue #293
 - [ ] CLA signed (first-time contributors: post the sign comment below, or it has already been signed)
 
 ## AI Agent Disclosure
