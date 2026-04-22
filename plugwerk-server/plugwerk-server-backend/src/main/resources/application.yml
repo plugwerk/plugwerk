@@ -93,6 +93,23 @@ plugwerk:
         # Env: PLUGWERK_AUTH_RATE_LIMIT_CHANGE_PASSWORD_WINDOW_SECONDS
         window-seconds: ${PLUGWERK_AUTH_RATE_LIMIT_CHANGE_PASSWORD_WINDOW_SECONDS:300}
 
+    # Actuator scrape-account configuration (SBS-004 / #292). See ADR-0025.
+    # `/actuator/health` is always public. `/actuator/info` and `/actuator/prometheus`
+    # require a superadmin JWT by default; set BOTH values below to additionally allow
+    # a dedicated HTTP Basic scrape account for unattended Prometheus scraping.
+    # Leave both blank to keep the endpoints superadmin-only (recommended default).
+    actuator:
+      # Scrape account username. Conventionally `prometheus` or the scraper's
+      # service-account name. Must be set together with scrape-password.
+      # Env: PLUGWERK_AUTH_ACTUATOR_SCRAPE_USERNAME
+      scrape-username: ${PLUGWERK_AUTH_ACTUATOR_SCRAPE_USERNAME:}
+      # Scrape account plaintext password (BCrypt-encoded at bean creation).
+      # Minimum 16 characters when set; 32+ recommended. Rotate by changing the env
+      # var and restarting the server.
+      # Env: PLUGWERK_AUTH_ACTUATOR_SCRAPE_PASSWORD
+      # Generate with: openssl rand -base64 32
+      scrape-password: ${PLUGWERK_AUTH_ACTUATOR_SCRAPE_PASSWORD:}
+
   # Upload and download-tracking settings were moved to the `application_setting` database
   # table in 1.0.0-alpha.2 (ADR-0016). The environment variables PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB,
   # PLUGWERK_TRACKING_ENABLED, PLUGWERK_TRACKING_CAPTURE_IP, PLUGWERK_TRACKING_ANONYMIZE_IP and

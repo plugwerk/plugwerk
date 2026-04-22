@@ -56,6 +56,7 @@ class SecurityConfigurationTextEncryptorTest {
             props = props,
             oidcProviderRegistry = mock(),
             localJwtDecoder = mock(),
+            namespaceAuthorizationService = mock(),
         )
     }
 
