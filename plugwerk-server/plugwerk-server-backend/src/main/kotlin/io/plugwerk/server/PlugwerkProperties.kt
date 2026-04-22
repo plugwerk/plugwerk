@@ -248,6 +248,12 @@ data class PlugwerkProperties(
         @field:NotBlank(message = "plugwerk.auth.jwt-secret must not be blank — set PLUGWERK_AUTH_JWT_SECRET")
         @field:Size(min = 32, message = "plugwerk.auth.jwt-secret must be at least 32 characters")
         val jwtSecret: String = "",
+        /**
+         * @deprecated Superseded by [accessTokenValidityMinutes] (ADR-0027 / #294). Retained
+         *   as a no-op for one release so existing deployments do not fail on startup — if
+         *   set to a non-default value, a warning is emitted and the value is ignored.
+         */
+        @Deprecated("Use accessTokenValidityMinutes; see ADR-0027")
         val tokenValidityHours: Long = 8,
         @field:NotBlank(message = "plugwerk.auth.encryption-key must not be blank — set PLUGWERK_AUTH_ENCRYPTION_KEY")
         @field:Size(
@@ -268,6 +274,46 @@ data class PlugwerkProperties(
         val adminPassword: String? = null,
         val rateLimit: RateLimitProperties = RateLimitProperties(),
         @field:Valid val actuator: ActuatorProperties = ActuatorProperties(),
+        /**
+         * Access-token validity in minutes (ADR-0027 / #294). Short-lived by design — the
+         * token lives in frontend memory only, and session continuity across page reloads
+         * comes from the httpOnly refresh cookie ([refreshTokenValidityHours]). Default 15
+         * matches industry norm (Auth0, Okta, AWS Cognito).
+         *
+         * Environment variable: `PLUGWERK_AUTH_ACCESS_TOKEN_VALIDITY_MINUTES`
+         */
+        @field:Min(1)
+        @field:Max(1440)
+        val accessTokenValidityMinutes: Long = 15,
+        /**
+         * Refresh-cookie validity in hours (ADR-0027 / #294). Default 168 (7 days). The
+         * cookie is rotated on every refresh, so a user who stays active is effectively
+         * logged in forever; an idle session expires after this window.
+         *
+         * Environment variable: `PLUGWERK_AUTH_REFRESH_TOKEN_VALIDITY_HOURS`
+         */
+        @field:Min(1)
+        @field:Max(8760)
+        val refreshTokenValidityHours: Long = 168,
+        /**
+         * Sets `Secure` on the refresh cookie. Defaults to `true` so production deployments
+         * behind HTTPS get it right by default. Override to `false` only for local
+         * development on plain HTTP; browsers silently drop Secure cookies on HTTP origins.
+         *
+         * Environment variable: `PLUGWERK_AUTH_COOKIE_SECURE`
+         */
+        val cookieSecure: Boolean = true,
+        /**
+         * Extra hostnames the frontend `downloadArtifact` helper may attach the bearer to.
+         * Same-origin is always allowed; everything else requires an explicit entry here.
+         * Empty list (default) means strict same-origin-only — correct for the bundled
+         * single-origin deployment. Populate when artifacts are served from a CDN/S3 bucket
+         * on a different host and you want authenticated downloads against that host.
+         *
+         * Environment variable: `PLUGWERK_AUTH_DOWNLOAD_ALLOWED_HOSTS`
+         *   (comma-separated hostnames — no scheme, no port).
+         */
+        val downloadAllowedHosts: List<String> = emptyList(),
     ) {
         /**
          * Rate limiting configuration (`plugwerk.auth.rate-limit.*`).

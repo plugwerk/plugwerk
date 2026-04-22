@@ -18,7 +18,12 @@
  */
 import { RouterProvider } from "react-router-dom";
 import { router } from "./router";
+import { AuthHydrationBoundary } from "./components/auth/AuthHydrationBoundary";
 
 export default function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <AuthHydrationBoundary>
+      <RouterProvider router={router} />
+    </AuthHydrationBoundary>
+  );
 }

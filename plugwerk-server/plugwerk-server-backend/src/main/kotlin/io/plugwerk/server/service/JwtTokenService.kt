@@ -37,12 +37,12 @@ class JwtTokenService(private val jwtEncoder: JwtEncoder, private val props: Plu
             .id(UUID.randomUUID().toString())
             .issuer(props.server.baseUrl)
             .issuedAt(now)
-            .expiresAt(now.plusSeconds(props.auth.tokenValidityHours * 3600L))
+            .expiresAt(now.plusSeconds(tokenValiditySeconds()))
             .subject(username)
             .build()
         val header = JwsHeader.with(MacAlgorithm.HS256).build()
         return jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).tokenValue
     }
 
-    fun tokenValiditySeconds(): Long = props.auth.tokenValidityHours * 3600L
+    fun tokenValiditySeconds(): Long = props.auth.accessTokenValidityMinutes * 60L
 }
