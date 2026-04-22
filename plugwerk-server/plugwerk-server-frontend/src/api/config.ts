@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import axios from "axios";
+import axios, { type AxiosRequestConfig } from "axios";
 import { Configuration } from "./generated/configuration";
 import { AccessKeysApi } from "./generated/api/access-keys-api";
 import { AdminSettingsApi } from "./generated/api/admin-settings-api";
@@ -30,30 +30,93 @@ import { OidcProvidersApi } from "./generated/api/oidc-providers-api";
 import { ReviewsApi } from "./generated/api/reviews-api";
 import { UpdatesApi } from "./generated/api/updates-api";
 import { UserSettingsApi } from "./generated/api/user-settings-api";
+import { refreshAccessToken } from "./refresh";
 
 const BASE_PATH = "/api/v1";
 
 const axiosInstance = axios.create({
   baseURL: BASE_PATH,
+  // Send the httpOnly refresh cookie on auth-adjacent calls (ADR-0027).
+  withCredentials: true,
 });
 
-axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("pw-access-token");
+// Import the store lazily to avoid a circular import (store imports this module).
+type AuthStoreAccessor = {
+  getAccessToken: () => string | null;
+  setAuthenticated: (fields: {
+    accessToken: string;
+    username: string;
+    passwordChangeRequired: boolean;
+    isSuperadmin: boolean;
+  }) => void;
+  onRefreshFailure: () => void;
+};
+
+async function loadAuthAccessor(): Promise<AuthStoreAccessor> {
+  const { useAuthStore } = await import("../stores/authStore");
+  return {
+    getAccessToken: () => useAuthStore.getState().accessToken,
+    setAuthenticated: (fields) => useAuthStore.getState().setAuth(fields),
+    onRefreshFailure: () => {
+      useAuthStore.getState().clearAuth();
+      if (
+        typeof window !== "undefined" &&
+        window.location.pathname !== "/login"
+      ) {
+        window.location.href = "/login";
+      }
+    },
+  };
+}
+
+// Request interceptor: attach the in-memory access token as Bearer.
+axiosInstance.interceptors.request.use(async (config) => {
+  const accessor = await loadAuthAccessor();
+  const token = accessor.getAccessToken();
   if (token) {
     config.headers["Authorization"] = `Bearer ${token}`;
   }
   return config;
 });
 
+interface RetriableAxiosConfig extends AxiosRequestConfig {
+  _retryAttempted?: boolean;
+}
+
+// Response interceptor: on 401, try exactly one refresh-then-retry before giving up.
 axiosInstance.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem("pw-access-token");
-      localStorage.removeItem("pw-username");
-      window.location.href = "/login";
+  async (error) => {
+    const original = error.config as RetriableAxiosConfig | undefined;
+    const status = error.response?.status;
+    // Refresh call itself must never trigger the retry loop.
+    if (status !== 401 || !original || original._retryAttempted) {
+      return Promise.reject(error);
     }
-    return Promise.reject(error);
+    if (
+      original.url?.includes("/auth/refresh") ||
+      original.url?.includes("/auth/login")
+    ) {
+      return Promise.reject(error);
+    }
+    original._retryAttempted = true;
+    const accessor = await loadAuthAccessor();
+    try {
+      const refreshed = await refreshAccessToken();
+      if (!refreshed) {
+        accessor.onRefreshFailure();
+        return Promise.reject(error);
+      }
+      accessor.setAuthenticated(refreshed);
+      original.headers = {
+        ...(original.headers ?? {}),
+        Authorization: `Bearer ${refreshed.accessToken}`,
+      };
+      return axiosInstance.request(original);
+    } catch (refreshError) {
+      accessor.onRefreshFailure();
+      return Promise.reject(refreshError);
+    }
   },
 );
 
