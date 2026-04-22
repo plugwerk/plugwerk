@@ -385,9 +385,14 @@ Required environment variables (server refuses to start without them):
 
 > **Upgrade note (1.0.0-beta.1):** `/actuator/info` and `/actuator/prometheus` are no longer readable by authenticated non-admin users (SBS-004 / #292). By default both endpoints require a superadmin JWT. For unattended Prometheus scraping set `PLUGWERK_AUTH_ACTUATOR_SCRAPE_USERNAME` **and** `PLUGWERK_AUTH_ACTUATOR_SCRAPE_PASSWORD` to enable a dedicated HTTP Basic scrape account. `/actuator/health` remains public for container probes. See [ADR-0025](docs/adrs/0025-actuator-endpoint-hardening.md).
 
+> **Upgrade note (1.0.0-beta.1):** web-UI auth is now memory-only + httpOnly refresh cookie (TS-001..003 / #294). Every currently-logged-in user is signed out on upgrade — their legacy `localStorage` JWT is no longer read, and no refresh cookie exists yet. First interaction redirects to `/login`. The access token lives 15 min (not 8 h); session continuity is the 7-day httpOnly refresh cookie. `plugwerk.auth.token-validity-hours` is deprecated — use `PLUGWERK_AUTH_ACCESS_TOKEN_VALIDITY_MINUTES` / `PLUGWERK_AUTH_REFRESH_TOKEN_VALIDITY_HOURS`. Reverse proxies must pass cookies on `Path=/api/v1/auth`. See [ADR-0027](docs/adrs/0027-refresh-cookie-and-csrf-reenabled.md) (supersedes ADR-0020).
+
 Optional:
 - `PLUGWERK_AUTH_ADMIN_PASSWORD` — fixed initial admin password (random if absent)
 - `PLUGWERK_AUTH_ACTUATOR_SCRAPE_USERNAME` / `PLUGWERK_AUTH_ACTUATOR_SCRAPE_PASSWORD` — enable HTTP Basic scrape account for `/actuator/{info,prometheus}` (must be set together, password min 16 chars). Leave unset to keep those endpoints superadmin-only. See [ADR-0025](docs/adrs/0025-actuator-endpoint-hardening.md).
+- `PLUGWERK_AUTH_ACCESS_TOKEN_VALIDITY_MINUTES` / `PLUGWERK_AUTH_REFRESH_TOKEN_VALIDITY_HOURS` — access-token TTL (default 15 min) and refresh-cookie TTL (default 168 h = 7 d). See [ADR-0027](docs/adrs/0027-refresh-cookie-and-csrf-reenabled.md).
+- `PLUGWERK_AUTH_COOKIE_SECURE` — `Secure` attribute on the refresh cookie (default `true`; set to `false` only for local HTTP dev).
+- `PLUGWERK_AUTH_DOWNLOAD_ALLOWED_HOSTS` — comma-separated hostnames the frontend may attach the bearer to when downloading artifacts from non-same-origin hosts. Default empty = strict same-origin only. See [ADR-0027](docs/adrs/0027-refresh-cookie-and-csrf-reenabled.md).
 - `PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS` — comma-separated origins allowed to make cross-origin requests (default: empty = same-origin only). Set to `http://localhost:5173` when running the Vite dev server against a locally started backend. See [ADR-0021](docs/adrs/0021-cors-same-origin-default.md).
 - `PLUGWERK_SERVER_CORS_ALLOWED_METHODS` — comma-separated HTTP methods for cross-origin requests (default: `GET,POST,PUT,PATCH,DELETE,OPTIONS`)
 - `PLUGWERK_SERVER_CORS_ALLOWED_HEADERS` — comma-separated request headers (default: `Authorization,Content-Type,X-Api-Key`)

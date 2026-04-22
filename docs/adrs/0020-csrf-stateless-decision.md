@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+**Superseded by [ADR-0027](0027-refresh-cookie-and-csrf-reenabled.md)** — issue [#294] moved the refresh credential into an httpOnly cookie, which introduced the exact ambient-credential surface this ADR's "revisit" condition named. CSRF is now re-enabled, scoped to `/api/v1/auth/refresh`. The text below is kept as a historical record.
 
 ## Context
 
