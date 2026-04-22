@@ -48,7 +48,7 @@ sequenceDiagram
     RT->>DB: INSERT refresh_token<br/>(HMAC hash only)
     DB-->>RT: row id + family_id
     RT-->>BE: plaintext refresh token
-    BE-->>SPA: 200 { accessToken, ... }<br/>Set-Cookie: plugwerk_refresh=…<br/>HttpOnly; Secure; SameSite=Strict<br/>Path=/api/v1/auth
+    BE-->>SPA: 200 { accessToken, ... }<br/>Set-Cookie plugwerk_refresh=...<br/>HttpOnly, Secure, SameSite=Strict<br/>Path=/api/v1/auth
     SPA->>SPA: store accessToken in memory<br/>(never localStorage)
 ```
 
@@ -176,7 +176,7 @@ sequenceDiagram
     TR->>DB: INSERT revoked_token
     BE->>RT: revokePresentedFamily(cookie)
     RT->>DB: UPDATE refresh_token<br/>SET revoked_at=now(), reason='LOGOUT'<br/>WHERE family_id=F AND revoked_at IS NULL
-    BE-->>SPA: 204<br/>Set-Cookie: plugwerk_refresh=; Max-Age=0
+    BE-->>SPA: 204<br/>Set-Cookie plugwerk_refresh= (Max-Age=0, cleared)
     SPA->>SPA: clear in-memory store
 ```
 
@@ -202,8 +202,8 @@ sequenceDiagram
     BE->>TR: revokeAllForUser(username)
     TR->>DB: UPDATE plugwerk_user<br/>SET password_invalidated_before = now()
     BE->>RT: revokeAllForUser(username, LOGOUT)
-    RT->>DB: UPDATE refresh_token<br/>SET revoked_at=now(), reason='LOGOUT'<br/>WHERE user_id=… AND revoked_at IS NULL
-    BE-->>SPA: 204<br/>Set-Cookie: plugwerk_refresh=; Max-Age=0
+    RT->>DB: UPDATE refresh_token<br/>SET revoked_at=now(), reason='LOGOUT'<br/>WHERE user_id=... AND revoked_at IS NULL
+    BE-->>SPA: 204<br/>Set-Cookie plugwerk_refresh= (Max-Age=0, cleared)
 ```
 
 Note the trick at step 5: instead of inserting 1000 rows into `revoked_token` (one per outstanding JWT), we set **one** timestamp on the user and reject any JWT with `iat < password_invalidated_before` at decode time. Constant-time, no storage cost.
@@ -304,19 +304,24 @@ Bearer tokens and access keys are **not** ambient credentials — an attacker si
 
 ```mermaid
 flowchart LR
-    subgraph "CSRF-exempt (no ambient cred)"
-        L[/api/v1/auth/login]
-        LO[/api/v1/auth/logout]
-        CP[/api/v1/auth/change-password]
-        NS[/api/v1/namespaces/.../*]
+    Browser((Browser))
+
+    subgraph Exempt["CSRF-exempt (no ambient credential)"]
+        L["POST /api/v1/auth/login"]
+        LO["POST /api/v1/auth/logout"]
+        CP["POST /api/v1/auth/change-password"]
+        NS["POST /api/v1/namespaces/.../*"]
     end
 
-    subgraph "CSRF-protected (ambient cookie)"
-        R[/api/v1/auth/refresh]
+    subgraph Protected["CSRF-protected (ambient cookie)"]
+        R["POST /api/v1/auth/refresh"]
     end
 
-    Browser -->|Bearer or X-Api-Key| L & LO & CP & NS
-    Browser -->|Cookie<br/>+ X-XSRF-TOKEN header<br/>double-submit| R
+    Browser -->|Bearer or X-Api-Key| L
+    Browser -->|Bearer or X-Api-Key| LO
+    Browser -->|Bearer or X-Api-Key| CP
+    Browser -->|Bearer or X-Api-Key| NS
+    Browser -->|Cookie + X-XSRF-TOKEN header<br/>double-submit| R
 ```
 
 This scope is pinned by [`CsrfScopeIT`](../../plugwerk-server/plugwerk-server-backend/src/test/kotlin/io/plugwerk/server/config/CsrfScopeIT.kt) — any future refactor that accidentally broadens CSRF to other endpoints fails that test.
