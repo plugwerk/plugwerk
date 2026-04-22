@@ -42,6 +42,7 @@ class AccessKeyService(
     private val accessKeyRepository: NamespaceAccessKeyRepository,
     private val namespaceRepository: NamespaceRepository,
     private val passwordEncoder: PasswordEncoder,
+    private val accessKeyHmac: io.plugwerk.server.security.AccessKeyHmac,
 ) {
 
     companion object {
@@ -85,6 +86,7 @@ class AccessKeyService(
             NamespaceAccessKeyEntity(
                 namespace = namespace,
                 keyHash = keyHash,
+                keyLookupHash = accessKeyHmac.compute(plainKey),
                 keyPrefix = plainKey.take(8),
                 name = name,
                 expiresAt = expiresAt,

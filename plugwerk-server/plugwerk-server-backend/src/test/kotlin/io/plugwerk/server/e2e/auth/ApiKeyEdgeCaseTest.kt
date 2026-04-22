@@ -76,6 +76,7 @@ class ApiKeyEdgeCaseTest : AbstractAuthorizationTest() {
             NamespaceAccessKeyEntity(
                 namespace = namespace,
                 keyHash = keyHash,
+                keyLookupHash = accessKeyHmac.compute(plainKey),
                 keyPrefix = plainKey.take(8),
                 name = "revoked-test-key-${UUID.randomUUID().toString().take(8)}",
                 revoked = true,
@@ -106,6 +107,7 @@ class ApiKeyEdgeCaseTest : AbstractAuthorizationTest() {
             NamespaceAccessKeyEntity(
                 namespace = namespace,
                 keyHash = keyHash,
+                keyLookupHash = accessKeyHmac.compute(plainKey),
                 keyPrefix = plainKey.take(8),
                 name = "expired-test-key-${UUID.randomUUID().toString().take(8)}",
                 expiresAt = OffsetDateTime.now().minusDays(1),

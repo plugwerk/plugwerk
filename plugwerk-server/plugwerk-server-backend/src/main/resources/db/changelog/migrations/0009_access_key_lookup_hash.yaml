@@ -1,0 +1,113 @@
+# Access-key timing side-channel remediation (issue #291, audit row SBS-008).
+#
+# The previous lookup path filtered by `key_prefix` (8-char plaintext prefix)
+# and then BCrypt-compared every returned candidate to the full key. The DB
+# round-trip leaked a timing difference between "prefix exists" (≥1 row) and
+# "prefix does not exist" (0 rows), letting an attacker enumerate valid 8-char
+# prefixes by measuring HTTP response latency — without guessing the full key.
+#
+# Fix: add a deterministic HMAC-SHA256(serverSecret, fullKey) lookup hash, do
+# a single equality lookup on that indexed column, and BCrypt-verify as
+# defense-in-depth. See ADR-0024 for the full threat-model record.
+#
+# Migration semantics for existing (alpha) deployments:
+#   `key_lookup_hash` cannot be back-filled from the stored BCrypt hash —
+#   the plaintext key is the only input that can produce it. Existing rows
+#   are therefore marked with an unmistakable sentinel value that will never
+#   match any real HMAC output, which invalidates every previously issued
+#   access key. Operators must re-issue keys after the upgrade. This is
+#   acceptable because we are pre-GA (1.0.0-beta.1). A dedicated upgrade note
+#   in AGENTS.md documents the operator-facing impact.
+databaseChangeLog:
+  - changeSet:
+      id: 0009-add-access-key-lookup-hash-nullable
+      author: plugwerk
+      comment: >
+        SBS-008 (#291): add the new key_lookup_hash column as NULL so existing
+        rows can be back-filled by the follow-up changeSet before the NOT NULL
+        constraint is applied.
+      changes:
+        - addColumn:
+            tableName: namespace_access_key
+            columns:
+              - column:
+                  name: key_lookup_hash
+                  type: varchar(64)
+                  constraints:
+                    nullable: true
+      rollback:
+        - dropColumn:
+            tableName: namespace_access_key
+            columnName: key_lookup_hash
+
+  - changeSet:
+      id: 0009-invalidate-existing-access-keys
+      author: plugwerk
+      comment: >
+        SBS-008 (#291): existing rows cannot be back-filled with a real HMAC
+        (plaintext unknown), so assign a sentinel that is guaranteed not to
+        match any real HMAC-SHA256 output (real output is 64 hex chars). The
+        sentinel uses the row id as entropy to satisfy the subsequent unique
+        index. Every previously issued access key becomes unusable — alpha
+        operators must re-issue keys after the upgrade.
+      changes:
+        - sql:
+            sql: "UPDATE namespace_access_key SET key_lookup_hash = 'INVALIDATED-' || id::text WHERE key_lookup_hash IS NULL"
+      rollback:
+        - sql:
+            sql: "UPDATE namespace_access_key SET key_lookup_hash = NULL WHERE key_lookup_hash LIKE 'INVALIDATED-%'"
+
+  - changeSet:
+      id: 0009-access-key-lookup-hash-not-null
+      author: plugwerk
+      comment: >
+        SBS-008 (#291): enforce NOT NULL after the back-fill. All new rows
+        must carry a real HMAC; no future code path should insert NULL.
+      changes:
+        - addNotNullConstraint:
+            tableName: namespace_access_key
+            columnName: key_lookup_hash
+            columnDataType: varchar(64)
+      rollback:
+        - dropNotNullConstraint:
+            tableName: namespace_access_key
+            columnName: key_lookup_hash
+            columnDataType: varchar(64)
+
+  - changeSet:
+      id: 0009-uq-access-key-lookup-hash
+      author: plugwerk
+      comment: >
+        SBS-008 (#291): unique index on the new lookup column. Enforces key
+        uniqueness globally and backs the equality lookup in
+        NamespaceAccessKeyAuthFilter with a single index probe whose latency
+        is invariant over hit vs. miss.
+      changes:
+        - addUniqueConstraint:
+            tableName: namespace_access_key
+            columnNames: key_lookup_hash
+            constraintName: uq_access_key_lookup_hash
+      rollback:
+        - dropUniqueConstraint:
+            tableName: namespace_access_key
+            constraintName: uq_access_key_lookup_hash
+
+  - changeSet:
+      id: 0009-drop-access-key-prefix-index
+      author: plugwerk
+      comment: >
+        SBS-008 (#291): idx_access_key_prefix (created in 0001) is no longer
+        used by any code path — the auth filter now looks up by
+        key_lookup_hash. The key_prefix column itself stays (display only,
+        shown in the admin UI to help operators identify which key was used).
+      changes:
+        - dropIndex:
+            tableName: namespace_access_key
+            indexName: idx_access_key_prefix
+      rollback:
+        - createIndex:
+            tableName: namespace_access_key
+            indexName: idx_access_key_prefix
+            columns:
+              - column:
+                  name: key_prefix

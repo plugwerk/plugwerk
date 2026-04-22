@@ -23,14 +23,24 @@ import io.plugwerk.server.domain.NamespaceEntity
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.util.Optional
 import java.util.UUID
 
 interface NamespaceAccessKeyRepository : JpaRepository<NamespaceAccessKeyEntity, UUID> {
 
+    /**
+     * Constant-time lookup by the deterministic HMAC of the plaintext key
+     * (see [io.plugwerk.server.security.AccessKeyHmac]). The equality probe on
+     * the indexed `key_lookup_hash` column takes the same time whether a row
+     * matches or not, eliminating the prefix-enumeration timing leak addressed
+     * by ADR-0024 (SBS-008 / #291).
+     */
     @Query(
-        "SELECT k FROM NamespaceAccessKeyEntity k JOIN FETCH k.namespace WHERE k.keyPrefix = :keyPrefix AND k.revoked = false",
+        "SELECT k FROM NamespaceAccessKeyEntity k JOIN FETCH k.namespace WHERE k.keyLookupHash = :keyLookupHash AND k.revoked = false",
     )
-    fun findByKeyPrefixAndRevokedFalse(@Param("keyPrefix") keyPrefix: String): List<NamespaceAccessKeyEntity>
+    fun findByKeyLookupHashAndRevokedFalse(
+        @Param("keyLookupHash") keyLookupHash: String,
+    ): Optional<NamespaceAccessKeyEntity>
 
     fun findAllByNamespace(namespace: NamespaceEntity): List<NamespaceAccessKeyEntity>
 

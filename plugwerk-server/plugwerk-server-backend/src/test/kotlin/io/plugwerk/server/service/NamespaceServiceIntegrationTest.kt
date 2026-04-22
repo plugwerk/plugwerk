@@ -190,6 +190,7 @@ class NamespaceServiceIntegrationTest {
             NamespaceAccessKeyEntity(
                 namespace = namespace,
                 keyHash = "\$2a\$10\$cascade-test-bcrypt-hash",
+                keyLookupHash = "f".repeat(64),
                 keyPrefix = "pwk_casc",
                 name = "Test key",
             ),

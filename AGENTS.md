@@ -378,8 +378,10 @@ Docker Compose:
 ```
 
 Required environment variables (server refuses to start without them):
-- `PLUGWERK_AUTH_JWT_SECRET` — HMAC signing key, min 32 chars
+- `PLUGWERK_AUTH_JWT_SECRET` — HMAC signing key, min 32 chars. Also used as the HMAC key for namespace-access-key lookup (ADR-0024); rotating it invalidates all outstanding JWTs **and** all outstanding access keys on the same deployment.
 - `PLUGWERK_AUTH_ENCRYPTION_KEY` — password for the AES-256-CBC text encryptor that protects OIDC client secrets at rest (PBKDF2-derived key, min 16 chars, 32+ recommended). See [ADR-0022](docs/adrs/0022-encryption-key-size.md)
+
+> **Upgrade note (1.0.0-beta.1):** migration `0009_access_key_lookup_hash.yaml` invalidates every previously issued namespace access key to close the prefix-enumeration timing side-channel (SBS-008 / #291). Operators must re-issue and re-distribute access keys after upgrading. See [ADR-0024](docs/adrs/0024-access-key-hmac-lookup.md).
 
 Optional:
 - `PLUGWERK_AUTH_ADMIN_PASSWORD` — fixed initial admin password (random if absent)

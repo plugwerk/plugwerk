@@ -15,3 +15,5 @@ databaseChangeLog:
       file: db/changelog/migrations/0007_add_timezone_setting.yaml
   - include:
       file: db/changelog/migrations/0008_add_fk_indexes.yaml
+  - include:
+      file: db/changelog/migrations/0009_access_key_lookup_hash.yaml
