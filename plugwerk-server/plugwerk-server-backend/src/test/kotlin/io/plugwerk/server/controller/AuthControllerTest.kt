@@ -25,11 +25,15 @@ import io.plugwerk.server.security.LoginRateLimitFilter
 import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
 import io.plugwerk.server.security.PasswordChangeRequiredFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
+import io.plugwerk.server.security.RefreshRateLimitFilter
+import io.plugwerk.server.security.RefreshTokenCookieFactory
 import io.plugwerk.server.security.UserCredentialValidator
 import io.plugwerk.server.service.JwtTokenService
+import io.plugwerk.server.service.RefreshTokenService
 import io.plugwerk.server.service.TokenRevocationService
 import io.plugwerk.server.service.UnauthorizedException
 import io.plugwerk.server.service.UserService
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
@@ -41,11 +45,16 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.FilterType
 import org.springframework.http.MediaType
+import org.springframework.http.ResponseCookie
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
+import java.time.Duration
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import java.util.Optional
+import java.util.UUID
 
 @WebMvcTest(
     AuthController::class,
@@ -53,6 +62,7 @@ import java.util.Optional
     excludeFilters = [
         ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [ChangePasswordRateLimitFilter::class]),
         ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [LoginRateLimitFilter::class]),
+        ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [RefreshRateLimitFilter::class]),
         ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [NamespaceAccessKeyAuthFilter::class]),
         ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [PublicNamespaceFilter::class]),
         ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [PasswordChangeRequiredFilter::class]),
@@ -70,9 +80,38 @@ class AuthControllerTest {
 
     @MockitoBean lateinit var tokenRevocationService: TokenRevocationService
 
+    @MockitoBean lateinit var refreshTokenService: RefreshTokenService
+
+    @MockitoBean lateinit var refreshTokenCookieFactory: RefreshTokenCookieFactory
+
     @MockitoBean lateinit var userService: UserService
 
     @MockitoBean lateinit var jwtDecoder: JwtDecoder
+
+    @BeforeEach
+    fun stubRefreshPath() {
+        // Login emits a refresh cookie after credential validation; stub once here so
+        // every valid-credential test does not have to repeat the setup.
+        whenever(refreshTokenService.issue(any())).thenAnswer {
+            RefreshTokenService.IssuedToken(
+                plaintext = "stub-refresh-plaintext",
+                expiresAt = OffsetDateTime.now(ZoneOffset.UTC).plusHours(168),
+                maxAge = Duration.ofHours(168),
+                familyId = UUID.randomUUID(),
+                rowId = UUID.randomUUID(),
+            )
+        }
+        whenever(refreshTokenCookieFactory.build(any(), any())).thenAnswer {
+            ResponseCookie.from("plugwerk_refresh", "stub-refresh-plaintext")
+                .httpOnly(true).secure(false).sameSite("Strict").path("/api/v1/auth")
+                .maxAge(Duration.ofHours(168)).build()
+        }
+        whenever(refreshTokenCookieFactory.clear()).thenAnswer {
+            ResponseCookie.from("plugwerk_refresh", "")
+                .httpOnly(true).secure(false).sameSite("Strict").path("/api/v1/auth")
+                .maxAge(0).build()
+        }
+    }
 
     @Test
     fun `POST login returns 200 and token for valid credentials`() {

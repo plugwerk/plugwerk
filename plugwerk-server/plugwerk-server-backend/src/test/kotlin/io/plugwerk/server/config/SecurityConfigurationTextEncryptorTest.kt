@@ -49,6 +49,7 @@ class SecurityConfigurationTextEncryptorTest {
         )
         return SecurityConfiguration(
             loginRateLimitFilter = mock(),
+            refreshRateLimitFilter = mock(),
             changePasswordRateLimitFilter = mock(),
             apiKeyAuthFilter = mock(),
             publicNamespaceFilter = mock(),

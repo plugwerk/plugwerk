@@ -27,6 +27,7 @@ import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.security.OidcProviderRegistry
 import io.plugwerk.server.security.PasswordChangeRequiredFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
+import io.plugwerk.server.security.RefreshRateLimitFilter
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.annotation.Order
@@ -49,6 +50,7 @@ import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext
 import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
@@ -59,6 +61,7 @@ import java.security.MessageDigest
 @EnableWebSecurity
 class SecurityConfiguration(
     private val loginRateLimitFilter: LoginRateLimitFilter,
+    private val refreshRateLimitFilter: RefreshRateLimitFilter,
     private val changePasswordRateLimitFilter: ChangePasswordRateLimitFilter,
     private val apiKeyAuthFilter: NamespaceAccessKeyAuthFilter,
     private val publicNamespaceFilter: PublicNamespaceFilter,
@@ -252,21 +255,25 @@ class SecurityConfiguration(
             // @CrossOrigin annotations on controllers — this central config is the
             // only review point for cross-origin policy.
             .cors { it.configurationSource(corsConfigurationSource()) }
-            // CSRF is safe to disable here because:
-            //   1. The server is a pure REST API with `SessionCreationPolicy.STATELESS`
-            //      (see below) — no HTTP session is created or consulted.
-            //   2. Authentication is by Bearer JWT or `X-Api-Key` header, both of which
-            //      an attacker cannot automatically attach to a cross-origin request.
-            //   3. No endpoint reads ambient cookies for authentication.
-            //   4. The OIDC callback uses the `state` / `nonce` parameters, not a session
-            //      cookie, so it is not a CSRF surface.
+            // CSRF scope (ADR-0027, supersedes ADR-0020):
             //
-            // **Must be re-enabled if any of these become false.** Concretely: if a future
-            // change moves the access token (or refresh token) into a cookie — the path
-            // tracked by #294 (H-08, JWT-in-localStorage hardening) — cookies become a
-            // CSRF surface and this call must be removed. See ADR-0020 for the full
-            // decision record and revisit conditions.
-            .csrf { it.disable() }
+            // The refresh-cookie endpoint (/api/v1/auth/refresh) reads an ambient httpOnly
+            // cookie and is therefore the *only* CSRF surface in the app. Every other
+            // endpoint authenticates via Bearer JWT or X-Api-Key — both non-ambient —
+            // and remains CSRF-exempt.
+            //
+            // Implementation: CookieCsrfTokenRepository.withHttpOnlyFalse() issues an
+            // XSRF-TOKEN cookie that JavaScript *can* read; the frontend echoes the value
+            // in the X-XSRF-TOKEN header on the refresh call. Spring's double-submit
+            // check then matches header to cookie. SameSite=Strict on the refresh cookie
+            // itself is defence in depth for browsers that honour it.
+            .csrf { csrf ->
+                csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                csrf.requireCsrfProtectionMatcher { request ->
+                    request.method == HttpMethod.POST.name() &&
+                        request.requestURI == "/api/v1/auth/refresh"
+                }
+            }
             .headers { headers ->
                 headers.contentTypeOptions { }
                 headers.frameOptions { it.deny() }
@@ -323,10 +330,12 @@ class SecurityConfiguration(
                     // (public namespace GET requests are handled by PublicNamespaceFilter)
                     .anyRequest().authenticated()
             }
-            // LoginRateLimitFilter runs first �� blocks brute-force login attempts before any auth processing
+            // LoginRateLimitFilter runs first — blocks brute-force login attempts before any auth processing
             .addFilterBefore(loginRateLimitFilter, UsernamePasswordAuthenticationFilter::class.java)
-            // PublicNamespaceFilter runs second — sets AnonymousAuth for public namespace GETs
-            .addFilterAfter(publicNamespaceFilter, LoginRateLimitFilter::class.java)
+            // RefreshRateLimitFilter protects /api/v1/auth/refresh from DoS/spam (ADR-0027).
+            .addFilterAfter(refreshRateLimitFilter, LoginRateLimitFilter::class.java)
+            // PublicNamespaceFilter runs next — sets AnonymousAuth for public namespace GETs
+            .addFilterAfter(publicNamespaceFilter, RefreshRateLimitFilter::class.java)
             // NamespaceAccessKeyAuthFilter runs after — handles machine-to-machine auth via X-Api-Key
             .addFilterAfter(apiKeyAuthFilter, PublicNamespaceFilter::class.java)
             // PasswordChangeRequiredFilter runs last — blocks all API access when passwordChangeRequired = true
