@@ -115,6 +115,7 @@ Vitest `authStore.noLocalStorage.test.ts` spies `Storage.prototype.setItem` and 
 
 ## References
 
+- Readable guide with sequence diagrams: [docs/concepts/authentication.md](../concepts/authentication.md).
 - Issue [#294]; audit rows TS-001, TS-002, TS-003 in `docs/audits/1.0.0-beta.1-artifacts/triage-TS.csv`.
 - Supersedes [ADR-0020](0020-csrf-stateless-decision.md).
 - HMAC-lookup precedent: [ADR-0024](0024-access-key-hmac-lookup.md).
