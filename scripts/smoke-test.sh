@@ -34,6 +34,15 @@ COMPOSE_FILE="$(cd "$(dirname "$0")/.." && pwd)/docker-compose.yml"
 
 cleanup() {
   echo "--- Cleanup ---"
+  # Dump container logs on failure so the underlying cause (e.g. Postgres crashing
+  # during initdb, plugwerk-server Liquibase failure) is visible in CI output.
+  # `down -v` below removes containers; logs disappear with them.
+  if [[ $? -ne 0 ]]; then
+    echo "--- postgres logs (last 100 lines) ---"
+    docker compose -f "$COMPOSE_FILE" logs --tail=100 postgres 2>/dev/null || true
+    echo "--- plugwerk-server logs (last 100 lines) ---"
+    docker compose -f "$COMPOSE_FILE" logs --tail=100 plugwerk-server 2>/dev/null || true
+  fi
   rm -rf "$WORKDIR"
   docker compose -f "$COMPOSE_FILE" down -v --remove-orphans 2>/dev/null || true
 }
@@ -46,7 +55,16 @@ echo "--- Starting Docker Compose stack ---"
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
   docker compose -f "$COMPOSE_FILE" build --progress=plain
 fi
-docker compose -f "$COMPOSE_FILE" up -d
+# `up -d` exits non-zero as soon as any dependency fails (e.g. Postgres dying
+# in initdb). Without these logs we have no visibility into why. Capture them
+# before set -e aborts the script and the cleanup trap tears everything down.
+if ! docker compose -f "$COMPOSE_FILE" up -d; then
+  echo "--- docker compose up -d FAILED ---"
+  docker compose -f "$COMPOSE_FILE" ps -a || true
+  docker compose -f "$COMPOSE_FILE" logs postgres 2>/dev/null || true
+  docker compose -f "$COMPOSE_FILE" logs plugwerk-server 2>/dev/null || true
+  exit 1
+fi
 
 echo "--- Waiting for server health ---"
 for i in $(seq 1 30); do
