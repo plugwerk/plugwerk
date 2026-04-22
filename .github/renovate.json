@@ -1,6 +1,9 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"],
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests"
+  ],
   "schedule": ["before 6am on monday"],
   "timezone": "Europe/Berlin",
   "automerge": false,
@@ -63,10 +66,27 @@
       "groupSlug": "gradle-wrapper"
     },
     {
-      "description": "GitHub Actions version bumps",
+      "description": "GitHub Actions minor and patch SHA bumps (grouped). See ADR-0026.",
       "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
+      "pinDigests": true,
       "groupName": "GitHub Actions",
       "groupSlug": "github-actions"
+    },
+    {
+      "description": "GitHub Actions major updates (separate PRs for deliberate review)",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["major"],
+      "pinDigests": true,
+      "groupName": "GitHub Actions major updates",
+      "groupSlug": "github-actions-major"
+    },
+    {
+      "description": "Dockerfile base-image digest updates (grouped). See ADR-0026.",
+      "matchManagers": ["dockerfile"],
+      "pinDigests": true,
+      "groupName": "Docker base images",
+      "groupSlug": "docker-base-images"
     },
     {
       "description": "npm minor and patch updates (grouped)",
