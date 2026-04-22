@@ -52,7 +52,7 @@ class TokenRevocationService(
 
     private val revokedJtiCache = Caffeine.newBuilder()
         .maximumSize(10_000)
-        .expireAfterWrite(props.auth.tokenValidityHours, TimeUnit.HOURS)
+        .expireAfterWrite(props.auth.accessTokenValidityMinutes, TimeUnit.MINUTES)
         .build<String, Boolean>()
 
     /**

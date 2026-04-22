@@ -1,0 +1,153 @@
+# Refresh-cookie session continuity (issue #294, audit rows TS-001..003).
+#
+# Backing table for the opaque refresh tokens that replace the localStorage-
+# persisted JWT. Design mirrors ADR-0024 (namespace_access_key.key_lookup_hash):
+# store HMAC-SHA256(jwtSecret, plaintextRefreshToken) in a dedicated indexed
+# column so every refresh request is one constant-time equality probe.
+#
+# Rotation (ADR-0027 decision 1c): every /api/v1/auth/refresh call burns the
+# presented token (revoked_at = now(), revocation_reason = 'ROTATED') and
+# issues a successor, linked via rotated_to_id. All tokens issued in one
+# login-to-logout session share a family_id; if a revoked token is ever
+# re-presented the whole family is force-revoked (classic reuse detection).
+#
+# On user delete we cascade — refresh tokens are strictly tied to the owning
+# user and must not outlive them. On jwt-secret rotation, every row's
+# token_lookup_hash becomes unreachable (HMAC input changed), which forces
+# re-login — the same coupling already documented in ADR-0024.
+databaseChangeLog:
+  - changeSet:
+      id: 0010-create-refresh-token
+      author: plugwerk
+      comment: >
+        TS-001..003 (#294): new refresh_token table backing the httpOnly+Secure
+        +SameSite=Strict refresh cookie. See ADR-0027.
+      changes:
+        - createTable:
+            tableName: refresh_token
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: family_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_refresh_token_user
+                    references: plugwerk_user(id)
+                    deleteCascade: true
+              - column:
+                  name: token_lookup_hash
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uq_refresh_token_lookup_hash
+              - column:
+                  name: issued_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: expires_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+              - column:
+                  name: revoked_at
+                  type: timestamptz
+                  constraints:
+                    nullable: true
+              - column:
+                  name: revocation_reason
+                  type: varchar(32)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: rotated_to_id
+                  type: uuid
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_refresh_token_rotated_to
+                    references: refresh_token(id)
+                    deleteSetNull: true
+      rollback:
+        - dropTable:
+            tableName: refresh_token
+            cascadeConstraints: true
+
+  - changeSet:
+      id: 0010-idx-refresh-token-user-id
+      author: plugwerk
+      comment: >
+        Supports revokeAllForUser(username) on password-change / admin
+        disable paths, mirroring revoked_token's username-index pattern.
+      changes:
+        - createIndex:
+            tableName: refresh_token
+            indexName: idx_refresh_token_user_id
+            columns:
+              - column:
+                  name: user_id
+      rollback:
+        - dropIndex:
+            tableName: refresh_token
+            indexName: idx_refresh_token_user_id
+
+  - changeSet:
+      id: 0010-idx-refresh-token-family-id
+      author: plugwerk
+      comment: >
+        Supports revokeFamily(familyId) on refresh-token-reuse detection —
+        the hot path when an attacker replays a rotated token.
+      changes:
+        - createIndex:
+            tableName: refresh_token
+            indexName: idx_refresh_token_family_id
+            columns:
+              - column:
+                  name: family_id
+      rollback:
+        - dropIndex:
+            tableName: refresh_token
+            indexName: idx_refresh_token_family_id
+
+  - changeSet:
+      id: 0010-idx-refresh-token-user-active
+      author: plugwerk
+      comment: >
+        Partial index on (user_id) WHERE revoked_at IS NULL — targets
+        "does this user have an active session?" lookups without scanning
+        revoked rows. Raw SQL because Liquibase createIndex has no WHERE.
+      changes:
+        - sql:
+            sql: "CREATE INDEX idx_refresh_token_user_active ON refresh_token (user_id) WHERE revoked_at IS NULL"
+            stripComments: false
+      rollback:
+        - sql:
+            sql: "DROP INDEX idx_refresh_token_user_active"
+
+  - changeSet:
+      id: 0010-idx-refresh-token-cleanup
+      author: plugwerk
+      comment: >
+        Partial index on (expires_at) WHERE revoked_at IS NULL — supports
+        the @Scheduled cleanup query that deletes expired-but-not-revoked
+        rows hourly, mirroring TokenRevocationService.cleanupExpired().
+      changes:
+        - sql:
+            sql: "CREATE INDEX idx_refresh_token_cleanup ON refresh_token (expires_at) WHERE revoked_at IS NULL"
+            stripComments: false
+      rollback:
+        - sql:
+            sql: "DROP INDEX idx_refresh_token_cleanup"

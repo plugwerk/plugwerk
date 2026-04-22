@@ -34,7 +34,8 @@ class JwtTokenServiceTest {
     private val props = PlugwerkProperties(
         auth = PlugwerkProperties.AuthProperties(
             jwtSecret = secret,
-            tokenValidityHours = 8,
+            // 8 h = 480 min — keep the pre-ADR-0027 validity for assertion arithmetic.
+            accessTokenValidityMinutes = 8 * 60,
         ),
     )
 
