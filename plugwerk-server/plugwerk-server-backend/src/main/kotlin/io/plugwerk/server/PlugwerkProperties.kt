@@ -267,6 +267,7 @@ data class PlugwerkProperties(
          */
         val adminPassword: String? = null,
         val rateLimit: RateLimitProperties = RateLimitProperties(),
+        @field:Valid val actuator: ActuatorProperties = ActuatorProperties(),
     ) {
         /**
          * Rate limiting configuration (`plugwerk.auth.rate-limit.*`).
@@ -322,5 +323,66 @@ data class PlugwerkProperties(
          *   Environment variable: `PLUGWERK_AUTH_RATE_LIMIT_CHANGE_PASSWORD_WINDOW_SECONDS`
          */
         data class ChangePasswordRateLimitProperties(val maxAttempts: Int = 5, val windowSeconds: Long = 300)
+
+        /**
+         * Actuator scrape-account configuration (`plugwerk.auth.actuator.*`).
+         * See [ADR-0025](../../../../../../../../docs/adrs/0025-actuator-endpoint-hardening.md).
+         *
+         * `/actuator/info` and `/actuator/prometheus` are gated behind either a superadmin
+         * JWT **or** — when both fields below are set — a dedicated HTTP Basic scrape
+         * account. `/actuator/health` remains public for container health probes.
+         *
+         * Feature is **opt-in**: when both fields are null or blank the scrape chain is
+         * not installed, and the superadmin-only fallback applies. Set both values to
+         * enable unattended Prometheus scraping via `basic_auth` — the cross-field
+         * [isScrapeAccountConfigurationValid] validator rejects half-configured states.
+         *
+         * @property scrapeUsername Username for the Prometheus scrape account. Any
+         *   non-blank string; conventionally `prometheus` or the scraper's service-account
+         *   name. Must be set together with [scrapePassword] or left null/blank.
+         *
+         *   Environment variable: `PLUGWERK_AUTH_ACTUATOR_SCRAPE_USERNAME`
+         *
+         *   ```yaml
+         *   plugwerk.auth.actuator.scrape-username: prometheus
+         *   ```
+         *
+         * @property scrapePassword Plaintext password for the scrape account. Hashed with
+         *   BCrypt once at bean creation and never logged. Minimum 16 characters when set;
+         *   32+ recommended. Rotate by changing the env var and restarting the server.
+         *
+         *   Environment variable: `PLUGWERK_AUTH_ACTUATOR_SCRAPE_PASSWORD`
+         *
+         *   ```bash
+         *   export PLUGWERK_AUTH_ACTUATOR_SCRAPE_PASSWORD="$(openssl rand -base64 32)"
+         *   ```
+         */
+        data class ActuatorProperties(val scrapeUsername: String? = null, val scrapePassword: String? = null) {
+            /** `true` when the scrape account is fully configured and the basic-auth chain should be installed. */
+            fun isScrapeAccountEnabled(): Boolean = !scrapeUsername.isNullOrBlank() && !scrapePassword.isNullOrBlank()
+
+            /**
+             * Either both scrape-account fields are set, or both are unset. Half-configured
+             * states (username without password, or vice versa) would silently fail at
+             * login time and are rejected at startup instead. When both are set, the
+             * password must also meet the minimum length (16 chars; 32+ recommended).
+             */
+            @AssertTrue(
+                message = "plugwerk.auth.actuator: scrape-username + scrape-password must be set together " +
+                    "(both blank, or both non-blank with password ≥ 16 chars)",
+            )
+            fun isScrapeAccountConfigurationValid(): Boolean {
+                val userPresent = !scrapeUsername.isNullOrBlank()
+                val passPresent = !scrapePassword.isNullOrBlank()
+                if (userPresent != passPresent) return false
+                if (!userPresent) return true
+                val passLen = scrapePassword!!.length
+                return passLen in 16..256
+            }
+
+            /** Redacts the password in logs / `toString()` / error messages. */
+            override fun toString(): String =
+                "ActuatorProperties(scrapeUsername=$scrapeUsername, scrapePassword=${if (scrapePassword.isNullOrBlank()) "<unset>" else "<redacted>"})"
+        }
     }
 }

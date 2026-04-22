@@ -23,22 +23,30 @@ import io.plugwerk.server.security.ChangePasswordRateLimitFilter
 import io.plugwerk.server.security.DelegatingJwtDecoder
 import io.plugwerk.server.security.LoginRateLimitFilter
 import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
+import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.security.OidcProviderRegistry
 import io.plugwerk.server.security.PasswordChangeRequiredFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.annotation.Order
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
+import org.springframework.security.authorization.AuthorizationManager
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
+import org.springframework.security.core.authority.SimpleGrantedAuthority
+import org.springframework.security.core.userdetails.User
+import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.encrypt.Encryptors
 import org.springframework.security.crypto.encrypt.TextEncryptor
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter
+import org.springframework.security.provisioning.InMemoryUserDetailsManager
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.access.intercept.RequestAuthorizationContext
 import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter
@@ -58,10 +66,31 @@ class SecurityConfiguration(
     private val props: PlugwerkProperties,
     private val oidcProviderRegistry: OidcProviderRegistry,
     private val localJwtDecoder: DelegatingJwtDecoder,
+    private val namespaceAuthorizationService: NamespaceAuthorizationService,
 ) {
 
     @Bean
     fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
+
+    /**
+     * Builds the in-memory `UserDetailsService` for the optional Prometheus scrape
+     * account (SBS-004 / #292 — see [ADR-0025](../../../../../../../docs/adrs/0025-actuator-endpoint-hardening.md)).
+     *
+     * Returns `null` when the scrape account is not configured. The single user
+     * carries only the `ACTUATOR_SCRAPE` authority and is only referenced by the
+     * actuator filter chain — the API chain has no username/password login surface,
+     * so the scrape credentials cannot authenticate against any other endpoint.
+     * The plaintext password is BCrypt-encoded at construction and never retained.
+     */
+    private fun buildActuatorScrapeUserDetailsService(passwordEncoder: PasswordEncoder): UserDetailsService? {
+        val actuator = props.auth.actuator
+        if (!actuator.isScrapeAccountEnabled()) return null
+        val user = User.withUsername(actuator.scrapeUsername!!.trim())
+            .password(passwordEncoder.encode(actuator.scrapePassword!!))
+            .authorities(SimpleGrantedAuthority(ACTUATOR_SCRAPE_AUTHORITY))
+            .build()
+        return InMemoryUserDetailsManager(user)
+    }
 
     /**
      * CORS configuration source backed by [PlugwerkProperties.ServerProperties.CorsProperties].
@@ -133,9 +162,84 @@ class SecurityConfiguration(
             "form-action 'self'; " +
             "base-uri 'self'; " +
             "object-src 'none'"
+
+        /** GrantedAuthority for the Prometheus scrape account. */
+        const val ACTUATOR_SCRAPE_AUTHORITY = "ACTUATOR_SCRAPE"
+    }
+
+    /**
+     * Actuator filter chain (SBS-004 / #292 — [ADR-0025](../../../../../../../docs/adrs/0025-actuator-endpoint-hardening.md)).
+     *
+     * Separated from the API chain because the authorization rules are different in kind:
+     * `/actuator/info` and `/actuator/prometheus` expose host-level state (build info,
+     * metrics cardinality, pool sizes) that must not be readable by ordinary namespace
+     * members, independently of namespace role. `/actuator/health` stays public so
+     * container orchestrators, load balancers, and the in-repo docker-compose health
+     * check keep working without credentials.
+     *
+     * Access paths to `/info` and `/prometheus`:
+     *   1. **Scrape account (opt-in)** — HTTP Basic, backed by
+     *      [actuatorScrapeUserDetailsService]. Canonical path for unattended scraping.
+     *   2. **Superadmin JWT (fallback)** — same Bearer token used for the API chain,
+     *      but only passes the `isCurrentUserSuperadmin()` gate. Lets human admins
+     *      curl the endpoints without configuring a scrape account.
+     *
+     * `@Order(1)` ensures this chain is consulted before the catch-all API chain.
+     * Namespace filters (access-key, public-namespace) are intentionally *not* wired
+     * into this chain — actuator endpoints are host-level and do not carry namespace
+     * context.
+     */
+    @Bean
+    @Order(1)
+    fun actuatorSecurityFilterChain(http: HttpSecurity, passwordEncoder: PasswordEncoder): SecurityFilterChain {
+        val scrapeUserDetailsService = buildActuatorScrapeUserDetailsService(passwordEncoder)
+        val superadminOrScrape = AuthorizationManager<RequestAuthorizationContext> { authentication, _ ->
+            val auth = authentication.get()
+            val hasScrapeAuthority = auth.authorities.any { it.authority == ACTUATOR_SCRAPE_AUTHORITY }
+            val isSuperadmin = auth.isAuthenticated && namespaceAuthorizationService.isSuperadmin(auth)
+            org.springframework.security.authorization.AuthorizationDecision(hasScrapeAuthority || isSuperadmin)
+        }
+
+        http
+            .securityMatcher("/actuator/**")
+            .cors { it.disable() }
+            .csrf { it.disable() }
+            .headers { headers ->
+                headers.contentTypeOptions { }
+                headers.frameOptions { it.deny() }
+                headers.httpStrictTransportSecurity { it.maxAgeInSeconds(31536000).includeSubDomains(true) }
+                headers.referrerPolicy {
+                    it.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN)
+                }
+                headers.permissionsPolicy { it.policy("camera=(), microphone=(), geolocation=(), payment=()") }
+                headers.contentSecurityPolicy { it.policyDirectives(CSP_POLICY) }
+            }
+            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
+            .formLogin { it.disable() }
+            .exceptionHandling { it.authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)) }
+            .oauth2ResourceServer { oauth2 ->
+                oauth2.jwt { jwt -> jwt.decoder(localJwtDecoder) }
+            }
+            .authorizeHttpRequests { auth ->
+                auth
+                    .requestMatchers("/actuator/health").permitAll()
+                    .requestMatchers("/actuator/info", "/actuator/prometheus").access(superadminOrScrape)
+                    // Closed by default: future /actuator/* additions do not silently leak.
+                    .anyRequest().denyAll()
+            }
+
+        if (scrapeUserDetailsService != null) {
+            http.httpBasic { it.realmName("plugwerk-actuator") }
+            http.userDetailsService(scrapeUserDetailsService)
+        } else {
+            http.httpBasic { it.disable() }
+        }
+
+        return http.build()
     }
 
     @Bean
+    @Order(2)
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
             // CORS is configured via the corsConfigurationSource() bean above.
@@ -193,8 +297,7 @@ class SecurityConfiguration(
                     .requestMatchers(HttpMethod.POST, "/api/v1/namespaces/*/updates/check").permitAll()
                     // Public server config (upload limits etc.) — used by frontend without auth
                     .requestMatchers(HttpMethod.GET, "/api/v1/config").permitAll()
-                    // Actuator health is public; info and prometheus require authentication
-                    .requestMatchers("/actuator/health").permitAll()
+                    // /actuator/** is handled by actuatorSecurityFilterChain (@Order 1). See ADR-0025.
                     // SPA static assets and routes are always public — they only serve index.html
                     // or static bundles. Real authorization happens in the frontend via the API.
                     .requestMatchers(HttpMethod.GET, "/", "/index.html", "/assets/**", "/*.svg", "/*.ico").permitAll()
