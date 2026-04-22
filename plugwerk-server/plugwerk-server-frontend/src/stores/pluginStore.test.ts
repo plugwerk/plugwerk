@@ -29,7 +29,6 @@ vi.mock("../api/config", () => ({
   },
   managementApi: {},
   reviewsApi: {},
-  updatesApi: {},
 }));
 
 import { usePluginStore } from "./pluginStore";

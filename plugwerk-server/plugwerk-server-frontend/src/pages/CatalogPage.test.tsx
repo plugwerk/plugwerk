@@ -36,7 +36,6 @@ vi.mock("../api/config", () => ({
   },
   managementApi: {},
   reviewsApi: {},
-  updatesApi: {},
 }));
 
 const mockPlugin: PluginDto = {

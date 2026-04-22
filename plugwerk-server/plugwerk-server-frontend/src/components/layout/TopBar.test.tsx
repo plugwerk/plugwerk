@@ -37,7 +37,6 @@ vi.mock("../../api/config", () => ({
   catalogApi: {},
   managementApi: {},
   reviewsApi: {},
-  updatesApi: {},
 }));
 
 describe("TopBar", () => {
