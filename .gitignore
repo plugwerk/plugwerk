@@ -48,6 +48,7 @@ docs/superpowers/
 **/plugwerk-server-frontend/coverage
 **/plugwerk-server-frontend/src/api/generated
 /examples/plugwerk-java-cli-example/plugins/
+/examples/plugwerk-springboot-thymeleaf-example/plugins/
 /plugwerk-server/plugwerk-server-backend/storage/
 !/examples/plugwerk-java-cli-example/plugins/plugwerk-client-plugin-0.1.0-SNAPSHOT/plugwerk-client-plugin-0.1.0-SNAPSHOT.zip
 
