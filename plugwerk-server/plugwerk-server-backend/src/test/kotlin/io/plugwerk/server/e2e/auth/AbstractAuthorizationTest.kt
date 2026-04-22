@@ -128,6 +128,9 @@ abstract class AbstractAuthorizationTest {
     @Autowired
     lateinit var passwordEncoder: PasswordEncoder
 
+    @Autowired
+    lateinit var accessKeyHmac: io.plugwerk.server.security.AccessKeyHmac
+
     @BeforeAll
     fun seedTestData() {
         if (seeded) return
@@ -487,6 +490,7 @@ abstract class AbstractAuthorizationTest {
                 NamespaceAccessKeyEntity(
                     namespace = namespace,
                     keyHash = keyHash,
+                    keyLookupHash = accessKeyHmac.compute(plainKey),
                     keyPrefix = plainKey.take(8),
                     name = keyName,
                 ),

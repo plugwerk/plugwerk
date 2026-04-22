@@ -43,11 +43,12 @@ open class NamespaceAccessKeyRepositoryTest : AbstractRepositoryTest() {
     }
 
     @Test
-    fun `findByKeyPrefixAndRevokedFalse returns active keys matching prefix`() {
+    fun `findByKeyLookupHashAndRevokedFalse returns active key matching lookup hash`() {
         apiKeyRepository.save(
             NamespaceAccessKeyEntity(
                 namespace = namespace,
                 keyHash = "\$2a\$10\$fakebcrypthash1",
+                keyLookupHash = "a".repeat(64),
                 keyPrefix = "pwk_abcd",
                 name = "key-1",
             ),
@@ -56,23 +57,42 @@ open class NamespaceAccessKeyRepositoryTest : AbstractRepositoryTest() {
             NamespaceAccessKeyEntity(
                 namespace = namespace,
                 keyHash = "\$2a\$10\$fakebcrypthash2",
+                keyLookupHash = "b".repeat(64),
                 keyPrefix = "pwk_abcd",
-                name = "key-2",
+                name = "key-2-revoked",
                 revoked = true,
             ),
         )
 
-        val found = apiKeyRepository.findByKeyPrefixAndRevokedFalse("pwk_abcd")
+        val found = apiKeyRepository.findByKeyLookupHashAndRevokedFalse("a".repeat(64)).orElse(null)
 
-        assertThat(found).hasSize(1)
-        assertThat(found[0].name).isEqualTo("key-1")
+        assertThat(found).isNotNull
+        assertThat(found.name).isEqualTo("key-1")
     }
 
     @Test
-    fun `findByKeyPrefixAndRevokedFalse returns empty for unknown prefix`() {
-        val found = apiKeyRepository.findByKeyPrefixAndRevokedFalse("pwk_zzzz")
+    fun `findByKeyLookupHashAndRevokedFalse returns empty for unknown hash`() {
+        val found = apiKeyRepository.findByKeyLookupHashAndRevokedFalse("z".repeat(64))
 
-        assertThat(found).isEmpty()
+        assertThat(found).isEmpty
+    }
+
+    @Test
+    fun `findByKeyLookupHashAndRevokedFalse excludes revoked keys`() {
+        apiKeyRepository.save(
+            NamespaceAccessKeyEntity(
+                namespace = namespace,
+                keyHash = "\$2a\$10\$hash",
+                keyLookupHash = "c".repeat(64),
+                keyPrefix = "pwk_rvkd",
+                name = "revoked-key",
+                revoked = true,
+            ),
+        )
+
+        val found = apiKeyRepository.findByKeyLookupHashAndRevokedFalse("c".repeat(64))
+
+        assertThat(found).isEmpty
     }
 
     @Test
@@ -81,6 +101,7 @@ open class NamespaceAccessKeyRepositoryTest : AbstractRepositoryTest() {
             NamespaceAccessKeyEntity(
                 namespace = namespace,
                 keyHash = "\$2a\$10\$hashA",
+                keyLookupHash = "1".repeat(64),
                 keyPrefix = "pwk_aaaa",
                 name = "key-1",
                 revoked = false,
@@ -90,6 +111,7 @@ open class NamespaceAccessKeyRepositoryTest : AbstractRepositoryTest() {
             NamespaceAccessKeyEntity(
                 namespace = namespace,
                 keyHash = "\$2a\$10\$hashB",
+                keyLookupHash = "2".repeat(64),
                 keyPrefix = "pwk_bbbb",
                 name = "key-2",
                 revoked = false,
@@ -99,6 +121,7 @@ open class NamespaceAccessKeyRepositoryTest : AbstractRepositoryTest() {
             NamespaceAccessKeyEntity(
                 namespace = namespace,
                 keyHash = "\$2a\$10\$hashC",
+                keyLookupHash = "3".repeat(64),
                 keyPrefix = "pwk_cccc",
                 name = "key-3",
                 revoked = true,
@@ -118,6 +141,7 @@ open class NamespaceAccessKeyRepositoryTest : AbstractRepositoryTest() {
                 NamespaceAccessKeyEntity(
                     namespace = namespace,
                     keyHash = "\$2a\$10\$fullhash",
+                    keyLookupHash = "4".repeat(64),
                     keyPrefix = "pwk_full",
                     name = "CI/CD key",
                     expiresAt = expiresAt,
