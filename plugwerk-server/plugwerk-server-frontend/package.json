@@ -22,7 +22,6 @@
     "@emotion/styled": "^11.14.1",
     "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
-    "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
     "@scalar/api-reference-react": "^0.9.23",
     "axios": "^1.15.0",
