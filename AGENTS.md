@@ -383,8 +383,11 @@ Required environment variables (server refuses to start without them):
 
 > **Upgrade note (1.0.0-beta.1):** migration `0009_access_key_lookup_hash.yaml` invalidates every previously issued namespace access key to close the prefix-enumeration timing side-channel (SBS-008 / #291). Operators must re-issue and re-distribute access keys after upgrading. See [ADR-0024](docs/adrs/0024-access-key-hmac-lookup.md).
 
+> **Upgrade note (1.0.0-beta.1):** `/actuator/info` and `/actuator/prometheus` are no longer readable by authenticated non-admin users (SBS-004 / #292). By default both endpoints require a superadmin JWT. For unattended Prometheus scraping set `PLUGWERK_AUTH_ACTUATOR_SCRAPE_USERNAME` **and** `PLUGWERK_AUTH_ACTUATOR_SCRAPE_PASSWORD` to enable a dedicated HTTP Basic scrape account. `/actuator/health` remains public for container probes. See [ADR-0025](docs/adrs/0025-actuator-endpoint-hardening.md).
+
 Optional:
 - `PLUGWERK_AUTH_ADMIN_PASSWORD` — fixed initial admin password (random if absent)
+- `PLUGWERK_AUTH_ACTUATOR_SCRAPE_USERNAME` / `PLUGWERK_AUTH_ACTUATOR_SCRAPE_PASSWORD` — enable HTTP Basic scrape account for `/actuator/{info,prometheus}` (must be set together, password min 16 chars). Leave unset to keep those endpoints superadmin-only. See [ADR-0025](docs/adrs/0025-actuator-endpoint-hardening.md).
 - `PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS` — comma-separated origins allowed to make cross-origin requests (default: empty = same-origin only). Set to `http://localhost:5173` when running the Vite dev server against a locally started backend. See [ADR-0021](docs/adrs/0021-cors-same-origin-default.md).
 - `PLUGWERK_SERVER_CORS_ALLOWED_METHODS` — comma-separated HTTP methods for cross-origin requests (default: `GET,POST,PUT,PATCH,DELETE,OPTIONS`)
 - `PLUGWERK_SERVER_CORS_ALLOWED_HEADERS` — comma-separated request headers (default: `Authorization,Content-Type,X-Api-Key`)
