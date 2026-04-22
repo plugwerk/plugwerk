@@ -18,3 +18,7 @@ databaseChangeLog:
               - column:
                   name: setting_desc
                   value: "Default timezone for date and time display in the UI. Uses IANA timezone identifiers (e.g. Europe/Berlin, America/New_York, UTC). Applied to all users who have no personal timezone preference."
+      rollback:
+        - delete:
+            tableName: application_setting
+            where: "setting_key = 'general.default_timezone'"

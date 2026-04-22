@@ -38,6 +38,10 @@ databaseChangeLog:
               - column:
                   name: user_agent
                   type: text
+      rollback:
+        - dropTable:
+            tableName: download_event
+            cascadeConstraints: true
 
   - changeSet:
       id: 0003-idx-download-event-release
@@ -49,6 +53,10 @@ databaseChangeLog:
             columns:
               - column:
                   name: release_id
+      rollback:
+        - dropIndex:
+            tableName: download_event
+            indexName: idx_download_event_release_id
 
   - changeSet:
       id: 0003-idx-download-event-downloaded-at
@@ -60,3 +68,7 @@ databaseChangeLog:
             columns:
               - column:
                   name: downloaded_at
+      rollback:
+        - dropIndex:
+            tableName: download_event
+            indexName: idx_download_event_downloaded_at

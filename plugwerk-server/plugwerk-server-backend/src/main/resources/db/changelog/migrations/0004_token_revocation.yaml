@@ -41,3 +41,7 @@ databaseChangeLog:
             columns:
               - column:
                   name: expires_at
+      rollback:
+        - dropTable:
+            tableName: revoked_token
+            cascadeConstraints: true

@@ -51,6 +51,10 @@ databaseChangeLog:
                   defaultValueBoolean: false
                   constraints:
                     nullable: false
+      rollback:
+        - dropTable:
+            tableName: namespace
+            cascadeConstraints: true
 
   - changeSet:
       id: 0001-create-plugin
@@ -129,6 +133,10 @@ databaseChangeLog:
             tableName: plugin
             columnNames: namespace_id, plugin_id
             constraintName: uq_plugin_namespace_plugin_id
+      rollback:
+        - dropTable:
+            tableName: plugin
+            cascadeConstraints: true
 
   - changeSet:
       id: 0001-create-plugin-release
@@ -212,6 +220,10 @@ databaseChangeLog:
             tableName: plugin_release
             columnNames: plugin_id, version
             constraintName: uq_plugin_release_plugin_version
+      rollback:
+        - dropTable:
+            tableName: plugin_release
+            cascadeConstraints: true
 
   - changeSet:
       id: 0001-create-namespace-access-key
@@ -264,6 +276,10 @@ databaseChangeLog:
                   defaultValueComputed: now()
                   constraints:
                     nullable: false
+      rollback:
+        - dropTable:
+            tableName: namespace_access_key
+            cascadeConstraints: true
 
   - changeSet:
       id: 0001-idx-access-key-prefix
@@ -275,4 +291,8 @@ databaseChangeLog:
             columns:
               - column:
                   name: key_prefix
+      rollback:
+        - dropIndex:
+            tableName: namespace_access_key
+            indexName: idx_access_key_prefix
 

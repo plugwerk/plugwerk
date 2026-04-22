@@ -49,6 +49,11 @@ databaseChangeLog:
                   type: varchar(255)
                   constraints:
                     nullable: true
+      rollback:
+        - dropTable:
+            tableName: application_setting
+            cascadeConstraints: true
+
   - changeSet:
       id: 0005-seed-default-settings
       author: plugwerk
@@ -126,3 +131,7 @@ databaseChangeLog:
               - column:
                   name: setting_desc
                   value: "Whether to store the HTTP User-Agent header on download events. When disabled, the user_agent column is written as NULL."
+      rollback:
+        - delete:
+            tableName: application_setting
+            where: "setting_key IN ('general.default_language', 'general.site_name', 'upload.max_file_size_mb', 'tracking.enabled', 'tracking.capture_ip', 'tracking.anonymize_ip', 'tracking.capture_user_agent')"

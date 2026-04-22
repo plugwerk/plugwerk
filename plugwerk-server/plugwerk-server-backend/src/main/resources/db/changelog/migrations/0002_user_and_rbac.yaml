@@ -65,6 +65,10 @@ databaseChangeLog:
                   defaultValueComputed: now()
                   constraints:
                     nullable: false
+      rollback:
+        - dropTable:
+            tableName: plugwerk_user
+            cascadeConstraints: true
 
   - changeSet:
       id: 0002-create-namespace-member
@@ -107,6 +111,10 @@ databaseChangeLog:
             tableName: namespace_member
             columnNames: namespace_id, user_subject
             constraintName: uq_namespace_member_ns_subject
+      rollback:
+        - dropTable:
+            tableName: namespace_member
+            cascadeConstraints: true
 
   - changeSet:
       id: 0002-create-oidc-provider
@@ -171,3 +179,7 @@ databaseChangeLog:
                   defaultValueComputed: now()
                   constraints:
                     nullable: false
+      rollback:
+        - dropTable:
+            tableName: oidc_provider
+            cascadeConstraints: true
