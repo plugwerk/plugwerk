@@ -57,19 +57,33 @@ ON CONFLICT (namespace_id, user_subject) DO NOTHING;
 
 -- ============================================================
 -- Namespace Access Keys
+-- ------------------------------------------------------------
+-- These rows are UI/repository filler only. `key_hash` is a
+-- fake SHA-256-shaped string (not a real BCrypt hash), so these
+-- keys never authenticated anything. Since migration 0009
+-- (#291 / ADR-0024) every row also needs a `key_lookup_hash`
+-- that satisfies NOT NULL + UNIQUE. We reuse the same sentinel
+-- shape the migration assigns to existing rows on upgrade
+-- (`INVALIDATED-<id>`) — it cannot collide with any real
+-- HMAC-SHA256 output and makes the "not usable for login"
+-- intent explicit. Re-issue real keys via the admin UI / API
+-- when you need a working key for local testing.
 -- ============================================================
-INSERT INTO namespace_access_key (id, namespace_id, key_hash, key_prefix, name, revoked, expires_at) VALUES
+INSERT INTO namespace_access_key (id, namespace_id, key_hash, key_lookup_hash, key_prefix, name, revoked, expires_at) VALUES
   ('c0000000-0000-0000-0000-000000000001',
    (SELECT id FROM namespace WHERE slug = 'default'),
    'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
+   'INVALIDATED-c0000000-0000-0000-0000-000000000001',
    'plwk_a1b2c3', 'CI/CD Pipeline', false, now() + interval '365 days'),
   ('c0000000-0000-0000-0000-000000000002',
    '00000000-0000-0000-0000-000000000002',
    'b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1',
+   'INVALIDATED-c0000000-0000-0000-0000-000000000002',
    'plwk_b2c3d4', 'Development', false, now() + interval '180 days'),
   ('c0000000-0000-0000-0000-000000000003',
    '00000000-0000-0000-0000-000000000003',
    'c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2',
+   'INVALIDATED-c0000000-0000-0000-0000-000000000003',
    'plwk_c3d4e5', 'Old key (revoked)', true, now() - interval '30 days')
 ON CONFLICT (id) DO NOTHING;
 
