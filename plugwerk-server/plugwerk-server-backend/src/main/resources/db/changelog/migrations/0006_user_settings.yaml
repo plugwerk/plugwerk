@@ -47,3 +47,7 @@ databaseChangeLog:
             columns:
               - column:
                   name: user_subject
+      rollback:
+        - dropTable:
+            tableName: user_setting
+            cascadeConstraints: true

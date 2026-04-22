@@ -47,6 +47,10 @@ databaseChangeLog:
             columns:
               - column:
                   name: namespace_id
+      rollback:
+        - dropIndex:
+            tableName: namespace_access_key
+            indexName: idx_access_key_namespace
 
   - changeSet:
       id: 0008-idx-access-key-namespace-active
@@ -80,3 +84,7 @@ databaseChangeLog:
             columns:
               - column:
                   name: user_subject
+      rollback:
+        - dropIndex:
+            tableName: namespace_member
+            indexName: idx_namespace_member_user_subject
