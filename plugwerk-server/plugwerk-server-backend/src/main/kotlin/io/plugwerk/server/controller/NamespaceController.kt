@@ -25,7 +25,6 @@ import io.plugwerk.api.model.NamespaceUpdateRequest
 import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.NamespaceRole
 import io.plugwerk.server.security.NamespaceAuthorizationService
-import io.plugwerk.server.service.NamespaceAlreadyExistsException
 import io.plugwerk.server.service.NamespaceService
 import io.plugwerk.server.service.UnauthorizedException
 import org.springframework.http.ResponseEntity
@@ -55,18 +54,17 @@ class NamespaceController(
         val auth = SecurityContextHolder.getContext().authentication
             ?: throw UnauthorizedException("Not authenticated")
         namespaceAuthorizationService.requireSuperadmin(auth)
-        return try {
-            val entity = namespaceService.create(
-                slug = namespaceCreateRequest.slug,
-                name = namespaceCreateRequest.name,
-                description = namespaceCreateRequest.description,
-                publicCatalog = namespaceCreateRequest.publicCatalog ?: false,
-                autoApproveReleases = namespaceCreateRequest.autoApproveReleases ?: false,
-            )
-            ResponseEntity.created(URI("/api/v1/namespaces/${entity.slug}")).body(entity.toSummary())
-        } catch (_: NamespaceAlreadyExistsException) {
-            ResponseEntity.status(409).build()
-        }
+        // NamespaceAlreadyExistsException propagates to GlobalExceptionHandler.handleConflict,
+        // which returns 409 with a structured ErrorResponse — matching the contract used by
+        // PluginAlreadyExistsException and ReleaseAlreadyExistsException (#289 / KT-015).
+        val entity = namespaceService.create(
+            slug = namespaceCreateRequest.slug,
+            name = namespaceCreateRequest.name,
+            description = namespaceCreateRequest.description,
+            publicCatalog = namespaceCreateRequest.publicCatalog ?: false,
+            autoApproveReleases = namespaceCreateRequest.autoApproveReleases ?: false,
+        )
+        return ResponseEntity.created(URI("/api/v1/namespaces/${entity.slug}")).body(entity.toSummary())
     }
 
     @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'ADMIN')")
