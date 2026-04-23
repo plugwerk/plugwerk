@@ -42,7 +42,7 @@ class PluginMapper(private val releaseMapper: PluginReleaseMapper) {
         downloadCount: Long = 0,
         hasDraftOnly: Boolean = false,
     ): PluginDto = PluginDto(
-        id = entity.id!!,
+        id = requireNotNull(entity.id) { "Plugin has no persisted id" },
         pluginId = entity.pluginId,
         name = entity.name,
         status = entity.status.toDto(),

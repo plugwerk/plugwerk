@@ -27,13 +27,13 @@ import io.plugwerk.server.controller.mapper.PluginMapper
 import io.plugwerk.server.controller.mapper.PluginReleaseMapper
 import io.plugwerk.server.domain.NamespaceRole
 import io.plugwerk.server.security.NamespaceAuthorizationService
+import io.plugwerk.server.security.currentAuthentication
 import io.plugwerk.server.service.PluginReleaseService
 import io.plugwerk.server.service.PluginService
 import io.plugwerk.spi.model.PluginStatus
 import io.plugwerk.spi.model.ReleaseStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
@@ -57,13 +57,13 @@ class ManagementController(
     ): ResponseEntity<PluginDto> {
         namespaceAuthorizationService.requireRole(
             ns,
-            SecurityContextHolder.getContext().authentication!!,
+            currentAuthentication(),
             NamespaceRole.MEMBER,
         )
         if (pluginUpdateRequest.status != null) {
             namespaceAuthorizationService.requireRole(
                 ns,
-                SecurityContextHolder.getContext().authentication!!,
+                currentAuthentication(),
                 NamespaceRole.ADMIN,
             )
         }
@@ -86,7 +86,7 @@ class ManagementController(
     override fun uploadPluginRelease(ns: String, artifact: MultipartFile): ResponseEntity<PluginReleaseDto> {
         namespaceAuthorizationService.requireRole(
             ns,
-            SecurityContextHolder.getContext().authentication!!,
+            currentAuthentication(),
             NamespaceRole.MEMBER,
         )
         val release = releaseService.upload(
@@ -110,7 +110,7 @@ class ManagementController(
     ): ResponseEntity<PluginReleaseDto> {
         namespaceAuthorizationService.requireRole(
             ns,
-            SecurityContextHolder.getContext().authentication!!,
+            currentAuthentication(),
             NamespaceRole.ADMIN,
         )
         val newStatus = releaseStatusUpdateRequest.status.toServiceStatus()
@@ -122,7 +122,7 @@ class ManagementController(
     override fun deletePlugin(ns: String, pluginId: String): ResponseEntity<Unit> {
         namespaceAuthorizationService.requireRole(
             ns,
-            SecurityContextHolder.getContext().authentication!!,
+            currentAuthentication(),
             NamespaceRole.ADMIN,
         )
         pluginService.delete(ns, pluginId)
@@ -133,7 +133,7 @@ class ManagementController(
     override fun deleteRelease(ns: String, pluginId: String, version: String): ResponseEntity<Unit> {
         namespaceAuthorizationService.requireRole(
             ns,
-            SecurityContextHolder.getContext().authentication!!,
+            currentAuthentication(),
             NamespaceRole.ADMIN,
         )
         val pluginDeleted = releaseService.delete(ns, pluginId, version)

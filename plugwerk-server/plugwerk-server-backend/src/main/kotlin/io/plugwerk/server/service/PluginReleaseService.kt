@@ -109,7 +109,9 @@ class PluginReleaseService(
     ): InputStream {
         val release = findByVersion(namespaceSlug, pluginId, version)
         val stream = storageService.retrieve(release.artifactKey)
-        releaseRepository.incrementDownloadCount(release.id!!)
+        releaseRepository.incrementDownloadCount(
+            requireNotNull(release.id) { "PluginRelease has no persisted id" },
+        )
         downloadEventService.record(release, clientIp, userAgent)
         return stream
     }

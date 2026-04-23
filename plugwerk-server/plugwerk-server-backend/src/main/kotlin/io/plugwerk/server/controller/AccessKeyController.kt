@@ -24,10 +24,10 @@ import io.plugwerk.api.model.AccessKeyCreateResponse
 import io.plugwerk.api.model.AccessKeyDto
 import io.plugwerk.server.domain.NamespaceAccessKeyEntity
 import io.plugwerk.server.security.NamespaceAuthorizationService
+import io.plugwerk.server.security.currentAuthentication
 import io.plugwerk.server.service.AccessKeyService
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.net.URI
@@ -44,7 +44,7 @@ class AccessKeyController(
     override fun listAccessKeys(ns: String): ResponseEntity<List<AccessKeyDto>> {
         namespaceAuthorizationService.requireRole(
             ns,
-            SecurityContextHolder.getContext().authentication!!,
+            currentAuthentication(),
             DomainRole.ADMIN,
         )
         val keys = accessKeyService.listByNamespace(ns).map { it.toDto() }
@@ -58,7 +58,7 @@ class AccessKeyController(
     ): ResponseEntity<AccessKeyCreateResponse> {
         namespaceAuthorizationService.requireRole(
             ns,
-            SecurityContextHolder.getContext().authentication!!,
+            currentAuthentication(),
             DomainRole.ADMIN,
         )
         val (entity, plainKey) = accessKeyService.create(
@@ -81,7 +81,7 @@ class AccessKeyController(
     override fun revokeAccessKey(ns: String, keyId: UUID): ResponseEntity<Unit> {
         namespaceAuthorizationService.requireRole(
             ns,
-            SecurityContextHolder.getContext().authentication!!,
+            currentAuthentication(),
             DomainRole.ADMIN,
         )
         accessKeyService.revoke(ns, keyId)
@@ -89,7 +89,7 @@ class AccessKeyController(
     }
 
     private fun NamespaceAccessKeyEntity.toDto() = AccessKeyDto(
-        id = id!!,
+        id = requireNotNull(id) { "NamespaceAccessKey has no persisted id" },
         name = name,
         keyPrefix = keyPrefix,
         revoked = revoked,

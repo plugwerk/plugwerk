@@ -29,6 +29,7 @@ import io.plugwerk.server.repository.NamespaceMemberRepository
 import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.UserRepository
 import io.plugwerk.server.security.NamespaceAuthorizationService
+import io.plugwerk.server.security.currentAuthentication
 import io.plugwerk.server.service.ConflictException
 import io.plugwerk.server.service.EntityNotFoundException
 import io.plugwerk.server.service.NamespaceNotFoundException
@@ -77,7 +78,7 @@ class NamespaceMemberController(
     override fun listNamespaceMembers(ns: String): ResponseEntity<List<NamespaceMemberDto>> {
         namespaceAuthorizationService.requireRole(
             ns,
-            SecurityContextHolder.getContext().authentication!!,
+            currentAuthentication(),
             DomainRole.ADMIN,
         )
         val namespace = namespaceRepository.findBySlug(ns).orElseThrow { NamespaceNotFoundException(ns) }
@@ -92,7 +93,7 @@ class NamespaceMemberController(
     ): ResponseEntity<NamespaceMemberDto> {
         namespaceAuthorizationService.requireRole(
             ns,
-            SecurityContextHolder.getContext().authentication!!,
+            currentAuthentication(),
             DomainRole.ADMIN,
         )
         val namespace = namespaceRepository.findBySlug(ns).orElseThrow { NamespaceNotFoundException(ns) }
@@ -127,7 +128,7 @@ class NamespaceMemberController(
     ): ResponseEntity<NamespaceMemberDto> {
         namespaceAuthorizationService.requireRole(
             ns,
-            SecurityContextHolder.getContext().authentication!!,
+            currentAuthentication(),
             DomainRole.ADMIN,
         )
         val namespace = namespaceRepository.findBySlug(ns).orElseThrow { NamespaceNotFoundException(ns) }
@@ -141,7 +142,7 @@ class NamespaceMemberController(
     override fun removeNamespaceMember(ns: String, userSubject: String): ResponseEntity<Unit> {
         namespaceAuthorizationService.requireRole(
             ns,
-            SecurityContextHolder.getContext().authentication!!,
+            currentAuthentication(),
             DomainRole.ADMIN,
         )
         val namespace = namespaceRepository.findBySlug(ns).orElseThrow { NamespaceNotFoundException(ns) }

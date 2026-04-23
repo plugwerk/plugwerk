@@ -25,11 +25,11 @@ import io.plugwerk.api.model.ReviewItemDto
 import io.plugwerk.server.controller.mapper.PluginReleaseMapper
 import io.plugwerk.server.domain.NamespaceRole
 import io.plugwerk.server.security.NamespaceAuthorizationService
+import io.plugwerk.server.security.currentAuthentication
 import io.plugwerk.server.service.PluginReleaseService
 import io.plugwerk.spi.model.ReleaseStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
@@ -45,7 +45,7 @@ class ReviewsController(
     override fun listPendingReviews(ns: String): ResponseEntity<List<ReviewItemDto>> {
         namespaceAuthorizationService.requireRole(
             ns,
-            SecurityContextHolder.getContext().authentication!!,
+            currentAuthentication(),
             NamespaceRole.MEMBER,
         )
         val pending = releaseService.findPendingByNamespace(ns).map { release ->
@@ -67,7 +67,7 @@ class ReviewsController(
         releaseId: UUID,
         reviewDecisionRequest: ReviewDecisionRequest?,
     ): ResponseEntity<PluginReleaseDto> {
-        val auth = SecurityContextHolder.getContext().authentication!!
+        val auth = currentAuthentication()
         namespaceAuthorizationService.requireRole(ns, auth, NamespaceRole.ADMIN)
         val isSuperadmin = namespaceAuthorizationService.isSuperadmin(auth)
         val release = releaseService.updateStatusByIdInNamespace(
@@ -85,7 +85,7 @@ class ReviewsController(
         releaseId: UUID,
         reviewDecisionRequest: ReviewDecisionRequest?,
     ): ResponseEntity<PluginReleaseDto> {
-        val auth = SecurityContextHolder.getContext().authentication!!
+        val auth = currentAuthentication()
         namespaceAuthorizationService.requireRole(ns, auth, NamespaceRole.ADMIN)
         val isSuperadmin = namespaceAuthorizationService.isSuperadmin(auth)
         val release = releaseService.updateStatusByIdInNamespace(
