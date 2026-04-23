@@ -141,8 +141,8 @@ export const PluginCard = memo(function PluginCard({
               )}
               {statusBadge && (
                 <Badge variant={statusBadge}>
-                  {plugin.status!.charAt(0).toUpperCase() +
-                    plugin.status!.slice(1)}
+                  {plugin.status.charAt(0).toUpperCase() +
+                    plugin.status.slice(1)}
                 </Badge>
               )}
               {latestRelease?.version && (
