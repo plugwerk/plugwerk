@@ -67,7 +67,7 @@ class UpdateCheckService(
     }
 
     private fun PluginReleaseEntity.toDto(): PluginReleaseDto = PluginReleaseDto(
-        id = id!!,
+        id = requireNotNull(id) { "PluginRelease has no persisted id" },
         pluginId = plugin.pluginId,
         version = version,
         status = when (status) {

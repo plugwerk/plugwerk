@@ -55,7 +55,7 @@ class UserService(
             UserEntity(
                 username = username,
                 email = email,
-                passwordHash = passwordEncoder.encode(password)!!,
+                passwordHash = hashPassword(password),
                 passwordChangeRequired = true,
             ),
         )
@@ -69,7 +69,7 @@ class UserService(
 
     fun resetPassword(id: UUID, newPassword: String): UserEntity {
         val user = findById(id)
-        user.passwordHash = passwordEncoder.encode(newPassword)!!
+        user.passwordHash = hashPassword(newPassword)
         user.passwordChangeRequired = true
         val saved = userRepository.save(user)
         tokenRevocationService.revokeAllForUser(user.username)
@@ -90,8 +90,18 @@ class UserService(
         if (!passwordEncoder.matches(currentPassword, user.passwordHash)) {
             throw UnauthorizedException("Current password is incorrect")
         }
-        user.passwordHash = passwordEncoder.encode(newPassword)!!
+        user.passwordHash = hashPassword(newPassword)
         user.passwordChangeRequired = false
         return userRepository.save(user)
+    }
+
+    /**
+     * Local wrapper around [PasswordEncoder.encode] whose return type is a Kotlin
+     * platform type (Java SDK method). The Spring Security contract specifies a
+     * non-null return for any non-null input; [requireNotNull] fails loudly instead
+     * of a raw `!!` NullPointerException if that contract is ever violated.
+     */
+    private fun hashPassword(raw: CharSequence): String = requireNotNull(passwordEncoder.encode(raw)) {
+        "PasswordEncoder.encode() returned null — violates Spring Security contract"
     }
 }
