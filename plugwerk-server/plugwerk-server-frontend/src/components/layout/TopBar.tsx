@@ -42,6 +42,7 @@ import { UploadModal } from "../upload/UploadModal";
 import { UploadProgressPanel } from "../upload/UploadProgressPanel";
 import { useAuthStore } from "../../stores/authStore";
 import { useNamespaces } from "../../api/hooks/useNamespaces";
+import { useNamespaceRole } from "../../api/hooks/useNamespaceRole";
 import { FilterSelect } from "../common/FilterSelect";
 import { tokens } from "../../theme/tokens";
 
@@ -49,15 +50,11 @@ export function TopBar() {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
   const { toggleTheme, openUploadModal } = useUiStore();
-  const {
-    isAuthenticated,
-    logout,
-    namespace,
-    setNamespace,
-    isSuperadmin,
-    namespaceRole,
-  } = useAuthStore();
+  const { isAuthenticated, logout, namespace, setNamespace, isSuperadmin } =
+    useAuthStore();
   const { data: namespaces = [] } = useNamespaces();
+  const { data: membership } = useNamespaceRole(namespace);
+  const namespaceRole = membership?.role ?? null;
   const navigate = useNavigate();
   const { pathname } = useLocation();
 

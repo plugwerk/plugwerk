@@ -18,7 +18,9 @@
  */
 import { Navigate } from "react-router-dom";
 import type { ReactNode } from "react";
+import { Box, CircularProgress } from "@mui/material";
 import { useAuthStore } from "../../stores/authStore";
+import { useNamespaceRole } from "../../api/hooks/useNamespaceRole";
 
 interface AdminRouteProps {
   children: ReactNode;
@@ -34,9 +36,34 @@ interface AdminRouteProps {
  * All other users are redirected to the 403 Forbidden page.
  */
 export function AdminRoute({ children }: AdminRouteProps) {
-  const { isSuperadmin, namespaceRole } = useAuthStore();
+  const isSuperadmin = useAuthStore((s) => s.isSuperadmin);
+  const namespace = useAuthStore((s) => s.namespace);
+  const { data: membership, isLoading } = useNamespaceRole(namespace);
 
-  if (!isSuperadmin && namespaceRole !== "ADMIN") {
+  if (isSuperadmin) {
+    return <>{children}</>;
+  }
+
+  // Wait for the role query to settle before gating — redirecting while the
+  // query is still in flight would kick legitimate admins to /403 on a deep
+  // link. The query runs in parallel with the ProtectedRoute render above, so
+  // in the normal case this path is very short.
+  if (isLoading) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "50vh",
+        }}
+      >
+        <CircularProgress aria-label="Loading permissions" />
+      </Box>
+    );
+  }
+
+  if (membership?.role !== "ADMIN") {
     return <Navigate to="/403" replace />;
   }
 

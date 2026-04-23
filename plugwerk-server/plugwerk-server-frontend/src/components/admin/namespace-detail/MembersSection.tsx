@@ -37,6 +37,8 @@ import type { DataColumn } from "../../common/DataTable";
 import { ActionIconButton } from "../../common/ActionIconButton";
 import { Timestamp } from "../../common/Timestamp";
 import { adminUsersApi, namespaceMembersApi } from "../../../api/config";
+import { namespaceRoleKeys } from "../../../api/hooks/useNamespaceRole";
+import { useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import type {
   NamespaceMemberDto,
@@ -53,6 +55,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export function MembersSection({ slug }: { slug: string }) {
   const addToast = useUiStore((s) => s.addToast);
+  const queryClient = useQueryClient();
   const [members, setMembers] = useState<NamespaceMemberDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -98,6 +101,15 @@ export function MembersSection({ slug }: { slug: string }) {
     loadUsers();
   }, [addOpen, members]);
 
+  function invalidateRoleCache() {
+    // A role change for the current user must be reflected in every
+    // useNamespaceRole subscriber (AdminRoute, TopBar, CatalogPage, …) without
+    // waiting for staleTime (ADR-0028 / #329).
+    queryClient.invalidateQueries({
+      queryKey: namespaceRoleKeys.byNamespace(slug),
+    });
+  }
+
   async function handleRoleChange(
     member: NamespaceMemberDto,
     role: NamespaceRole,
@@ -108,6 +120,7 @@ export function MembersSection({ slug }: { slug: string }) {
         userSubject: member.userSubject,
         namespaceMemberUpdateRequest: { role },
       });
+      invalidateRoleCache();
       setMembers((prev) =>
         prev.map((m) => (m.userSubject === member.userSubject ? res.data : m)),
       );
@@ -125,6 +138,7 @@ export function MembersSection({ slug }: { slug: string }) {
         ns: slug,
         userSubject: member.userSubject,
       });
+      invalidateRoleCache();
       setMembers((prev) =>
         prev.filter((m) => m.userSubject !== member.userSubject),
       );
@@ -152,6 +166,7 @@ export function MembersSection({ slug }: { slug: string }) {
           role: newRole,
         },
       });
+      invalidateRoleCache();
       setMembers((prev) => [...prev, res.data]);
       addToast({
         message: `Member "${newSubject.trim()}" added.`,

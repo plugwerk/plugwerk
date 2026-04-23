@@ -32,14 +32,16 @@ import { usePluginStore } from "../stores/pluginStore";
 import { useAuthStore } from "../stores/authStore";
 import { useUiStore } from "../stores/uiStore";
 import { useNamespaces } from "../api/hooks/useNamespaces";
+import { useNamespaceRole } from "../api/hooks/useNamespaceRole";
 import { usePlugins } from "../api/hooks/usePlugins";
 import { useDebounce } from "../hooks/useDebounce";
 import { useUploadFiles } from "../hooks/useUploadFiles";
 
 export function CatalogPage() {
   const { namespace = "" } = useParams<{ namespace: string }>();
-  const { setNamespace, namespaceRole, fetchNamespaceRole, isAuthenticated } =
-    useAuthStore();
+  const { setNamespace, isAuthenticated } = useAuthStore();
+  const { data: membership } = useNamespaceRole(namespace);
+  const namespaceRole = membership?.role ?? null;
   const { filters, setFilters, resetFilters } = usePluginStore();
   const { searchQuery } = useUiStore();
   const debouncedSearch = useDebounce(searchQuery, 350);
@@ -125,7 +127,6 @@ export function CatalogPage() {
 
   useEffect(() => {
     setNamespace(namespace);
-    fetchNamespaceRole(namespace);
   }, [namespace]);
 
   // Reset page to 0 when the debounced search changes, matching the previous
