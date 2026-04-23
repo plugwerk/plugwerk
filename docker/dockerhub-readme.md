@@ -114,6 +114,52 @@ curl http://localhost:8080/actuator/health
 # → {"status":"UP"}
 ```
 
+`/actuator/health` is public by design — safe for Docker / Kubernetes healthchecks with no credentials.
+
+## Monitoring
+
+Three actuator endpoints are exposed:
+
+| Endpoint | Auth | Intended consumer |
+|---|---|---|
+| `/actuator/health` | public | healthchecks, uptime probes |
+| `/actuator/info` | superadmin JWT **or** HTTP Basic scrape account | ad-hoc inspection, metric collectors |
+| `/actuator/prometheus` | superadmin JWT **or** HTTP Basic scrape account | Prometheus scraper |
+
+### Unattended Prometheus scraping
+
+Configure a dedicated scrape account by setting **both** env vars on the container:
+
+```bash
+docker run -d \
+  -e PLUGWERK_AUTH_ACTUATOR_SCRAPE_USERNAME=prometheus \
+  -e PLUGWERK_AUTH_ACTUATOR_SCRAPE_PASSWORD="$(openssl rand -base64 32)" \
+  # ... other PLUGWERK_* env vars ...
+  plugwerk/plugwerk-server:latest
+```
+
+The password must be at least 16 characters (32+ recommended). If only one of the two is set, the container refuses to start — that asymmetry would silently be misconfigured at scrape time.
+
+Example `scrape_configs` for Prometheus:
+
+```yaml
+scrape_configs:
+  - job_name: plugwerk
+    metrics_path: /actuator/prometheus
+    scheme: https
+    basic_auth:
+      username: prometheus
+      password_file: /etc/prometheus/plugwerk-scrape-password
+    static_configs:
+      - targets: ['plugwerk.example.com']
+```
+
+### No scrape account configured?
+
+When the two env vars are unset (the default), `/actuator/info` and `/actuator/prometheus` fall back to superadmin-JWT-only. That is deliberate — namespace members cannot read metrics even if they are logged in. `/actuator/health` stays public regardless.
+
+See [ADR-0025](https://github.com/plugwerk/plugwerk/blob/main/docs/adrs/0025-actuator-endpoint-hardening.md) for the full decision record and threat model.
+
 ## Deployment guides
 
 - [Docker Compose](https://plugwerk.io/server/deployment/#docker-compose-recommended)
