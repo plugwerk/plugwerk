@@ -21,23 +21,24 @@ import { usePluginStore } from "../../stores/pluginStore";
 import { FilterSelect } from "../common/FilterSelect";
 
 interface PaginationBarProps {
-  namespace: string;
+  totalElements: number;
+  totalPages: number;
 }
 
 const PAGE_SIZES = [12, 24, 48];
 
-export function PaginationBar({ namespace }: PaginationBarProps) {
-  const { filters, totalElements, totalPages, setFilters, fetchPlugins } =
-    usePluginStore();
+export function PaginationBar({
+  totalElements,
+  totalPages,
+}: PaginationBarProps) {
+  const { filters, setFilters } = usePluginStore();
 
   function handlePageChange(_: unknown, page: number) {
     setFilters({ page: page - 1 });
-    fetchPlugins(namespace);
   }
 
   function handleSizeChange(value: string) {
     setFilters({ size: Number(value), page: 0 });
-    fetchPlugins(namespace);
   }
 
   const start = filters.page * filters.size + 1;

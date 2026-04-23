@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Box, Container, Typography, Alert } from "@mui/material";
 import { FilterBar } from "../components/catalog/FilterBar";
@@ -32,6 +32,7 @@ import { usePluginStore } from "../stores/pluginStore";
 import { useAuthStore } from "../stores/authStore";
 import { useUiStore } from "../stores/uiStore";
 import { useNamespaces } from "../api/hooks/useNamespaces";
+import { usePlugins } from "../api/hooks/usePlugins";
 import { useDebounce } from "../hooks/useDebounce";
 import { useUploadFiles } from "../hooks/useUploadFiles";
 
@@ -39,17 +40,7 @@ export function CatalogPage() {
   const { namespace = "" } = useParams<{ namespace: string }>();
   const { setNamespace, namespaceRole, fetchNamespaceRole, isAuthenticated } =
     useAuthStore();
-  const {
-    plugins,
-    loading,
-    error,
-    totalElements,
-    pendingReviewPluginCount,
-    pendingReviewReleaseCount,
-    resetFilters,
-    fetchPlugins,
-    fetchTags,
-  } = usePluginStore();
+  const { filters, setFilters, resetFilters } = usePluginStore();
   const { searchQuery } = useUiStore();
   const debouncedSearch = useDebounce(searchQuery, 350);
   // Prefetch the namespace list so the TopBar dropdown is populated on direct
@@ -57,6 +48,32 @@ export function CatalogPage() {
   useNamespaces();
   const { uploadFiles } = useUploadFiles();
   const [view, setView] = useState<"card" | "list">("card");
+
+  // Stabilise the filters object passed to the query hook. Zustand returns a
+  // new `filters` reference whenever any field changes, which is exactly what
+  // we want — but React renders for unrelated state (drag-over flag etc.)
+  // would otherwise also pass a new object and churn the query key.
+  const queryFilters = useMemo(
+    () => ({ ...filters, search: debouncedSearch }),
+    [filters, debouncedSearch],
+  );
+  const pluginsQuery = usePlugins(namespace, queryFilters);
+  const plugins = pluginsQuery.data?.content ?? [];
+  const totalElements = pluginsQuery.data?.totalElements ?? 0;
+  const totalPages = pluginsQuery.data?.totalPages ?? 0;
+  const pendingReviewPluginCount =
+    pluginsQuery.data?.pendingReviewPluginCount ?? null;
+  const pendingReviewReleaseCount =
+    pluginsQuery.data?.pendingReviewReleaseCount ?? null;
+  // Only show the skeleton on the *initial* load (no previous data) so
+  // pagination does not flash blank between page jumps. Background refetches
+  // while previous data is held are handled by `keepPreviousData`.
+  const loading = pluginsQuery.isPending;
+  const error = pluginsQuery.error
+    ? pluginsQuery.error instanceof Error
+      ? pluginsQuery.error.message
+      : "Failed to load plugins"
+    : null;
 
   // Drag-and-drop state: counter prevents flicker from child element events
   const [isDragOver, setIsDragOver] = useState(false);
@@ -111,12 +128,12 @@ export function CatalogPage() {
     fetchNamespaceRole(namespace);
   }, [namespace]);
 
+  // Reset page to 0 when the debounced search changes, matching the previous
+  // store behaviour. The query refetches automatically because `queryFilters`
+  // changes as part of the same render.
   useEffect(() => {
-    const store = usePluginStore.getState();
-    store.setFilters({ search: debouncedSearch, page: 0 });
-    fetchPlugins(namespace);
-    fetchTags(namespace);
-  }, [debouncedSearch, namespace]);
+    setFilters({ search: debouncedSearch, page: 0 });
+  }, [debouncedSearch]);
 
   return (
     <Box
@@ -253,7 +270,10 @@ export function CatalogPage() {
 
         {/* Pagination */}
         {!loading && !error && plugins.length > 0 && (
-          <PaginationBar namespace={namespace} />
+          <PaginationBar
+            totalElements={totalElements}
+            totalPages={totalPages}
+          />
         )}
       </Container>
     </Box>

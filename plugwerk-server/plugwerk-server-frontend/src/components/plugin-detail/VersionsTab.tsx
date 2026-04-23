@@ -37,6 +37,8 @@ import type { ReleaseStatusUpdateRequestStatusEnum } from "../../api/generated/m
 import { tokens } from "../../theme/tokens";
 import type { BadgeVariant } from "../common/Badge";
 import { managementApi, reviewsApi } from "../../api/config";
+import { pluginsKeys } from "../../api/hooks/usePlugins";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatFileSize } from "../../utils/formatFileSize";
 import { Timestamp } from "../common/Timestamp";
 import { downloadArtifact } from "../../utils/downloadArtifact";
@@ -157,12 +159,20 @@ export function VersionsTab({
   const [statusMenuRelease, setStatusMenuRelease] =
     useState<PluginReleaseDto | null>(null);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  function invalidateCatalog() {
+    queryClient.invalidateQueries({
+      queryKey: pluginsKeys.namespace(namespace),
+    });
+  }
 
   async function handleApprove(rel: PluginReleaseDto) {
     if (!rel.id) return;
     setApprovingId(rel.id);
     try {
       await reviewsApi.approveRelease({ ns: namespace, releaseId: rel.id });
+      invalidateCatalog();
       addToast({
         message: `v${rel.version} approved and published.`,
         type: "success",
@@ -187,6 +197,7 @@ export function VersionsTab({
         pluginId,
         version: deleteTarget.version,
       });
+      invalidateCatalog();
       const pluginDeleted = response.headers?.["x-plugin-deleted"] === "true";
       if (pluginDeleted) {
         addToast({ message: "Plugin and release deleted.", type: "success" });
@@ -223,6 +234,7 @@ export function VersionsTab({
         version: rel.version,
         releaseStatusUpdateRequest: { status: newStatus },
       });
+      invalidateCatalog();
       updateReleaseLocally(rel.id!, newStatus);
       addToast({
         message: `v${rel.version} status changed to ${newStatus}.`,

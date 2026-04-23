@@ -18,10 +18,11 @@
  */
 import { useCallback } from "react";
 import axios from "axios";
+import { useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "../api/config";
+import { pluginsKeys } from "../api/hooks/usePlugins";
 import { useUploadStore } from "../stores/uploadStore";
 import { useUiStore } from "../stores/uiStore";
-import { usePluginStore } from "../stores/pluginStore";
 import { useConfigStore } from "../stores/configStore";
 
 const VALID_EXTENSIONS = [".jar", ".zip"];
@@ -39,6 +40,7 @@ function isValidPluginFile(file: File): boolean {
  * the upload store. After all uploads settle, the plugin list is refreshed.
  */
 export function useUploadFiles() {
+  const queryClient = useQueryClient();
   const uploadFiles = useCallback(
     async (rawFiles: readonly File[], namespace: string) => {
       const { addFiles } = useUploadStore.getState();
@@ -129,8 +131,13 @@ export function useUploadFiles() {
 
       await Promise.allSettled(promises);
 
-      // Refresh plugin list once after all uploads complete
-      usePluginStore.getState().fetchPlugins(namespace);
+      // Invalidate the catalog list + tags + pending counts so every
+      // CatalogPage / FilterBar / PendingReviewBanner subscriber refetches
+      // automatically. Matches the old `fetchPlugins(namespace)` behaviour
+      // but via shared TanStack cache (ADR-0028).
+      queryClient.invalidateQueries({
+        queryKey: pluginsKeys.namespace(namespace),
+      });
 
       // Summary toast
       const finalEntries = useUploadStore
@@ -169,7 +176,7 @@ export function useUploadFiles() {
         });
       }
     },
-    [],
+    [queryClient],
   );
 
   return { uploadFiles };

@@ -29,6 +29,7 @@ vi.mock("../../api/config", () => ({
       data: { content: [], totalElements: 0, totalPages: 0 },
     }),
   },
+  axiosInstance: { get: vi.fn().mockResolvedValue({ data: [] }) },
   managementApi: {},
   reviewsApi: {},
 }));
@@ -45,14 +46,7 @@ const defaultFilters = {
 
 describe("FilterBar", () => {
   beforeEach(() => {
-    usePluginStore.setState({
-      plugins: [],
-      totalElements: 0,
-      totalPages: 0,
-      loading: false,
-      error: null,
-      filters: { ...defaultFilters },
-    });
+    usePluginStore.setState({ filters: { ...defaultFilters } });
   });
 
   it("renders tag, status, compatibility and sort selects", () => {
@@ -135,21 +129,18 @@ describe("FilterBar", () => {
   it("resets filters when reset button is clicked", async () => {
     const user = userEvent.setup();
     const resetFiltersMock = vi.fn();
+    const setFiltersMock = vi.fn();
     usePluginStore.setState({
       filters: { ...defaultFilters, tag: "auth" },
-      setFilters: vi.fn(),
-      fetchPlugins: vi.fn().mockResolvedValue(undefined),
+      setFilters: setFiltersMock,
       resetFilters: resetFiltersMock,
     });
     renderWithRouter(
       <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
     );
     await user.click(screen.getByRole("button", { name: /reset filters/i }));
-    expect(resetFiltersMock).not.toHaveBeenCalled(); // FilterBar calls setFilters, not resetFilters
-    // setFilters was called with empty values
-    const setFiltersMock = usePluginStore.getState().setFilters as ReturnType<
-      typeof vi.fn
-    >;
+    // FilterBar clears individual fields via setFilters, not resetFilters
+    expect(resetFiltersMock).not.toHaveBeenCalled();
     expect(setFiltersMock).toHaveBeenCalled();
   });
 

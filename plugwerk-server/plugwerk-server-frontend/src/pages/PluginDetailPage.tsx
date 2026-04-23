@@ -29,12 +29,14 @@ import {
 } from "@mui/material";
 import { ChevronRight } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { PluginHeader } from "../components/plugin-detail/PluginHeader";
 import { OverviewTab } from "../components/plugin-detail/OverviewTab";
 import { VersionsTab } from "../components/plugin-detail/VersionsTab";
 import { ChangelogTab } from "../components/plugin-detail/ChangelogTab";
 import { DependenciesTab } from "../components/plugin-detail/DependenciesTab";
 import { catalogApi, managementApi } from "../api/config";
+import { pluginsKeys } from "../api/hooks/usePlugins";
 import type { PluginDto, PluginReleaseDto } from "../api/generated/model";
 import { ConfirmDeleteDialog } from "../components/common/ConfirmDeleteDialog";
 import { useAuthStore } from "../stores/authStore";
@@ -60,6 +62,7 @@ export function PluginDetailPage() {
   const [showDeletePlugin, setShowDeletePlugin] = useState(false);
   const [isDeletingPlugin, setIsDeletingPlugin] = useState(false);
   const { addToast } = useUiStore();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     async function load() {
@@ -93,6 +96,9 @@ export function PluginDetailPage() {
     setIsDeletingPlugin(true);
     try {
       await managementApi.deletePlugin({ ns: namespace, pluginId });
+      queryClient.invalidateQueries({
+        queryKey: pluginsKeys.namespace(namespace),
+      });
       addToast({ message: `Plugin ${pluginId} deleted.`, type: "success" });
       setTimeout(() => navigate(`/namespaces/${namespace}/plugins`), 1000);
     } catch {
