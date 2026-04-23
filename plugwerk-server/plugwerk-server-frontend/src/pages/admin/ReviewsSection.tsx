@@ -53,10 +53,11 @@ export function ReviewsSection() {
   }, [namespace]);
 
   async function handleApprove(item: ReviewItemDto) {
+    if (!namespace) return;
     setApprovingId(item.releaseId);
     try {
       await reviewsApi.approveRelease({
-        ns: namespace!,
+        ns: namespace,
         releaseId: item.releaseId,
       });
       setItems((prev) => prev.filter((i) => i.releaseId !== item.releaseId));
@@ -75,10 +76,11 @@ export function ReviewsSection() {
   }
 
   async function handleReject(item: ReviewItemDto) {
+    if (!namespace) return;
     setRejectingId(item.releaseId);
     try {
       await reviewsApi.rejectRelease({
-        ns: namespace!,
+        ns: namespace,
         releaseId: item.releaseId,
       });
       setItems((prev) => prev.filter((i) => i.releaseId !== item.releaseId));

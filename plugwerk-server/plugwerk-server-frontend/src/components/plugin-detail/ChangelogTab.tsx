@@ -27,7 +27,9 @@ interface ChangelogTabProps {
 }
 
 export function ChangelogTab({ releases }: ChangelogTabProps) {
-  const withChangelog = releases.filter((r) => r.changelog);
+  const withChangelog = releases.filter(
+    (r): r is PluginReleaseDto & { changelog: string } => !!r.changelog,
+  );
 
   if (withChangelog.length === 0) {
     return (
@@ -70,7 +72,7 @@ export function ChangelogTab({ releases }: ChangelogTabProps) {
             )}
           </Typography>
           <ReactMarkdown rehypePlugins={[rehypeSanitize]}>
-            {rel.changelog!}
+            {rel.changelog}
           </ReactMarkdown>
         </Box>
       ))}
