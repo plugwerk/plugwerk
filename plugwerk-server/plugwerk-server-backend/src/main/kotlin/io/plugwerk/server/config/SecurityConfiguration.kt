@@ -51,6 +51,7 @@ import org.springframework.security.web.access.intercept.RequestAuthorizationCon
 import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
@@ -267,8 +268,19 @@ class SecurityConfiguration(
             // in the X-XSRF-TOKEN header on the refresh call. Spring's double-submit
             // check then matches header to cookie. SameSite=Strict on the refresh cookie
             // itself is defence in depth for browsers that honour it.
+            //
+            // `CsrfTokenRequestAttributeHandler` (non-XOR) replaces Spring's 6.x default
+            // `XorCsrfTokenRequestAttributeHandler`. The XOR handler expects a token that
+            // was randomly XOR-masked per response and rejects the raw cookie value when
+            // the SPA echoes it straight back in the header. That behaviour is intended
+            // for server-rendered forms that carry a CsrfToken attribute, but it breaks
+            // the cookie-only double-submit pattern this deployment relies on: on reload
+            // the SPA has only the cookie value, never a server-rendered XOR'd variant.
+            // The non-XOR handler compares header to cookie by equality — exactly the
+            // double-submit contract ADR-0027 describes.
             .csrf { csrf ->
                 csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                csrf.csrfTokenRequestHandler(CsrfTokenRequestAttributeHandler())
                 csrf.requireCsrfProtectionMatcher { request ->
                     request.method == HttpMethod.POST.name() &&
                         request.requestURI == "/api/v1/auth/refresh"
