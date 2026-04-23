@@ -405,4 +405,51 @@ Optional:
 
 See `.env.example` for a complete template.
 
+## Monitoring
+
+Three actuator endpoints are exposed (`management.endpoints.web.exposure.include`):
+
+| Endpoint | Auth | Intended consumer |
+|---|---|---|
+| `/actuator/health` | public | Docker/k8s healthchecks, external uptime probes |
+| `/actuator/info` | superadmin JWT **or** scrape account | human admins, metric collectors |
+| `/actuator/prometheus` | superadmin JWT **or** scrape account | Prometheus scraper |
+
+The metrics endpoints were tightened in SBS-004 / #292 so that namespace members can no longer read them — see [ADR-0025](docs/adrs/0025-actuator-endpoint-hardening.md) for the decision record and threat model.
+
+### Enabling unattended Prometheus scraping
+
+Set both env vars together to register an HTTP Basic scrape account:
+
+```bash
+PLUGWERK_AUTH_ACTUATOR_SCRAPE_USERNAME=prometheus
+PLUGWERK_AUTH_ACTUATOR_SCRAPE_PASSWORD="$(openssl rand -base64 32)"
+```
+
+Password minimum 16 characters (32+ recommended). Rotate by changing the env var and restarting the server; there is no persistent credential state.
+
+### Prometheus `scrape_configs` example
+
+```yaml
+scrape_configs:
+  - job_name: plugwerk
+    metrics_path: /actuator/prometheus
+    scheme: https
+    basic_auth:
+      username: prometheus
+      # File contents = value of PLUGWERK_AUTH_ACTUATOR_SCRAPE_PASSWORD
+      password_file: /etc/prometheus/plugwerk-scrape-password
+    static_configs:
+      - targets: ['plugwerk.example.com']
+```
+
+For Kubernetes `ServiceMonitor` use the equivalent `spec.basicAuth` block referencing a `Secret`.
+
+### Scope reminder
+
+- `/actuator/health` remains public — **do not** add credentials to your Docker healthcheck or k8s liveness/readiness probes; they must continue to work without auth.
+- When the scrape env vars are **not** set, `/actuator/info` and `/actuator/prometheus` fall back to superadmin-JWT-only. That posture is intended for operators who inspect metrics ad-hoc and have no unattended scraper configured — it is not a production Prometheus setup.
+
+See also: [docs/concepts/authentication.md](docs/concepts/authentication.md) for sequence diagrams covering all auth flows.
+
 Health: `/actuator/health` | Metrics: Prometheus | Logging: structured JSON
