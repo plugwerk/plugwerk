@@ -24,6 +24,7 @@
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@mui/material": "^7.3.9",
     "@scalar/api-reference-react": "^0.9.23",
+    "@tanstack/react-query": "^5.100.0",
     "axios": "^1.15.0",
     "lucide-react": "^0.577.0",
     "react": "^19.2.4",

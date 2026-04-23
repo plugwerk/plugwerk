@@ -31,7 +31,7 @@ import { EmptyState } from "../components/common/EmptyState";
 import { usePluginStore } from "../stores/pluginStore";
 import { useAuthStore } from "../stores/authStore";
 import { useUiStore } from "../stores/uiStore";
-import { useNamespaceStore } from "../stores/namespaceStore";
+import { useNamespaces } from "../api/hooks/useNamespaces";
 import { useDebounce } from "../hooks/useDebounce";
 import { useUploadFiles } from "../hooks/useUploadFiles";
 
@@ -52,7 +52,9 @@ export function CatalogPage() {
   } = usePluginStore();
   const { searchQuery } = useUiStore();
   const debouncedSearch = useDebounce(searchQuery, 350);
-  const { fetchNamespaces } = useNamespaceStore();
+  // Prefetch the namespace list so the TopBar dropdown is populated on direct
+  // catalog landings. The shared TanStack cache dedupes with any other consumer.
+  useNamespaces();
   const { uploadFiles } = useUploadFiles();
   const [view, setView] = useState<"card" | "list">("card");
 
@@ -103,10 +105,6 @@ export function CatalogPage() {
     },
     [canUpload, namespace, uploadFiles],
   );
-
-  useEffect(() => {
-    fetchNamespaces();
-  }, []);
 
   useEffect(() => {
     setNamespace(namespace);

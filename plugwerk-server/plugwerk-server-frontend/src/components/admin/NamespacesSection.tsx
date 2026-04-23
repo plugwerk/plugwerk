@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import {
   Box,
   Typography,
@@ -29,17 +29,17 @@ import { useNavigate } from "react-router-dom";
 import { DataTable } from "../common/DataTable";
 import type { DataColumn } from "../common/DataTable";
 import { ActionIconButton } from "../common/ActionIconButton";
-import { namespacesApi } from "../../api/config";
 import type { NamespaceSummary } from "../../api/generated/model";
+import { useNamespaces, namespacesKeys } from "../../api/hooks/useNamespaces";
+import { useQueryClient } from "@tanstack/react-query";
 import { CreateNamespaceDialog } from "./CreateNamespaceDialog";
 import { DeleteNamespaceDialog } from "./DeleteNamespaceDialog";
-import { useNamespaceStore } from "../../stores/namespaceStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useUiStore } from "../../stores/uiStore";
 
 export function NamespacesSection() {
-  const [namespaces, setNamespaces] = useState<NamespaceSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: namespaces = [], isLoading: loading } = useNamespaces();
+  const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<NamespaceSummary | null>(
     null,
@@ -47,43 +47,22 @@ export function NamespacesSection() {
   const navigate = useNavigate();
   const { addToast } = useUiStore();
 
-  const loadNamespaces = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await namespacesApi.listNamespaces();
-      setNamespaces(res.data);
-    } catch {
-      setNamespaces([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadNamespaces();
-  }, [loadNamespaces]);
-
   function handleCreated(ns: NamespaceSummary) {
-    setNamespaces((prev) => [...prev, ns]);
     addToast({ message: `Namespace "${ns.slug}" created.`, type: "success" });
-
-    // Refresh the global namespace dropdown in the header
-    useNamespaceStore.getState().fetchNamespaces();
+    // Invalidate the shared cache — every consumer (TopBar dropdown, profile page, …)
+    // refetches automatically.
+    queryClient.invalidateQueries({ queryKey: namespacesKeys.list() });
   }
 
   function handleDeleted(slug: string) {
-    const remaining = namespaces.filter((n) => n.slug !== slug);
-    setNamespaces(remaining);
     setDeleteTarget(null);
     addToast({ message: `Namespace "${slug}" deleted.`, type: "success" });
-
-    // Refresh the global namespace dropdown in the header
-    useNamespaceStore.getState().fetchNamespaces();
+    queryClient.invalidateQueries({ queryKey: namespacesKeys.list() });
 
     // If the deleted namespace was currently selected, switch to the next available
     const { namespace: current, setNamespace } = useAuthStore.getState();
     if (current === slug) {
-      const next = remaining[0]?.slug;
+      const next = namespaces.find((n) => n.slug !== slug)?.slug;
       if (next) {
         setNamespace(next);
       }

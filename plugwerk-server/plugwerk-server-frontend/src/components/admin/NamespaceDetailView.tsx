@@ -39,6 +39,7 @@ import { Section } from "../common/Section";
 import { MembersSection } from "./namespace-detail/MembersSection";
 import { ApiKeysSection } from "./namespace-detail/ApiKeysSection";
 import { namespacesApi } from "../../api/config";
+import { useNamespace } from "../../api/hooks/useNamespaces";
 import { useUiStore } from "../../stores/uiStore";
 import { tokens } from "../../theme/tokens";
 
@@ -58,28 +59,24 @@ export function NamespaceDetailView() {
   const [initialPublicCatalog, setInitialPublicCatalog] = useState(false);
   const [initialAutoApprove, setInitialAutoApprove] = useState(false);
 
+  // Look up the namespace from the shared TanStack cache (populated by any other
+  // consumer — TopBar, NamespacesSection, CatalogPage). No dedicated list-fetch
+  // here, which closes TS-009: "fetches full namespace list to find one entry".
+  const { namespace: ns, isLoading } = useNamespace(slug);
+
   useEffect(() => {
-    async function load() {
-      try {
-        const res = await namespacesApi.listNamespaces();
-        const ns = res.data.find((n) => n.slug === slug);
-        if (ns) {
-          setName(ns.name ?? "");
-          setDescription(ns.description ?? "");
-          setPublicCatalog(ns.publicCatalog ?? false);
-          setAutoApprove(ns.autoApproveReleases ?? false);
-          setInitialName(ns.name ?? "");
-          setInitialDescription(ns.description ?? "");
-          setInitialPublicCatalog(ns.publicCatalog ?? false);
-          setInitialAutoApprove(ns.autoApproveReleases ?? false);
-        }
-      } catch {
-        /* ignore */
-      }
-      setLoaded(true);
+    if (ns) {
+      setName(ns.name ?? "");
+      setDescription(ns.description ?? "");
+      setPublicCatalog(ns.publicCatalog ?? false);
+      setAutoApprove(ns.autoApproveReleases ?? false);
+      setInitialName(ns.name ?? "");
+      setInitialDescription(ns.description ?? "");
+      setInitialPublicCatalog(ns.publicCatalog ?? false);
+      setInitialAutoApprove(ns.autoApproveReleases ?? false);
     }
-    load();
-  }, [slug]);
+    if (!isLoading) setLoaded(true);
+  }, [ns, isLoading]);
 
   const hasChanges =
     name !== initialName ||

@@ -22,7 +22,6 @@ import userEvent from "@testing-library/user-event";
 import { renderWithRouter } from "../../test/renderWithTheme";
 import { TopBar } from "./TopBar";
 import { useAuthStore } from "../../stores/authStore";
-import { useNamespaceStore } from "../../stores/namespaceStore";
 import { useUiStore } from "../../stores/uiStore";
 
 const mockNavigate = vi.fn();
@@ -37,6 +36,14 @@ vi.mock("../../api/config", () => ({
   catalogApi: {},
   managementApi: {},
   reviewsApi: {},
+  namespacesApi: {
+    listNamespaces: vi.fn().mockResolvedValue({
+      data: [
+        { slug: "acme", name: "ACME" },
+        { slug: "beta", name: "Beta Inc" },
+      ],
+    }),
+  },
 }));
 
 describe("TopBar", () => {
@@ -47,14 +54,6 @@ describe("TopBar", () => {
       username: "alice",
       isAuthenticated: true,
       namespace: "acme",
-    });
-    useNamespaceStore.setState({
-      namespaces: [
-        { slug: "acme", name: "ACME" },
-        { slug: "beta", name: "Beta Inc" },
-      ],
-      loading: false,
-      error: null,
     });
     useUiStore.setState({ themeMode: "light", toasts: [], searchQuery: "" });
   });

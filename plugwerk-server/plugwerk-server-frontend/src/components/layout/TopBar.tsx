@@ -41,7 +41,7 @@ import { useUiStore } from "../../stores/uiStore";
 import { UploadModal } from "../upload/UploadModal";
 import { UploadProgressPanel } from "../upload/UploadProgressPanel";
 import { useAuthStore } from "../../stores/authStore";
-import { useNamespaceStore } from "../../stores/namespaceStore";
+import { useNamespaces } from "../../api/hooks/useNamespaces";
 import { FilterSelect } from "../common/FilterSelect";
 import { tokens } from "../../theme/tokens";
 
@@ -57,7 +57,7 @@ export function TopBar() {
     isSuperadmin,
     namespaceRole,
   } = useAuthStore();
-  const { namespaces } = useNamespaceStore();
+  const { data: namespaces = [] } = useNamespaces();
   const navigate = useNavigate();
   const { pathname } = useLocation();
 

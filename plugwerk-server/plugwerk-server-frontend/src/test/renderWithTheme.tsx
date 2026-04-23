@@ -19,26 +19,45 @@
 import { render, type RenderOptions } from "@testing-library/react";
 import { ThemeProvider, CssBaseline } from "@mui/material";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { buildTheme } from "../theme/theme";
 import type { ReactNode } from "react";
 
 const theme = buildTheme("light");
 
+/**
+ * One fresh [QueryClient] per test-render call (ADR-0028 / #276) — retry disabled,
+ * gcTime/staleTime zero so cached data never bleeds between tests.
+ */
+function newTestQueryClient(): QueryClient {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0, staleTime: 0 },
+    },
+  });
+}
+
 function ThemeWrapper({ children }: { children: ReactNode }) {
+  const client = newTestQueryClient();
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      {children}
-    </ThemeProvider>
+    <QueryClientProvider client={client}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        {children}
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 
 function RouterWrapper({ children }: { children: ReactNode }) {
+  const client = newTestQueryClient();
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <MemoryRouter>{children}</MemoryRouter>
-    </ThemeProvider>
+    <QueryClientProvider client={client}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <MemoryRouter>{children}</MemoryRouter>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 
@@ -62,15 +81,18 @@ export function renderWithRouterAt(
   initialPath: string,
   options?: Omit<RenderOptions, "wrapper">,
 ) {
+  const client = newTestQueryClient();
   return render(
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <MemoryRouter initialEntries={[initialPath]}>
-        <Routes>
-          <Route path={routePath} element={ui} />
-        </Routes>
-      </MemoryRouter>
-    </ThemeProvider>,
+    <QueryClientProvider client={client}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <MemoryRouter initialEntries={[initialPath]}>
+          <Routes>
+            <Route path={routePath} element={ui} />
+          </Routes>
+        </MemoryRouter>
+      </ThemeProvider>
+    </QueryClientProvider>,
     options,
   );
 }
