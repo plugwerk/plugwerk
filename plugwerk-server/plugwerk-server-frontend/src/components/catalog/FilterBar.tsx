@@ -29,6 +29,7 @@ import {
 } from "@mui/material";
 import { LayoutGrid, List, Search, X } from "lucide-react";
 import { usePluginStore } from "../../stores/pluginStore";
+import { usePluginTags } from "../../api/hooks/usePlugins";
 import { useUiStore } from "../../stores/uiStore";
 import { FilterAutocomplete } from "../common/FilterAutocomplete";
 import { FilterSelect } from "../common/FilterSelect";
@@ -58,18 +59,17 @@ const COMPATIBILITY_OPTIONS = [
 export function FilterBar({ view, onViewChange, namespace }: FilterBarProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
-  const { filters, setFilters, fetchPlugins, availableTags } = usePluginStore();
+  const { filters, setFilters } = usePluginStore();
+  const { data: availableTags = [] } = usePluginTags(namespace);
   const { searchQuery, setSearchQuery } = useUiStore();
   const hasActiveFilters = !!(filters.tag || filters.status || filters.version);
 
   function handleChange(key: string, value: string) {
     setFilters({ [key]: value, page: 0 });
-    fetchPlugins(namespace);
   }
 
   function handleReset() {
     setFilters({ tag: "", status: "", version: "", sort: "name,asc", page: 0 });
-    fetchPlugins(namespace);
   }
 
   return (

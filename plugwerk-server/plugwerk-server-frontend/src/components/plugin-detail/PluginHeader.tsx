@@ -42,6 +42,8 @@ import { Timestamp } from "../common/Timestamp";
 import { downloadArtifact } from "../../utils/downloadArtifact";
 import { formatCount, formatCountFull } from "../../utils/formatCount";
 import { managementApi } from "../../api/config";
+import { pluginsKeys } from "../../api/hooks/usePlugins";
+import { useQueryClient } from "@tanstack/react-query";
 
 const PLUGIN_STATUSES = ["active", "suspended", "archived"] as const;
 
@@ -74,6 +76,7 @@ export function PluginHeader({
     null,
   );
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const queryClient = useQueryClient();
 
   const downloadUrl = latestRelease
     ? `/api/v1/namespaces/${namespace}/plugins/${plugin.pluginId}/releases/${latestRelease.version}/download`
@@ -89,6 +92,9 @@ export function PluginHeader({
         pluginUpdateRequest: {
           status: newStatus as "active" | "suspended" | "archived",
         },
+      });
+      queryClient.invalidateQueries({
+        queryKey: pluginsKeys.namespace(namespace),
       });
       onPluginUpdated?.(res.data);
     } catch {

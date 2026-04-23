@@ -24,6 +24,8 @@ import type { DataColumn } from "../../components/common/DataTable";
 import { ActionIconButton } from "../../components/common/ActionIconButton";
 import { Timestamp } from "../../components/common/Timestamp";
 import { reviewsApi } from "../../api/config";
+import { pluginsKeys } from "../../api/hooks/usePlugins";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../../stores/authStore";
 import { useUiStore } from "../../stores/uiStore";
 import type { ReviewItemDto } from "../../api/generated/model";
@@ -35,6 +37,7 @@ export function ReviewsSection() {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const addToast = useUiStore((s) => s.addToast);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     async function load() {
@@ -60,6 +63,9 @@ export function ReviewsSection() {
         ns: namespace,
         releaseId: item.releaseId,
       });
+      queryClient.invalidateQueries({
+        queryKey: pluginsKeys.namespace(namespace),
+      });
       setItems((prev) => prev.filter((i) => i.releaseId !== item.releaseId));
       addToast({
         message: `${item.pluginName} v${item.version} approved and published.`,
@@ -82,6 +88,9 @@ export function ReviewsSection() {
       await reviewsApi.rejectRelease({
         ns: namespace,
         releaseId: item.releaseId,
+      });
+      queryClient.invalidateQueries({
+        queryKey: pluginsKeys.namespace(namespace),
       });
       setItems((prev) => prev.filter((i) => i.releaseId !== item.releaseId));
       addToast({
