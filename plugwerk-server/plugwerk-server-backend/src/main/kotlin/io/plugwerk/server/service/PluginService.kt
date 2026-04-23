@@ -76,11 +76,16 @@ class PluginService(
     data class PagedCatalogResult(val page: Page<PluginEntity>, val draftOnlyPluginIds: Set<java.util.UUID>)
 
     /**
-     * Returns a paginated, filtered list of plugins for the given namespace.
+     * Returns a paginated, filtered list of plugins for the given namespace (RC-022,
+     * KT-001 / #284).
      *
-     * Tag, full-text (q), version compatibility, and visibility filters are applied
-     * in-memory after the DB query, which is acceptable for MVP catalog sizes.
-     * A DB-level filter can replace this when catalog size demands it.
+     * Orchestrates four phases, each implemented by a private helper: load catalog data
+     * in a single DB pass → apply visibility rules → apply tag/query/version filters →
+     * sort and paginate. Tag, full-text, version-compatibility, and visibility filters
+     * are applied in-memory after the DB query, which is acceptable for MVP catalog
+     * sizes (≤ a few thousand plugins per namespace). A DB-level filter can replace
+     * this once scale demands it — the single orchestration body makes that swap a
+     * localised change.
      */
     fun findPagedByNamespace(
         namespaceSlug: String,
@@ -92,28 +97,42 @@ class PluginService(
         version: String? = null,
     ): PagedCatalogResult {
         val namespace = namespaceService.findBySlug(namespaceSlug)
+        val data = loadCatalogData(namespace, status, visibility)
+        val visible = filterByVisibility(data.plugins, visibility, data)
+        val filtered = applyCatalogFilters(visible, tag, q, version, data.latestReleases)
+        return sortAndPaginate(filtered, pageable, data.downloadCounts, data.draftOnlyPluginIds)
+    }
 
-        // Load all plugins — optionally filtered by explicit status
-        val all = if (status != null) {
+    /**
+     * Single DB-touching phase of [findPagedByNamespace]. Three queries:
+     *   1. `plugins` — all plugins in the namespace, optionally narrowed by status.
+     *   2. `latestReleases` — the latest published release per plugin, keyed by plugin id.
+     *      Shared across the visibility filter (keys → pluginIdsWithPublishedRelease) and
+     *      the version-compatibility filter (values → release version). Audit row DB-015
+     *      required this to happen exactly once per request.
+     *   3. `draftOnlyPluginIds` — only executed for non-PUBLIC visibility (superadmin /
+     *      member views); skipped as a no-op for anonymous callers.
+     *   4. `downloadCounts` — sum of downloads per plugin, for the downloadCount sort.
+     */
+    private fun loadCatalogData(
+        namespace: io.plugwerk.server.domain.NamespaceEntity,
+        status: PluginStatus?,
+        visibility: CatalogVisibility,
+    ): CatalogData {
+        val plugins = if (status != null) {
             pluginRepository.findAllByNamespaceAndStatus(namespace, status)
         } else {
             pluginRepository.findAllByNamespace(namespace)
         }
+        val allIds = plugins.mapNotNull { it.id }
 
-        val allIds = all.mapNotNull { it.id }
-
-        // Single fetch of the latest published release per plugin — reused below for both
-        // the visibility filter (pluginIdsWithPublishedRelease) and the version-compatibility
-        // filter (latestReleases). Audit row DB-015.
         val latestReleases: Map<java.util.UUID, PluginReleaseEntity> = if (allIds.isEmpty()) {
             emptyMap()
         } else {
             releaseRepository.findLatestPublishedReleasesForPlugins(allIds)
-                .associateBy { it.plugin.id!! }
+                .associateBy { requireNotNull(it.plugin.id) { "Plugin has no persisted id" } }
         }
-        val pluginIdsWithPublishedRelease: Set<java.util.UUID> = latestReleases.keys
 
-        // Determine which plugins are draft-only (for AUTHENTICATED/ADMIN visibility)
         val draftOnlyPluginIds: Set<java.util.UUID> =
             if (visibility != CatalogVisibility.PUBLIC && namespace.id != null) {
                 releaseRepository.findPluginIdsWithOnlyDraftReleases(namespace.id!!)
@@ -121,45 +140,6 @@ class PluginService(
                 emptySet()
             }
 
-        // Apply visibility rules
-        val visibilityFiltered = all.filter { plugin ->
-            when (visibility) {
-                CatalogVisibility.PUBLIC -> {
-                    plugin.status == PluginStatus.ACTIVE && plugin.id in pluginIdsWithPublishedRelease
-                }
-
-                CatalogVisibility.AUTHENTICATED -> {
-                    plugin.status != PluginStatus.SUSPENDED &&
-                        (plugin.id in pluginIdsWithPublishedRelease || plugin.id in draftOnlyPluginIds)
-                }
-
-                CatalogVisibility.ADMIN -> true
-            }
-        }
-
-        // Apply tag and full-text search filters
-        val filtered = visibilityFiltered.filter { plugin ->
-            (tag == null || plugin.tags.contains(tag)) &&
-                (
-                    q == null || plugin.name.contains(q, ignoreCase = true) ||
-                        plugin.description?.contains(q, ignoreCase = true) == true
-                    )
-        }
-
-        // Apply version compatibility filter
-        // Filters by the plugin release version itself. Plugins whose latest release
-        // version satisfies the constraint (e.g. >=2.0.0) are included.
-        // Plugins without a published release are excluded when a version filter is active.
-        val versionFiltered = if (version.isNullOrBlank()) {
-            filtered
-        } else {
-            filtered.filter { plugin ->
-                val release = latestReleases[plugin.id] ?: return@filter false
-                matchesVersionConstraint(release.version, version)
-            }
-        }
-
-        // Apply in-memory sort (fixes downloadCount and updatedAt sorts)
         val downloadCounts: Map<java.util.UUID, Long> = if (allIds.isEmpty()) {
             emptyMap()
         } else {
@@ -167,6 +147,70 @@ class PluginService(
                 .associate { (it[0] as java.util.UUID) to (it[1] as Long) }
         }
 
+        return CatalogData(plugins, latestReleases, draftOnlyPluginIds, downloadCounts)
+    }
+
+    /**
+     * Visibility filter — pure, no DB access. The three visibility tiers have distinct
+     * rules; see [CatalogVisibility] for the full contract.
+     */
+    private fun filterByVisibility(
+        plugins: List<PluginEntity>,
+        visibility: CatalogVisibility,
+        data: CatalogData,
+    ): List<PluginEntity> {
+        val withRelease = data.latestReleases.keys
+        return plugins.filter { plugin ->
+            when (visibility) {
+                CatalogVisibility.PUBLIC ->
+                    plugin.status == PluginStatus.ACTIVE && plugin.id in withRelease
+
+                CatalogVisibility.AUTHENTICATED ->
+                    plugin.status != PluginStatus.SUSPENDED &&
+                        (plugin.id in withRelease || plugin.id in data.draftOnlyPluginIds)
+
+                CatalogVisibility.ADMIN -> true
+            }
+        }
+    }
+
+    /**
+     * Tag, full-text (`q`), and version-compatibility filters applied in-memory. Version
+     * filtering uses [latestReleases] so plugins without a published release are excluded
+     * as soon as a version constraint is active.
+     */
+    private fun applyCatalogFilters(
+        plugins: List<PluginEntity>,
+        tag: String?,
+        q: String?,
+        version: String?,
+        latestReleases: Map<java.util.UUID, PluginReleaseEntity>,
+    ): List<PluginEntity> {
+        val textAndTag = plugins.filter { plugin ->
+            (tag == null || plugin.tags.contains(tag)) &&
+                (
+                    q == null || plugin.name.contains(q, ignoreCase = true) ||
+                        plugin.description?.contains(q, ignoreCase = true) == true
+                    )
+        }
+        if (version.isNullOrBlank()) return textAndTag
+        return textAndTag.filter { plugin ->
+            val release = latestReleases[plugin.id] ?: return@filter false
+            matchesVersionConstraint(release.version, version)
+        }
+    }
+
+    /**
+     * In-memory sort + sublist pagination. `downloadCount` and `updatedAt` / `createdAt`
+     * sorts are driven off the pre-fetched [downloadCounts] map and the plugin entity's
+     * own timestamps respectively; anything else falls back to alphabetical by name.
+     */
+    private fun sortAndPaginate(
+        plugins: List<PluginEntity>,
+        pageable: Pageable,
+        downloadCounts: Map<java.util.UUID, Long>,
+        draftOnlyPluginIds: Set<java.util.UUID>,
+    ): PagedCatalogResult {
         val sortOrder = pageable.sort.firstOrNull()
         val sorted = if (sortOrder != null) {
             val comparator: Comparator<PluginEntity> = when (sortOrder.property) {
@@ -176,11 +220,10 @@ class PluginService(
                 else -> compareBy { it.name.lowercase() }
             }
             val directed = if (sortOrder.isDescending) comparator.reversed() else comparator
-            versionFiltered.sortedWith(directed)
+            plugins.sortedWith(directed)
         } else {
-            versionFiltered
+            plugins
         }
-
         val offset = pageable.offset.toInt().coerceAtMost(sorted.size)
         val page = sorted.subList(offset, (offset + pageable.pageSize).coerceAtMost(sorted.size))
         return PagedCatalogResult(
@@ -188,6 +231,18 @@ class PluginService(
             draftOnlyPluginIds = draftOnlyPluginIds,
         )
     }
+
+    /**
+     * Bundle of the four pre-fetched query results that drive a single
+     * [findPagedByNamespace] call. Keeps the orchestration body a readable handful of
+     * lines and ensures each underlying query runs exactly once per request.
+     */
+    private data class CatalogData(
+        val plugins: List<PluginEntity>,
+        val latestReleases: Map<java.util.UUID, PluginReleaseEntity>,
+        val draftOnlyPluginIds: Set<java.util.UUID>,
+        val downloadCounts: Map<java.util.UUID, Long>,
+    )
 
     /**
      * Checks whether a declared system version satisfies a constraint like `>=3.0.0`.
