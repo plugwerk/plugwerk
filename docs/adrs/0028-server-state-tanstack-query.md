@@ -209,16 +209,21 @@ can be added then.
   it belongs in a hook; if no, it belongs in a Zustand store or local
   `useState`. This ADR is the written rule; review checklist entry to follow.
 
-### Deferred work (tracked as follow-up issues)
+### Follow-up work (shipped after this ADR)
 
-- **`pluginStore` → TanStack Query** (TS-007 scope) — the migration is
-  structurally similar but larger (filter form state must remain in
-  Zustand, paginated lists need query-key parameterisation, tag lists
-  need their own key root). Target: one issue, one PR.
-- **`authStore` server-parts → TanStack Query** (`namespaceRole`,
-  `fetchNamespaceRole`) — deferred until #294 / #315 refresh-cookie and
-  OIDC work lands, so the two migrations don't collide. Credentials and
-  CSRF state remain Zustand.
+- **`pluginStore` → TanStack Query** (TS-007 scope) — shipped in #328
+  (`src/api/hooks/usePlugins.ts`). Filter form state remains in Zustand
+  as the UI-only layer; server state (plugins, tags, pending-review
+  counts) is now fully in TanStack Query.
+- **`authStore` server-parts → TanStack Query** — shipped in #329
+  (`src/api/hooks/useNamespaceRole.ts`). `namespaceRole` and
+  `fetchNamespaceRole` removed from `authStore`. `authStore` is now
+  purely credential + UI-preference state (access token, username,
+  `isSuperadmin`, `passwordChangeRequired`, `isAuthenticated`,
+  `isHydrating`, active `namespace`). The
+  `AuthHydrationBoundary` drops the entire TanStack cache on
+  authenticated→unauthenticated transitions so previous-user role
+  caches do not bleed into the next login.
 
 ## References
 
