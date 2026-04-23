@@ -58,7 +58,7 @@ class RefreshRateLimitFilter(private val bucketService: BucketRateLimitService) 
         response: HttpServletResponse,
         filterChain: FilterChain,
     ) {
-        val clientIp = resolveClientIp(request)
+        val clientIp = request.resolveClientIp()
         when (val result = bucketService.tryConsume(SCOPE, clientIp, MAX_ATTEMPTS, WINDOW_SECONDS)) {
             is RateLimitResult.Allowed -> filterChain.doFilter(request, response)
 
@@ -71,13 +71,5 @@ class RefreshRateLimitFilter(private val bucketService: BucketRateLimitService) 
                 )
             }
         }
-    }
-
-    private fun resolveClientIp(request: HttpServletRequest): String {
-        val forwarded = request.getHeader("X-Forwarded-For")
-        if (!forwarded.isNullOrBlank()) {
-            return forwarded.split(",").first().trim()
-        }
-        return request.remoteAddr
     }
 }

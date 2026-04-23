@@ -57,7 +57,7 @@ class LoginRateLimitFilter(private val rateLimitService: LoginRateLimitService) 
         response: HttpServletResponse,
         filterChain: FilterChain,
     ) {
-        val clientIp = resolveClientIp(request)
+        val clientIp = request.resolveClientIp()
         when (val result = rateLimitService.tryConsume(clientIp)) {
             is RateLimitResult.Allowed -> filterChain.doFilter(request, response)
 
@@ -70,17 +70,5 @@ class LoginRateLimitFilter(private val rateLimitService: LoginRateLimitService) 
                 )
             }
         }
-    }
-
-    /**
-     * Extracts the client IP from `X-Forwarded-For` (leftmost entry) or falls
-     * back to [HttpServletRequest.getRemoteAddr].
-     */
-    private fun resolveClientIp(request: HttpServletRequest): String {
-        val forwarded = request.getHeader("X-Forwarded-For")
-        if (!forwarded.isNullOrBlank()) {
-            return forwarded.split(",").first().trim()
-        }
-        return request.remoteAddr
     }
 }
