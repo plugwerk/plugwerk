@@ -32,7 +32,7 @@ import { TimezoneSelect } from "../components/common/TimezoneSelect";
 import { Link } from "react-router-dom";
 import { Section } from "../components/common/Section";
 import { useAuthStore } from "../stores/authStore";
-import { useNamespaceStore } from "../stores/namespaceStore";
+import { useNamespaces } from "../api/hooks/useNamespaces";
 import { useUserSettingsStore } from "../stores/userSettingsStore";
 import { tokens } from "../theme/tokens";
 import { useUiStore } from "../stores/uiStore";
@@ -59,7 +59,7 @@ function InfoRow({ label, value }: InfoRowProps) {
 
 export function ProfileSettingsPage() {
   const { username, namespace, setNamespace } = useAuthStore();
-  const { namespaces, fetchNamespaces } = useNamespaceStore();
+  const { data: namespaces = [] } = useNamespaces();
   const { addToast } = useUiStore();
   const {
     settings,
@@ -78,12 +78,6 @@ export function ProfileSettingsPage() {
   useEffect(() => {
     loadSettings().catch(() => {});
   }, [loadSettings]);
-
-  useEffect(() => {
-    // Ensure the Default Namespace dropdown is populated even when the user
-    // lands on /profile directly (without having visited the catalog first).
-    fetchNamespaces().catch(() => {});
-  }, [fetchNamespaces]);
 
   useEffect(() => {
     if (loaded) {
