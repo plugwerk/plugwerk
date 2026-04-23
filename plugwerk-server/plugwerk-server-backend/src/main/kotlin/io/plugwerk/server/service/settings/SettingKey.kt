@@ -105,47 +105,27 @@ enum class SettingKey(
     ;
 
     /**
-     * Validates a proposed new raw value for this key.
+     * Validates a proposed new raw value for this key. Application settings forbid blank
+     * strings and support integer range constraints; the shared [ValueValidator] implements
+     * the type-level rules, and per-key [extraValidator] runs afterwards on a valid raw
+     * value (e.g. IANA timezone check for `general.default_timezone`).
      *
      * @return `null` if the value is acceptable, or a human-readable error message otherwise.
      */
     fun validate(rawValue: String): String? {
-        val typeError = when (valueType) {
-            SettingValueType.STRING -> if (rawValue.isBlank()) "value must not be blank" else null
-
-            SettingValueType.INTEGER -> {
-                val parsed = rawValue.toIntOrNull()
-                    ?: return "value must be an integer, got '$rawValue'"
-                val lo = minInt
-                val hi = maxInt
-                when {
-                    lo != null && parsed < lo -> "value must be >= $lo"
-                    hi != null && parsed > hi -> "value must be <= $hi"
-                    else -> null
-                }
-            }
-
-            SettingValueType.BOOLEAN -> if (rawValue !in BOOLEAN_LITERALS) {
-                "value must be 'true' or 'false', got '$rawValue'"
-            } else {
-                null
-            }
-
-            SettingValueType.ENUM -> {
-                val allowed = allowedValues
-                when {
-                    allowed == null -> "ENUM key '$key' has no allowedValues declared"
-                    rawValue !in allowed -> "value must be one of $allowed, got '$rawValue'"
-                    else -> null
-                }
-            }
-        }
+        val typeError = ValueValidator.validate(
+            rawValue = rawValue,
+            type = valueType,
+            keyDebugName = key,
+            allowedValues = allowedValues,
+            minInt = minInt,
+            maxInt = maxInt,
+            allowBlankString = false,
+        )
         return typeError ?: extraValidator?.invoke(rawValue)
     }
 
     companion object {
-        private val BOOLEAN_LITERALS = setOf("true", "false")
-
         private val BY_KEY: Map<String, SettingKey> = entries.associateBy { it.key }
 
         /** Looks up a [SettingKey] by its dotted identifier. */

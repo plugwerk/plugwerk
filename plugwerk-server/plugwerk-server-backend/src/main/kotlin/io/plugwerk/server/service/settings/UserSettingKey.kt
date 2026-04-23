@@ -72,28 +72,25 @@ enum class UserSettingKey(
     ),
     ;
 
+    /**
+     * Validates a proposed new raw value for this user-setting. Delegates the type-level
+     * rules to the shared [ValueValidator] and chains the per-key [extraValidator]
+     * afterwards (e.g. IANA timezone check for `timezone`). User settings permit blank
+     * strings — `timezone=""` is valid and means "fall back to the system default".
+     *
+     * @return `null` if the value is acceptable, or a human-readable error message otherwise.
+     */
     fun validate(rawValue: String): String? {
-        val typeError = when (valueType) {
-            SettingValueType.STRING -> null
-
-            SettingValueType.INTEGER -> if (rawValue.toIntOrNull() == null) "value must be an integer" else null
-
-            SettingValueType.BOOLEAN -> if (rawValue !in BOOLEAN_LITERALS) "value must be 'true' or 'false'" else null
-
-            SettingValueType.ENUM -> {
-                val allowed = allowedValues
-                when {
-                    allowed == null -> "ENUM key '$key' has no allowedValues declared"
-                    rawValue !in allowed -> "value must be one of $allowed, got '$rawValue'"
-                    else -> null
-                }
-            }
-        }
+        val typeError = ValueValidator.validate(
+            rawValue = rawValue,
+            type = valueType,
+            keyDebugName = key,
+            allowedValues = allowedValues,
+        )
         return typeError ?: extraValidator?.invoke(rawValue)
     }
 
     companion object {
-        private val BOOLEAN_LITERALS = setOf("true", "false")
         private val BY_KEY: Map<String, UserSettingKey> = entries.associateBy { it.key }
 
         fun byKey(key: String): UserSettingKey? = BY_KEY[key]
