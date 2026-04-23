@@ -33,7 +33,7 @@ import org.springframework.validation.annotation.Validated
  * All infra/security/bootstrap Plugwerk settings are grouped here. Admin-manageable values
  * (default language, site name, upload size, tracking flags) are **not** here — they live
  * in the `application_setting` database table and are accessed via
- * `GeneralSettingsService`. See [ADR-0016](../../../../../../../../docs/adrs/0016-application-settings-precedence.md).
+ * `ApplicationSettingsService`. See [ADR-0016](../../../../../../../../docs/adrs/0016-application-settings-precedence.md).
  *
  * Each logical sub-section is represented by a nested data class so that consumers can
  * depend on only the slice they need. Registered via `@EnableConfigurationProperties` on

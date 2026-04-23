@@ -27,7 +27,7 @@ import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
-import io.plugwerk.server.service.settings.GeneralSettingsService
+import io.plugwerk.server.service.settings.ApplicationSettingsService
 import io.plugwerk.server.service.storage.ArtifactStorageService
 import io.plugwerk.spi.model.ReleaseStatus
 import org.assertj.core.api.Assertions.assertThat
@@ -78,7 +78,7 @@ class PluginReleaseServiceTest {
     private val autoApprovePlugin =
         PluginEntity(namespace = autoApproveNamespace, pluginId = "auto-plugin", name = "Auto Plugin")
 
-    private val settingsService: GeneralSettingsService = mock<GeneralSettingsService>().also {
+    private val settingsService: ApplicationSettingsService = mock<ApplicationSettingsService>().also {
         whenever(it.maxUploadSizeMb()).thenReturn(1)
     }
 

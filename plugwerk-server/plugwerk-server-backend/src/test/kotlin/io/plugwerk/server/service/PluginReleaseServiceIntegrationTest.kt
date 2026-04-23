@@ -51,7 +51,7 @@ import kotlin.test.assertFailsWith
     PluginService::class,
     NamespaceService::class,
     DownloadEventService::class,
-    io.plugwerk.server.service.settings.GeneralSettingsService::class,
+    io.plugwerk.server.service.settings.ApplicationSettingsService::class,
     io.plugwerk.server.service.settings.UserSettingsService::class,
     PluginReleaseServiceIntegrationTest.MockConfig::class,
 )

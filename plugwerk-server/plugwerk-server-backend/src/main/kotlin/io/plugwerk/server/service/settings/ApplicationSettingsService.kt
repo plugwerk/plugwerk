@@ -35,17 +35,17 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * The service exposes typed accessors for common reads (e.g. [maxUploadSizeMb]) and a
  * generic [getRaw] fallback. Writes go through [update], which validates against
- * [SettingKey.validate] before persisting.
+ * [ApplicationSettingKey.validate] before persisting.
  *
  * A per-key **boot snapshot** is captured once at startup so the Admin UI can flag keys
  * whose current DB value differs from the value the running JVM loaded at boot
  * (e.g. `upload.max_file_size_mb`, which the multipart filter only picks up on restart —
- * see [SettingKey.requiresRestart]).
+ * see [ApplicationSettingKey.requiresRestart]).
  */
 @Service
-class GeneralSettingsService(private val repository: ApplicationSettingRepository) {
+class ApplicationSettingsService(private val repository: ApplicationSettingRepository) {
 
-    private val log = LoggerFactory.getLogger(GeneralSettingsService::class.java)
+    private val log = LoggerFactory.getLogger(ApplicationSettingsService::class.java)
 
     /** Live snapshot of `setting_key -> stored row data`. Updated atomically on writes. */
     private val cache = AtomicReference<Map<String, StoredSetting>>(emptyMap())
@@ -61,7 +61,7 @@ class GeneralSettingsService(private val repository: ApplicationSettingRepositor
     fun initialize() {
         refreshCache()
         bootSnapshot = cache.get()
-        log.info("GeneralSettingsService initialized with {} setting(s)", bootSnapshot.size)
+        log.info("ApplicationSettingsService initialized with {} setting(s)", bootSnapshot.size)
     }
 
     /**
@@ -81,39 +81,40 @@ class GeneralSettingsService(private val repository: ApplicationSettingRepositor
     }
 
     /**
-     * Returns the raw string value for [key], falling back to [SettingKey.defaultValue] if
+     * Returns the raw string value for [key], falling back to [ApplicationSettingKey.defaultValue] if
      * the row is missing or the stored value is an empty string.
      */
-    fun getRaw(key: SettingKey): String {
+    fun getRaw(key: ApplicationSettingKey): String {
         val stored = cache.get()[key.key]?.rawValue
         return if (stored.isNullOrEmpty()) key.defaultValue else stored
     }
 
     /** Typed accessor: `upload.max_file_size_mb` as an Int, clamped to the hard ceiling. */
-    fun maxUploadSizeMb(): Int = getRaw(SettingKey.UPLOAD_MAX_FILE_SIZE_MB).toIntOrNull()
+    fun maxUploadSizeMb(): Int = getRaw(ApplicationSettingKey.UPLOAD_MAX_FILE_SIZE_MB).toIntOrNull()
         ?.coerceIn(1, MAX_ALLOWED_UPLOAD_MB)
-        ?: SettingKey.UPLOAD_MAX_FILE_SIZE_MB.defaultValue.toInt()
+        ?: ApplicationSettingKey.UPLOAD_MAX_FILE_SIZE_MB.defaultValue.toInt()
 
     /** Typed accessor: `tracking.enabled`. */
-    fun trackingEnabled(): Boolean = getRaw(SettingKey.TRACKING_ENABLED).toBooleanStrict()
+    fun trackingEnabled(): Boolean = getRaw(ApplicationSettingKey.TRACKING_ENABLED).toBooleanStrict()
 
     /** Typed accessor: `tracking.capture_ip`. */
-    fun trackingCaptureIp(): Boolean = getRaw(SettingKey.TRACKING_CAPTURE_IP).toBooleanStrict()
+    fun trackingCaptureIp(): Boolean = getRaw(ApplicationSettingKey.TRACKING_CAPTURE_IP).toBooleanStrict()
 
     /** Typed accessor: `tracking.anonymize_ip`. */
-    fun trackingAnonymizeIp(): Boolean = getRaw(SettingKey.TRACKING_ANONYMIZE_IP).toBooleanStrict()
+    fun trackingAnonymizeIp(): Boolean = getRaw(ApplicationSettingKey.TRACKING_ANONYMIZE_IP).toBooleanStrict()
 
     /** Typed accessor: `tracking.capture_user_agent`. */
-    fun trackingCaptureUserAgent(): Boolean = getRaw(SettingKey.TRACKING_CAPTURE_USER_AGENT).toBooleanStrict()
+    fun trackingCaptureUserAgent(): Boolean =
+        getRaw(ApplicationSettingKey.TRACKING_CAPTURE_USER_AGENT).toBooleanStrict()
 
     /** Typed accessor: `general.default_language`. */
-    fun defaultLanguage(): String = getRaw(SettingKey.GENERAL_DEFAULT_LANGUAGE)
+    fun defaultLanguage(): String = getRaw(ApplicationSettingKey.GENERAL_DEFAULT_LANGUAGE)
 
     /** Typed accessor: `general.site_name`. */
-    fun siteName(): String = getRaw(SettingKey.GENERAL_SITE_NAME)
+    fun siteName(): String = getRaw(ApplicationSettingKey.GENERAL_SITE_NAME)
 
     /** Typed accessor: `general.default_timezone` (IANA id, e.g. `UTC`, `Europe/Berlin`). */
-    fun defaultTimezone(): String = getRaw(SettingKey.GENERAL_DEFAULT_TIMEZONE)
+    fun defaultTimezone(): String = getRaw(ApplicationSettingKey.GENERAL_DEFAULT_TIMEZONE)
 
     /**
      * Returns a complete snapshot of every key, including its effective value, description,
@@ -123,7 +124,7 @@ class GeneralSettingsService(private val repository: ApplicationSettingRepositor
     fun listAll(): List<SettingSnapshot> {
         val current = cache.get()
         val boot = if (::bootSnapshot.isInitialized) bootSnapshot else current
-        return SettingKey.entries.map { key ->
+        return ApplicationSettingKey.entries.map { key ->
             val stored = current[key.key]
             val effective = when {
                 stored == null -> key.defaultValue
@@ -151,10 +152,10 @@ class GeneralSettingsService(private val repository: ApplicationSettingRepositor
     /**
      * Persists a new value for [key] and refreshes the cache.
      *
-     * @throws IllegalArgumentException if [rawValue] fails [SettingKey.validate].
+     * @throws IllegalArgumentException if [rawValue] fails [ApplicationSettingKey.validate].
      */
     @Transactional
-    fun update(key: SettingKey, rawValue: String, updatedBy: String?): SettingSnapshot {
+    fun update(key: ApplicationSettingKey, rawValue: String, updatedBy: String?): SettingSnapshot {
         key.validate(rawValue)?.let { error ->
             throw IllegalArgumentException("Invalid value for setting '${key.key}': $error")
         }
@@ -174,12 +175,12 @@ class GeneralSettingsService(private val repository: ApplicationSettingRepositor
     }
 }
 
-/** Origin of the effective value returned by [GeneralSettingsService.listAll]. */
+/** Origin of the effective value returned by [ApplicationSettingsService.listAll]. */
 enum class SettingSource {
     /** Value is backed by a row in `application_setting`. */
     DATABASE,
 
-    /** No row exists — the value is the hard-coded default in [SettingKey]. */
+    /** No row exists — the value is the hard-coded default in [ApplicationSettingKey]. */
     DEFAULT,
 }
 
@@ -191,16 +192,16 @@ internal data class StoredSetting(val rawValue: String, val description: String?
 /**
  * A point-in-time view of one setting.
  *
- * @property key the [SettingKey] entry.
+ * @property key the [ApplicationSettingKey] entry.
  * @property value the effective raw string value (either from DB or the hard-coded default).
  * @property description human-readable description from the DB row, or `null` if the row
  *   is missing or has no description persisted.
  * @property source where [value] came from.
- * @property restartPending `true` if [SettingKey.requiresRestart] and the DB value has
+ * @property restartPending `true` if [ApplicationSettingKey.requiresRestart] and the DB value has
  *   diverged from the value the JVM loaded at boot. UI hint only.
  */
 data class SettingSnapshot(
-    val key: SettingKey,
+    val key: ApplicationSettingKey,
     val value: String,
     val description: String?,
     val source: SettingSource,

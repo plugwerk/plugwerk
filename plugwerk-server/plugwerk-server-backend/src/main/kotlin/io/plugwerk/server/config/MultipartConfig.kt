@@ -18,7 +18,7 @@
  */
 package io.plugwerk.server.config
 
-import io.plugwerk.server.service.settings.GeneralSettingsService
+import io.plugwerk.server.service.settings.ApplicationSettingsService
 import io.plugwerk.server.service.settings.MAX_ALLOWED_UPLOAD_MB
 import jakarta.servlet.MultipartConfigElement
 import org.slf4j.LoggerFactory
@@ -32,7 +32,7 @@ import org.springframework.util.unit.DataSize
  * `upload.max_file_size_mb` (ADR-0016).
  *
  * The bean is built at context refresh time — **after** Liquibase has run and
- * `GeneralSettingsService.@PostConstruct` has populated its cache — but **before** Tomcat
+ * `ApplicationSettingsService.@PostConstruct` has populated its cache — but **before** Tomcat
  * registers the multipart filter. Spring Boot then uses this element to configure the
  * servlet container's max file size and max request size.
  *
@@ -40,7 +40,7 @@ import org.springframework.util.unit.DataSize
  * the servlet is registered; changing the DB value afterwards updates the in-memory cache
  * but does not reconfigure the servlet. The Admin UI displays a "restart pending" notice
  * whenever the DB value has diverged from the boot value (see
- * [GeneralSettingsService.listAll] and `SettingSnapshot.restartPending`). A follow-up
+ * [ApplicationSettingsService.listAll] and `SettingSnapshot.restartPending`). A follow-up
  * issue tracks runtime reconfiguration.
  *
  * A hard safety ceiling of [MAX_ALLOWED_UPLOAD_MB] MB is always applied on top
@@ -53,7 +53,7 @@ class MultipartConfig {
     private val log = LoggerFactory.getLogger(MultipartConfig::class.java)
 
     @Bean
-    fun multipartConfigElement(settingsService: GeneralSettingsService): MultipartConfigElement {
+    fun multipartConfigElement(settingsService: ApplicationSettingsService): MultipartConfigElement {
         val dbValue = settingsService.maxUploadSizeMb()
         val effective = dbValue.coerceAtMost(MAX_ALLOWED_UPLOAD_MB)
         if (effective != dbValue) {

@@ -40,7 +40,7 @@ interface ApplicationSettingRepository : JpaRepository<ApplicationSettingEntity,
      * @param settingKey e.g. `upload.max_file_size_mb` or `tracking.enabled`.
      * @return the row if present, otherwise [Optional.empty]. An empty result means the
      *   setting has never been seeded — callers must fall back to the hard-coded default
-     *   defined in `SettingKey`.
+     *   defined in `ApplicationSettingKey`.
      */
     fun findBySettingKey(settingKey: String): Optional<ApplicationSettingEntity>
 }

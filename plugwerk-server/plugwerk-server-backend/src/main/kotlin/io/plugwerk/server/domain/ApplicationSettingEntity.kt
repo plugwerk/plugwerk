@@ -33,7 +33,7 @@ import java.util.UUID
  * Scalar value type stored in [ApplicationSettingEntity.valueType].
  *
  * Determines how [ApplicationSettingEntity.settingValue] (stored as `text`) is parsed back
- * into a typed runtime value. See `SettingKey` in the service layer for the per-key mapping.
+ * into a typed runtime value. See `ApplicationSettingKey` in the service layer for the per-key mapping.
  */
 enum class SettingValueType {
     STRING,
@@ -55,7 +55,7 @@ enum class SettingValueType {
  * @property id Primary key, UUIDv7 (chronologically ordered — see ADR-0003).
  * @property settingKey Stable dotted identifier, e.g. `upload.max_file_size_mb`. Unique.
  * @property settingValue Stringified value. `null` means "unset — fall back to the key's
- *   hard-coded default in `SettingKey`". Parsing is driven by [valueType].
+ *   hard-coded default in `ApplicationSettingKey`". Parsing is driven by [valueType].
  * @property settingDesc Human-readable description of the setting. Seeded by Liquibase with
  *   a sensible default for every known key and displayed in the Admin UI as inline help.
  *   Nullable because a row may exist for an unknown/legacy key without a description.

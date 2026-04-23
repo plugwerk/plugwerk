@@ -21,7 +21,7 @@ package io.plugwerk.server.service.settings
 import io.plugwerk.server.domain.SettingValueType
 
 /**
- * Shared type-validation path for both admin-facing [SettingKey.validate] and user-facing
+ * Shared type-validation path for both admin-facing [ApplicationSettingKey.validate] and user-facing
  * [UserSettingKey.validate] (RC-011 / #281).
  *
  * Before this helper existed, both enums carried a near-identical 30-line `when(valueType)`

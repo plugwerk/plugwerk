@@ -23,7 +23,7 @@ import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.PluginEntity
 import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.repository.DownloadEventRepository
-import io.plugwerk.server.service.settings.GeneralSettingsService
+import io.plugwerk.server.service.settings.ApplicationSettingsService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -59,8 +59,8 @@ class DownloadEventServiceTest {
         captureIp: Boolean = true,
         anonymizeIp: Boolean = true,
         captureUserAgent: Boolean = true,
-    ): GeneralSettingsService {
-        val settings = mock<GeneralSettingsService>()
+    ): ApplicationSettingsService {
+        val settings = mock<ApplicationSettingsService>()
         whenever(settings.trackingEnabled()).thenReturn(enabled)
         whenever(settings.trackingCaptureIp()).thenReturn(captureIp)
         whenever(settings.trackingAnonymizeIp()).thenReturn(anonymizeIp)

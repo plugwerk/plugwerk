@@ -26,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional
 /**
  * Reads and writes per-user settings (ADR-0018).
  *
- * Unlike [GeneralSettingsService] (which caches globally), this service reads from the database
+ * Unlike [ApplicationSettingsService] (which caches globally), this service reads from the database
  * on every call because user settings are low-frequency and per-user caching adds complexity
  * with no meaningful performance benefit for the profile settings page.
  */

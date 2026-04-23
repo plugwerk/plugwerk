@@ -21,7 +21,7 @@ package io.plugwerk.server.service
 import io.plugwerk.server.domain.DownloadEventEntity
 import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.repository.DownloadEventRepository
-import io.plugwerk.server.service.settings.GeneralSettingsService
+import io.plugwerk.server.service.settings.ApplicationSettingsService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
@@ -33,14 +33,14 @@ import java.net.InetAddress
  *
  * Runs in its own transaction ([Propagation.REQUIRES_NEW]) so that a failure to record
  * an event never rolls back the actual artifact download. The service reads its
- * privacy-relevant flags from [GeneralSettingsService], which is backed by the
+ * privacy-relevant flags from [ApplicationSettingsService], which is backed by the
  * `application_setting` table (ADR-0016). Changes apply to the next download without a
  * server restart.
  */
 @Service
 class DownloadEventService(
     private val downloadEventRepository: DownloadEventRepository,
-    private val settingsService: GeneralSettingsService,
+    private val settingsService: ApplicationSettingsService,
 ) {
 
     private val log = LoggerFactory.getLogger(DownloadEventService::class.java)

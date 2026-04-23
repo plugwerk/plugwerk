@@ -22,7 +22,7 @@ import io.plugwerk.server.domain.SettingValueType
 import java.time.DateTimeException
 import java.time.ZoneId
 
-/** Hard safety ceiling in MB for [SettingKey.UPLOAD_MAX_FILE_SIZE_MB]. */
+/** Hard safety ceiling in MB for [ApplicationSettingKey.UPLOAD_MAX_FILE_SIZE_MB]. */
 const val MAX_ALLOWED_UPLOAD_MB: Int = 1024
 
 /** Validates that [rawValue] is a known IANA timezone identifier. */
@@ -45,9 +45,9 @@ private fun validateTimezone(rawValue: String): String? = try {
  * Adding a new setting:
  *  1. Add an entry here.
  *  2. Add a Liquibase insert changeset for it in a new migration (do not edit `0005`).
- *  3. Expose it via `GeneralSettingsService` accessors as needed by the consumers.
+ *  3. Expose it via `ApplicationSettingsService` accessors as needed by the consumers.
  */
-enum class SettingKey(
+enum class ApplicationSettingKey(
     val key: String,
     val valueType: SettingValueType,
     val defaultValue: String,
@@ -126,9 +126,9 @@ enum class SettingKey(
     }
 
     companion object {
-        private val BY_KEY: Map<String, SettingKey> = entries.associateBy { it.key }
+        private val BY_KEY: Map<String, ApplicationSettingKey> = entries.associateBy { it.key }
 
-        /** Looks up a [SettingKey] by its dotted identifier. */
-        fun byKey(key: String): SettingKey? = BY_KEY[key]
+        /** Looks up a [ApplicationSettingKey] by its dotted identifier. */
+        fun byKey(key: String): ApplicationSettingKey? = BY_KEY[key]
     }
 }
