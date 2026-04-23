@@ -19,7 +19,7 @@
 package io.plugwerk.server.controller
 
 import io.plugwerk.server.service.VersionProvider
-import io.plugwerk.server.service.settings.GeneralSettingsService
+import io.plugwerk.server.service.settings.ApplicationSettingsService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/v1")
 class ConfigController(
-    private val settingsService: GeneralSettingsService,
+    private val settingsService: ApplicationSettingsService,
     private val versionProvider: VersionProvider,
 ) {
 

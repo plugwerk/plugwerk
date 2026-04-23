@@ -27,7 +27,7 @@ import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
-import io.plugwerk.server.service.settings.GeneralSettingsService
+import io.plugwerk.server.service.settings.ApplicationSettingsService
 import io.plugwerk.server.service.storage.ArtifactStorageService
 import io.plugwerk.spi.model.ReleaseStatus
 import org.springframework.data.domain.Page
@@ -49,7 +49,7 @@ class PluginReleaseService(
     private val storageService: ArtifactStorageService,
     private val descriptorResolver: DescriptorResolver,
     private val objectMapper: ObjectMapper,
-    private val settingsService: GeneralSettingsService,
+    private val settingsService: ApplicationSettingsService,
     private val downloadEventService: DownloadEventService,
 ) {
 

@@ -25,7 +25,7 @@ import io.plugwerk.server.security.PasswordChangeRequiredFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.security.RefreshRateLimitFilter
 import io.plugwerk.server.service.VersionProvider
-import io.plugwerk.server.service.settings.GeneralSettingsService
+import io.plugwerk.server.service.settings.ApplicationSettingsService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
@@ -55,7 +55,7 @@ class ConfigControllerTest {
 
     @MockitoBean lateinit var jwtDecoder: JwtDecoder
 
-    @MockitoBean lateinit var settingsService: GeneralSettingsService
+    @MockitoBean lateinit var settingsService: ApplicationSettingsService
 
     @MockitoBean lateinit var versionProvider: VersionProvider
 

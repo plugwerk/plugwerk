@@ -24,8 +24,8 @@ import io.plugwerk.api.model.ApplicationSettingsResponse
 import io.plugwerk.api.model.ApplicationSettingsUpdateRequest
 import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.service.UnauthorizedException
-import io.plugwerk.server.service.settings.GeneralSettingsService
-import io.plugwerk.server.service.settings.SettingKey
+import io.plugwerk.server.service.settings.ApplicationSettingKey
+import io.plugwerk.server.service.settings.ApplicationSettingsService
 import io.plugwerk.server.service.settings.SettingSnapshot
 import io.plugwerk.server.service.settings.SettingSource
 import org.springframework.http.ResponseEntity
@@ -41,13 +41,13 @@ import org.springframework.web.bind.annotation.RestController
  * because these settings are process-wide, not namespace-scoped.
  *
  * The controller delegates the entire read/write/validate pipeline to
- * [GeneralSettingsService]; its job is translation between the OpenAPI-generated DTOs and
+ * [ApplicationSettingsService]; its job is translation between the OpenAPI-generated DTOs and
  * the service's internal [SettingSnapshot] type.
  */
 @RestController
 @RequestMapping("/api/v1")
 class AdminSettingsController(
-    private val settingsService: GeneralSettingsService,
+    private val settingsService: ApplicationSettingsService,
     private val namespaceAuthorizationService: NamespaceAuthorizationService,
 ) : AdminSettingsApi {
 
@@ -63,7 +63,7 @@ class AdminSettingsController(
         val principal = requireSuperadmin()
         val updates = applicationSettingsUpdateRequest.settings
         for ((rawKey, rawValue) in updates) {
-            val key = SettingKey.byKey(rawKey)
+            val key = ApplicationSettingKey.byKey(rawKey)
                 ?: throw IllegalArgumentException("Unknown setting key: '$rawKey'")
             settingsService.update(key, rawValue, updatedBy = principal)
         }
