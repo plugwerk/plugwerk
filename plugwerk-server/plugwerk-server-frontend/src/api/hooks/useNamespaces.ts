@@ -57,9 +57,7 @@ export function useNamespaces() {
  */
 export function useNamespace(slug: string | null | undefined) {
   const query = useNamespaces();
-  const found = slug
-    ? query.data?.find((ns) => ns.slug === slug)
-    : undefined;
+  const found = slug ? query.data?.find((ns) => ns.slug === slug) : undefined;
   return {
     namespace: found,
     isLoading: query.isLoading,
