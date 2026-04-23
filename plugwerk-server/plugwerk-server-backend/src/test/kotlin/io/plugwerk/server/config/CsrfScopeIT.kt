@@ -21,6 +21,7 @@ package io.plugwerk.server.config
 import io.plugwerk.server.domain.UserEntity
 import io.plugwerk.server.repository.UserRepository
 import io.plugwerk.server.service.JwtTokenService
+import jakarta.servlet.http.Cookie
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -32,6 +33,7 @@ import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.TestPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
+import java.util.UUID
 
 /**
  * Pins the CSRF scope contract (ADR-0027, supersedes ADR-0020): CSRF protection is
@@ -104,6 +106,33 @@ class CsrfScopeIT {
         }.andExpect {
             // 204 means the Bearer passed authz and logout ran — no CSRF block.
             status { isNoContent() }
+        }
+    }
+
+    @Test
+    fun `refresh with matching raw CSRF cookie and header passes the CSRF check`() {
+        // Regression guard for the SPA double-submit contract (ADR-0027): the frontend
+        // reads the `XSRF-TOKEN` cookie value and echoes the raw value in the
+        // `X-XSRF-TOKEN` header. Spring Security 6+/7 default is
+        // `XorCsrfTokenRequestAttributeHandler`, which rejects raw values because it
+        // expects an XOR-masked token — so the cookie-only pattern only works when the
+        // non-XOR `CsrfTokenRequestAttributeHandler` is wired into the config.
+        //
+        // We assert the *absence of 403*, not success: without a valid plugwerk_refresh
+        // cookie the controller rightly returns 401. The point of this test is to pin
+        // the XOR→non-XOR handler swap: if someone ever puts the default handler back,
+        // this test returns 403 and fails loudly.
+        val csrfToken = UUID.randomUUID().toString()
+        val response = mockMvc.post("/api/v1/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            cookie(Cookie("XSRF-TOKEN", csrfToken))
+            header("X-XSRF-TOKEN", csrfToken)
+        }.andReturn().response
+
+        check(response.status != 403) {
+            "refresh returned 403 for matching raw CSRF cookie+header — the XOR handler " +
+                "is active again and SPA double-submit is broken. See ADR-0027 and the " +
+                "SecurityConfiguration csrfTokenRequestHandler setting."
         }
     }
 
