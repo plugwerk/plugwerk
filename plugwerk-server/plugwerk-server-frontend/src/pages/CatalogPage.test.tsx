@@ -93,8 +93,8 @@ describe("CatalogPage", () => {
     useAuthStore.setState({
       accessToken: null,
       namespace: "acme",
-      namespaceRole: null,
-      fetchNamespaceRole: vi.fn(),
+      isAuthenticated: false,
+      isHydrating: false,
     });
     useUiStore.setState({ searchQuery: "", toasts: [] });
     usePluginStore.setState({ filters: { ...defaultFilters } });
@@ -194,8 +194,6 @@ describe("CatalogPage", () => {
     useAuthStore.setState({
       accessToken: "tok",
       isAuthenticated: true,
-      namespaceRole: null,
-      fetchNamespaceRole: vi.fn(),
     });
     mockListPlugins.mockResolvedValue({
       data: makeResponse({
@@ -216,7 +214,6 @@ describe("CatalogPage", () => {
     useAuthStore.setState({
       accessToken: "tok",
       isAuthenticated: true,
-      fetchNamespaceRole: vi.fn(),
     });
     renderCatalog();
     // Wait for the initial load to complete so we're past loading state

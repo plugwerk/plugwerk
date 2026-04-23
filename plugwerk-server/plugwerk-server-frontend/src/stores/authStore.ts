@@ -17,8 +17,7 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 import { create } from "zustand";
-import { namespaceMembersApi, namespacesApi } from "../api/config";
-import type { NamespaceRole } from "../api/generated/model";
+import { namespacesApi } from "../api/config";
 import { refreshAccessToken } from "../api/refresh";
 
 /**
@@ -37,7 +36,6 @@ interface AuthState {
   isAuthenticated: boolean;
   passwordChangeRequired: boolean;
   isSuperadmin: boolean;
-  namespaceRole: NamespaceRole | null;
   /** `true` until hydrate() has resolved (success or 401). Blocks initial API calls. */
   isHydrating: boolean;
 
@@ -54,7 +52,6 @@ interface AuthState {
   setNamespace: (ns: string) => void;
   initNamespace: () => Promise<void>;
   clearPasswordChangeRequired: () => void;
-  fetchNamespaceRole: (ns: string) => Promise<void>;
 
   // Legacy alias kept for ProfileSettingsPage compatibility
   apiKey: string | null;
@@ -101,7 +98,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
   passwordChangeRequired: false,
   isSuperadmin: false,
-  namespaceRole: null,
   isHydrating: true,
 
   get apiKey() {
@@ -126,7 +122,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isAuthenticated: false,
       passwordChangeRequired: false,
       isSuperadmin: false,
-      namespaceRole: null,
     });
   },
 
@@ -185,7 +180,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   setNamespace(ns) {
     localStorage.setItem(NAMESPACE_KEY, ns);
-    set({ namespace: ns, namespaceRole: null });
+    set({ namespace: ns });
   },
 
   async initNamespace() {
@@ -210,18 +205,5 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   clearPasswordChangeRequired() {
     set({ passwordChangeRequired: false });
-  },
-
-  async fetchNamespaceRole(ns: string) {
-    if (!get().isAuthenticated) {
-      set({ namespaceRole: null });
-      return;
-    }
-    try {
-      const response = await namespaceMembersApi.getMyMembership({ ns });
-      set({ namespaceRole: response.data.role });
-    } catch {
-      set({ namespaceRole: null });
-    }
   },
 }));

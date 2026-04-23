@@ -37,9 +37,9 @@ import { ChangelogTab } from "../components/plugin-detail/ChangelogTab";
 import { DependenciesTab } from "../components/plugin-detail/DependenciesTab";
 import { catalogApi, managementApi } from "../api/config";
 import { pluginsKeys } from "../api/hooks/usePlugins";
+import { useNamespaceRole } from "../api/hooks/useNamespaceRole";
 import type { PluginDto, PluginReleaseDto } from "../api/generated/model";
 import { ConfirmDeleteDialog } from "../components/common/ConfirmDeleteDialog";
-import { useAuthStore } from "../stores/authStore";
 import { useUiStore } from "../stores/uiStore";
 
 const TAB_IDS = ["overview", "versions", "changelog", "dependencies"];
@@ -50,10 +50,8 @@ export function PluginDetailPage() {
     pluginId: string;
   }>();
   const navigate = useNavigate();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const namespaceRole = useAuthStore((s) => s.namespaceRole);
-  const fetchNamespaceRole = useAuthStore((s) => s.fetchNamespaceRole);
-  const isAdmin = namespaceRole === "ADMIN";
+  const { data: membership } = useNamespaceRole(namespace);
+  const isAdmin = membership?.role === "ADMIN";
   const [plugin, setPlugin] = useState<PluginDto | null>(null);
   const [releases, setReleases] = useState<PluginReleaseDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,10 +81,6 @@ export function PluginDetailPage() {
     }
     if (pluginId) load();
   }, [namespace, pluginId]);
-
-  useEffect(() => {
-    if (isAuthenticated) fetchNamespaceRole(namespace);
-  }, [isAuthenticated, namespace, fetchNamespaceRole]);
 
   const handleReleaseDeleted = useCallback((version: string) => {
     setReleases((prev) => prev.filter((r) => r.version !== version));

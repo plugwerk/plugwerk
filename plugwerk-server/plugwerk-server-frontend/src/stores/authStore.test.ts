@@ -31,7 +31,6 @@ describe("useAuthStore", () => {
       isAuthenticated: false,
       passwordChangeRequired: false,
       isSuperadmin: false,
-      namespaceRole: null,
       isHydrating: false,
     });
   });
