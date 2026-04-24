@@ -125,16 +125,20 @@ export function CatalogPage() {
     [canUpload, namespace, uploadFiles],
   );
 
+  // Zustand actions (`setNamespace`, `setFilters`) are stable references for
+  // the store's lifetime, so listing them in deps does not trigger extra runs.
+  // ESLint can't prove the stability statically though — exhaustive-deps is
+  // happy when they're listed.
   useEffect(() => {
     setNamespace(namespace);
-  }, [namespace]);
+  }, [namespace, setNamespace]);
 
   // Reset page to 0 when the debounced search changes, matching the previous
   // store behaviour. The query refetches automatically because `queryFilters`
   // changes as part of the same render.
   useEffect(() => {
     setFilters({ search: debouncedSearch, page: 0 });
-  }, [debouncedSearch]);
+  }, [debouncedSearch, setFilters]);
 
   return (
     <Box
