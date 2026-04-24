@@ -21,6 +21,7 @@ package io.plugwerk.server.controller
 import io.plugwerk.server.controller.mapper.PluginMapper
 import io.plugwerk.server.controller.mapper.PluginReleaseMapper
 import io.plugwerk.server.domain.NamespaceEntity
+import io.plugwerk.server.domain.NamespaceRole
 import io.plugwerk.server.domain.PluginEntity
 import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.repository.NamespaceRepository
@@ -37,6 +38,7 @@ import io.plugwerk.server.service.Pf4jCompatibilityService
 import io.plugwerk.server.service.PluginNotFoundException
 import io.plugwerk.server.service.PluginReleaseService
 import io.plugwerk.server.service.PluginService
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
@@ -51,6 +53,8 @@ import org.springframework.context.annotation.FilterType
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
 import org.springframework.http.MediaType
+import org.springframework.security.authentication.TestingAuthenticationToken
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
@@ -236,6 +240,32 @@ class CatalogControllerTest {
             .andExpect {
                 status { isOk() }
                 header { string("Content-Disposition", "attachment; filename=\"my-plugin-1.0.0.jar\"") }
+            }
+    }
+
+    @AfterEach
+    fun clearSecurityContext() {
+        SecurityContextHolder.clearContext()
+    }
+
+    @Test
+    fun `listPlugins surfaces unexpected runtime error from role lookup as 500`() {
+        // KT-004 / #287 regression: before the fix, a runtime error thrown by the
+        // namespace member repository during role probing was caught by the broad
+        // catch(Exception) in resolveVisibility and silently downgraded the caller
+        // to PUBLIC visibility — returning a 200 with a subset of the catalog under
+        // the authenticated user's own URL. The fix routes through hasRole (narrow
+        // catch scope) and lets the error propagate to GlobalExceptionHandler.
+        SecurityContextHolder.getContext().authentication =
+            TestingAuthenticationToken("alice", "n/a", "ROLE_USER").apply { isAuthenticated = true }
+        whenever(namespaceAuthService.isSuperadmin(any())).thenReturn(false)
+        whenever(namespaceAuthService.hasRole(any<String>(), any<NamespaceRole>()))
+            .thenThrow(RuntimeException("connection refused"))
+
+        mockMvc.get("/api/v1/namespaces/acme/plugins")
+            .andExpect {
+                status { isInternalServerError() }
+                jsonPath("$.status") { value(500) }
             }
     }
 

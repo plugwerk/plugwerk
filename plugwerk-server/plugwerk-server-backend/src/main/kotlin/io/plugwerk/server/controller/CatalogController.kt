@@ -205,6 +205,14 @@ class CatalogController(
 
     /**
      * Determines catalog visibility based on the caller's authentication and role.
+     *
+     * Role probing uses [NamespaceAuthorizationService.hasRole], which catches only the
+     * two authorization-shaped exceptions (`ForbiddenException`, `NamespaceNotFoundException`)
+     * and lets every other failure propagate. Before KT-004 / #287 this method wrapped
+     * `requireRole` in two `catch(Exception)` blocks that silently downgraded every
+     * runtime error (DB connectivity, NPE, …) to `PUBLIC`; a structured 500 is preferable
+     * to a 200 response that shows the anonymous subset of the catalog under the
+     * authenticated user's own URL.
      */
     private fun resolveVisibility(ns: String): CatalogVisibility {
         val auth = SecurityContextHolder.getContext().authentication ?: return CatalogVisibility.PUBLIC
@@ -213,17 +221,11 @@ class CatalogController(
         if (auth.name.startsWith("key:")) return CatalogVisibility.PUBLIC
         // System superadmin sees everything
         if (namespaceAuthService.isSuperadmin(auth)) return CatalogVisibility.ADMIN
-        // Check namespace-level role
-        return try {
-            namespaceAuthService.requireRole(ns, auth, NamespaceRole.ADMIN)
-            CatalogVisibility.ADMIN
-        } catch (_: Exception) {
-            try {
-                namespaceAuthService.requireRole(ns, auth, NamespaceRole.READ_ONLY)
-                CatalogVisibility.AUTHENTICATED
-            } catch (_: Exception) {
-                CatalogVisibility.PUBLIC
-            }
+        // Check namespace-level role — ordered from most to least privileged.
+        return when {
+            namespaceAuthService.hasRole(ns, NamespaceRole.ADMIN) -> CatalogVisibility.ADMIN
+            namespaceAuthService.hasRole(ns, NamespaceRole.READ_ONLY) -> CatalogVisibility.AUTHENTICATED
+            else -> CatalogVisibility.PUBLIC
         }
     }
 
