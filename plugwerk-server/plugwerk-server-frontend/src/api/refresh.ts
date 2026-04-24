@@ -39,13 +39,54 @@ let inFlight: Promise<RefreshedAuth | null> | null = null;
 
 export function refreshAccessToken(): Promise<RefreshedAuth | null> {
   if (inFlight) return inFlight;
-  inFlight = doRefresh().finally(() => {
+  inFlight = doRefreshWithCsrfBootstrap().finally(() => {
     inFlight = null;
   });
   return inFlight;
 }
 
-async function doRefresh(): Promise<RefreshedAuth | null> {
+/**
+ * Refresh with CSRF bootstrap retry.
+ *
+ * Spring's `CookieCsrfTokenRepository` issues the `XSRF-TOKEN` cookie lazily —
+ * it only appears in the browser's cookie jar after the first response that
+ * needs to tell the client about it. On a fresh page reload the jar may be
+ * empty of `XSRF-TOKEN` even though the session is otherwise valid, because
+ * our login endpoint is not wired into Spring's auth filter chain (so the
+ * `CsrfAuthenticationStrategy` never fires and never rotates a fresh token
+ * into the response).
+ *
+ * Consequence: the very first `POST /auth/refresh` after reload has no
+ * `X-XSRF-TOKEN` header, Spring's `CsrfFilter` rejects it with 401, and as a
+ * side effect it writes a freshly-generated `XSRF-TOKEN` cookie to the 401
+ * response. If we retry exactly once, the retry will have the cookie and
+ * will pass the CSRF check.
+ *
+ * Retrying is safe because the first attempt never reached our controller
+ * (it was short-circuited by the CSRF filter); no refresh-token rotation
+ * happened, so no token reuse is possible on the retry.
+ */
+async function doRefreshWithCsrfBootstrap(): Promise<RefreshedAuth | null> {
+  const firstHadXsrf = readCookie("XSRF-TOKEN") != null;
+  const first = await doRefresh();
+  if (first.auth) return first.auth;
+  // Retry exactly once when the first attempt plausibly failed on CSRF:
+  // we started without an XSRF-TOKEN cookie and the server has now set one
+  // (as a side effect of its 401). Skip the retry if nothing changed.
+  const nowHasXsrf = readCookie("XSRF-TOKEN") != null;
+  if (!firstHadXsrf && nowHasXsrf && first.status === 401) {
+    const second = await doRefresh();
+    return second.auth;
+  }
+  return null;
+}
+
+interface RefreshAttempt {
+  auth: RefreshedAuth | null;
+  status: number;
+}
+
+async function doRefresh(): Promise<RefreshAttempt> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -59,21 +100,24 @@ async function doRefresh(): Promise<RefreshedAuth | null> {
     headers,
   });
   if (!response.ok) {
-    return null;
+    return { auth: null, status: response.status };
   }
   const data = await response.json();
   if (typeof data.accessToken !== "string") {
-    return null;
+    return { auth: null, status: response.status };
   }
   // The server encodes username in the JWT subject; decode locally to avoid a
   // second round-trip. Only the `sub` claim is read and never trusted for
   // authorization — the server already validated the token.
   const subject = decodeJwtSubject(data.accessToken) ?? "";
   return {
-    accessToken: data.accessToken,
-    username: subject,
-    passwordChangeRequired: data.passwordChangeRequired === true,
-    isSuperadmin: data.isSuperadmin === true,
+    auth: {
+      accessToken: data.accessToken,
+      username: subject,
+      passwordChangeRequired: data.passwordChangeRequired === true,
+      isSuperadmin: data.isSuperadmin === true,
+    },
+    status: response.status,
   };
 }
 

@@ -19,6 +19,8 @@
 package io.plugwerk.server.security
 
 import io.plugwerk.server.PlugwerkProperties
+import jakarta.annotation.PostConstruct
+import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseCookie
 import org.springframework.stereotype.Component
 import java.time.Duration
@@ -41,6 +43,30 @@ import java.time.Duration
  */
 @Component
 class RefreshTokenCookieFactory(private val props: PlugwerkProperties) {
+
+    private val log = LoggerFactory.getLogger(RefreshTokenCookieFactory::class.java)
+
+    /**
+     * Warn loudly at startup when the deployment combines a plain-HTTP base URL with the
+     * default `cookieSecure = true`. Browsers silently drop `Secure` cookies on HTTP
+     * connections, which makes the refresh cookie invisible to the server on the next
+     * request — every page reload then looks like a forced logout. Dev setups routinely
+     * trip on this without a clear signal; a single `WARN` line here beats hours of
+     * debugging. See ADR-0027 and `.env.example` for the override.
+     */
+    @PostConstruct
+    fun validateCookieSecureAgainstBaseUrl() {
+        val baseUrl = props.server.baseUrl
+        if (baseUrl.startsWith("http://") && props.auth.cookieSecure) {
+            log.warn(
+                "PLUGWERK_AUTH_COOKIE_SECURE=true combined with an http:// base URL " +
+                    "({}) — browsers drop `Secure` cookies on plain HTTP, so the refresh " +
+                    "cookie will never be stored and every reload will redirect to /login. " +
+                    "Set PLUGWERK_AUTH_COOKIE_SECURE=false for local HTTP dev (see ADR-0027).",
+                baseUrl,
+            )
+        }
+    }
 
     /** Builds the cookie for a freshly-issued refresh token. */
     fun build(plaintext: String, maxAge: Duration): ResponseCookie = ResponseCookie.from(COOKIE_NAME, plaintext)
