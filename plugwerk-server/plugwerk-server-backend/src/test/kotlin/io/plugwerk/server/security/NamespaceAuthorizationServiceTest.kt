@@ -287,6 +287,29 @@ class NamespaceAuthorizationServiceTest {
     }
 
     @Test
+    fun `hasRole propagates unexpected runtime errors instead of returning false`() {
+        // KT-004 / #287 regression: the narrow catch on ForbiddenException +
+        // NamespaceNotFoundException must NOT swallow DB connectivity failures or
+        // other unexpected runtime errors. Before the fix, CatalogController.
+        // resolveVisibility wrapped requireRole in catch(Exception), which silently
+        // downgraded callers to PUBLIC visibility when the member-lookup blew up.
+        withAuth("alice")
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.empty())
+        whenever(
+            namespaceMemberRepository.existsByNamespaceIdAndUserSubjectAndRoleIn(
+                eq(nsId),
+                eq("alice"),
+                any(),
+            ),
+        ).thenThrow(RuntimeException("connection refused"))
+
+        assertThatThrownBy { service.hasRole("acme", NamespaceRole.READ_ONLY) }
+            .isInstanceOf(RuntimeException::class.java)
+            .hasMessage("connection refused")
+    }
+
+    @Test
     fun `hasRole string overload delegates to enum-typed hasRole`() {
         withAuth("key:acme")
 
