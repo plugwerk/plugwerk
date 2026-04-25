@@ -334,7 +334,34 @@ If `MANIFEST.MF` is absent, the server falls back to `plugin.properties`.
 ./gradlew :plugwerk-api:plugwerk-api-endpoint:openApiGenerate :plugwerk-api:plugwerk-api-model:openApiGenerate  # Regenerate backend DTOs/interfaces from OpenAPI YAML
 ./gradlew :plugwerk-server:plugwerk-server-backend:bootRun
 docker compose up -d postgres                     # Start dev database
+docker compose --profile keycloak up -d           # Start local Keycloak for OIDC dev (issue #79)
 ```
+
+### Local Keycloak for OIDC development (issue #79)
+
+The `keycloak` Docker Compose profile runs a single-node Keycloak that backs the
+browser-based OIDC login flow. It is **localhost-only** and ships a fixed test
+realm with weak credentials — never expose it beyond your machine.
+
+```bash
+docker compose --profile keycloak up -d           # Start Keycloak
+docker compose --profile keycloak down            # Stop Keycloak (data persists)
+docker compose --profile keycloak down -v         # Stop and wipe the realm/state
+```
+
+| Resource | Value |
+|---|---|
+| Admin console | <http://localhost:8081> (`admin` / `admin`) |
+| Issuer URI    | `http://localhost:8081/realms/plugwerk` |
+| Client ID     | `plugwerk-local` |
+| Client secret | `local-dev-secret-do-not-use-in-prod` |
+| Test users    | `alice` / `password` and `bob` / `password` (both with `<name>@plugwerk.test`) |
+
+After Keycloak is up, register the issuer in the Plugwerk Admin UI under
+**Admin → OIDC Providers → Add Provider** with type `KEYCLOAK`. The realm
+definition lives in `docker/keycloak/plugwerk-realm.json`; edit it there and
+restart the container with `down -v` to pick up changes (Keycloak only
+imports realms that don't already exist).
 
 ### Frontend (run from `plugwerk-server/plugwerk-server-frontend/`)
 
