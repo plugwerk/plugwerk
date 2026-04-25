@@ -18,10 +18,10 @@
  */
 package io.plugwerk.server
 
-import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.postgresql.PostgreSQLContainer
 
 object SharedPostgresContainer {
-    val instance: PostgreSQLContainer<*> =
+    val instance: PostgreSQLContainer =
         PostgreSQLContainer("postgres:18-alpine").apply {
             start()
         }
