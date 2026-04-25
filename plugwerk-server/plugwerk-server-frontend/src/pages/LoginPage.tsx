@@ -21,6 +21,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Box, TextField, Button, Alert } from "@mui/material";
 import { AuthCard } from "../components/auth/AuthCard";
 import { useAuthStore } from "../stores/authStore";
+import { safeRedirectPath } from "../utils/safeRedirectPath";
 
 export function LoginPage() {
   const { login } = useAuthStore();
@@ -50,8 +51,16 @@ export function LoginPage() {
       } else if (!namespace) {
         navigate("/onboarding", { replace: true });
       } else {
-        // Only use the saved return URL if it doesn't contain a stale namespace
-        const safeFrom = from.startsWith("/namespaces/") ? "/" : from;
+        // Two independent guards on the attacker-controllable `?from=` value:
+        // 1. safeRedirectPath rejects open-redirect inputs like //evil.com,
+        //    https://evil.com, javascript:… and any non-same-origin target
+        //    (TS-004 / #274).
+        // 2. Saved namespace URLs from a previous session may point at a
+        //    namespace the user no longer has access to — drop them.
+        const validatedFrom = safeRedirectPath(from);
+        const safeFrom = validatedFrom.startsWith("/namespaces/")
+          ? "/"
+          : validatedFrom;
         navigate(safeFrom, { replace: true });
       }
     } catch {
