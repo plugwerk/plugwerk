@@ -1,0 +1,48 @@
+# Composite index for time-windowed per-release analytics on download_event (issue #270, audit row DB-012).
+#
+# The 1.0.0-beta.1 security audit flagged that download_event has single-column
+# indexes on release_id and downloaded_at but no composite index. Time-windowed
+# per-release queries ("downloads for release X between T1 and T2") therefore
+# fall back to a bitmap-heap-scan + in-memory range filter using the
+# release_id index alone.
+#
+# No such query exists in the codebase today — DownloadEventRepository is a
+# bare JpaRepository with no custom methods, and the only writer is
+# DownloadEventService.record() (insert). This migration adds the index
+# proactively so future analytics endpoints can use a single index scan.
+#
+# Why both descending columns / why DESC?
+#   downloaded_at DESC matches the "most recent first" sort order that
+#   analytics endpoints will almost certainly use. Postgres can scan B-Tree
+#   indexes in either direction, so DESC vs ASC is mostly a tie-breaker
+#   for ORDER BY without an explicit direction match — but DESC is the
+#   shape the audit explicitly recommended.
+#
+# Why the existing single-column indexes are kept:
+#   - idx_download_event_release_id stays: it is narrower than the composite
+#     and important for ON DELETE CASCADE cleanup when a plugin_release is
+#     deleted (mass delete by release_id is a hot path).
+#   - idx_download_event_downloaded_at stays: useful for cross-release
+#     time-window analytics ("downloads in the last month across all
+#     releases") which the composite cannot serve via the leading-column rule.
+databaseChangeLog:
+  - changeSet:
+      id: 0011-idx-download-event-release-downloaded-at
+      author: plugwerk
+      comment: >
+        DB-012 (#270): composite index on download_event(release_id,
+        downloaded_at DESC) for future time-windowed per-release analytics.
+      changes:
+        - createIndex:
+            tableName: download_event
+            indexName: idx_download_event_release_downloaded_at
+            columns:
+              - column:
+                  name: release_id
+              - column:
+                  name: downloaded_at
+                  descending: true
+      rollback:
+        - dropIndex:
+            tableName: download_event
+            indexName: idx_download_event_release_downloaded_at

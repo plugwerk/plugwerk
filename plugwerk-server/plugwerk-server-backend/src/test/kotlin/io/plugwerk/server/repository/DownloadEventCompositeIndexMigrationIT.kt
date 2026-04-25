@@ -34,19 +34,17 @@ import org.testcontainers.postgresql.PostgreSQLContainer
 import java.sql.DriverManager
 
 /**
- * Verifies that Liquibase migration 0008 installs the foreign-key-coverage indexes
- * required by audit findings DB-008..011 (issue #269) and that the composite unique
- * constraints providing leading-column coverage for DB-008, DB-009 and DB-010 remain
- * intact.
+ * Verifies that Liquibase migration 0011 installs the composite index required by
+ * audit finding DB-012 (issue #270) for time-windowed per-release analytics on
+ * download_event, and that the existing single-column indexes remain intact.
  *
  * Runs against a dedicated short-lived PostgreSQL 18 Testcontainer and invokes
- * Liquibase directly (no Spring context) to avoid sharing the Spring context cache
- * with other `@SpringBootTest` integration tests — a second top-level context
- * caused context-eviction flakes on memory-constrained CI runners (see PR #304).
+ * Liquibase directly (no Spring context) — same pattern as FkIndexMigrationIT
+ * (PR #269) to avoid Spring-context-cache eviction on memory-constrained CI.
  */
 @Tag("integration")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class FkIndexMigrationIT {
+class DownloadEventCompositeIndexMigrationIT {
 
     private lateinit var postgres: PostgreSQLContainer
 
@@ -75,47 +73,33 @@ class FkIndexMigrationIT {
     }
 
     @Test
-    fun `DB-011 idx_access_key_namespace exists on namespace_access_key(namespace_id)`() {
-        val indexDef = indexDefinition("namespace_access_key", "idx_access_key_namespace")
+    fun `DB-012 idx_download_event_release_downloaded_at exists with descending downloaded_at`() {
+        val indexDef = indexDefinition("download_event", "idx_download_event_release_downloaded_at")
         assertThat(indexDef).isNotNull()
-        assertThat(indexDef!!).contains("(namespace_id)")
+        // Postgres pg_indexes.indexdef shape:
+        //   CREATE INDEX idx_download_event_release_downloaded_at
+        //     ON public.download_event USING btree (release_id, downloaded_at DESC)
+        assertThat(indexDef!!).contains("(release_id, downloaded_at DESC)")
     }
 
     @Test
-    fun `DB-011 idx_access_key_namespace_active is a partial index WHERE revoked is false`() {
-        val indexDef = indexDefinition("namespace_access_key", "idx_access_key_namespace_active")
+    fun `idx_download_event_release_id is preserved (FK cascade hot path)`() {
+        // Kept alongside the composite because it is narrower and cheaper for
+        // ON DELETE CASCADE bulk delete by release_id when a plugin_release
+        // is removed. Removing it would silently regress that hot path.
+        val indexDef = indexDefinition("download_event", "idx_download_event_release_id")
         assertThat(indexDef).isNotNull()
-        assertThat(indexDef!!).contains("(namespace_id)")
-        assertThat(indexDef).contains("WHERE")
-        assertThat(indexDef.lowercase()).contains("revoked")
+        assertThat(indexDef!!).contains("(release_id)")
     }
 
     @Test
-    fun `idx_namespace_member_user_subject exists on namespace_member(user_subject)`() {
-        val indexDef = indexDefinition("namespace_member", "idx_namespace_member_user_subject")
+    fun `idx_download_event_downloaded_at is preserved (cross-release time-window analytics)`() {
+        // Kept because cross-release queries ("downloads in the last month
+        // across ALL releases") cannot use the composite via the leading-column
+        // rule and would degrade to a sequential scan without this index.
+        val indexDef = indexDefinition("download_event", "idx_download_event_downloaded_at")
         assertThat(indexDef).isNotNull()
-        assertThat(indexDef!!).contains("(user_subject)")
-    }
-
-    @Test
-    fun `DB-008 uq_plugin_namespace_plugin_id still leads on namespace_id`() {
-        val indexDef = indexDefinition("plugin", "uq_plugin_namespace_plugin_id")
-        assertThat(indexDef).isNotNull()
-        assertThat(indexDef!!).contains("(namespace_id, plugin_id)")
-    }
-
-    @Test
-    fun `DB-009 uq_plugin_release_plugin_version still leads on plugin_id`() {
-        val indexDef = indexDefinition("plugin_release", "uq_plugin_release_plugin_version")
-        assertThat(indexDef).isNotNull()
-        assertThat(indexDef!!).contains("(plugin_id, version)")
-    }
-
-    @Test
-    fun `DB-010 uq_namespace_member_ns_subject still leads on namespace_id`() {
-        val indexDef = indexDefinition("namespace_member", "uq_namespace_member_ns_subject")
-        assertThat(indexDef).isNotNull()
-        assertThat(indexDef!!).contains("(namespace_id, user_subject)")
+        assertThat(indexDef!!).contains("(downloaded_at)")
     }
 
     private fun indexDefinition(table: String, indexName: String): String? {

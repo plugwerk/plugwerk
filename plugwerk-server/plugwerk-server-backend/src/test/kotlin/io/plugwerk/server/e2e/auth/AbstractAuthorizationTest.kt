@@ -47,7 +47,7 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder
-import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.postgresql.PostgreSQLContainer
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
@@ -80,7 +80,7 @@ abstract class AbstractAuthorizationTest {
 
         /** Singleton container — shared with all integration tests via [SharedPostgresContainer]. */
         @JvmStatic
-        val postgres: PostgreSQLContainer<*> = io.plugwerk.server.SharedPostgresContainer.instance
+        val postgres: PostgreSQLContainer = io.plugwerk.server.SharedPostgresContainer.instance
 
         @DynamicPropertySource
         @JvmStatic

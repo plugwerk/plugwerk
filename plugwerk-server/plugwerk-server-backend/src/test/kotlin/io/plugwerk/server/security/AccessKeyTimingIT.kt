@@ -30,7 +30,7 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
-import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.postgresql.PostgreSQLContainer
 import java.sql.Connection
 import java.sql.DriverManager
 import java.util.UUID
@@ -56,7 +56,7 @@ import java.util.UUID
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AccessKeyTimingIT {
 
-    private lateinit var postgres: PostgreSQLContainer<*>
+    private lateinit var postgres: PostgreSQLContainer
     private lateinit var existingLookupHash: String
 
     @BeforeAll

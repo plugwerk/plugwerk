@@ -19,3 +19,5 @@ databaseChangeLog:
       file: db/changelog/migrations/0009_access_key_lookup_hash.yaml
   - include:
       file: db/changelog/migrations/0010_refresh_token.yaml
+  - include:
+      file: db/changelog/migrations/0011_download_event_composite_index.yaml
