@@ -19,7 +19,7 @@
 package io.plugwerk.server.config
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret
-import io.plugwerk.server.PlugwerkProperties
+import io.plugwerk.server.security.JwtKeyDerivation
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm
@@ -28,24 +28,26 @@ import org.springframework.security.oauth2.jwt.JwtEncoder
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder
 import javax.crypto.SecretKey
-import javax.crypto.spec.SecretKeySpec
 
 /**
  * Provides [JwtDecoder] and [JwtEncoder] beans for HMAC-SHA256 signed JWTs.
  *
- * The signing key is derived from [PlugwerkProperties.AuthProperties.jwtSecret].
+ * The signing key is HKDF-derived from `PLUGWERK_AUTH_JWT_SECRET` via
+ * [JwtKeyDerivation] using the [JwtKeyDerivation.Purpose.JWT_SIGNING] info
+ * string (SBS-012 / #267). The minimum-length (`@Size(min = 32)`) and
+ * blocklist-default checks on the raw secret are still enforced upstream by
+ * [io.plugwerk.server.PlugwerkProperties] and
+ * [io.plugwerk.server.config.PlugwerkPropertiesValidator] — HKDF concentrates
+ * entropy but cannot manufacture it from nothing.
+ *
  * Phase 2+: External OIDC providers are configured via the admin UI and loaded dynamically
  * by [io.plugwerk.server.security.OidcProviderRegistry]. The [io.plugwerk.server.security.DelegatingJwtDecoder]
  * tries the local decoder first and falls back to enabled OIDC decoders automatically.
  */
 @Configuration
-class JwtConfiguration(private val props: PlugwerkProperties) {
+class JwtConfiguration(keyDerivation: JwtKeyDerivation) {
 
-    private val secretKey: SecretKey by lazy {
-        val bytes = props.auth.jwtSecret.toByteArray(Charsets.UTF_8)
-        require(bytes.size >= 32) { "PLUGWERK_AUTH_JWT_SECRET must be at least 32 characters (got ${bytes.size})" }
-        SecretKeySpec(bytes, "HmacSHA256")
-    }
+    private val secretKey: SecretKey = keyDerivation.deriveKey(JwtKeyDerivation.Purpose.JWT_SIGNING)
 
     /**
      * Local HMAC-SHA256 decoder for tokens self-issued by this server via `/api/v1/auth/login`.

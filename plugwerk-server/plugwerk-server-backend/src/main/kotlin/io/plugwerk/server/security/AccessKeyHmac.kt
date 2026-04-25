@@ -18,21 +18,21 @@
  */
 package io.plugwerk.server.security
 
-import io.plugwerk.server.PlugwerkProperties
 import org.springframework.stereotype.Component
 import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
+import javax.crypto.SecretKey
 
 /**
  * Computes the deterministic `namespace_access_key.key_lookup_hash` value used for
  * constant-time access-key lookup (ADR-0024, audit row SBS-008 / #291).
  *
- * The HMAC-SHA256 key is derived from the JWT signing secret — both secrets live
- * server-side only, both grant authentication-forgery capability if leaked, and
- * both must be rotated together on compromise. Sharing them keeps the operator
- * surface small at the cost of coupling key rotation to JWT rotation; if that
- * coupling ever becomes a problem, a dedicated `PLUGWERK_AUTH_ACCESS_KEY_HMAC_SECRET`
- * env var can be introduced without changing the stored-hash shape.
+ * The HMAC-SHA256 key is HKDF-derived from the JWT signing secret with a
+ * dedicated [JwtKeyDerivation.Purpose.ACCESS_KEY_HMAC] info string
+ * (SBS-012 / #267) so it is cryptographically independent of the JWT signing
+ * key, even though both ultimately come from the same `PLUGWERK_AUTH_JWT_SECRET`
+ * input. Both secrets live server-side only, both grant authentication-forgery
+ * capability if leaked, and both must be rotated together on compromise — but
+ * extracting one no longer hands the attacker the other.
  *
  * The returned value is lowercase hex of the 32-byte MAC (64 chars). `MessageDigest.isEqual`
  * isn't needed at the caller site because equality is enforced by the database's
@@ -40,9 +40,9 @@ import javax.crypto.spec.SecretKeySpec
  * round-trip regardless of contents.
  */
 @Component
-class AccessKeyHmac(private val props: PlugwerkProperties) {
+class AccessKeyHmac(keyDerivation: JwtKeyDerivation) {
 
-    private val macKey: SecretKeySpec = SecretKeySpec(props.auth.jwtSecret.toByteArray(Charsets.UTF_8), MAC_ALGO)
+    private val macKey: SecretKey = keyDerivation.deriveKey(JwtKeyDerivation.Purpose.ACCESS_KEY_HMAC)
 
     fun compute(plainKey: String): String {
         val mac = Mac.getInstance(MAC_ALGO)

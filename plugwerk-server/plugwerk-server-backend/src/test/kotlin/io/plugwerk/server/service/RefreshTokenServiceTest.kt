@@ -145,7 +145,7 @@ class RefreshTokenServiceTest {
         // updatable=false on the entity, so we cannot fabricate expiry by editing an
         // existing row; we have to create it expired in the first place.
         val plaintext = "expired-plaintext-for-test-${UUID.randomUUID()}"
-        val hash = io.plugwerk.server.security.AccessKeyHmac(plugwerkPropertiesFor(username)).compute(plaintext)
+        val hash = accessKeyHmac.compute(plaintext)
         repository.save(
             io.plugwerk.server.domain.RefreshTokenEntity(
                 familyId = UUID.randomUUID(),
@@ -165,7 +165,7 @@ class RefreshTokenServiceTest {
     fun `cleanupExpired purges rows past their expiry`() {
         // Direct insert with past expiry (expiresAt is updatable=false on the entity).
         val plaintext = "cleanup-plaintext-${UUID.randomUUID()}"
-        val hash = io.plugwerk.server.security.AccessKeyHmac(plugwerkPropertiesFor(username)).compute(plaintext)
+        val hash = accessKeyHmac.compute(plaintext)
         repository.save(
             io.plugwerk.server.domain.RefreshTokenEntity(
                 familyId = UUID.randomUUID(),
@@ -184,11 +184,12 @@ class RefreshTokenServiceTest {
     }
 
     /**
-     * `AccessKeyHmac` needs the real `PlugwerkProperties` so the HMAC key matches the one
-     * the service under test uses. Pulling the bean directly keeps the test honest.
+     * `AccessKeyHmac` is a Spring component whose HKDF-derived key (SBS-012 / #267)
+     * must match the instance the service under test uses. Pulling the bean directly
+     * from the context keeps the test honest — constructing a parallel instance with
+     * a hand-rolled key would diverge silently if the derivation rules change.
      */
-    @Autowired private lateinit var plugwerkProperties: io.plugwerk.server.PlugwerkProperties
-    private fun plugwerkPropertiesFor(@Suppress("UNUSED_PARAMETER") username: String) = plugwerkProperties
+    @Autowired private lateinit var accessKeyHmac: io.plugwerk.server.security.AccessKeyHmac
 
     @Test
     fun `revokeAllForUser revokes every active row for the user`() {
