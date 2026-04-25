@@ -77,7 +77,9 @@ import java.util.UUID
 @Entity
 @Table(
     name = "namespace_access_key",
-    uniqueConstraints = [UniqueConstraint(columnNames = ["namespace_id", "name"])],
+    uniqueConstraints = [
+        UniqueConstraint(name = "uq_namespace_access_key_ns_name", columnNames = ["namespace_id", "name"]),
+    ],
 )
 class NamespaceAccessKeyEntity(
     @Id
