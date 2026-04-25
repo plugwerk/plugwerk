@@ -25,3 +25,5 @@ databaseChangeLog:
       file: db/changelog/migrations/0012_namespace_access_key_unique_constraint.yaml
   - include:
       file: db/changelog/migrations/0013_user_email_case_insensitive_unique.yaml
+  - include:
+      file: db/changelog/migrations/0014_revoked_token_jti_hashed.yaml

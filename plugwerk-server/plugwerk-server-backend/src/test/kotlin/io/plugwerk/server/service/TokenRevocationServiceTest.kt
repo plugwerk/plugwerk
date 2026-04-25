@@ -34,6 +34,8 @@ import org.mockito.kotlin.argThat
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
@@ -64,18 +66,40 @@ class TokenRevocationServiceTest {
     @Test
     fun `revokeToken persists entry to database`() {
         val jti = UUID.randomUUID().toString()
-        whenever(revokedTokenRepository.existsByJti(jti)).thenReturn(false)
+        whenever(revokedTokenRepository.existsByJti(sha256Hex(jti))).thenReturn(false)
         whenever(revokedTokenRepository.save(any<RevokedTokenEntity>())).thenAnswer { it.arguments[0] }
 
         service.revokeToken(jti, "alice", Instant.now().plusSeconds(3600))
 
-        verify(revokedTokenRepository).save(argThat { this.jti == jti && this.username == "alice" })
+        verify(revokedTokenRepository).save(argThat { this.jti == sha256Hex(jti) && this.username == "alice" })
+    }
+
+    @Test
+    fun `revokeToken stores SHA-256 hash of jti, never the plain value (SBS-013 #268)`() {
+        // Defence-in-depth regression guard: a future refactor that bypasses
+        // hashJti() (e.g. by accidentally restoring the pre-fix code path)
+        // must fail this test. The persisted entity's jti must be the 64-char
+        // hex digest, and it must NOT equal the raw input.
+        val jti = "0123abcd-4567-89ef-0123-456789abcdef"
+        whenever(revokedTokenRepository.existsByJti(any())).thenReturn(false)
+        whenever(revokedTokenRepository.save(any<RevokedTokenEntity>())).thenAnswer { it.arguments[0] }
+
+        service.revokeToken(jti, "alice", Instant.now().plusSeconds(3600))
+
+        verify(revokedTokenRepository).save(
+            argThat {
+                this.jti != jti &&
+                    this.jti.length == 64 &&
+                    this.jti.matches(Regex("[0-9a-f]{64}")) &&
+                    this.jti == sha256Hex(jti)
+            },
+        )
     }
 
     @Test
     fun `revokeToken skips duplicate jti`() {
         val jti = UUID.randomUUID().toString()
-        whenever(revokedTokenRepository.existsByJti(jti)).thenReturn(true)
+        whenever(revokedTokenRepository.existsByJti(sha256Hex(jti))).thenReturn(true)
 
         service.revokeToken(jti, "alice", Instant.now().plusSeconds(3600))
 
@@ -85,7 +109,7 @@ class TokenRevocationServiceTest {
     @Test
     fun `isRevoked returns true for explicitly revoked token`() {
         val jti = UUID.randomUUID().toString()
-        whenever(revokedTokenRepository.existsByJti(jti)).thenReturn(true)
+        whenever(revokedTokenRepository.existsByJti(sha256Hex(jti))).thenReturn(true)
 
         assertThat(service.isRevoked(jti, "alice", Instant.now())).isTrue()
     }
@@ -93,7 +117,7 @@ class TokenRevocationServiceTest {
     @Test
     fun `isRevoked returns false for non-revoked token`() {
         val jti = UUID.randomUUID().toString()
-        whenever(revokedTokenRepository.existsByJti(jti)).thenReturn(false)
+        whenever(revokedTokenRepository.existsByJti(sha256Hex(jti))).thenReturn(false)
         whenever(userRepository.findByUsername("alice")).thenReturn(
             Optional.of(
                 UserEntity(username = "alice", passwordHash = "hash"),
@@ -109,7 +133,7 @@ class TokenRevocationServiceTest {
         val passwordChangedAt = OffsetDateTime.now(ZoneOffset.UTC)
         val tokenIssuedAt = passwordChangedAt.toInstant().minusSeconds(60)
 
-        whenever(revokedTokenRepository.existsByJti(jti)).thenReturn(false)
+        whenever(revokedTokenRepository.existsByJti(sha256Hex(jti))).thenReturn(false)
         whenever(userRepository.findByUsername("alice")).thenReturn(
             Optional.of(
                 UserEntity(
@@ -129,7 +153,7 @@ class TokenRevocationServiceTest {
         val passwordChangedAt = OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(60)
         val tokenIssuedAt = Instant.now()
 
-        whenever(revokedTokenRepository.existsByJti(jti)).thenReturn(false)
+        whenever(revokedTokenRepository.existsByJti(sha256Hex(jti))).thenReturn(false)
         whenever(userRepository.findByUsername("alice")).thenReturn(
             Optional.of(
                 UserEntity(
@@ -161,5 +185,20 @@ class TokenRevocationServiceTest {
         service.cleanupExpired()
 
         verify(revokedTokenRepository).deleteExpiredBefore(any())
+    }
+
+    /**
+     * Mirror of [TokenRevocationService.hashJti] — kept here so the test can
+     * compute the expected hashed value to stub against without exposing the
+     * private helper. If the production helper changes shape, this must
+     * change in lockstep — and the regression test above will catch any
+     * accidental drift.
+     */
+    private fun sha256Hex(input: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(input.toByteArray(StandardCharsets.UTF_8))
+        return buildString(digest.size * 2) {
+            digest.forEach { append("%02x".format(it)) }
+        }
     }
 }

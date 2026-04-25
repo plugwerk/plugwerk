@@ -1,0 +1,66 @@
+# Hash JTIs at rest in revoked_token (issue #268, audit row SBS-013).
+#
+# Pre-fix the `jti` column stored the raw JWT ID as a 36-character UUID string.
+# A database leak (or any lower-privilege read) would expose every revoked-but-
+# not-yet-expired JTI alongside its expiry timestamp. The principle of
+# defence-in-depth recommends hashing security identifiers at rest — the
+# auth filter only ever needs to ask "have I seen this jti before?", which is
+# perfectly answerable from a hex SHA-256 digest.
+#
+# Behavioural change in TokenRevocationService:
+#
+#   - revokeToken / isRevoked compute SHA-256(jti) hex (64 characters) and
+#     pass that to the repository and the Caffeine cache. The raw jti is
+#     never persisted again. Logging also switches to logging only the hash.
+#
+# Migration steps:
+#
+#   1. DELETE FROM revoked_token — wipe the legacy plain-text rows. We
+#      cannot back-fill them because SHA-256 cannot be reversed (we no
+#      longer have the original JTIs to hash). Any token whose JTI was
+#      in the table is therefore no longer flagged as revoked. At
+#      1.0.0-beta.1 there is no production deployment, and access tokens
+#      live for 15 minutes by default — a one-shot revocation reset is
+#      acceptable. A dedicated upgrade note will accompany the release.
+#   2. Widen the `jti` column from varchar(36) to varchar(64) to fit the
+#      hex digest. The unique constraint and the secondary index on
+#      expires_at are unaffected by the type change.
+#
+# H2 / Liquibase note: the test profile uses H2 with `liquibase.enabled: false`
+# and Hibernate-generated DDL, so this migration is only seen by PostgreSQL
+# in production and integration tests. The Hibernate entity already declares
+# `length = 64` so H2 generates the correct column width.
+databaseChangeLog:
+  - changeSet:
+      id: 0014-delete-stale-revoked-tokens
+      author: plugwerk
+      comment: >
+        SBS-013 (#268): wipe pre-hash plain-text revoked_token rows. They
+        cannot be back-filled because SHA-256 is one-way and we no longer
+        have the source JTIs. Acceptable at 1.0.0-beta.1 with no production
+        deployments yet.
+      changes:
+        - sql:
+            sql: "DELETE FROM revoked_token"
+            stripComments: false
+      rollback:
+        # No rollback — the wiped data is unrecoverable in either direction.
+        - empty: { }
+
+  - changeSet:
+      id: 0014-widen-revoked-token-jti
+      author: plugwerk
+      comment: >
+        SBS-013 (#268): widen jti column to fit a 64-character hex SHA-256
+        digest. Unique constraint uq_revoked_token_jti is preserved by
+        Postgres' ALTER COLUMN ... TYPE — no drop/re-add needed.
+      changes:
+        - modifyDataType:
+            tableName: revoked_token
+            columnName: jti
+            newDataType: varchar(64)
+      rollback:
+        - modifyDataType:
+            tableName: revoked_token
+            columnName: jti
+            newDataType: varchar(36)
