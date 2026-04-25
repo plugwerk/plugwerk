@@ -21,6 +21,7 @@ package io.plugwerk.server.service
 import io.plugwerk.server.domain.OidcProviderEntity
 import io.plugwerk.server.domain.OidcProviderType
 import io.plugwerk.server.repository.OidcProviderRepository
+import io.plugwerk.server.security.DbClientRegistrationRepository
 import io.plugwerk.server.security.OidcProviderRegistry
 import org.springframework.security.crypto.encrypt.TextEncryptor
 import org.springframework.stereotype.Service
@@ -32,8 +33,23 @@ import java.util.UUID
 class OidcProviderService(
     private val oidcProviderRepository: OidcProviderRepository,
     private val oidcProviderRegistry: OidcProviderRegistry,
+    private val dbClientRegistrationRepository: DbClientRegistrationRepository,
     private val textEncryptor: TextEncryptor,
 ) {
+
+    /**
+     * Rebuilds both registries that depend on the enabled-providers list:
+     *   - [OidcProviderRegistry]            — JWKS-based JwtDecoders for the
+     *     resource-server side (verify incoming bearer tokens, #77).
+     *   - [DbClientRegistrationRepository]  — Spring Security ClientRegistrations
+     *     for the browser login flow (#79).
+     * Either-or refreshes drift the two registries against the database; calling
+     * them together from a single helper guarantees they stay in lockstep.
+     */
+    private fun refreshAllRegistries() {
+        oidcProviderRegistry.refresh()
+        dbClientRegistrationRepository.refresh()
+    }
 
     @Transactional(readOnly = true)
     fun findAll(): List<OidcProviderEntity> = oidcProviderRepository.findAll()
@@ -68,14 +84,19 @@ class OidcProviderService(
         val provider = findById(id)
         provider.enabled = enabled
         val saved = oidcProviderRepository.save(provider)
-        oidcProviderRegistry.refresh()
+        refreshAllRegistries()
         return saved
     }
 
     fun updateClientSecret(id: UUID, newSecret: String): OidcProviderEntity {
         val provider = findById(id)
         provider.clientSecretEncrypted = textEncryptor.encrypt(newSecret)
-        return oidcProviderRepository.save(provider)
+        val saved = oidcProviderRepository.save(provider)
+        // The browser-flow ClientRegistration caches the decrypted secret in
+        // the registration object; without a refresh, an updated secret would
+        // not take effect until the next server restart.
+        refreshAllRegistries()
+        return saved
     }
 
     fun delete(id: UUID) {
@@ -83,6 +104,6 @@ class OidcProviderService(
             throw EntityNotFoundException("OidcProvider", id.toString())
         }
         oidcProviderRepository.deleteById(id)
-        oidcProviderRegistry.refresh()
+        refreshAllRegistries()
     }
 }

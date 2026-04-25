@@ -20,10 +20,12 @@ package io.plugwerk.server.config
 
 import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.security.ChangePasswordRateLimitFilter
+import io.plugwerk.server.security.DbClientRegistrationRepository
 import io.plugwerk.server.security.DelegatingJwtDecoder
 import io.plugwerk.server.security.LoginRateLimitFilter
 import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
 import io.plugwerk.server.security.NamespaceAuthorizationService
+import io.plugwerk.server.security.OidcLoginSuccessHandler
 import io.plugwerk.server.security.OidcProviderRegistry
 import io.plugwerk.server.security.PasswordChangeRequiredFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
@@ -72,6 +74,12 @@ class SecurityConfiguration(
     private val localJwtDecoder: DelegatingJwtDecoder,
     private val namespaceAuthorizationService: NamespaceAuthorizationService,
 ) {
+    // NOTE: dbClientRegistrationRepository + oidcLoginSuccessHandler must NOT be
+    // constructor-injected here — they transitively depend on `textEncryptor`,
+    // which this very class exposes as a @Bean. Constructor injection produces
+    // a circular reference that fails the bean container at startup. Both are
+    // injected as @Bean method parameters on `securityFilterChain` instead, so
+    // they are resolved lazily after textEncryptor has been created.
 
     @Bean
     fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
@@ -244,7 +252,11 @@ class SecurityConfiguration(
 
     @Bean
     @Order(2)
-    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
+    fun securityFilterChain(
+        http: HttpSecurity,
+        dbClientRegistrationRepository: DbClientRegistrationRepository,
+        oidcLoginSuccessHandler: OidcLoginSuccessHandler,
+    ): SecurityFilterChain {
         http
             // CORS is configured via the corsConfigurationSource() bean above.
             //
@@ -306,12 +318,29 @@ class SecurityConfiguration(
             .oauth2ResourceServer { oauth2 ->
                 oauth2.jwt { jwt -> jwt.decoder(localJwtDecoder) }
             }
+            // Browser-initiated OAuth2 login flow (issue #79). Spring's OAuth2 client filter
+            // handles `/oauth2/authorization/{registrationId}` (start), the redirect to the
+            // upstream provider, the `/login/oauth2/code/{registrationId}` callback, and the
+            // PKCE-state validation. We provide:
+            //   - the ClientRegistrationRepository (DB-backed, refreshable at runtime)
+            //   - the success handler that mints a Plugwerk JWT + refresh cookie and redirects
+            //     the user to "/" so the SPA's hydrate() picks up the session.
+            // No formLogin page is rendered because we ship our own React login at /login.
+            .oauth2Login { oauth2 ->
+                oauth2
+                    .clientRegistrationRepository(dbClientRegistrationRepository)
+                    .successHandler(oidcLoginSuccessHandler)
+            }
             .authorizeHttpRequests { auth ->
                 auth
                     // Logout requires a valid Bearer token — must be listed before the auth wildcard
                     .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated()
                     // Auth endpoints are always public (login + change-password requires auth but handled in controller)
                     .requestMatchers("/api/v1/auth/**").permitAll()
+                    // OAuth2 browser-flow endpoints managed by Spring Security itself (#79).
+                    // /oauth2/authorization/** initiates the flow; /login/oauth2/code/** is the
+                    // upstream-provider callback. Both must be reachable without prior auth.
+                    .requestMatchers("/oauth2/authorization/**", "/login/oauth2/code/**").permitAll()
                     // Update check is public (used by client plugin without auth)
                     .requestMatchers(HttpMethod.POST, "/api/v1/namespaces/*/updates/check").permitAll()
                     // Public server config (upload limits etc.) — used by frontend without auth
