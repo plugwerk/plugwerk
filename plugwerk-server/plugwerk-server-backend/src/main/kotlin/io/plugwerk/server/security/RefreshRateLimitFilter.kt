@@ -41,7 +41,10 @@ import java.time.OffsetDateTime
  * Uses the same reverse-proxy-aware IP resolution as [LoginRateLimitFilter].
  */
 @Component
-class RefreshRateLimitFilter(private val bucketService: BucketRateLimitService) : OncePerRequestFilter() {
+class RefreshRateLimitFilter(
+    private val bucketService: BucketRateLimitService,
+    private val clientIpResolver: HttpClientIpResolver,
+) : OncePerRequestFilter() {
 
     companion object {
         private const val REFRESH_PATH = "/api/v1/auth/refresh"
@@ -58,7 +61,7 @@ class RefreshRateLimitFilter(private val bucketService: BucketRateLimitService) 
         response: HttpServletResponse,
         filterChain: FilterChain,
     ) {
-        val clientIp = request.resolveClientIp()
+        val clientIp = clientIpResolver.resolve(request)
         when (val result = bucketService.tryConsume(SCOPE, clientIp, MAX_ATTEMPTS, WINDOW_SECONDS)) {
             is RateLimitResult.Allowed -> filterChain.doFilter(request, response)
 

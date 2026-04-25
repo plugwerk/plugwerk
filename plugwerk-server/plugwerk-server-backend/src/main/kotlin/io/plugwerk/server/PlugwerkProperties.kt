@@ -314,6 +314,30 @@ data class PlugwerkProperties(
          *   (comma-separated hostnames — no scheme, no port).
          */
         val downloadAllowedHosts: List<String> = emptyList(),
+        /**
+         * CIDR ranges of reverse proxies whose `X-Forwarded-For` header is trusted
+         * for client-IP resolution (SBS-006 / #265). When a request reaches the
+         * server, the resolver checks whether `request.remoteAddr` matches any of
+         * these ranges; only then is the leftmost `X-Forwarded-For` value honoured.
+         *
+         * **Empty default = no proxy is trusted, so X-Forwarded-For is ignored
+         * entirely.** This is the secure choice for a server with no reverse
+         * proxy in front of it (an attacker controls the header).
+         *
+         * **Operators behind a reverse proxy MUST configure this** with their
+         * proxy's egress IPs/ranges — otherwise every client appears to come
+         * from the proxy IP and per-IP rate-limiting collapses to a single
+         * shared bucket for the whole user base.
+         *
+         * Each entry is a CIDR notation string (e.g. `10.0.0.0/8`,
+         * `127.0.0.1/32`, `::1/128`). Validated at startup by
+         * [io.plugwerk.server.config.PlugwerkPropertiesValidator] using
+         * Spring Security's `IpAddressMatcher` — invalid syntax fails fast.
+         *
+         * Environment variable: `PLUGWERK_AUTH_TRUSTED_PROXY_CIDRS`
+         *   (comma-separated CIDR ranges).
+         */
+        val trustedProxyCidrs: List<String> = emptyList(),
     ) {
         /**
          * Rate limiting configuration (`plugwerk.auth.rate-limit.*`).

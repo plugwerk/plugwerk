@@ -94,6 +94,22 @@ plugwerk:
     # No environment variable override — change this value directly when needed.
     token-validity-hours: 8
 
+    # Reverse-proxy trust list for X-Forwarded-For (SBS-006 / #265).
+    # Comma-separated CIDR ranges of trusted reverse proxies. The leftmost
+    # X-Forwarded-For value is honoured ONLY when the request's remoteAddr
+    # matches one of these ranges. Empty default = X-Forwarded-For is ignored
+    # entirely, which is the secure choice for a server with no proxy in front.
+    #
+    # WARNING for operators behind nginx / ALB / Traefik / CloudFront: leaving
+    # this empty causes every client to be rate-limited as if it were the
+    # proxy IP, collapsing per-IP rate-limit buckets to one shared bucket for
+    # the whole user base. You MUST set this to your proxy's egress IPs.
+    # Examples:
+    #   PLUGWERK_AUTH_TRUSTED_PROXY_CIDRS=10.0.0.0/8,127.0.0.1/32
+    #   PLUGWERK_AUTH_TRUSTED_PROXY_CIDRS=192.168.0.0/16
+    # Env: PLUGWERK_AUTH_TRUSTED_PROXY_CIDRS
+    trusted-proxy-cidrs: ${PLUGWERK_AUTH_TRUSTED_PROXY_CIDRS:}
+
     # Brute-force protection for authentication endpoints.
     # Uses an in-memory token bucket (Bucket4j + Caffeine).
     # Exceeding a limit returns HTTP 429 with a Retry-After header.

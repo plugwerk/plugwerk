@@ -94,6 +94,8 @@ class CatalogControllerTest {
 
     @MockitoBean lateinit var namespaceAuthService: NamespaceAuthorizationService
 
+    @MockitoBean lateinit var clientIpResolver: io.plugwerk.server.security.HttpClientIpResolver
+
     @Autowired private lateinit var mockMvc: MockMvc
 
     private val namespace = NamespaceEntity(slug = "acme", name = "ACME Corp")

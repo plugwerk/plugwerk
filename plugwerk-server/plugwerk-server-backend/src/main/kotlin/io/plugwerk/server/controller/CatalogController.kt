@@ -30,9 +30,9 @@ import io.plugwerk.server.domain.NamespaceRole
 import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.PluginReleaseRepository
+import io.plugwerk.server.security.HttpClientIpResolver
 import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.security.currentAuthenticationOrNull
-import io.plugwerk.server.security.resolveClientIp
 import io.plugwerk.server.service.Pf4jCompatibilityService
 import io.plugwerk.server.service.PluginReleaseService
 import io.plugwerk.server.service.PluginService
@@ -62,6 +62,7 @@ class CatalogController(
     private val pluginMapper: PluginMapper,
     private val releaseMapper: PluginReleaseMapper,
     private val httpServletRequest: HttpServletRequest,
+    private val clientIpResolver: HttpClientIpResolver,
 ) : CatalogApi {
 
     override fun listPlugins(
@@ -164,7 +165,7 @@ class CatalogController(
     ): ResponseEntity<org.springframework.core.io.Resource> {
         val release = releaseService.findByVersion(ns, pluginId, version)
         val extension = release.fileFormat.name.lowercase()
-        val clientIp = httpServletRequest.resolveClientIp()
+        val clientIp = clientIpResolver.resolve(httpServletRequest)
         val userAgent = httpServletRequest.getHeader("User-Agent")
         val stream = releaseService.downloadArtifact(ns, pluginId, version, clientIp, userAgent)
         return ResponseEntity.ok()
