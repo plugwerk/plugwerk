@@ -18,15 +18,14 @@
  */
 package io.plugwerk.server.service
 
-import com.nimbusds.jose.jwk.source.ImmutableSecret
 import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.config.JwtConfiguration
+import io.plugwerk.server.security.JwtKeyDerivation
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import java.time.Instant
-import javax.crypto.spec.SecretKeySpec
 
 class JwtTokenServiceTest {
 
@@ -39,8 +38,13 @@ class JwtTokenServiceTest {
         ),
     )
 
-    private val secretKey = SecretKeySpec(secret.toByteArray(), "HmacSHA256")
-    private val config = JwtConfiguration(props)
+    // After SBS-012 / #267 the signing key is HKDF-derived, not the raw bytes.
+    // The decoder used in this test must use the same derived key as the encoder
+    // inside JwtConfiguration; otherwise verification would fail with
+    // "InvalidSignatureException".
+    private val keyDerivation = JwtKeyDerivation(props)
+    private val secretKey = keyDerivation.deriveKey(JwtKeyDerivation.Purpose.JWT_SIGNING)
+    private val config = JwtConfiguration(keyDerivation)
     private val service = JwtTokenService(config.jwtEncoder(), props)
 
     private val decoder = NimbusJwtDecoder.withSecretKey(secretKey)

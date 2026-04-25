@@ -31,7 +31,10 @@ class AccessKeyHmacTest {
                 encryptionKey = "x".repeat(32),
             ),
         )
-        return AccessKeyHmac(props)
+        // After SBS-012 / #267 the HMAC key is HKDF-derived from the secret
+        // rather than the raw bytes. Construct the derivation chain by hand
+        // so the test remains a pure unit test (no Spring context).
+        return AccessKeyHmac(JwtKeyDerivation(props))
     }
 
     @Test

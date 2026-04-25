@@ -1,0 +1,81 @@
+# Invalidate pre-HKDF HMAC lookup hashes (issue #267, audit row SBS-012).
+#
+# Pre-fix the JWT signing key and the access-key/refresh-token HMAC key were
+# both derived as `SecretKeySpec(jwtSecret.UTF_8_bytes, "HmacSHA256")` — raw
+# bytes, no key-derivation step. Two problems:
+#
+#   1. A 32-character ASCII passphrase has roughly 5–6 bits of entropy per
+#      character, far below the 256 bits HMAC-SHA256 expects from a uniformly
+#      random key.
+#   2. Both call sites used the *same* raw bytes for completely different
+#      purposes (token signing vs. lookup hash), so a leak of one effectively
+#      compromised the other.
+#
+# Fix: HKDF-SHA256 (RFC 5869) with per-purpose `info` strings. The two derived
+# keys are now cryptographically independent, even though both are derived
+# from the same `PLUGWERK_AUTH_JWT_SECRET`. See [JwtKeyDerivation] for the
+# full rationale.
+#
+# Consequence for stored data:
+#
+#   - `refresh_token.token_lookup_hash` was HMAC(jwtSecret_raw, plaintext).
+#     The new key is HMAC(HKDF(jwtSecret, "plugwerk-access-key-hmac-v1"),
+#     plaintext) — the lookup will never match. Existing refresh tokens
+#     are silently dead. Every user has to log in again. Their access
+#     tokens (15-minute lifetime) will keep working until they expire.
+#   - `namespace_access_key.key_lookup_hash` is in the same situation.
+#     Existing access keys can no longer authenticate. Operators have to
+#     rotate every key they had issued (admin UI → namespace → access keys
+#     → "Create new key").
+#   - `revoked_token.jti` is unaffected: since #268 it stores SHA-256(jti)
+#     with no HMAC key involved at all. ✓
+#
+# Migration steps:
+#
+#   1. DELETE FROM refresh_token — the old hashes are unrecoverable; the
+#      stored entity carries no plaintext we could re-hash. A blank table
+#      is the cleanest state.
+#   2. UPDATE namespace_access_key SET key_lookup_hash = 'INVALIDATED-' || id::text
+#      — same sentinel pattern used by 0009 (#291). The row is preserved so
+#      operators can still see "this key existed and is now revoked"; only
+#      the lookup-hash is poisoned so it can never match a future HMAC
+#      output. Operators rotate from there.
+#
+# Acceptable at 1.0.0-beta.1 with no production deployments. A dedicated
+# upgrade note will accompany the release.
+#
+# H2 / Liquibase note: the test profile uses H2 with `liquibase.enabled: false`
+# and Hibernate-generated DDL, so this migration is only seen by PostgreSQL
+# in production and integration tests.
+databaseChangeLog:
+  - changeSet:
+      id: 0015-delete-pre-hkdf-refresh-tokens
+      author: plugwerk
+      comment: >
+        SBS-012 (#267): wipe refresh_token rows whose lookup hashes were
+        produced with the pre-HKDF raw-bytes HMAC key. Cannot be back-filled
+        — stored hashes are irreversible and we have no plaintext.
+      changes:
+        - sql:
+            sql: "DELETE FROM refresh_token"
+            stripComments: false
+      rollback:
+        # No rollback — the wiped hashes are unrecoverable in either direction.
+        - empty: { }
+
+  - changeSet:
+      id: 0015-invalidate-pre-hkdf-access-key-lookup-hashes
+      author: plugwerk
+      comment: >
+        SBS-012 (#267): poison key_lookup_hash on every existing
+        namespace_access_key row so the pre-HKDF HMAC outputs can no longer
+        match. Same sentinel pattern as 0009 (#291). Operators must rotate
+        keys after the upgrade.
+      changes:
+        - sql:
+            sql: "UPDATE namespace_access_key SET key_lookup_hash = 'INVALIDATED-' || id::text"
+            stripComments: false
+      rollback:
+        # No rollback — the original hashes are unrecoverable and would not
+        # match the new HKDF-derived MAC key anyway.
+        - empty: { }
