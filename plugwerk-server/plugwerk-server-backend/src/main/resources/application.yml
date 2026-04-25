@@ -10,6 +10,26 @@ spring:
     url: ${PLUGWERK_DB_URL:jdbc:postgresql://localhost:5432/plugwerk}
     username: ${PLUGWERK_DB_USERNAME:plugwerk}
     password: ${PLUGWERK_DB_PASSWORD:plugwerk}
+    # HikariCP pool sizing. Defaults are tuned for managed Postgres with a
+    # client-facing connection pooler (e.g. Supabase Supavisor / PgBouncer in
+    # transaction mode), where the server-side pool already multiplexes — so
+    # the JDBC pool itself should stay small and connections short-lived.
+    # For a dedicated Postgres instance you can raise maximum-pool-size.
+    hikari:
+      # Env: PLUGWERK_DB_POOL_MAX_SIZE
+      maximum-pool-size: ${PLUGWERK_DB_POOL_MAX_SIZE:5}
+      # Env: PLUGWERK_DB_POOL_MIN_IDLE
+      minimum-idle: ${PLUGWERK_DB_POOL_MIN_IDLE:1}
+      # Idle connections older than this are released back to the pooler.
+      # Env: PLUGWERK_DB_POOL_IDLE_TIMEOUT_MS
+      idle-timeout: ${PLUGWERK_DB_POOL_IDLE_TIMEOUT_MS:30000}
+      # Hard cap on a single physical connection's lifetime. Keep below the
+      # pooler's own timeout to avoid mid-query disconnects.
+      # Env: PLUGWERK_DB_POOL_MAX_LIFETIME_MS
+      max-lifetime: ${PLUGWERK_DB_POOL_MAX_LIFETIME_MS:600000}
+      # Fail fast if a connection cannot be acquired within this window.
+      # Env: PLUGWERK_DB_POOL_CONNECTION_TIMEOUT_MS
+      connection-timeout: ${PLUGWERK_DB_POOL_CONNECTION_TIMEOUT_MS:30000}
 
   jpa:
     open-in-view: false
