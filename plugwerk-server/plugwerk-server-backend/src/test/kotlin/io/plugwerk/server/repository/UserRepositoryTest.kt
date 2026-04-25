@@ -77,15 +77,16 @@ class UserRepositoryTest : AbstractRepositoryTest() {
         }
     }
 
-    @Test
-    fun `save fails on duplicate email`() {
-        userRepository.save(user("alice", email = "alice@example.com"))
-        userRepository.flush()
-
-        assertFailsWith<DataIntegrityViolationException> {
-            userRepository.saveAndFlush(user("alice2", email = "alice@example.com"))
-        }
-    }
+    // The previous `save fails on duplicate email` test was removed in #271
+    // (DB-013): email uniqueness is now enforced via a partial functional unique
+    // index `uq_user_email_lower` on `LOWER(email) WHERE email IS NOT NULL`,
+    // which Liquibase only applies to PostgreSQL. The H2 test profile does not
+    // run Liquibase and Hibernate no longer generates a column-level UNIQUE on
+    // the `email` column, so the constraint cannot be exercised here.
+    // Coverage moved to:
+    //   - io.plugwerk.server.service.UserServiceTest (write-side normalisation)
+    //   - io.plugwerk.server.repository.UserEmailCaseInsensitiveUniqueMigrationIT
+    //     (DB-level uniqueness against Testcontainers PostgreSQL)
 
     @Test
     fun `passwordChangeRequired defaults to true`() {

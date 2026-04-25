@@ -23,3 +23,5 @@ databaseChangeLog:
       file: db/changelog/migrations/0011_download_event_composite_index.yaml
   - include:
       file: db/changelog/migrations/0012_namespace_access_key_unique_constraint.yaml
+  - include:
+      file: db/changelog/migrations/0013_user_email_case_insensitive_unique.yaml
