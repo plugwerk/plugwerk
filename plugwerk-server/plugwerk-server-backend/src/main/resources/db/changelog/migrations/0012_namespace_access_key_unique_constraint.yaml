@@ -1,0 +1,51 @@
+# Add the missing UNIQUE (namespace_id, name) constraint on namespace_access_key
+# (issue #272, audit row DB-014).
+#
+# NamespaceAccessKeyEntity declares
+#   @Table(uniqueConstraints = [UniqueConstraint(columnNames = ["namespace_id", "name"])])
+# but no Liquibase migration ever created the matching DB constraint, and the
+# project runs Hibernate with `ddl-auto: validate` (Hibernate validates the
+# schema, never generates it). The entity annotation was therefore documentation
+# only — without DB enforcement.
+#
+# The application layer guards against duplicates via
+#   NamespaceAccessKeyRepository.existsByNamespaceAndName(...)
+# but that check is a classic TOCTOU race: two concurrent create requests can
+# both observe `false`, both call `save()`, and both succeed — leaving the table
+# with two access keys sharing the same (namespace_id, name) until someone
+# notices. A bypass via direct SQL or a future second writer would have the
+# same effect with no race needed at all.
+#
+# This migration adds the database-level constraint that the entity annotation
+# always promised. The application-layer pre-check stays in place — it gives
+# users a clean validation error instead of a raw constraint-violation stack.
+#
+# Revoked keys: the constraint is unconditional, mirroring the unfiltered
+# `existsByNamespaceAndName` semantics. A revoked key continues to block
+# reuse of its name. If "revoked names should be reusable" is wanted later,
+# the constraint should be replaced with a partial unique index
+#   CREATE UNIQUE INDEX ... ON namespace_access_key (namespace_id, name)
+#                           WHERE revoked = false
+# in a separate migration tied to its own issue.
+#
+# Pre-existing duplicates: this migration will fail if a populated database
+# already contains rows that violate the new constraint. At 1.0.0-beta.1
+# there are no production deployments, so this is acceptable. For any future
+# deployment that needs to land this migration on a database with historical
+# duplicates, a deduplication migration must run first.
+databaseChangeLog:
+  - changeSet:
+      id: 0012-uq-namespace-access-key-ns-name
+      author: plugwerk
+      comment: >
+        DB-014 (#272): adds the (namespace_id, name) unique constraint that the
+        entity annotation has always claimed but no migration enforced.
+      changes:
+        - addUniqueConstraint:
+            tableName: namespace_access_key
+            columnNames: namespace_id, name
+            constraintName: uq_namespace_access_key_ns_name
+      rollback:
+        - dropUniqueConstraint:
+            tableName: namespace_access_key
+            constraintName: uq_namespace_access_key_ns_name

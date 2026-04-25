@@ -21,3 +21,5 @@ databaseChangeLog:
       file: db/changelog/migrations/0010_refresh_token.yaml
   - include:
       file: db/changelog/migrations/0011_download_event_composite_index.yaml
+  - include:
+      file: db/changelog/migrations/0012_namespace_access_key_unique_constraint.yaml
