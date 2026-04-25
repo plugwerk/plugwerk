@@ -57,8 +57,7 @@ object OidcRegistrationIds {
      * for every row read from the database; a freshly-constructed in-memory
      * entity should never reach this helper.
      */
-    fun of(provider: OidcProviderEntity): String =
-        requireNotNull(provider.id) {
-            "OidcProviderEntity must be persisted before its registrationId is derived"
-        }.toString()
+    fun of(provider: OidcProviderEntity): String = requireNotNull(provider.id) {
+        "OidcProviderEntity must be persisted before its registrationId is derived"
+    }.toString()
 }
