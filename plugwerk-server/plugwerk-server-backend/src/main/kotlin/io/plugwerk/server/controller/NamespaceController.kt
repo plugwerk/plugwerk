@@ -25,11 +25,10 @@ import io.plugwerk.api.model.NamespaceUpdateRequest
 import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.NamespaceRole
 import io.plugwerk.server.security.NamespaceAuthorizationService
+import io.plugwerk.server.security.currentAuthentication
 import io.plugwerk.server.service.NamespaceService
-import io.plugwerk.server.service.UnauthorizedException
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.net.URI
@@ -42,8 +41,7 @@ class NamespaceController(
 ) : NamespacesApi {
 
     override fun listNamespaces(): ResponseEntity<List<NamespaceSummary>> {
-        val auth = SecurityContextHolder.getContext().authentication
-            ?: throw UnauthorizedException("Not authenticated")
+        val auth = currentAuthentication()
         val namespaces = namespaceAuthorizationService.listVisibleNamespaces(auth)
             .map { it.toSummary() }
         return ResponseEntity.ok(namespaces)
@@ -51,8 +49,7 @@ class NamespaceController(
 
     @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
     override fun createNamespace(namespaceCreateRequest: NamespaceCreateRequest): ResponseEntity<NamespaceSummary> {
-        val auth = SecurityContextHolder.getContext().authentication
-            ?: throw UnauthorizedException("Not authenticated")
+        val auth = currentAuthentication()
         namespaceAuthorizationService.requireSuperadmin(auth)
         // NamespaceAlreadyExistsException propagates to GlobalExceptionHandler.handleConflict,
         // which returns 409 with a structured ErrorResponse — matching the contract used by
@@ -72,8 +69,7 @@ class NamespaceController(
         ns: String,
         namespaceUpdateRequest: NamespaceUpdateRequest,
     ): ResponseEntity<NamespaceSummary> {
-        val auth = SecurityContextHolder.getContext().authentication
-            ?: throw UnauthorizedException("Not authenticated")
+        val auth = currentAuthentication()
         namespaceAuthorizationService.requireRole(ns, auth, NamespaceRole.ADMIN)
         val entity = namespaceService.update(
             slug = ns,
@@ -87,8 +83,7 @@ class NamespaceController(
 
     @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
     override fun deleteNamespace(ns: String): ResponseEntity<Unit> {
-        val auth = SecurityContextHolder.getContext().authentication
-            ?: throw UnauthorizedException("Not authenticated")
+        val auth = currentAuthentication()
         namespaceAuthorizationService.requireSuperadmin(auth)
         namespaceService.delete(ns)
         return ResponseEntity.noContent().build()

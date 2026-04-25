@@ -34,6 +34,51 @@ import org.springframework.security.core.context.SecurityContextHolder
  * Previous call sites used `SecurityContextHolder.getContext().authentication!!` in 16
  * places across `ManagementController`, `ReviewsController`, `AccessKeyController`, and
  * `NamespaceMemberController`. Each was a latent NPE with no context.
+ *
+ * @see currentAuthenticationOrNull for code paths that have a legitimate anonymous
+ *   fallback (e.g. catalog visibility downgrade).
+ * @see currentAuthenticationOrElse for single-expression bodies that branch on auth
+ *   presence with a fixed default.
  */
 fun currentAuthentication(): Authentication = SecurityContextHolder.getContext().authentication
     ?: throw UnauthorizedException("Authentication required")
+
+/**
+ * Returns the current [Authentication] from the [SecurityContextHolder], or `null` when
+ * no authentication is present. Use this when an absent authentication is **a legitimate
+ * state** the caller wants to react to — typically by falling back to a typed default
+ * via the elvis operator:
+ *
+ * ```kotlin
+ * fun resolveVisibility(ns: String): CatalogVisibility {
+ *   val auth = currentAuthenticationOrNull() ?: return CatalogVisibility.PUBLIC
+ *   …
+ * }
+ * ```
+ *
+ * Picks up the same call shape as Kotlin's `firstOrNull` / `singleOrNull` family.
+ */
+fun currentAuthenticationOrNull(): Authentication? = SecurityContextHolder.getContext().authentication
+
+/**
+ * Returns [block]`(authentication)` when an [Authentication] is present in the
+ * [SecurityContextHolder], otherwise returns [default]. Designed for single-expression
+ * function bodies that derive a typed value from the (possibly absent) auth:
+ *
+ * ```kotlin
+ * fun hasRole(slug: String, role: NamespaceRole): Boolean =
+ *   currentAuthenticationOrElse(default = false) { auth ->
+ *     try { requireRole(slug, auth, role); true }
+ *     catch (_: ForbiddenException) { false }
+ *     catch (_: NamespaceNotFoundException) { false }
+ *   }
+ * ```
+ *
+ * Generic on `T` via `inline` — the compiler specialises per call site so no `Any` cast
+ * is needed and the return type matches whatever default the caller passes. Prefer
+ * [currentAuthenticationOrNull] when the function body has multiple early returns sharing
+ * the same default — using `OrElse` there would force `return@currentAuthenticationOrElse`
+ * labels and read worse than the elvis pattern.
+ */
+inline fun <T> currentAuthenticationOrElse(default: T, block: (Authentication) -> T): T =
+    SecurityContextHolder.getContext().authentication?.let(block) ?: default

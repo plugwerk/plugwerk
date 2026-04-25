@@ -24,7 +24,6 @@ import jakarta.servlet.http.HttpServletResponse
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.security.authentication.AnonymousAuthenticationToken
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 import java.time.OffsetDateTime
@@ -76,7 +75,7 @@ class ChangePasswordRateLimitFilter(private val rateLimitService: ChangePassword
     }
 
     private fun currentSubject(): String? {
-        val auth = SecurityContextHolder.getContext().authentication ?: return null
+        val auth = currentAuthenticationOrNull() ?: return null
         if (auth is AnonymousAuthenticationToken) return null
         if (!auth.isAuthenticated) return null
         val name = auth.name

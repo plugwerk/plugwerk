@@ -35,7 +35,6 @@ import io.plugwerk.server.service.EntityNotFoundException
 import io.plugwerk.server.service.NamespaceNotFoundException
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -53,8 +52,11 @@ class NamespaceMemberController(
 ) : NamespaceMembersApi {
 
     override fun getMyMembership(ns: String): ResponseEntity<NamespaceMembershipDto> {
-        val authentication = SecurityContextHolder.getContext().authentication
-            ?: return ResponseEntity.status(401).build()
+        // currentAuthentication() throws UnauthorizedException → 401 with the standard
+        // structured error envelope (matches every other endpoint). The previous
+        // raw `ResponseEntity.status(401).build()` returned an empty body and
+        // bypassed the GlobalExceptionHandler envelope contract — see #336.
+        val authentication = currentAuthentication()
         val namespace = namespaceRepository.findBySlug(ns)
             .orElseThrow { NamespaceNotFoundException(ns) }
 

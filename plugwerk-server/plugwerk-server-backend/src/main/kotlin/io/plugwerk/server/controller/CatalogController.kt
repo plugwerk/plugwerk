@@ -31,6 +31,7 @@ import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.security.NamespaceAuthorizationService
+import io.plugwerk.server.security.currentAuthenticationOrNull
 import io.plugwerk.server.security.resolveClientIp
 import io.plugwerk.server.service.Pf4jCompatibilityService
 import io.plugwerk.server.service.PluginReleaseService
@@ -45,7 +46,6 @@ import org.springframework.data.domain.Sort
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
@@ -187,7 +187,7 @@ class CatalogController(
      * Returns `(null, null)` for anonymous requests — no sensitive information is leaked.
      */
     private fun resolvePendingReviewCounts(ns: String): Pair<Long?, Long?> {
-        val auth = SecurityContextHolder.getContext().authentication ?: return null to null
+        val auth = currentAuthenticationOrNull() ?: return null to null
         if (!auth.isAuthenticated) return null to null
         val namespace = namespaceRepository.findBySlug(ns).orElse(null) ?: return null to null
         val namespaceId = namespace.id!!
@@ -215,7 +215,7 @@ class CatalogController(
      * authenticated user's own URL.
      */
     private fun resolveVisibility(ns: String): CatalogVisibility {
-        val auth = SecurityContextHolder.getContext().authentication ?: return CatalogVisibility.PUBLIC
+        val auth = currentAuthenticationOrNull() ?: return CatalogVisibility.PUBLIC
         if (!auth.isAuthenticated) return CatalogVisibility.PUBLIC
         // API key callers (name starts with "key:") are treated as PUBLIC visibility
         if (auth.name.startsWith("key:")) return CatalogVisibility.PUBLIC
