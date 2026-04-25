@@ -18,6 +18,9 @@
  */
 package io.plugwerk.server.controller
 
+import io.plugwerk.server.domain.OidcProviderEntity
+import io.plugwerk.server.domain.OidcProviderType
+import io.plugwerk.server.repository.OidcProviderRepository
 import io.plugwerk.server.security.ChangePasswordRateLimitFilter
 import io.plugwerk.server.security.LoginRateLimitFilter
 import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
@@ -38,6 +41,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
+import java.util.UUID
 
 @WebMvcTest(
     ConfigController::class,
@@ -59,6 +63,8 @@ class ConfigControllerTest {
 
     @MockitoBean lateinit var versionProvider: VersionProvider
 
+    @MockitoBean lateinit var oidcProviderRepository: OidcProviderRepository
+
     @Autowired private lateinit var mockMvc: MockMvc
 
     @Test
@@ -66,6 +72,7 @@ class ConfigControllerTest {
         whenever(settingsService.maxUploadSizeMb()).thenReturn(200)
         whenever(settingsService.defaultTimezone()).thenReturn("Europe/Berlin")
         whenever(versionProvider.getVersion()).thenReturn("1.2.3")
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(emptyList())
 
         mockMvc.get("/api/v1/config")
             .andExpect {
@@ -81,11 +88,96 @@ class ConfigControllerTest {
         whenever(settingsService.maxUploadSizeMb()).thenReturn(100)
         whenever(settingsService.defaultTimezone()).thenReturn("UTC")
         whenever(versionProvider.getVersion()).thenReturn("unknown")
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(emptyList())
 
         mockMvc.get("/api/v1/config")
             .andExpect {
                 status { isOk() }
                 jsonPath("$.version") { value("unknown") }
+            }
+    }
+
+    @Test
+    fun `GET config returns empty oidcProviders list when no provider is enabled (#79)`() {
+        whenever(settingsService.maxUploadSizeMb()).thenReturn(100)
+        whenever(settingsService.defaultTimezone()).thenReturn("UTC")
+        whenever(versionProvider.getVersion()).thenReturn("1.0.0")
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(emptyList())
+
+        mockMvc.get("/api/v1/config")
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.auth.oidcProviders") { isArray() }
+                jsonPath("$.auth.oidcProviders.length()") { value(0) }
+            }
+    }
+
+    @Test
+    fun `GET config exposes enabled oidcProviders with id, name, and loginUrl (#79)`() {
+        // The login page renders one button per entry. The id is the Spring
+        // Security `registrationId` (provider UUID, stable across renames),
+        // the loginUrl is the relative `/oauth2/authorization/{id}` path.
+        val providerId = UUID.fromString("11111111-2222-3333-4444-555555555555")
+        whenever(settingsService.maxUploadSizeMb()).thenReturn(100)
+        whenever(settingsService.defaultTimezone()).thenReturn("UTC")
+        whenever(versionProvider.getVersion()).thenReturn("1.0.0")
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(
+            listOf(
+                OidcProviderEntity(
+                    id = providerId,
+                    name = "Keycloak Local",
+                    providerType = OidcProviderType.KEYCLOAK,
+                    enabled = true,
+                    clientId = "plugwerk-local",
+                    clientSecretEncrypted = "ignored-for-this-test",
+                    issuerUri = "http://localhost:8081/realms/plugwerk",
+                ),
+            ),
+        )
+
+        mockMvc.get("/api/v1/config")
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.auth.oidcProviders.length()") { value(1) }
+                jsonPath("$.auth.oidcProviders[0].id") { value(providerId.toString()) }
+                jsonPath("$.auth.oidcProviders[0].name") { value("Keycloak Local") }
+                jsonPath("$.auth.oidcProviders[0].loginUrl") {
+                    value("/oauth2/authorization/$providerId")
+                }
+            }
+    }
+
+    @Test
+    fun `GET config never exposes the issuerUri or client secret of OIDC providers (#79)`() {
+        // Issuer URI and clientSecret are operator-only fields; the public
+        // /config response must contain only id, name, and loginUrl per provider.
+        // Pinning this as a contract test so a future careless schema change
+        // cannot accidentally widen the surface.
+        val providerId = UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+        whenever(settingsService.maxUploadSizeMb()).thenReturn(100)
+        whenever(settingsService.defaultTimezone()).thenReturn("UTC")
+        whenever(versionProvider.getVersion()).thenReturn("1.0.0")
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(
+            listOf(
+                OidcProviderEntity(
+                    id = providerId,
+                    name = "Internal Keycloak",
+                    providerType = OidcProviderType.KEYCLOAK,
+                    enabled = true,
+                    clientId = "plugwerk-internal",
+                    clientSecretEncrypted = "{cipher}leaked-secret-must-not-appear",
+                    issuerUri = "https://keycloak.internal.example.com/realms/internal",
+                ),
+            ),
+        )
+
+        mockMvc.get("/api/v1/config")
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.auth.oidcProviders[0].issuerUri") { doesNotExist() }
+                jsonPath("$.auth.oidcProviders[0].clientId") { doesNotExist() }
+                jsonPath("$.auth.oidcProviders[0].clientSecretEncrypted") { doesNotExist() }
+                jsonPath("$.auth.oidcProviders[0].clientSecret") { doesNotExist() }
             }
     }
 }

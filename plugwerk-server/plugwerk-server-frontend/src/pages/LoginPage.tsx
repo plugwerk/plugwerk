@@ -16,18 +16,36 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Box, TextField, Button, Alert } from "@mui/material";
+import {
+  Box,
+  TextField,
+  Button,
+  Alert,
+  Divider,
+  Typography,
+} from "@mui/material";
 import { AuthCard } from "../components/auth/AuthCard";
 import { useAuthStore } from "../stores/authStore";
+import { useConfigStore } from "../stores/configStore";
 import { safeRedirectPath } from "../utils/safeRedirectPath";
 
 export function LoginPage() {
   const { login } = useAuthStore();
+  const fetchConfig = useConfigStore((s) => s.fetchConfig);
+  const oidcProviders = useConfigStore((s) => s.oidcProviders);
   const navigate = useNavigate();
   const location = useLocation();
   const from = new URLSearchParams(location.search).get("from") ?? "/";
+
+  // /config is public and cheap; the configStore caches it after the first
+  // call so this is a no-op on subsequent renders. We need it here so the
+  // OIDC provider buttons appear without the user having to load any other
+  // page first.
+  useEffect(() => {
+    fetchConfig();
+  }, [fetchConfig]);
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -112,6 +130,33 @@ export function LoginPage() {
           {loading ? "Signing in…" : "Sign In"}
         </Button>
       </Box>
+
+      {oidcProviders.length > 0 && (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mt: 1 }}>
+          <Divider>
+            <Typography variant="caption" color="text.secondary">
+              or
+            </Typography>
+          </Divider>
+          {oidcProviders.map((provider) => (
+            // Plain anchor — Spring Security's OAuth2 client filter intercepts
+            // the navigation server-side; an XHR-driven button would not start
+            // the redirect dance. The loginUrl is always relative
+            // (`/oauth2/authorization/{id}`), so the open-redirect guard from
+            // #274 is trivially satisfied.
+            <Button
+              key={provider.id}
+              component="a"
+              href={provider.loginUrl}
+              variant="outlined"
+              size="large"
+              fullWidth
+            >
+              {`Login with ${provider.name}`}
+            </Button>
+          ))}
+        </Box>
+      )}
     </AuthCard>
   );
 }

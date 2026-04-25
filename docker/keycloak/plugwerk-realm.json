@@ -28,7 +28,8 @@
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": [
-        "http://localhost:8080/login/oauth2/code/*"
+        "http://localhost:8080/login/oauth2/code/*",
+        "http://localhost:5173/login/oauth2/code/*"
       ],
       "webOrigins": [
         "http://localhost:8080",

@@ -50,17 +50,29 @@ export function refreshAccessToken(): Promise<RefreshedAuth | null> {
  *
  * Spring's `CookieCsrfTokenRepository` issues the `XSRF-TOKEN` cookie lazily —
  * it only appears in the browser's cookie jar after the first response that
- * needs to tell the client about it. On a fresh page reload the jar may be
- * empty of `XSRF-TOKEN` even though the session is otherwise valid, because
- * our login endpoint is not wired into Spring's auth filter chain (so the
- * `CsrfAuthenticationStrategy` never fires and never rotates a fresh token
- * into the response).
+ * needs to tell the client about it. The jar can be empty in two scenarios
+ * we both have to recover from:
  *
- * Consequence: the very first `POST /auth/refresh` after reload has no
- * `X-XSRF-TOKEN` header, Spring's `CsrfFilter` rejects it with 401, and as a
- * side effect it writes a freshly-generated `XSRF-TOKEN` cookie to the 401
- * response. If we retry exactly once, the retry will have the cookie and
- * will pass the CSRF check.
+ *   1. **Fresh reload of a logged-in tab.** Our local `/auth/login` endpoint
+ *      is not wired into Spring's auth filter chain, so the
+ *      `CsrfAuthenticationStrategy` never fires and never rotates a token
+ *      into the response. Spring's `CsrfFilter` then short-circuits the
+ *      first `POST /auth/refresh` with **401** (HttpStatusEntryPoint kicks
+ *      in because the request was unauthenticated) and writes a fresh
+ *      XSRF-TOKEN cookie as a side effect.
+ *
+ *   2. **Right after an OAuth2 browser-flow callback (#79).** Spring
+ *      *does* run its full authenticated-login pipeline here, and as the
+ *      standard CSRF rotation step it actively *deletes* the existing
+ *      XSRF-TOKEN cookie (`Set-Cookie: XSRF-TOKEN=; Expires=epoch`) so the
+ *      next request will pick up a freshly-rotated value. The first
+ *      `POST /auth/refresh` then has no header, but this time the request
+ *      *is* authenticated (the session cookie is set), so Spring's
+ *      `CsrfFilter` rejects it with **403** instead of 401.
+ *
+ * In both cases the recovery is identical: the rejection wrote a fresh
+ * XSRF-TOKEN cookie, so a single retry will carry the new header value
+ * through and succeed. We accept either status code as the trigger.
  *
  * Retrying is safe because the first attempt never reached our controller
  * (it was short-circuited by the CSRF filter); no refresh-token rotation
@@ -71,10 +83,13 @@ async function doRefreshWithCsrfBootstrap(): Promise<RefreshedAuth | null> {
   const first = await doRefresh();
   if (first.auth) return first.auth;
   // Retry exactly once when the first attempt plausibly failed on CSRF:
-  // we started without an XSRF-TOKEN cookie and the server has now set one
-  // (as a side effect of its 401). Skip the retry if nothing changed.
+  // we either started without an XSRF-TOKEN cookie or the server actively
+  // expired ours, AND the server has now (re-)set one. Both 401 and 403
+  // are valid bootstrap triggers — see the Kotlindoc above for the two
+  // scenarios that produce each.
   const nowHasXsrf = readCookie("XSRF-TOKEN") != null;
-  if (!firstHadXsrf && nowHasXsrf && first.status === 401) {
+  const looksLikeCsrfBootstrap = first.status === 401 || first.status === 403;
+  if (!firstHadXsrf && nowHasXsrf && looksLikeCsrfBootstrap) {
     const second = await doRefresh();
     return second.auth;
   }

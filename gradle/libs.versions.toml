@@ -45,6 +45,7 @@ h2 = { module = "com.h2database:h2" }
 liquibase-core = { module = "org.liquibase:liquibase-core", version.ref = "liquibase" }
 spring-boot-starter-liquibase = { module = "org.springframework.boot:spring-boot-starter-liquibase" }
 spring-boot-starter-oauth2-resource-server = { module = "org.springframework.boot:spring-boot-starter-oauth2-resource-server" }
+spring-boot-starter-oauth2-client = { module = "org.springframework.boot:spring-boot-starter-oauth2-client" }
 
 # PF4J
 pf4j = { module = "org.pf4j:pf4j", version.ref = "pf4j" }
