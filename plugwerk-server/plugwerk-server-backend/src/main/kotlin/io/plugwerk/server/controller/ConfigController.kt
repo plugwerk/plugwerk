@@ -18,10 +18,13 @@
  */
 package io.plugwerk.server.controller
 
+import io.plugwerk.api.ServerConfigApi
+import io.plugwerk.api.model.ServerConfigResponse
+import io.plugwerk.api.model.ServerConfigResponseGeneral
+import io.plugwerk.api.model.ServerConfigResponseUpload
 import io.plugwerk.server.service.VersionProvider
 import io.plugwerk.server.service.settings.ApplicationSettingsService
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -30,23 +33,13 @@ import org.springframework.web.bind.annotation.RestController
 class ConfigController(
     private val settingsService: ApplicationSettingsService,
     private val versionProvider: VersionProvider,
-) {
+) : ServerConfigApi {
 
-    @GetMapping("/config")
-    fun getServerConfig(): ResponseEntity<ServerConfigResponse> = ResponseEntity.ok(
+    override fun getServerConfig(): ResponseEntity<ServerConfigResponse> = ResponseEntity.ok(
         ServerConfigResponse(
             version = versionProvider.getVersion(),
-            upload = ServerConfigResponse.UploadConfig(
-                maxFileSizeMb = settingsService.maxUploadSizeMb(),
-            ),
-            general = ServerConfigResponse.GeneralConfig(
-                defaultTimezone = settingsService.defaultTimezone(),
-            ),
+            upload = ServerConfigResponseUpload(maxFileSizeMb = settingsService.maxUploadSizeMb()),
+            general = ServerConfigResponseGeneral(defaultTimezone = settingsService.defaultTimezone()),
         ),
     )
-
-    data class ServerConfigResponse(val version: String, val upload: UploadConfig, val general: GeneralConfig) {
-        data class UploadConfig(val maxFileSizeMb: Int)
-        data class GeneralConfig(val defaultTimezone: String)
-    }
 }
