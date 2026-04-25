@@ -23,14 +23,13 @@ import io.plugwerk.api.model.ApplicationSettingDto
 import io.plugwerk.api.model.ApplicationSettingsResponse
 import io.plugwerk.api.model.ApplicationSettingsUpdateRequest
 import io.plugwerk.server.security.NamespaceAuthorizationService
-import io.plugwerk.server.service.UnauthorizedException
+import io.plugwerk.server.security.currentAuthentication
 import io.plugwerk.server.service.settings.ApplicationSettingKey
 import io.plugwerk.server.service.settings.ApplicationSettingsService
 import io.plugwerk.server.service.settings.SettingSnapshot
 import io.plugwerk.server.service.settings.SettingSource
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -71,8 +70,7 @@ class AdminSettingsController(
     }
 
     private fun requireSuperadmin(): String {
-        val auth = SecurityContextHolder.getContext().authentication
-            ?: throw UnauthorizedException("Not authenticated")
+        val auth = currentAuthentication()
         namespaceAuthorizationService.requireSuperadmin(auth)
         return auth.name
     }

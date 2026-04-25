@@ -25,6 +25,7 @@ import io.plugwerk.api.model.LoginResponse
 import io.plugwerk.server.repository.UserRepository
 import io.plugwerk.server.security.RefreshTokenCookieFactory
 import io.plugwerk.server.security.UserCredentialValidator
+import io.plugwerk.server.security.currentAuthentication
 import io.plugwerk.server.service.JwtTokenService
 import io.plugwerk.server.service.RefreshTokenService
 import io.plugwerk.server.service.TokenRevocationService
@@ -33,7 +34,6 @@ import io.plugwerk.server.service.UserService
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseEntity
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
@@ -116,8 +116,7 @@ class AuthController(
     }
 
     override fun logout(): ResponseEntity<Unit> {
-        val authentication = SecurityContextHolder.getContext().authentication
-            ?: throw UnauthorizedException("Authentication required")
+        val authentication = currentAuthentication()
         val jwt = authentication.credentials as? Jwt
             ?: throw UnauthorizedException("Bearer token required for logout")
         val jti = jwt.id ?: throw UnauthorizedException("Token missing jti claim")
@@ -133,7 +132,7 @@ class AuthController(
     }
 
     override fun changePassword(changePasswordRequest: ChangePasswordRequest): ResponseEntity<Unit> {
-        val username = SecurityContextHolder.getContext().authentication?.name
+        val username = currentAuthentication().name
             ?: throw UnauthorizedException("Authentication required to change password")
         userService.changePassword(username, changePasswordRequest.currentPassword, changePasswordRequest.newPassword)
         tokenRevocationService.revokeAllForUser(username)

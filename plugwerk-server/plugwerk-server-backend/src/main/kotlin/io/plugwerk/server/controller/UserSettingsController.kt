@@ -21,11 +21,11 @@ package io.plugwerk.server.controller
 import io.plugwerk.api.UserSettingsApi
 import io.plugwerk.api.model.UserSettingsResponse
 import io.plugwerk.api.model.UserSettingsUpdateRequest
+import io.plugwerk.server.security.currentAuthentication
 import io.plugwerk.server.service.UnauthorizedException
 import io.plugwerk.server.service.settings.UserSettingsService
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -49,8 +49,7 @@ class UserSettingsController(private val userSettingsService: UserSettingsServic
     }
 
     private fun requireAuthenticatedSubject(): String {
-        val auth = SecurityContextHolder.getContext().authentication
-            ?: throw UnauthorizedException("Not authenticated")
+        val auth = currentAuthentication()
         val name = auth.name
         if (name.isNullOrBlank() || name.startsWith("key:")) {
             throw UnauthorizedException("User settings are not available for API key authentication")

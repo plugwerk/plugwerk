@@ -26,7 +26,6 @@ import io.plugwerk.server.repository.UserRepository
 import io.plugwerk.server.service.ForbiddenException
 import io.plugwerk.server.service.NamespaceNotFoundException
 import org.springframework.security.core.Authentication
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
 
 /**
@@ -133,17 +132,17 @@ class NamespaceAuthorizationService(
      * instead of throwing. Unknown namespaces return `false` so the SpEL pass-through
      * produces a 403; the subsequent service call will re-raise the 404 on the happy path.
      */
-    fun hasRole(namespaceSlug: String, minimumRole: NamespaceRole): Boolean {
-        val auth = SecurityContextHolder.getContext().authentication ?: return false
-        return try {
-            requireRole(namespaceSlug, auth, minimumRole)
-            true
-        } catch (_: ForbiddenException) {
-            false
-        } catch (_: NamespaceNotFoundException) {
-            false
+    fun hasRole(namespaceSlug: String, minimumRole: NamespaceRole): Boolean =
+        currentAuthenticationOrElse(default = false) { auth ->
+            try {
+                requireRole(namespaceSlug, auth, minimumRole)
+                true
+            } catch (_: ForbiddenException) {
+                false
+            } catch (_: NamespaceNotFoundException) {
+                false
+            }
         }
-    }
 
     /**
      * Overload that accepts the role as a string literal so `@PreAuthorize` SpEL can use
@@ -157,10 +156,7 @@ class NamespaceAuthorizationService(
      * SpEL-friendly mirror of [requireSuperadmin] that reads the current [Authentication]
      * from [SecurityContextHolder] and returns a boolean.
      */
-    fun isCurrentUserSuperadmin(): Boolean {
-        val auth = SecurityContextHolder.getContext().authentication ?: return false
-        return isSuperadmin(auth)
-    }
+    fun isCurrentUserSuperadmin(): Boolean = currentAuthenticationOrElse(default = false) { auth -> isSuperadmin(auth) }
 
     /**
      * Returns the namespaces visible to the authenticated principal:

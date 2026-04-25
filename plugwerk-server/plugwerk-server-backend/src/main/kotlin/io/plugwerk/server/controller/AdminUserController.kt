@@ -23,11 +23,10 @@ import io.plugwerk.api.model.UserCreateRequest
 import io.plugwerk.api.model.UserDto
 import io.plugwerk.api.model.UserUpdateRequest
 import io.plugwerk.server.security.NamespaceAuthorizationService
-import io.plugwerk.server.service.UnauthorizedException
+import io.plugwerk.server.security.currentAuthentication
 import io.plugwerk.server.service.UserService
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.net.URI
@@ -42,8 +41,7 @@ class AdminUserController(
 ) : AdminUsersApi {
 
     override fun listUsers(enabled: Boolean?): ResponseEntity<List<UserDto>> {
-        val auth = SecurityContextHolder.getContext().authentication
-            ?: throw UnauthorizedException("Not authenticated")
+        val auth = currentAuthentication()
         namespaceAuthorizationService.requireSuperadmin(auth)
         val users = if (enabled != null) userService.findAllByEnabled(enabled) else userService.findAll()
         return ResponseEntity.ok(users.map { it.toDto() })
@@ -51,8 +49,7 @@ class AdminUserController(
 
     @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
     override fun createUser(userCreateRequest: UserCreateRequest): ResponseEntity<UserDto> {
-        val auth = SecurityContextHolder.getContext().authentication
-            ?: throw UnauthorizedException("Not authenticated")
+        val auth = currentAuthentication()
         namespaceAuthorizationService.requireSuperadmin(auth)
         val user = userService.create(
             username = userCreateRequest.username,
@@ -64,8 +61,7 @@ class AdminUserController(
 
     @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
     override fun updateUser(userId: UUID, userUpdateRequest: UserUpdateRequest): ResponseEntity<UserDto> {
-        val auth = SecurityContextHolder.getContext().authentication
-            ?: throw UnauthorizedException("Not authenticated")
+        val auth = currentAuthentication()
         namespaceAuthorizationService.requireSuperadmin(auth)
         var user = userService.findById(userId)
         userUpdateRequest.enabled?.let { user = userService.setEnabled(userId, it) }
@@ -75,8 +71,7 @@ class AdminUserController(
 
     @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
     override fun deleteUser(userId: UUID): ResponseEntity<Unit> {
-        val auth = SecurityContextHolder.getContext().authentication
-            ?: throw UnauthorizedException("Not authenticated")
+        val auth = currentAuthentication()
         namespaceAuthorizationService.requireSuperadmin(auth)
         userService.delete(userId)
         return ResponseEntity.noContent().build()
