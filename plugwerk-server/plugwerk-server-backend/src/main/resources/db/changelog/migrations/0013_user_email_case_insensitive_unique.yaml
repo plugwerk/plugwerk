@@ -1,0 +1,71 @@
+# Make plugwerk_user.email uniqueness case-insensitive (issue #271, audit row DB-013).
+#
+# Pre-fix the column carried a plain unique constraint `uq_user_email`. PostgreSQL
+# treats text comparisons as case-sensitive, so two rows with `User@Example.com` and
+# `user@example.com` would both pass the constraint check despite being the same
+# email address by industry convention. A user could end up with two parallel local
+# accounts, or a duplicate could shadow an existing account on a future
+# case-normalisation refactor.
+#
+# This migration replaces the column-level unique constraint with a partial
+# functional unique index `uq_user_email_lower` on `LOWER(email)`. The
+# `WHERE email IS NOT NULL` predicate keeps the column nullable: many users
+# have no email set, and a strict `UNIQUE(LOWER(email))` would treat NULL
+# values as duplicates under PostgreSQL's NULLS-DISTINCT default behaviour
+# only inconsistently across versions. The partial predicate is unambiguous.
+#
+# Why a functional index, not the CITEXT extension:
+#   - CITEXT requires an extension that is not always available on managed
+#     Postgres (Supabase free tier, etc.).
+#   - A functional index works on stock PostgreSQL with no setup, and pairs
+#     cleanly with the application-side normalisation introduced alongside
+#     this migration in UserService.create (trim + lowercase).
+#
+# The application normalises on write (UserService.create), but the index is
+# the defence-in-depth — direct SQL or a future second writer cannot bypass
+# it. Both layers exist on purpose.
+#
+# Pre-existing duplicates: this migration will fail on a populated database
+# that already contains case-different duplicates. At 1.0.0-beta.1 there are
+# no production deployments, so this is acceptable. Any future deployment
+# with historical case-different duplicates needs a deduplication migration
+# beforehand (out of scope here).
+#
+# H2 / Liquibase note: the `WHERE` predicate is PostgreSQL-specific syntax.
+# This migration therefore relies on Liquibase only running against PostgreSQL
+# in production and integration tests; the regular `test` profile uses H2 with
+# `liquibase.enabled: false` and Hibernate-generated DDL, so this migration is
+# never seen by H2.
+databaseChangeLog:
+  - changeSet:
+      id: 0013-drop-uq-user-email
+      author: plugwerk
+      comment: >
+        DB-013 (#271): drop the case-sensitive unique constraint that the
+        next change-set replaces with a functional unique index.
+      changes:
+        - dropUniqueConstraint:
+            tableName: plugwerk_user
+            constraintName: uq_user_email
+      rollback:
+        - addUniqueConstraint:
+            tableName: plugwerk_user
+            columnNames: email
+            constraintName: uq_user_email
+
+  - changeSet:
+      id: 0013-idx-user-email-lower-unique
+      author: plugwerk
+      comment: >
+        DB-013 (#271): partial functional unique index enforcing case-insensitive
+        uniqueness of plugwerk_user.email when the email is set. Expressed as raw
+        SQL because Liquibase's createIndex change does not support function
+        expressions or WHERE predicates (same reason 0008 used raw SQL for
+        idx_access_key_namespace_active).
+      changes:
+        - sql:
+            sql: "CREATE UNIQUE INDEX uq_user_email_lower ON plugwerk_user (LOWER(email)) WHERE email IS NOT NULL"
+            stripComments: false
+      rollback:
+        - sql:
+            sql: "DROP INDEX uq_user_email_lower"

@@ -54,12 +54,23 @@ class UserService(
         return userRepository.save(
             UserEntity(
                 username = username,
-                email = email,
+                email = normalizeEmail(email),
                 passwordHash = hashPassword(password),
                 passwordChangeRequired = true,
             ),
         )
     }
+
+    /**
+     * Normalises an optional email for storage: trims surrounding whitespace,
+     * lowercases the entire address, and collapses blank/whitespace-only inputs
+     * to `null`. Pairs with the partial functional unique index
+     * `uq_user_email_lower` on `LOWER(email)` introduced in migration 0013
+     * (DB-013 / #271). The DB index is the defence-in-depth — direct SQL or a
+     * future second writer cannot bypass it — but normalising on write keeps
+     * the stored value canonical and avoids surprising display roundtrips.
+     */
+    private fun normalizeEmail(email: String?): String? = email?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
 
     fun setEnabled(id: UUID, enabled: Boolean): UserEntity {
         val user = findById(id)
