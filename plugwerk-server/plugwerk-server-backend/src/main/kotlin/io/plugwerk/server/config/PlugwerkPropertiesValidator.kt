@@ -20,6 +20,7 @@ package io.plugwerk.server.config
 
 import io.plugwerk.server.PlugwerkProperties
 import org.springframework.boot.context.properties.ConfigurationPropertiesBinding
+import org.springframework.security.web.util.matcher.IpAddressMatcher
 import org.springframework.stereotype.Component
 import org.springframework.validation.Errors
 import org.springframework.validation.Validator
@@ -60,7 +61,38 @@ class PlugwerkPropertiesValidator : Validator {
         val props = target as PlugwerkProperties
 
         validateAuthSecrets(props.auth, errors)
+        validateTrustedProxyCidrs(props.auth.trustedProxyCidrs, errors)
         validateBaseUrl(props.server.baseUrl, errors)
+    }
+
+    /**
+     * Each entry of `plugwerk.auth.trusted-proxy-cidrs` must be a syntactically
+     * valid CIDR range (or a bare IP, which Spring's [IpAddressMatcher] accepts
+     * as `addr/32` for IPv4 and `addr/128` for IPv6). We construct one matcher
+     * per entry to surface bad syntax at startup with a clear "which entry is
+     * broken" message — much friendlier than a confusing runtime failure on
+     * the first request after deploy.
+     */
+    private fun validateTrustedProxyCidrs(cidrs: List<String>, errors: Errors) {
+        cidrs.forEachIndexed { index, raw ->
+            val trimmed = raw.trim()
+            if (trimmed.isEmpty()) {
+                errors.rejectValue(
+                    "auth.trustedProxyCidrs[$index]",
+                    "invalid.cidr",
+                    "plugwerk.auth.trusted-proxy-cidrs[$index] must not be blank",
+                )
+                return@forEachIndexed
+            }
+            runCatching { IpAddressMatcher(trimmed) }.onFailure { ex ->
+                errors.rejectValue(
+                    "auth.trustedProxyCidrs[$index]",
+                    "invalid.cidr",
+                    "plugwerk.auth.trusted-proxy-cidrs[$index] is not a valid CIDR range " +
+                        "('$trimmed'): ${ex.message}",
+                )
+            }
+        }
     }
 
     private fun validateAuthSecrets(auth: PlugwerkProperties.AuthProperties, errors: Errors) {

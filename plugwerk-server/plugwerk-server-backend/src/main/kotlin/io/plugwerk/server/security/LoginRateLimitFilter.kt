@@ -43,7 +43,10 @@ import java.time.OffsetDateTime
  * `request.remoteAddr`.
  */
 @Component
-class LoginRateLimitFilter(private val rateLimitService: LoginRateLimitService) : OncePerRequestFilter() {
+class LoginRateLimitFilter(
+    private val rateLimitService: LoginRateLimitService,
+    private val clientIpResolver: HttpClientIpResolver,
+) : OncePerRequestFilter() {
 
     companion object {
         private const val LOGIN_PATH = "/api/v1/auth/login"
@@ -57,7 +60,7 @@ class LoginRateLimitFilter(private val rateLimitService: LoginRateLimitService) 
         response: HttpServletResponse,
         filterChain: FilterChain,
     ) {
-        val clientIp = request.resolveClientIp()
+        val clientIp = clientIpResolver.resolve(request)
         when (val result = rateLimitService.tryConsume(clientIp)) {
             is RateLimitResult.Allowed -> filterChain.doFilter(request, response)
 
