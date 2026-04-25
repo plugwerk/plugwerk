@@ -310,7 +310,23 @@ class SecurityConfiguration(
             }
             .httpBasic { it.disable() }
             .formLogin { it.disable() }
-            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
+            // Session policy is IF_REQUIRED (Spring's default), NOT STATELESS:
+            // OAuth2 login (#79) needs an HTTP session for the brief window
+            // between /oauth2/authorization/{id} (where the AuthorizationRequest
+            // with state + PKCE code verifier is stored) and the callback at
+            // /login/oauth2/code/{id} (where Spring needs to look it up).
+            // STATELESS would silently no-op the storage and produce a Spring
+            // Whitelabel error page on the callback because the request would
+            // not be found in any repository.
+            //
+            // Our regular API auth model is unaffected: Bearer tokens are
+            // verified statelessly per-request by the resource server, the
+            // refresh cookie is the long-lived session token, and the
+            // SecurityContext is never persisted into the session because no
+            // formLogin / basic-auth path puts it there. The JSESSIONID
+            // cookie issued during an OAuth2 login carries only the in-flight
+            // OAuth2 state; once the callback completes Spring abandons it.
+            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED) }
             .exceptionHandling {
                 // Return 401 JSON instead of redirect to login page
                 it.authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
