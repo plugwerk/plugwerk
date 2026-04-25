@@ -18,6 +18,8 @@
  */
 package io.plugwerk.server.security
 
+import io.plugwerk.server.domain.UserEntity
+import io.plugwerk.server.repository.UserRepository
 import io.plugwerk.server.service.RefreshTokenService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -27,6 +29,7 @@ import org.springframework.security.core.Authentication
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 /**
  * Bridges Spring Security's OAuth2 browser flow into Plugwerk's existing
@@ -60,10 +63,12 @@ import org.springframework.stereotype.Component
 class OidcLoginSuccessHandler(
     private val refreshTokenService: RefreshTokenService,
     private val refreshTokenCookieFactory: RefreshTokenCookieFactory,
+    private val userRepository: UserRepository,
 ) : AuthenticationSuccessHandler {
 
     private val log = LoggerFactory.getLogger(OidcLoginSuccessHandler::class.java)
 
+    @Transactional
     override fun onAuthenticationSuccess(
         request: HttpServletRequest,
         response: HttpServletResponse,
@@ -88,6 +93,7 @@ class OidcLoginSuccessHandler(
             )
 
         val userSubject = "$registrationId:$sub"
+        ensureLocalUserRow(userSubject)
         val refresh = refreshTokenService.issue(userSubject)
         val cookie = refreshTokenCookieFactory.build(refresh.plaintext, refresh.maxAge)
 
@@ -98,5 +104,53 @@ class OidcLoginSuccessHandler(
         // /api/v1/auth/refresh against the cookie we just set and either land
         // the user on their default namespace or on /onboarding.
         response.sendRedirect("/")
+    }
+
+    /**
+     * Just-in-time user provisioning for OIDC subjects (#79).
+     *
+     * `RefreshTokenService.issue()` requires a row in `plugwerk_user` to attach
+     * the refresh token to (FK → user.id). For locally-issued accounts that
+     * row is created by the admin via `UserService.create`. For OIDC-sourced
+     * identities there is no such admin step — the row must materialise on
+     * the first successful OIDC callback or every fresh user gets a 500 on
+     * login.
+     *
+     * The placeholder columns are deliberately user-hostile so the row cannot
+     * be repurposed as a local password account:
+     *
+     *   - `passwordHash` is set to the constant [OIDC_PLACEHOLDER_PASSWORD_HASH].
+     *     This is not a valid BCrypt digest, so `BCryptPasswordEncoder.matches`
+     *     returns false for any input — the local /auth/login endpoint will
+     *     reject every attempted password.
+     *   - `email` is left null. Importing the email from the ID token would
+     *     race against the case-insensitive uniqueness index introduced in
+     *     #271 if a local user with that address already exists, and there is
+     *     no policy yet for "should an OIDC sub be allowed to claim a local
+     *     user's email". A separate identity-linking flow can grow that
+     *     story in a later phase.
+     *   - `passwordChangeRequired` is `false` so the user is not bounced to
+     *     `/change-password` — they have no password to change.
+     */
+    private fun ensureLocalUserRow(userSubject: String) {
+        if (userRepository.existsByUsername(userSubject)) return
+        userRepository.save(
+            UserEntity(
+                username = userSubject,
+                email = null,
+                passwordHash = OIDC_PLACEHOLDER_PASSWORD_HASH,
+                enabled = true,
+                passwordChangeRequired = false,
+                isSuperadmin = false,
+            ),
+        )
+        log.info("Auto-provisioned local user row for OIDC subject: {}", userSubject)
+    }
+
+    private companion object {
+        // Not a valid BCrypt digest — never matches any input via
+        // BCryptPasswordEncoder.matches, so the local /auth/login endpoint
+        // can never succeed against an OIDC-provisioned row.
+        const val OIDC_PLACEHOLDER_PASSWORD_HASH = "OIDC:no-password"
     }
 }
