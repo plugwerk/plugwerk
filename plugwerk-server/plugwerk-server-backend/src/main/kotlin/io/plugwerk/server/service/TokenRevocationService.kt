@@ -27,6 +27,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
@@ -58,19 +60,23 @@ class TokenRevocationService(
     /**
      * Revokes a single token by its [jti] claim. The token's [expiresAt] is stored so the
      * cleanup job can purge the entry once it would have expired anyway.
+     *
+     * The raw [jti] is hashed (SHA-256 hex) before being persisted or cached so a
+     * database leak exposes only opaque digests, not still-valid JWT IDs (SBS-013 / #268).
      */
     @Transactional
     fun revokeToken(jti: String, username: String, expiresAt: Instant) {
-        if (revokedTokenRepository.existsByJti(jti)) return
+        val jtiHash = hashJti(jti)
+        if (revokedTokenRepository.existsByJti(jtiHash)) return
         revokedTokenRepository.save(
             RevokedTokenEntity(
-                jti = jti,
+                jti = jtiHash,
                 username = username,
                 expiresAt = expiresAt.atOffset(ZoneOffset.UTC),
             ),
         )
-        revokedJtiCache.put(jti, true)
-        log.debug("Revoked token jti={} for user={}", jti, username)
+        revokedJtiCache.put(jtiHash, true)
+        log.debug("Revoked token jtiHash={} for user={}", jtiHash, username)
     }
 
     /**
@@ -83,14 +89,30 @@ class TokenRevocationService(
      * @return `true` if the token must be rejected.
      */
     fun isRevoked(jti: String, username: String, issuedAt: Instant): Boolean {
-        // Check explicit revocation (cache → DB fallback)
-        val explicitlyRevoked = revokedJtiCache.get(jti) { revokedTokenRepository.existsByJti(it) }
+        // Check explicit revocation (cache → DB fallback). Both the cache key
+        // and the repository lookup use the SHA-256 hash so the raw jti never
+        // leaves this method (SBS-013 / #268).
+        val jtiHash = hashJti(jti)
+        val explicitlyRevoked = revokedJtiCache.get(jtiHash) { revokedTokenRepository.existsByJti(it) }
         if (explicitlyRevoked == true) return true
 
         // Check bulk invalidation via password change
         val user = userRepository.findByUsername(username).orElse(null) ?: return false
         val invalidatedBefore = user.passwordInvalidatedBefore ?: return false
         return issuedAt.isBefore(invalidatedBefore.toInstant())
+    }
+
+    /**
+     * Hex-encoded SHA-256 of the JWT `jti` claim. Always 64 characters.
+     * Used as the at-rest representation in the `revoked_token` table and as
+     * the Caffeine cache key — see SBS-013 / #268 for rationale.
+     */
+    private fun hashJti(jti: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(jti.toByteArray(StandardCharsets.UTF_8))
+        return buildString(digest.size * 2) {
+            digest.forEach { append("%02x".format(it)) }
+        }
     }
 
     /**
