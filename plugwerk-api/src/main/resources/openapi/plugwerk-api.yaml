@@ -234,8 +234,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/ServerConfigResponse'
               example:
+                version: "1.0.0"
                 upload:
                   maxFileSizeMb: 100
+                general:
+                  defaultTimezone: "UTC"
+                auth:
+                  oidcProviders:
+                    - id: "keycloak-local"
+                      name: "Keycloak Local"
+                      loginUrl: "/oauth2/authorization/keycloak-local"
 
   /auth/login:
     post:
@@ -2675,10 +2683,68 @@ components:
               example: "UTC"
           required:
             - defaultTimezone
+        auth:
+          type: object
+          description: |
+            Authentication-related public configuration. Used by the login page to
+            render OIDC provider buttons in addition to the local username/password
+            form. Only public, non-sensitive fields appear here — never client secrets,
+            issuer URIs, or any other operator-only data.
+          properties:
+            oidcProviders:
+              type: array
+              description: |
+                List of OIDC providers that are currently `enabled` in the database
+                and registered in Spring Security's OAuth2 client registry. Empty
+                when no provider has been activated. The frontend renders one
+                "Login with `<name>`" button per entry on the login page (issue #79).
+              items:
+                $ref: '#/components/schemas/OidcProviderLoginInfo'
+              example:
+                - id: "keycloak-local"
+                  name: "Keycloak Local"
+                  loginUrl: "/oauth2/authorization/keycloak-local"
+          required:
+            - oidcProviders
       required:
         - version
         - upload
         - general
+        - auth
+
+    OidcProviderLoginInfo:
+      type: object
+      description: |
+        Public, non-sensitive metadata about an enabled OIDC provider for the
+        login page (issue #79). The `loginUrl` is a relative path — the frontend
+        navigates the browser to it; Spring Security's OAuth2 client filter
+        intercepts the request and starts the Authorization Code Flow with PKCE.
+      properties:
+        id:
+          type: string
+          description: |
+            Spring Security `registrationId`. Stable identifier; URL-safe slug
+            derived from the provider entity. Same value as the `{registrationId}`
+            in the redirect URI `/login/oauth2/code/{registrationId}`.
+          example: "keycloak-local"
+        name:
+          type: string
+          description: |
+            Human-readable display name of the provider, as configured in the
+            Plugwerk Admin UI. Shown verbatim on the "Login with …" button.
+          example: "Keycloak Local"
+        loginUrl:
+          type: string
+          description: |
+            Relative URL the frontend navigates the browser to in order to start
+            the OIDC flow. Always `/oauth2/authorization/{id}` for the local
+            client; never an absolute URL — keeps the same-origin guarantees
+            of the open-redirect guard from issue #274 trivially satisfied.
+          example: "/oauth2/authorization/keycloak-local"
+      required:
+        - id
+        - name
+        - loginUrl
 
     AccessKeyDto:
       type: object
