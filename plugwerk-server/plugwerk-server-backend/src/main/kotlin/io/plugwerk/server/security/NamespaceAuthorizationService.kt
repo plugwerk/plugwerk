@@ -100,8 +100,10 @@ class NamespaceAuthorizationService(
             return
         }
 
-        // Superadmin has implicit ADMIN in every namespace
-        if (isSuperadmin(authentication.name)) return
+        // Superadmin has implicit ADMIN in every namespace.
+        // Use the Authentication-typed overload so the `key:`-prefix guard is applied
+        // consistently (RC-015 / KT-014 / #282).
+        if (isSuperadmin(authentication)) return
 
         val namespace = namespaceRepository.findBySlug(namespaceSlug)
             .orElseThrow { NamespaceNotFoundException(namespaceSlug) }
@@ -175,9 +177,6 @@ class NamespaceAuthorizationService(
 
         return namespaceMemberRepository.findNamespacesByUserSubject(authentication.name)
     }
-
-    private fun isSuperadmin(username: String): Boolean =
-        userRepository.findByUsername(username).map { it.isSuperadmin }.orElse(false)
 
     private fun rolesAtOrAbove(minimumRole: NamespaceRole): List<NamespaceRole> = when (minimumRole) {
         NamespaceRole.READ_ONLY -> NamespaceRole.entries

@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
+import org.mockito.Mockito.lenient
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
@@ -216,6 +217,22 @@ class NamespaceAuthorizationServiceTest {
         // Access key principals are never superadmin
         assertThatThrownBy { service.requireSuperadmin(auth("key:acme-production")) }
             .isInstanceOf(ForbiddenException::class.java)
+    }
+
+    @Test
+    fun `isSuperadmin rejects access key principal even when DB has matching superadmin user (RC-015 and KT-014)`() {
+        // Defense-in-depth regression guard: even if a (hypothetical) DB user existed
+        // with username "key:acme" and isSuperadmin=true, the Authentication-typed
+        // isSuperadmin must reject it because the principal name starts with the
+        // access-key marker prefix. Before #282, requireRole called a private String
+        // overload of isSuperadmin that bypassed this guard. The stub is lenient
+        // because the guard is expected to short-circuit BEFORE the DB lookup; if a
+        // future refactor removes the guard the assertion below fails immediately.
+        val auth = auth("key:acme")
+        lenient().`when`(userRepository.findByUsername("key:acme"))
+            .thenReturn(Optional.of(superadminUser("key:acme")))
+
+        assert(!service.isSuperadmin(auth))
     }
 
     // ---------------------------------------------------------------------------------
