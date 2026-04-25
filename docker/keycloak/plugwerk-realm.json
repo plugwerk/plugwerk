@@ -1,0 +1,78 @@
+{
+  "realm": "plugwerk",
+  "displayName": "Plugwerk (local development)",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "rememberMe": false,
+  "verifyEmail": false,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+
+  "clients": [
+    {
+      "clientId": "plugwerk-local",
+      "name": "Plugwerk (local backend)",
+      "description": "Local-only OAuth2 client used by plugwerk-server on http://localhost:8080. The realm + client secret + user passwords are weak on purpose — never deploy beyond localhost. Tracked in issue #79.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "local-dev-secret-do-not-use-in-prod",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8080/login/oauth2/code/*"
+      ],
+      "webOrigins": [
+        "http://localhost:8080",
+        "http://localhost:5173"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:8080/*##http://localhost:5173/*"
+      },
+      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "email"],
+      "optionalClientScopes": ["address", "phone", "offline_access"]
+    }
+  ],
+
+  "users": [
+    {
+      "username": "alice",
+      "email": "alice@plugwerk.test",
+      "emailVerified": true,
+      "firstName": "Alice",
+      "lastName": "Tester",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "bob",
+      "email": "bob@plugwerk.test",
+      "emailVerified": true,
+      "firstName": "Bob",
+      "lastName": "Tester",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

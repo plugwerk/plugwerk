@@ -35,6 +35,49 @@ services:
     ports:
       - "8080:8080"
 
+  # Keycloak — local-only OIDC provider for developing #79 (browser login flow).
+  # Not started by default; enable via the `keycloak` profile:
+  #   docker compose --profile keycloak up -d
+  #
+  # The realm `plugwerk` is created from docker/keycloak/plugwerk-realm.json
+  # at first start. It contains:
+  #   - one OAuth2 client `plugwerk-local` (confidential, with PKCE),
+  #     redirect URI http://localhost:8080/login/oauth2/code/* and webOrigin
+  #     http://localhost:5173 for the Vite dev server.
+  #   - two test users (alice / bob), password `password`, both with the
+  #     verified email <name>@plugwerk.test.
+  #
+  # Issuer URI to register in the Plugwerk Admin UI:
+  #   http://localhost:8081/realms/plugwerk
+  # Client ID:     plugwerk-local
+  # Client secret: local-dev-secret-do-not-use-in-prod
+  #
+  # Keycloak admin console: http://localhost:8081 (admin/admin).
+  # Both the admin password and the client secret are intentionally weak —
+  # this stack must never be exposed beyond localhost.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    profiles: ["keycloak"]
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ./docker/keycloak:/opt/keycloak/data/import:ro
+      - keycloak-data:/opt/keycloak/data
+    ports:
+      - "127.0.0.1:8081:8080"
+    healthcheck:
+      # `start-dev` exposes a management endpoint on port 9000 once the realm
+      # is loaded; that is the canonical readiness probe for Keycloak 26+.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q '200'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
 volumes:
   postgres-data:
   plugwerk-artifacts:
+  keycloak-data:
