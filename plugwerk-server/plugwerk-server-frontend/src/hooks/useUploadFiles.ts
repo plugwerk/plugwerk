@@ -41,6 +41,16 @@ function isValidPluginFile(file: File): boolean {
  */
 export function useUploadFiles() {
   const queryClient = useQueryClient();
+  // Stale-closure invariant (TS-014, #278):
+  // Every Zustand store is read inside the callback via `useStore.getState()`,
+  // never via a hook-subscribed selector. Those reads escape React's closure
+  // semantics — the callback always sees the latest store state without
+  // depending on it. That is why `[queryClient]` is the complete dependency
+  // list even though the body references uploadStore, uiStore, and configStore.
+  // If you add a value that DOES come from a hook subscription (e.g. a prop,
+  // `useState`, `useSelector`, or a context value), you must either follow the
+  // same `getState()` escape pattern or add the value to the dependency array
+  // — otherwise the callback will silently capture a stale value.
   const uploadFiles = useCallback(
     async (rawFiles: readonly File[], namespace: string) => {
       const { addFiles } = useUploadStore.getState();
@@ -176,6 +186,7 @@ export function useUploadFiles() {
         });
       }
     },
+    // See the stale-closure invariant note above the callback (TS-014, #278).
     [queryClient],
   );
 
