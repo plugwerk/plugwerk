@@ -19,6 +19,7 @@
 import { create } from "zustand";
 import { namespacesApi } from "../api/config";
 import { refreshAccessToken } from "../api/refresh";
+import { useUiStore } from "./uiStore";
 
 /**
  * Auth state — **memory only** (ADR-0027 / #294).
@@ -197,9 +198,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         localStorage.removeItem(NAMESPACE_KEY);
         set({ namespace: null });
       }
-    } catch {
+    } catch (err) {
+      // TS-015 / #279: surface the failure instead of silently clearing the
+      // namespace. Pre-fix, a network error here landed the user on /onboarding
+      // with an empty namespace list and no explanation. We do NOT re-throw —
+      // LoginPage.handleSubmit awaits initNamespace() and assumes it settles
+      // either way; a throw would break the post-login navigation flow.
       localStorage.removeItem(NAMESPACE_KEY);
       set({ namespace: null });
+      useUiStore.getState().addToast({
+        type: "error",
+        title: "Could not load namespaces",
+        message: "Check your connection and try again.",
+      });
+      console.error(
+        "[authStore.initNamespace] namespacesApi.listNamespaces failed",
+        err,
+      );
     }
   },
 

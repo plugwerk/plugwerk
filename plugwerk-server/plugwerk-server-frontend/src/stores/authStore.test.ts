@@ -19,6 +19,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { act } from "react";
 import { useAuthStore } from "./authStore";
+import { useUiStore } from "./uiStore";
+import { namespacesApi } from "../api/config";
 
 describe("useAuthStore", () => {
   beforeEach(() => {
@@ -33,6 +35,7 @@ describe("useAuthStore", () => {
       isSuperadmin: false,
       isHydrating: false,
     });
+    useUiStore.setState({ toasts: [] });
   });
 
   describe("initial state (post-ADR-0027)", () => {
@@ -142,6 +145,55 @@ describe("useAuthStore", () => {
         useAuthStore.getState().setNamespace("acme");
       });
       expect(localStorage.getItem("pw-namespace")).toBe("acme");
+    });
+  });
+
+  describe("initNamespace", () => {
+    it("sets namespace from API response and emits no toast on success", async () => {
+      const spy = vi.spyOn(namespacesApi, "listNamespaces").mockResolvedValue({
+        data: [{ slug: "acme" }, { slug: "globex" }],
+      } as unknown as Awaited<ReturnType<typeof namespacesApi.listNamespaces>>);
+
+      await act(async () => {
+        await useAuthStore.getState().initNamespace();
+      });
+
+      expect(useAuthStore.getState().namespace).toBe("acme");
+      expect(localStorage.getItem("pw-namespace")).toBe("acme");
+      expect(useUiStore.getState().toasts).toHaveLength(0);
+
+      spy.mockRestore();
+    });
+
+    it("surfaces a toast and clears state when listNamespaces fails (TS-015 / #279)", async () => {
+      // Pre-fix: catch was empty — user landed on /onboarding with an empty
+      // namespace list and no explanation. Now an error toast must be raised.
+      const consoleSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const apiSpy = vi
+        .spyOn(namespacesApi, "listNamespaces")
+        .mockRejectedValue(new Error("network down"));
+      localStorage.setItem("pw-namespace", "stale");
+
+      await act(async () => {
+        await useAuthStore.getState().initNamespace();
+      });
+
+      expect(useAuthStore.getState().namespace).toBeNull();
+      expect(localStorage.getItem("pw-namespace")).toBeNull();
+
+      const toasts = useUiStore.getState().toasts;
+      expect(toasts).toHaveLength(1);
+      expect(toasts[0].type).toBe("error");
+      expect(toasts[0].title).toMatch(/namespace/i);
+
+      // Console.error keeps the stack trace available to developers without
+      // breaking the LoginPage-awaits-initNamespace flow.
+      expect(consoleSpy).toHaveBeenCalledOnce();
+
+      apiSpy.mockRestore();
+      consoleSpy.mockRestore();
     });
   });
 
