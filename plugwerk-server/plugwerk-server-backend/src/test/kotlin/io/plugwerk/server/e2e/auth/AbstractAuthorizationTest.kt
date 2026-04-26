@@ -226,6 +226,9 @@ abstract class AbstractAuthorizationTest {
         val user = userRepository.save(
             UserEntity(
                 username = username,
+                displayName = username,
+                email = "$username@e2e.test",
+                source = io.plugwerk.server.domain.UserSource.LOCAL,
                 passwordHash = requireNotNull(passwordEncoder.encode(TEST_PASSWORD)),
                 passwordChangeRequired = false,
             ),
@@ -270,14 +273,11 @@ abstract class AbstractAuthorizationTest {
     /**
      * Creates a throwaway namespace membership.
      */
-    fun createEphemeralMembership(
-        namespaceSlug: String,
-        userSubject: String,
-        role: NamespaceRole = NamespaceRole.READ_ONLY,
-    ) {
+    fun createEphemeralMembership(namespaceSlug: String, userId: UUID, role: NamespaceRole = NamespaceRole.READ_ONLY) {
         val namespace = namespaceRepository.findBySlug(namespaceSlug).orElseThrow()
+        val user = userRepository.findById(userId).orElseThrow()
         namespaceMemberRepository.save(
-            NamespaceMemberEntity(namespace = namespace, userSubject = userSubject, role = role),
+            NamespaceMemberEntity(namespace = namespace, user = user, role = role),
         )
     }
 
@@ -331,7 +331,10 @@ abstract class AbstractAuthorizationTest {
         val users = mutableMapOf<String, UserEntity>()
 
         // The built-in admin user (created by Liquibase + plugwerk.auth.admin-password)
-        val admin = userRepository.findByUsername("admin").orElseThrow {
+        val admin = userRepository.findByUsernameAndSource(
+            "admin",
+            io.plugwerk.server.domain.UserSource.LOCAL,
+        ).orElseThrow {
             IllegalStateException("Bootstrap admin user not found — check application-integration.yml")
         }
         // Ensure isSuperadmin is true
@@ -357,10 +360,19 @@ abstract class AbstractAuthorizationTest {
         )
 
         for ((username, isSuperadmin) in userSpecs) {
-            if (userRepository.findByUsername(username).isPresent) continue
+            if (userRepository.findByUsernameAndSource(
+                    username,
+                    io.plugwerk.server.domain.UserSource.LOCAL,
+                ).isPresent
+            ) {
+                continue
+            }
             val user = userRepository.save(
                 UserEntity(
                     username = username,
+                    displayName = username,
+                    email = "$username@e2e.test",
+                    source = io.plugwerk.server.domain.UserSource.LOCAL,
                     passwordHash = requireNotNull(passwordEncoder.encode(TEST_PASSWORD)),
                     passwordChangeRequired = false,
                     isSuperadmin = isSuperadmin,
@@ -409,10 +421,12 @@ abstract class AbstractAuthorizationTest {
         )
 
         for ((subject, namespace, role) in memberships) {
-            val exists = namespaceMemberRepository.findByNamespaceIdAndUserSubject(namespace.id!!, subject).isPresent
+            val user = userRepository.findByUsernameAndSource(subject, io.plugwerk.server.domain.UserSource.LOCAL)
+                .orElseThrow { IllegalStateException("seed user '$subject' missing — check createTestUsers ordering") }
+            val exists = namespaceMemberRepository.findByNamespaceIdAndUserId(namespace.id!!, user.id!!).isPresent
             if (!exists) {
                 namespaceMemberRepository.save(
-                    NamespaceMemberEntity(namespace = namespace, userSubject = subject, role = role),
+                    NamespaceMemberEntity(namespace = namespace, user = user, role = role),
                 )
             }
         }

@@ -132,16 +132,22 @@ class RefreshTokenUpstreamIdTokenMigrationIT {
     private fun insertUser(conn: Connection): UUID {
         val userId = UUID.randomUUID()
         val username = "u-${userId.toString().take(8)}"
+        // After migration 0017 plugwerk_user requires display_name, email, and source.
+        // The IT runs the full changelog (which includes 0017), so this insert must
+        // satisfy those constraints — the column shape is owned by 0017, not 0016.
         conn.prepareStatement(
             """
             INSERT INTO plugwerk_user
-              (id, username, email, password_hash, enabled, password_change_required, is_superadmin)
-            VALUES (?, ?, NULL, ?, true, false, false)
+              (id, username, display_name, email, source, password_hash,
+               enabled, password_change_required, is_superadmin)
+            VALUES (?, ?, ?, ?, 'LOCAL', ?, true, false, false)
             """.trimIndent(),
         ).use { stmt ->
             stmt.setObject(1, userId)
             stmt.setString(2, username)
-            stmt.setString(3, "\$2a\$12\$" + "x".repeat(53))
+            stmt.setString(3, username)
+            stmt.setString(4, "$username@refresh-token-it.test")
+            stmt.setString(5, "\$2a\$12\$" + "x".repeat(53))
             stmt.executeUpdate()
         }
         return userId

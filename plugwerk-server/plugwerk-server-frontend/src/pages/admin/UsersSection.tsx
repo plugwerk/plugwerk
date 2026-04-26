@@ -73,12 +73,12 @@ export function UsersSection() {
       });
       setUsers((prev) => prev.map((u) => (u.id === user.id ? res.data : u)));
       addToast({
-        message: `User "${user.username}" ${res.data.enabled ? "enabled" : "disabled"}.`,
+        message: `User "${user.displayName}" ${res.data.enabled ? "enabled" : "disabled"}.`,
         type: "success",
       });
     } catch {
       addToast({
-        message: `Failed to update user ${user.username}.`,
+        message: `Failed to update user ${user.displayName}.`,
         type: "error",
       });
     }
@@ -91,13 +91,13 @@ export function UsersSection() {
       await adminUsersApi.deleteUser({ userId: deleteTarget.id });
       setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
       addToast({
-        message: `User "${deleteTarget.username}" deleted.`,
+        message: `User "${deleteTarget.displayName}" deleted.`,
         type: "success",
       });
       setDeleteTarget(null);
     } catch {
       addToast({
-        message: `Failed to delete user ${deleteTarget.username}.`,
+        message: `Failed to delete user ${deleteTarget.displayName}.`,
         type: "error",
       });
     } finally {
@@ -106,19 +106,19 @@ export function UsersSection() {
   }
 
   async function handleCreate() {
-    if (!username.trim() || !password) return;
+    if (!username.trim() || !email.trim() || !password) return;
     setSaving(true);
     try {
       const res = await adminUsersApi.createUser({
         userCreateRequest: {
           username: username.trim(),
-          email: email.trim() || undefined,
+          email: email.trim(),
           password,
         },
       });
       setUsers((prev) => [...prev, res.data]);
       addToast({
-        message: `User "${res.data.username}" created.`,
+        message: `User "${res.data.displayName}" created.`,
         type: "success",
       });
       setDialogOpen(false);
@@ -134,8 +134,8 @@ export function UsersSection() {
 
   const userColumns: DataColumn<UserDto>[] = [
     {
-      key: "username",
-      header: "Username",
+      key: "displayName",
+      header: "User",
       render: (user) => (
         <Box
           sx={{
@@ -146,8 +146,13 @@ export function UsersSection() {
           }}
         >
           <Typography variant="body2" fontWeight={500}>
-            {user.username}
+            {user.displayName}
           </Typography>
+          {user.username && user.username !== user.displayName && (
+            <Typography variant="caption" color="text.secondary">
+              ({user.username})
+            </Typography>
+          )}
           {user.isSuperadmin && (
             <Chip
               icon={<Shield size={12} />}
@@ -169,11 +174,23 @@ export function UsersSection() {
       ),
     },
     {
+      key: "source",
+      header: "Source",
+      render: (user) => (
+        <Chip
+          label={user.source}
+          size="small"
+          variant="outlined"
+          color={user.source === "OIDC" ? "info" : "default"}
+        />
+      ),
+    },
+    {
       key: "email",
       header: "Email",
       render: (user) => (
         <Typography variant="caption" color="text.secondary">
-          {user.email ?? "—"}
+          {user.email}
         </Typography>
       ),
     },
@@ -206,7 +223,7 @@ export function UsersSection() {
           size="small"
           onChange={() => handleToggleEnabled(user)}
           disabled={user.isSuperadmin}
-          inputProps={{ "aria-label": `Toggle ${user.username}` }}
+          inputProps={{ "aria-label": `Toggle ${user.displayName}` }}
         />
       ),
     },
@@ -311,8 +328,8 @@ export function UsersSection() {
         title="Delete User"
         message={
           deleteTarget && (deleteTarget.namespaceMembershipCount ?? 0) > 0
-            ? `User "${deleteTarget.username}" is a member of ${deleteTarget.namespaceMembershipCount} namespace(s). All memberships will be removed. This action cannot be undone.`
-            : `User "${deleteTarget?.username ?? ""}" will be permanently deleted. This action cannot be undone.`
+            ? `User "${deleteTarget.displayName}" is a member of ${deleteTarget.namespaceMembershipCount} namespace(s). All memberships will be removed. This action cannot be undone.`
+            : `User "${deleteTarget?.displayName ?? ""}" will be permanently deleted. This action cannot be undone.`
         }
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}

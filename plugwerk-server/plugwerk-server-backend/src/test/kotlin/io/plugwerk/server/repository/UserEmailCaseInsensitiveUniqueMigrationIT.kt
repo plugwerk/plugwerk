@@ -99,30 +99,30 @@ class UserEmailCaseInsensitiveUniqueMigrationIT {
     }
 
     @Test
-    fun `DB-013 uq_user_email_lower exists as a partial functional index`() {
-        val indexDef = indexDefinition(
-            tableName = "plugwerk_user",
-            indexName = "uq_user_email_lower",
-        )
+    fun `0017 replaced uq_user_email_lower with uq_plugwerk_user_email_local (LOCAL-scoped)`() {
+        // The 0013 partial functional index (lower(email) WHERE email IS NOT NULL)
+        // was replaced by migration 0017 with a LOCAL-scoped variant
+        // (lower(email) WHERE source = 'LOCAL') because OIDC accounts are
+        // intentionally allowed to share emails (#351 — no identity linking).
+        assertThat(indexDefinition("plugwerk_user", "uq_user_email_lower")).isNull()
+
+        val indexDef = indexDefinition("plugwerk_user", "uq_plugwerk_user_email_local")
         assertThat(indexDef).isNotNull()
-        // Postgres pg_indexes.indexdef shape:
-        //   CREATE UNIQUE INDEX uq_user_email_lower
-        //     ON public.plugwerk_user USING btree (lower((email)::text))
-        //     WHERE (email IS NOT NULL)
         assertThat(indexDef!!).contains("UNIQUE")
         assertThat(indexDef.lowercase()).contains("lower(")
         assertThat(indexDef.lowercase()).contains("email")
         assertThat(indexDef).contains("WHERE")
-        assertThat(indexDef.lowercase()).contains("is not null")
+        assertThat(indexDef.lowercase()).contains("source")
+        assertThat(indexDef).contains("LOCAL")
     }
 
     @Test
-    fun `DB-013 case-different emails are rejected by the partial functional unique index`() {
+    fun `0017 case-different emails are rejected within source=LOCAL`() {
         DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password).use { conn ->
             insertUser(conn, username = "alice", email = "Alice@Example.com")
 
-            // Different case in both local and domain parts; the LOWER(email) index
-            // collapses both to the same key and must reject the second insert.
+            // Different case in both local and domain parts; the LOWER(email) partial
+            // index collapses both to the same key for LOCAL rows and must reject.
             assertThatThrownBy {
                 insertUser(conn, username = "alice2", email = "alice@example.COM")
             }
@@ -132,15 +132,15 @@ class UserEmailCaseInsensitiveUniqueMigrationIT {
     }
 
     @Test
-    fun `DB-013 multiple users with NULL email are allowed (partial predicate excludes NULLs)`() {
+    fun `0017 OIDC accounts may share emails (no identity linking, #351)`() {
         DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password).use { conn ->
-            // Without the WHERE email IS NOT NULL predicate, the NULLS-DISTINCT
-            // default behaviour can vary across PostgreSQL versions. The partial
-            // index pins the safe semantics: NULLs are simply not in the index.
+            // Two OIDC rows with the same email are allowed — Plugwerk treats them
+            // as independent identities. Mixing with a LOCAL row of the same email
+            // is also allowed because the LOCAL-scoped index ignores OIDC rows.
             assertThatCode {
-                insertUser(conn, username = "no-email-1", email = null)
-                insertUser(conn, username = "no-email-2", email = null)
-                insertUser(conn, username = "no-email-3", email = null)
+                insertOidcUser(conn, "shared-email-oidc-1@example.com")
+                insertOidcUser(conn, "shared-email-oidc-2@example.com")
+                insertUser(conn, username = "shared-email-local", email = "shared-email-oidc-1@example.com")
             }.doesNotThrowAnyException()
         }
     }
@@ -183,18 +183,36 @@ class UserEmailCaseInsensitiveUniqueMigrationIT {
         }
     }
 
-    private fun insertUser(conn: Connection, username: String, email: String?) {
+    private fun insertUser(conn: Connection, username: String, email: String) {
         conn.prepareStatement(
             """
             INSERT INTO plugwerk_user
-              (id, username, email, password_hash, enabled, password_change_required, is_superadmin)
-            VALUES (?, ?, ?, ?, true, false, false)
+              (id, username, display_name, email, source, password_hash,
+               enabled, password_change_required, is_superadmin)
+            VALUES (?, ?, ?, ?, 'LOCAL', ?, true, false, false)
             """.trimIndent(),
         ).use { stmt ->
             stmt.setObject(1, UUID.randomUUID())
             stmt.setString(2, username)
-            if (email == null) stmt.setNull(3, java.sql.Types.VARCHAR) else stmt.setString(3, email)
-            stmt.setString(4, "\$2a\$12\$" + "x".repeat(53))
+            stmt.setString(3, username)
+            stmt.setString(4, email)
+            stmt.setString(5, "\$2a\$12\$" + "x".repeat(53))
+            stmt.executeUpdate()
+        }
+    }
+
+    private fun insertOidcUser(conn: Connection, email: String) {
+        conn.prepareStatement(
+            """
+            INSERT INTO plugwerk_user
+              (id, username, display_name, email, source, password_hash,
+               enabled, password_change_required, is_superadmin)
+            VALUES (?, NULL, ?, ?, 'OIDC', NULL, true, false, false)
+            """.trimIndent(),
+        ).use { stmt ->
+            stmt.setObject(1, UUID.randomUUID())
+            stmt.setString(2, "OIDC user $email")
+            stmt.setString(3, email)
             stmt.executeUpdate()
         }
     }

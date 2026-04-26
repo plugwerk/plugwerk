@@ -31,3 +31,5 @@ databaseChangeLog:
       file: db/changelog/migrations/0015_invalidate_pre_hkdf_hashes.yaml
   - include:
       file: db/changelog/migrations/0016_refresh_token_upstream_id_token.yaml
+  - include:
+      file: db/changelog/migrations/0017_identity_hub_split.yaml

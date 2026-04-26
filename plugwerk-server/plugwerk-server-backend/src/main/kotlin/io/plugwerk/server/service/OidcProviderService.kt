@@ -20,9 +20,12 @@ package io.plugwerk.server.service
 
 import io.plugwerk.server.domain.OidcProviderEntity
 import io.plugwerk.server.domain.OidcProviderType
+import io.plugwerk.server.repository.OidcIdentityRepository
 import io.plugwerk.server.repository.OidcProviderRepository
+import io.plugwerk.server.repository.UserRepository
 import io.plugwerk.server.security.DbClientRegistrationRepository
 import io.plugwerk.server.security.OidcProviderRegistry
+import org.slf4j.LoggerFactory
 import org.springframework.security.crypto.encrypt.TextEncryptor
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -34,8 +37,12 @@ class OidcProviderService(
     private val oidcProviderRepository: OidcProviderRepository,
     private val oidcProviderRegistry: OidcProviderRegistry,
     private val dbClientRegistrationRepository: DbClientRegistrationRepository,
+    private val oidcIdentityRepository: OidcIdentityRepository,
+    private val userRepository: UserRepository,
     private val textEncryptor: TextEncryptor,
 ) {
+
+    private val log = LoggerFactory.getLogger(OidcProviderService::class.java)
 
     /**
      * Rebuilds both registries that depend on the enabled-providers list:
@@ -99,10 +106,30 @@ class OidcProviderService(
         return saved
     }
 
+    /**
+     * Deletes an OIDC provider, applying issue #351's Politik C: any
+     * `plugwerk_user` rows that authenticated through this provider get
+     * `enabled = false` BEFORE the SQL cascade wipes their `oidc_identity`
+     * rows. The user records survive for audit purposes — operators who
+     * later want to permanently delete those users can do so via the admin
+     * UI; until then the disabled flag prevents any new login attempt.
+     */
     fun delete(id: UUID) {
         if (!oidcProviderRepository.existsById(id)) {
             throw EntityNotFoundException("OidcProvider", id.toString())
         }
+        val orphanedUserIds = oidcIdentityRepository.findAllByOidcProviderId(id)
+            .mapNotNull { it.user.id }
+        if (orphanedUserIds.isNotEmpty()) {
+            val disabled = userRepository.disableAll(orphanedUserIds)
+            log.warn(
+                "Disabled {} user(s) orphaned by deletion of OIDC provider {} (Politik C, issue #351)",
+                disabled,
+                id,
+            )
+        }
+        // The CASCADE on oidc_identity.oidc_provider_id removes the identity rows
+        // here. plugwerk_user rows stay (now flagged enabled=false above).
         oidcProviderRepository.deleteById(id)
         refreshAllRegistries()
     }

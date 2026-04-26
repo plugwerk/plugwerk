@@ -18,15 +18,20 @@
 -- =============================================================================
 
 -- ============================================================
--- Users
+-- Users (post-#351 identity-hub split)
+-- ------------------------------------------------------------
+-- Every row is `source = 'LOCAL'` with mandatory `display_name`
+-- and `email`. The `(username, source)` partial unique index
+-- replaces the old column-level UNIQUE on `username`, so the
+-- ON CONFLICT clause now references that pair.
 -- ============================================================
-INSERT INTO plugwerk_user (id, username, email, password_hash, enabled, password_change_required, is_superadmin) VALUES
-  ('a0000000-0000-0000-0000-000000000001', 'admin',   'admin@example.com',   '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  false, true),
-  ('a0000000-0000-0000-0000-000000000002', 'alice',   'alice@example.com',   '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  false, false),
-  ('a0000000-0000-0000-0000-000000000003', 'bob',     'bob@example.com',     '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  false, false),
-  ('a0000000-0000-0000-0000-000000000004', 'charlie', 'charlie@example.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  true,  false),
-  ('a0000000-0000-0000-0000-000000000005', 'diana',   'diana@example.com',   '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', false, false, false)
-ON CONFLICT (username) DO NOTHING;
+INSERT INTO plugwerk_user (id, username, display_name, email, source, password_hash, enabled, password_change_required, is_superadmin) VALUES
+  ('a0000000-0000-0000-0000-000000000001', 'admin',   'Administrator', 'admin@example.com',   'LOCAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  false, true),
+  ('a0000000-0000-0000-0000-000000000002', 'alice',   'Alice',         'alice@example.com',   'LOCAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  false, false),
+  ('a0000000-0000-0000-0000-000000000003', 'bob',     'Bob',           'bob@example.com',     'LOCAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  false, false),
+  ('a0000000-0000-0000-0000-000000000004', 'charlie', 'Charlie',       'charlie@example.com', 'LOCAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  true,  false),
+  ('a0000000-0000-0000-0000-000000000005', 'diana',   'Diana',         'diana@example.com',   'LOCAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', false, false, false)
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
 -- Namespaces
@@ -38,22 +43,22 @@ INSERT INTO namespace (id, slug, name, description, public_catalog, auto_approve
 ON CONFLICT (slug) DO NOTHING;
 
 -- ============================================================
--- Namespace Members
+-- Namespace Members (post-#351: user_id FK instead of user_subject text)
 -- ============================================================
-INSERT INTO namespace_member (id, namespace_id, user_subject, role) VALUES
+INSERT INTO namespace_member (id, namespace_id, user_id, role) VALUES
   -- admin → default (ADMIN), acme-corp (ADMIN), community (ADMIN)
-  ('b0000000-0000-0000-0000-000000000001', (SELECT id FROM namespace WHERE slug = 'default'),   'admin',   'ADMIN'),
-  ('b0000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000002',              'admin',   'ADMIN'),
-  ('b0000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000003',              'admin',   'ADMIN'),
+  ('b0000000-0000-0000-0000-000000000001', (SELECT id FROM namespace WHERE slug = 'default'),   'a0000000-0000-0000-0000-000000000001', 'ADMIN'),
+  ('b0000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000002',              'a0000000-0000-0000-0000-000000000001', 'ADMIN'),
+  ('b0000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000003',              'a0000000-0000-0000-0000-000000000001', 'ADMIN'),
   -- alice → default (MEMBER), acme-corp (ADMIN)
-  ('b0000000-0000-0000-0000-000000000004', (SELECT id FROM namespace WHERE slug = 'default'),   'alice',   'MEMBER'),
-  ('b0000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000002',              'alice',   'ADMIN'),
+  ('b0000000-0000-0000-0000-000000000004', (SELECT id FROM namespace WHERE slug = 'default'),   'a0000000-0000-0000-0000-000000000002', 'MEMBER'),
+  ('b0000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000002',              'a0000000-0000-0000-0000-000000000002', 'ADMIN'),
   -- bob → default (READ_ONLY), community (MEMBER)
-  ('b0000000-0000-0000-0000-000000000006', (SELECT id FROM namespace WHERE slug = 'default'),   'bob',     'READ_ONLY'),
-  ('b0000000-0000-0000-0000-000000000007', '00000000-0000-0000-0000-000000000003',              'bob',     'MEMBER'),
+  ('b0000000-0000-0000-0000-000000000006', (SELECT id FROM namespace WHERE slug = 'default'),   'a0000000-0000-0000-0000-000000000003', 'READ_ONLY'),
+  ('b0000000-0000-0000-0000-000000000007', '00000000-0000-0000-0000-000000000003',              'a0000000-0000-0000-0000-000000000003', 'MEMBER'),
   -- charlie → acme-corp (MEMBER)
-  ('b0000000-0000-0000-0000-000000000008', '00000000-0000-0000-0000-000000000002',              'charlie', 'MEMBER')
-ON CONFLICT (namespace_id, user_subject) DO NOTHING;
+  ('b0000000-0000-0000-0000-000000000008', '00000000-0000-0000-0000-000000000002',              'a0000000-0000-0000-0000-000000000004', 'MEMBER')
+ON CONFLICT (namespace_id, user_id) DO NOTHING;
 
 -- ============================================================
 -- Namespace Access Keys

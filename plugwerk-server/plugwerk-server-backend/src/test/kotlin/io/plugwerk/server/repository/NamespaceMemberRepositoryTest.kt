@@ -22,12 +22,13 @@ import io.plugwerk.server.AbstractRepositoryTest
 import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.NamespaceMemberEntity
 import io.plugwerk.server.domain.NamespaceRole
+import io.plugwerk.server.domain.UserEntity
+import io.plugwerk.server.domain.UserSource
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.dao.DataIntegrityViolationException
-import java.util.UUID
 import kotlin.test.assertFailsWith
 
 class NamespaceMemberRepositoryTest : AbstractRepositoryTest() {
@@ -38,52 +39,68 @@ class NamespaceMemberRepositoryTest : AbstractRepositoryTest() {
     @Autowired
     lateinit var memberRepository: NamespaceMemberRepository
 
+    @Autowired
+    lateinit var userRepository: UserRepository
+
     private lateinit var namespace: NamespaceEntity
+    private lateinit var alice: UserEntity
+    private lateinit var bob: UserEntity
 
     @BeforeEach
     fun setup() {
         namespace = namespaceRepository.save(NamespaceEntity(slug = "acme", name = "ACME Corp"))
+        alice = userRepository.save(localUser("alice"))
+        bob = userRepository.save(localUser("bob"))
     }
 
-    private fun member(subject: String, role: NamespaceRole = NamespaceRole.MEMBER) =
-        NamespaceMemberEntity(namespace = namespace, userSubject = subject, role = role)
+    private fun localUser(name: String) = UserEntity(
+        username = name,
+        displayName = name,
+        email = "$name@example.test",
+        source = UserSource.LOCAL,
+        passwordHash = "\$2a\$12\$hash",
+    )
+
+    private fun member(user: UserEntity, role: NamespaceRole = NamespaceRole.MEMBER) =
+        NamespaceMemberEntity(namespace = namespace, user = user, role = role)
 
     @Test
-    fun `findByNamespaceIdAndUserSubject returns member when present`() {
-        memberRepository.save(member("alice"))
+    fun `findByNamespaceIdAndUserId returns member when present`() {
+        memberRepository.save(member(alice))
 
-        val found = memberRepository.findByNamespaceIdAndUserSubject(namespace.id!!, "alice")
+        val found = memberRepository.findByNamespaceIdAndUserId(namespace.id!!, alice.id!!)
 
         assertThat(found).isPresent
-        assertThat(found.get().userSubject).isEqualTo("alice")
+        assertThat(found.get().user.id).isEqualTo(alice.id)
         assertThat(found.get().role).isEqualTo(NamespaceRole.MEMBER)
     }
 
     @Test
-    fun `findByNamespaceIdAndUserSubject returns empty when not present`() {
-        val found = memberRepository.findByNamespaceIdAndUserSubject(namespace.id!!, "nobody")
+    fun `findByNamespaceIdAndUserId returns empty when not present`() {
+        val ghost = userRepository.save(localUser("ghost"))
+        val found = memberRepository.findByNamespaceIdAndUserId(namespace.id!!, ghost.id!!)
 
         assertThat(found).isEmpty
     }
 
     @Test
     fun `findAllByNamespaceId returns all members of namespace`() {
-        memberRepository.save(member("alice", NamespaceRole.ADMIN))
-        memberRepository.save(member("bob", NamespaceRole.MEMBER))
+        memberRepository.save(member(alice, NamespaceRole.ADMIN))
+        memberRepository.save(member(bob, NamespaceRole.MEMBER))
 
         val members = memberRepository.findAllByNamespaceId(namespace.id!!)
 
         assertThat(members).hasSize(2)
-        assertThat(members.map { it.userSubject }).containsExactlyInAnyOrder("alice", "bob")
+        assertThat(members.map { it.user.id }).containsExactlyInAnyOrder(alice.id, bob.id)
     }
 
     @Test
-    fun `existsByNamespaceIdAndUserSubjectAndRoleIn returns true for matching role`() {
-        memberRepository.save(member("alice", NamespaceRole.ADMIN))
+    fun `existsByNamespaceIdAndUserIdAndRoleIn returns true for matching role`() {
+        memberRepository.save(member(alice, NamespaceRole.ADMIN))
 
-        val result = memberRepository.existsByNamespaceIdAndUserSubjectAndRoleIn(
+        val result = memberRepository.existsByNamespaceIdAndUserIdAndRoleIn(
             namespaceId = namespace.id!!,
-            userSubject = "alice",
+            userId = alice.id!!,
             roles = listOf(NamespaceRole.ADMIN, NamespaceRole.MEMBER),
         )
 
@@ -91,12 +108,12 @@ class NamespaceMemberRepositoryTest : AbstractRepositoryTest() {
     }
 
     @Test
-    fun `existsByNamespaceIdAndUserSubjectAndRoleIn returns false when role not in list`() {
-        memberRepository.save(member("alice", NamespaceRole.READ_ONLY))
+    fun `existsByNamespaceIdAndUserIdAndRoleIn returns false when role not in list`() {
+        memberRepository.save(member(alice, NamespaceRole.READ_ONLY))
 
-        val result = memberRepository.existsByNamespaceIdAndUserSubjectAndRoleIn(
+        val result = memberRepository.existsByNamespaceIdAndUserIdAndRoleIn(
             namespaceId = namespace.id!!,
-            userSubject = "alice",
+            userId = alice.id!!,
             roles = listOf(NamespaceRole.ADMIN, NamespaceRole.MEMBER),
         )
 
@@ -104,34 +121,33 @@ class NamespaceMemberRepositoryTest : AbstractRepositoryTest() {
     }
 
     @Test
-    fun `deleteByNamespaceIdAndUserSubject removes the member`() {
-        memberRepository.save(member("alice"))
+    fun `deleteByNamespaceIdAndUserId removes the member`() {
+        memberRepository.save(member(alice))
         memberRepository.flush()
 
-        memberRepository.deleteByNamespaceIdAndUserSubject(namespace.id!!, "alice")
+        memberRepository.deleteByNamespaceIdAndUserId(namespace.id!!, alice.id!!)
 
-        assertThat(memberRepository.findByNamespaceIdAndUserSubject(namespace.id!!, "alice")).isEmpty
+        assertThat(memberRepository.findByNamespaceIdAndUserId(namespace.id!!, alice.id!!)).isEmpty
     }
 
     @Test
-    fun `unique constraint prevents duplicate subject in same namespace`() {
-        memberRepository.save(member("alice", NamespaceRole.MEMBER))
+    fun `unique constraint prevents duplicate user in same namespace`() {
+        memberRepository.save(member(alice, NamespaceRole.MEMBER))
         memberRepository.flush()
 
         assertFailsWith<DataIntegrityViolationException> {
-            memberRepository.saveAndFlush(member("alice", NamespaceRole.ADMIN))
+            memberRepository.saveAndFlush(member(alice, NamespaceRole.ADMIN))
         }
     }
 
     @Test
-    fun `same subject may be member in different namespaces`() {
+    fun `same user may be member in different namespaces`() {
         val other = namespaceRepository.save(NamespaceEntity(slug = "other", name = "Other"))
-        memberRepository.save(member("alice", NamespaceRole.ADMIN))
+        memberRepository.save(member(alice, NamespaceRole.ADMIN))
         memberRepository.flush()
 
-        // should not throw
         memberRepository.saveAndFlush(
-            NamespaceMemberEntity(namespace = other, userSubject = "alice", role = NamespaceRole.MEMBER),
+            NamespaceMemberEntity(namespace = other, user = alice, role = NamespaceRole.MEMBER),
         )
 
         assertThat(memberRepository.findAllByNamespaceId(namespace.id!!)).hasSize(1)

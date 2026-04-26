@@ -32,7 +32,27 @@ import { useUiStore } from "./uiStore";
  */
 interface AuthState {
   accessToken: string | null;
+  /**
+   * Stable Plugwerk user identifier (`plugwerk_user.id`). Authoritative reference
+   * after the identity-hub split (#351) — every audit log, FK, and JWT `sub` keys
+   * off this. UI display goes through [displayName].
+   */
+  userId: string | null;
+  /** Human-readable label shown in the UI. Defaults to username for LOCAL users. */
+  displayName: string | null;
+  /**
+   * Local-login username. `null` for OIDC-sourced sessions — those identities live
+   * with the upstream provider and Plugwerk has no local username for them. The
+   * profile page falls back to [displayName] when this is `null`.
+   */
   username: string | null;
+  email: string | null;
+  /**
+   * `LOCAL` for password-based accounts, `OIDC` for accounts sourced from an
+   * upstream identity provider. Used by the UI to disable password-change
+   * affordances for OIDC users.
+   */
+  source: "LOCAL" | "OIDC" | null;
   namespace: string | null | undefined;
   isAuthenticated: boolean;
   passwordChangeRequired: boolean;
@@ -45,7 +65,11 @@ interface AuthState {
   hydrate: () => Promise<void>;
   setAuth: (fields: {
     accessToken: string;
-    username: string;
+    userId: string;
+    displayName: string;
+    username?: string | null;
+    email: string;
+    source: "LOCAL" | "OIDC";
     passwordChangeRequired: boolean;
     isSuperadmin: boolean;
   }) => void;
@@ -94,7 +118,11 @@ function migrateLegacyAuthKeys(): void {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   accessToken: null,
+  userId: null,
+  displayName: null,
   username: null,
+  email: null,
+  source: null,
   namespace: undefined,
   isAuthenticated: false,
   passwordChangeRequired: false,
@@ -105,10 +133,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return get().accessToken;
   },
 
-  setAuth({ accessToken, username, passwordChangeRequired, isSuperadmin }) {
+  setAuth({
+    accessToken,
+    userId,
+    displayName,
+    username,
+    email,
+    source,
+    passwordChangeRequired,
+    isSuperadmin,
+  }) {
     set({
       accessToken,
-      username,
+      userId,
+      displayName,
+      username: username ?? null,
+      email,
+      source,
       isAuthenticated: true,
       passwordChangeRequired,
       isSuperadmin,
@@ -118,7 +159,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   clearAuth() {
     set({
       accessToken: null,
+      userId: null,
+      displayName: null,
       username: null,
+      email: null,
+      source: null,
       namespace: undefined,
       isAuthenticated: false,
       passwordChangeRequired: false,
@@ -139,7 +184,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const data = await response.json();
     get().setAuth({
       accessToken: data.accessToken,
-      username,
+      userId: data.userId,
+      displayName: data.displayName,
+      username: typeof data.username === "string" ? data.username : username,
+      email: data.email,
+      source: data.source === "OIDC" ? "OIDC" : "LOCAL",
       passwordChangeRequired: data.passwordChangeRequired === true,
       isSuperadmin: data.isSuperadmin === true,
     });
@@ -178,10 +227,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     get().clearAuth();
     if (endSessionUrl) {
       // Hand control to the IdP for RP-Initiated Logout (#352). The IdP destroys
-      // its session cookies and bounces us back to ${plugwerk.server.base-url}/login,
-      // at which point the SPA boots fresh and the next "Login with provider" click
-      // shows the credential prompt instead of silent SSO.
-      window.location.assign(endSessionUrl);
+      // its session cookies and bounces us back to `post_logout_redirect_uri`,
+      // at which point the SPA boots fresh and the next "Login with provider"
+      // click shows the credential prompt instead of silent SSO.
+      //
+      // Override `post_logout_redirect_uri` with the actual browser origin: the
+      // backend builds it from `plugwerk.server.base-url` (typically the
+      // production server), but in the Vite dev setup the browser runs on
+      // :5173 while the backend thinks it lives on :8080. Letting Keycloak
+      // bounce to :8080 lands the user outside the SPA. The browser's own
+      // `window.location.origin` is always the correct destination — both the
+      // dev :5173 and the prod hostname must be in the IdP allow-list anyway
+      // (the OAuth2 redirect URI is whitelisted on the same wildcard).
+      window.location.assign(rewritePostLogoutRedirect(endSessionUrl));
     }
   },
 
@@ -243,3 +301,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ passwordChangeRequired: false });
   },
 }));
+
+/**
+ * Replaces the `post_logout_redirect_uri` query parameter with
+ * `${window.location.origin}/login`. Falls back to the original URL when the
+ * input is not parseable — RP-Initiated Logout still works against the IdP,
+ * the bounce target just stays at whatever the backend produced.
+ */
+function rewritePostLogoutRedirect(endSessionUrl: string): string {
+  try {
+    const url = new URL(endSessionUrl);
+    url.searchParams.set(
+      "post_logout_redirect_uri",
+      `${window.location.origin}/login`,
+    );
+    return url.toString();
+  } catch {
+    return endSessionUrl;
+  }
+}

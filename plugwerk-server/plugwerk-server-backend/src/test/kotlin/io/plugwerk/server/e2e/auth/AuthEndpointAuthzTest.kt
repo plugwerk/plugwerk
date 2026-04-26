@@ -151,10 +151,17 @@ class AuthEndpointAuthzTest : AbstractAuthorizationTest() {
         @JvmStatic
         fun changePasswordDeniedMatrix(): Stream<ActorExpectation> = Stream.of(
             // change-password is under /auth/** (permitAll), so security passes.
-            // The controller then looks up the user by name (anonymous / key principal)
-            // and fails with EntityNotFoundException → 404.
-            ActorExpectation(Actor.ANONYMOUS, 404),
-            ActorExpectation(Actor.API_KEY_NS1, 404),
+            // After #351 the controller resolves the caller via CurrentUserResolver
+            // which throws UnauthorizedException → 401 when:
+            //   - no Authentication is present (ANONYMOUS), or
+            //   - the principal name is not a parseable UUID (e.g. an API-key
+            //     principal carries the namespace slug, not a plugwerk_user.id).
+            // Pre-#351 the test expected 404 because userService.changePassword
+            // looked up the user by name string and threw EntityNotFoundException.
+            // Both states deny the operation; the new 401 is semantically more
+            // accurate.
+            ActorExpectation(Actor.ANONYMOUS, 401),
+            ActorExpectation(Actor.API_KEY_NS1, 401),
         )
     }
 }

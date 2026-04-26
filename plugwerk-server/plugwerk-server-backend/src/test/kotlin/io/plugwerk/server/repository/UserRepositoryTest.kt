@@ -20,84 +20,84 @@ package io.plugwerk.server.repository
 
 import io.plugwerk.server.AbstractRepositoryTest
 import io.plugwerk.server.domain.UserEntity
+import io.plugwerk.server.domain.UserSource
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.dao.DataIntegrityViolationException
-import kotlin.test.assertFailsWith
 
 class UserRepositoryTest : AbstractRepositoryTest() {
 
     @Autowired
     lateinit var userRepository: UserRepository
 
-    private fun user(username: String, email: String? = null) =
-        UserEntity(username = username, email = email, passwordHash = "\$2a\$12\$hash")
+    private fun localUser(username: String, email: String = "$username@example.test") = UserEntity(
+        username = username,
+        displayName = username,
+        email = email,
+        source = UserSource.LOCAL,
+        passwordHash = "\$2a\$12\$hash",
+    )
 
     @Test
-    fun `findByUsername returns user when username exists`() {
-        userRepository.save(user("alice"))
+    fun `findByUsernameAndSource returns user when LOCAL row exists`() {
+        userRepository.save(localUser("alice"))
 
-        val found = userRepository.findByUsername("alice")
+        val found = userRepository.findByUsernameAndSource("alice", UserSource.LOCAL)
 
         assertThat(found).isPresent
         assertThat(found.get().username).isEqualTo("alice")
     }
 
     @Test
-    fun `findByUsername returns empty when username does not exist`() {
-        val found = userRepository.findByUsername("nobody")
+    fun `findByUsernameAndSource returns empty when no LOCAL row exists`() {
+        val found = userRepository.findByUsernameAndSource("nobody", UserSource.LOCAL)
 
         assertThat(found).isEmpty
     }
 
     @Test
-    fun `findByUsername is case-sensitive`() {
-        userRepository.save(user("alice"))
+    fun `findByUsernameAndSource is case-sensitive`() {
+        userRepository.save(localUser("alice"))
 
-        assertThat(userRepository.findByUsername("Alice")).isEmpty
-        assertThat(userRepository.findByUsername("ALICE")).isEmpty
+        assertThat(userRepository.findByUsernameAndSource("Alice", UserSource.LOCAL)).isEmpty
+        assertThat(userRepository.findByUsernameAndSource("ALICE", UserSource.LOCAL)).isEmpty
     }
 
     @Test
-    fun `existsByUsername returns true for existing user`() {
-        userRepository.save(user("bob"))
+    fun `existsByUsernameAndSource returns true for existing LOCAL row`() {
+        userRepository.save(localUser("bob"))
 
-        assertThat(userRepository.existsByUsername("bob")).isTrue()
-        assertThat(userRepository.existsByUsername("notbob")).isFalse()
+        assertThat(userRepository.existsByUsernameAndSource("bob", UserSource.LOCAL)).isTrue()
+        assertThat(userRepository.existsByUsernameAndSource("notbob", UserSource.LOCAL)).isFalse()
     }
 
-    @Test
-    fun `save fails on duplicate username`() {
-        userRepository.save(user("duplicate"))
-        userRepository.flush()
+    // Username-uniqueness for LOCAL rows is enforced via the partial unique
+    // index `uq_plugwerk_user_username_local` on PostgreSQL (migration 0017).
+    // The H2 test profile does not run Liquibase, and Hibernate does not
+    // generate a column-level UNIQUE on `username` (it is nullable for OIDC
+    // rows, and the partial-index semantics cannot be expressed at the
+    // mapping level). Coverage moved to:
+    //   - IdentityHubSplitMigrationIT (Testcontainers PostgreSQL)
+    //   - UserServiceTest (write-side conflict detection via existsByUsernameAndSource)
 
-        assertFailsWith<DataIntegrityViolationException> {
-            userRepository.saveAndFlush(user("duplicate"))
-        }
-    }
-
-    // The previous `save fails on duplicate email` test was removed in #271
-    // (DB-013): email uniqueness is now enforced via a partial functional unique
-    // index `uq_user_email_lower` on `LOWER(email) WHERE email IS NOT NULL`,
-    // which Liquibase only applies to PostgreSQL. The H2 test profile does not
-    // run Liquibase and Hibernate no longer generates a column-level UNIQUE on
-    // the `email` column, so the constraint cannot be exercised here.
-    // Coverage moved to:
-    //   - io.plugwerk.server.service.UserServiceTest (write-side normalisation)
-    //   - io.plugwerk.server.repository.UserEmailCaseInsensitiveUniqueMigrationIT
-    //     (DB-level uniqueness against Testcontainers PostgreSQL)
+    // Email-uniqueness coverage:
+    //   - UserServiceTest covers write-side normalisation.
+    //   - UserEmailCaseInsensitiveUniqueMigrationIT (#271) and
+    //     IdentityHubSplitMigrationIT (#351) cover the partial functional unique
+    //     index `uq_plugwerk_user_email_local` on PostgreSQL via Testcontainers.
 
     @Test
-    fun `passwordChangeRequired defaults to true`() {
-        val saved = userRepository.save(user("newuser"))
+    fun `passwordChangeRequired defaults to false (LOCAL row created with default constructor)`() {
+        val saved = userRepository.save(localUser("newuser"))
 
-        assertThat(saved.passwordChangeRequired).isTrue()
+        // The default value on UserEntity is now false (it was only true historically
+        // because UserService.create flips it to true on admin-created accounts).
+        assertThat(saved.passwordChangeRequired).isFalse()
     }
 
     @Test
     fun `enabled defaults to true`() {
-        val saved = userRepository.save(user("activeuser"))
+        val saved = userRepository.save(localUser("activeuser"))
 
         assertThat(saved.enabled).isTrue()
     }

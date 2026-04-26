@@ -26,9 +26,11 @@ import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
+import java.util.UUID
 
-// Blocks all API requests (except /api/v1/auth/) when the JWT user's passwordChangeRequired flag is set.
-// API key clients (not JwtAuthenticationToken) are not affected.
+// Blocks all API requests (except /api/v1/auth/) when the JWT user's
+// passwordChangeRequired flag is set. API key clients (not JwtAuthenticationToken)
+// are not affected. After #351 the JWT `sub` is `plugwerk_user.id` (UUID).
 @Component
 class PasswordChangeRequiredFilter(private val userRepository: UserRepository) : OncePerRequestFilter() {
 
@@ -53,6 +55,15 @@ class PasswordChangeRequiredFilter(private val userRepository: UserRepository) :
         filterChain.doFilter(request, response)
     }
 
-    private fun requiresPasswordChange(username: String): Boolean =
-        userRepository.findByUsername(username).map { it.passwordChangeRequired }.orElse(false)
+    /**
+     * The JWT `sub` is the `plugwerk_user.id` UUID-string after #351. A non-UUID
+     * value can only originate from a forged or pre-#351 token; both should be
+     * treated as "no password change required" here so that downstream filters
+     * (signature/exp validation, revocation check) handle the rejection on the
+     * right error path instead of bleeding through as a 403.
+     */
+    private fun requiresPasswordChange(subject: String): Boolean {
+        val userId = runCatching { UUID.fromString(subject) }.getOrNull() ?: return false
+        return userRepository.findById(userId).map { it.passwordChangeRequired }.orElse(false)
+    }
 }

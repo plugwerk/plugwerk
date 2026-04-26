@@ -82,7 +82,9 @@ class NamespaceMemberEndpointAuthzTest : AbstractAuthorizationTest() {
                     .actAs(case.actor)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
-                        objectMapper.writeValueAsString(mapOf("userSubject" to "nonexistent", "role" to "READ_ONLY")),
+                        objectMapper.writeValueAsString(
+                            mapOf("userId" to java.util.UUID.randomUUID().toString(), "role" to "READ_ONLY"),
+                        ),
                     ),
             )
                 .andExpect(status().`is`(case.expectedStatus))
@@ -91,13 +93,14 @@ class NamespaceMemberEndpointAuthzTest : AbstractAuthorizationTest() {
         @Test
         fun `NS1 admin can add member to NS1`() {
             val userId = createEphemeralUser()
-            val user = userRepository.findById(userId).orElseThrow()
             mockMvc.perform(
                 post("/api/v1/namespaces/$NS1/members")
                     .actAs(Actor.NS1_ADMIN)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
-                        objectMapper.writeValueAsString(mapOf("userSubject" to user.username, "role" to "READ_ONLY")),
+                        objectMapper.writeValueAsString(
+                            mapOf("userId" to userId.toString(), "role" to "READ_ONLY"),
+                        ),
                     ),
             )
                 .andExpect(status().isCreated)
@@ -114,8 +117,11 @@ class NamespaceMemberEndpointAuthzTest : AbstractAuthorizationTest() {
         @ParameterizedTest(name = "{0}")
         @MethodSource("io.plugwerk.server.e2e.auth.NamespaceMemberEndpointAuthzTest#updateMemberDeniedMatrix")
         fun `update member denied for unauthorized actors`(case: NsActorExpectation) {
+            val targetUserId = userRepository
+                .findByUsernameAndSource("ns1-readonly", io.plugwerk.server.domain.UserSource.LOCAL)
+                .orElseThrow().id!!
             mockMvc.perform(
-                put("/api/v1/namespaces/${case.namespace}/members/ns1-readonly")
+                put("/api/v1/namespaces/${case.namespace}/members/$targetUserId")
                     .actAs(case.actor)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(mapOf("role" to "READ_ONLY"))),
@@ -125,8 +131,11 @@ class NamespaceMemberEndpointAuthzTest : AbstractAuthorizationTest() {
 
         @Test
         fun `NS1 admin can update member role`() {
+            val targetUserId = userRepository
+                .findByUsernameAndSource("ns1-readonly", io.plugwerk.server.domain.UserSource.LOCAL)
+                .orElseThrow().id!!
             mockMvc.perform(
-                put("/api/v1/namespaces/$NS1/members/ns1-readonly")
+                put("/api/v1/namespaces/$NS1/members/$targetUserId")
                     .actAs(Actor.NS1_ADMIN)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(mapOf("role" to "READ_ONLY"))),
@@ -145,8 +154,11 @@ class NamespaceMemberEndpointAuthzTest : AbstractAuthorizationTest() {
         @ParameterizedTest(name = "{0}")
         @MethodSource("io.plugwerk.server.e2e.auth.NamespaceMemberEndpointAuthzTest#removeMemberDeniedMatrix")
         fun `remove member denied for unauthorized actors`(case: NsActorExpectation) {
+            val targetUserId = userRepository
+                .findByUsernameAndSource("ns1-readonly", io.plugwerk.server.domain.UserSource.LOCAL)
+                .orElseThrow().id!!
             mockMvc.perform(
-                delete("/api/v1/namespaces/${case.namespace}/members/ns1-readonly")
+                delete("/api/v1/namespaces/${case.namespace}/members/$targetUserId")
                     .actAs(case.actor),
             )
                 .andExpect(status().`is`(case.expectedStatus))
@@ -156,11 +168,10 @@ class NamespaceMemberEndpointAuthzTest : AbstractAuthorizationTest() {
         fun `NS1 admin can remove member`() {
             // Create an ephemeral membership to delete
             val userId = createEphemeralUser()
-            val user = userRepository.findById(userId).orElseThrow()
-            createEphemeralMembership(NS1, user.username)
+            createEphemeralMembership(NS1, userId)
 
             mockMvc.perform(
-                delete("/api/v1/namespaces/$NS1/members/${user.username}")
+                delete("/api/v1/namespaces/$NS1/members/$userId")
                     .actAs(Actor.NS1_ADMIN),
             )
                 .andExpect(status().isNoContent)

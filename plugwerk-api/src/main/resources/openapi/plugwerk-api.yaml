@@ -171,7 +171,8 @@ tags:
       Manage which users hold a role within a specific namespace.
 
       Roles: `ADMIN` (full write access), `MEMBER` (upload/manage releases), `READ_ONLY` (browse only).
-      The `userSubject` is either a local username or an OIDC `sub` claim.
+      Membership is keyed by `userId` (= `plugwerk_user.id` UUID); the API
+      echoes `displayName` and (for local users) `username` for UI convenience.
 
       Requires `ADMIN` role on the namespace.
   - name: AccessKeys
@@ -1341,7 +1342,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /namespaces/{ns}/members/{userSubject}:
+  /namespaces/{ns}/members/{userId}:
     put:
       tags:
         - NamespaceMembers
@@ -1353,11 +1354,12 @@ paths:
         - ApiKeyAuth: []
       parameters:
         - $ref: '#/components/parameters/NamespaceSlug'
-        - name: userSubject
+        - name: userId
           in: path
           required: true
           schema:
             type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -1388,11 +1390,12 @@ paths:
         - ApiKeyAuth: []
       parameters:
         - $ref: '#/components/parameters/NamespaceSlug'
-        - name: userSubject
+        - name: userId
           in: path
           required: true
           schema:
             type: string
+            format: uuid
       responses:
         '204':
           description: Member removed
@@ -1817,11 +1820,45 @@ components:
           format: int64
           description: "Token validity duration in seconds (default: 28800 = 8 hours)"
           example: 28800
+        userId:
+          type: string
+          format: uuid
+          description: |
+            Stable Plugwerk user identifier (`plugwerk_user.id`). Used as the
+            JWT `sub` claim. Authoritative reference for "which user is this?"
+            in audit logs and FK lookups. Issue #351.
+        displayName:
+          type: string
+          description: |
+            Human-readable label for the user. For local users this defaults
+            to the username; for OIDC users it is sourced from the `name`
+            or `preferred_username` ID-token claim at first login.
+        username:
+          type: string
+          nullable: true
+          description: |
+            Local-login username. NULL for OIDC users — their authenticating
+            identity lives with the upstream provider. Frontend should prefer
+            `displayName` for display and only show `username` as a secondary
+            label on local-account profile pages.
+        email:
+          type: string
+          description: |
+            User's email address. Mandatory after #351; populated for both
+            LOCAL and OIDC-sourced accounts.
+        source:
+          type: string
+          enum: [LOCAL, OIDC]
+          description: |
+            Discriminator for the account's authentication mechanism (#351).
+            Used by the frontend to decide whether to surface password-change
+            UI (LOCAL only).
         passwordChangeRequired:
           type: boolean
           description: |
             When `true`, the user must change their password before accessing any resource.
             The frontend should redirect to the change-password page immediately after login.
+            Always `false` for OIDC users (they have no Plugwerk-side password).
           example: false
         isSuperadmin:
           type: boolean
@@ -1833,6 +1870,10 @@ components:
         - accessToken
         - tokenType
         - expiresIn
+        - userId
+        - displayName
+        - email
+        - source
         - passwordChangeRequired
         - isSuperadmin
 
@@ -2487,16 +2528,40 @@ components:
 
     UserDto:
       type: object
-      description: Local Plugwerk user account
+      description: |
+        Plugwerk user account. After the identity-hub split (#351), Plugwerk has
+        two flavours of accounts discriminated by `source` — local password-based
+        accounts and accounts sourced from an OIDC provider.
       properties:
         id:
           type: string
           format: uuid
+        displayName:
+          type: string
+          description: |
+            Human-readable label. For local users this defaults to the username;
+            for OIDC users it is sourced from the `name` / `preferred_username`
+            ID-token claim at first login.
+        source:
+          type: string
+          enum: [LOCAL, OIDC]
+          description: |
+            Discriminator for the account's authentication mechanism (#351).
+            `LOCAL` accounts have `username` and a Plugwerk-side password.
+            `OIDC` accounts authenticate against an upstream provider — `username`
+            is `null`, `passwordChangeRequired` is always `false`.
         username:
           type: string
+          nullable: true
+          description: |
+            Local-login username. Always present and unique for `source = LOCAL`,
+            always `null` for `source = OIDC`.
         email:
           type: string
-          nullable: true
+          description: |
+            Email address. Mandatory after #351. Case-insensitively unique
+            within `source = LOCAL` accounts only — OIDC accounts may share
+            emails (Plugwerk does not perform identity linking).
         enabled:
           type: boolean
         passwordChangeRequired:
@@ -2513,7 +2578,9 @@ components:
           description: Number of namespaces this user is a member of
       required:
         - id
-        - username
+        - displayName
+        - source
+        - email
         - enabled
         - passwordChangeRequired
         - isSuperadmin
@@ -2521,6 +2588,10 @@ components:
 
     UserCreateRequest:
       type: object
+      description: |
+        Admin-driven creation of a local Plugwerk user (`source = LOCAL`). OIDC
+        users are never created via this endpoint — they materialise on first
+        OIDC callback via `OidcIdentityService.upsertOnLogin`.
       properties:
         username:
           type: string
@@ -2529,12 +2600,19 @@ components:
         email:
           type: string
           format: email
-          nullable: true
+          description: |
+            Mandatory after #351. Case-insensitively unique among LOCAL users.
+        displayName:
+          type: string
+          maxLength: 255
+          description: |
+            Optional display label. Defaults to `username` when omitted.
         password:
           type: string
           minLength: 12
       required:
         - username
+        - email
         - password
 
     UserUpdateRequest:
@@ -2560,29 +2638,47 @@ components:
 
     NamespaceMemberDto:
       type: object
+      description: |
+        A user's role assignment within a namespace. After the identity-hub
+        split (#351) the membership is keyed by `userId` (= `plugwerk_user.id`),
+        not by a free-text subject. `displayName` and `username` are echoed
+        for UI convenience so the caller does not have to perform a second
+        lookup against the admin user endpoint.
       properties:
-        userSubject:
+        userId:
           type: string
-          description: Local username or OIDC sub claim
+          format: uuid
+        displayName:
+          type: string
+        username:
+          type: string
+          nullable: true
+          description: Local-login username; null for OIDC users.
         role:
           $ref: '#/components/schemas/NamespaceRole'
         createdAt:
           type: string
           format: date-time
       required:
-        - userSubject
+        - userId
+        - displayName
         - role
         - createdAt
 
     NamespaceMemberCreateRequest:
       type: object
       properties:
-        userSubject:
+        userId:
           type: string
+          format: uuid
+          description: |
+            Plugwerk user identifier (`plugwerk_user.id`) of the user being
+            added to the namespace. Caller is responsible for resolving the
+            id (e.g. via the admin user listing endpoint).
         role:
           $ref: '#/components/schemas/NamespaceRole'
       required:
-        - userSubject
+        - userId
         - role
 
     NamespaceMemberUpdateRequest:

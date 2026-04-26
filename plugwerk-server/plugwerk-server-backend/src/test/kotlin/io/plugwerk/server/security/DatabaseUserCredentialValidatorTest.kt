@@ -19,6 +19,7 @@
 package io.plugwerk.server.security
 
 import io.plugwerk.server.domain.UserEntity
+import io.plugwerk.server.domain.UserSource
 import io.plugwerk.server.repository.UserRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -42,37 +43,43 @@ class DatabaseUserCredentialValidatorTest {
     @InjectMocks
     private lateinit var validator: DatabaseUserCredentialValidator
 
-    private fun userWith(enabled: Boolean, hash: String = "\$2a\$12\$hash") =
-        UserEntity(username = "alice", passwordHash = hash, enabled = enabled)
+    private fun localUserWith(enabled: Boolean, hash: String = "\$2a\$12\$hash") = UserEntity(
+        username = "alice",
+        displayName = "Alice",
+        email = "alice@example.test",
+        source = UserSource.LOCAL,
+        passwordHash = hash,
+        enabled = enabled,
+    )
 
     @Test
-    fun `returns true for valid credentials of an enabled user`() {
-        val user = userWith(enabled = true, hash = "\$2a\$12\$correcthash")
-        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.of(user))
+    fun `returns true for valid credentials of an enabled LOCAL user`() {
+        val user = localUserWith(enabled = true, hash = "\$2a\$12\$correcthash")
+        whenever(userRepository.findByUsernameAndSource("alice", UserSource.LOCAL)).thenReturn(Optional.of(user))
         whenever(passwordEncoder.matches("secret", user.passwordHash)).thenReturn(true)
 
         assertThat(validator.validate("alice", "secret")).isTrue()
     }
 
     @Test
-    fun `returns false when user does not exist`() {
-        whenever(userRepository.findByUsername("nobody")).thenReturn(Optional.empty())
+    fun `returns false when no LOCAL row matches the username`() {
+        whenever(userRepository.findByUsernameAndSource("nobody", UserSource.LOCAL)).thenReturn(Optional.empty())
 
         assertThat(validator.validate("nobody", "any")).isFalse()
     }
 
     @Test
-    fun `returns false when account is disabled`() {
-        val user = userWith(enabled = false)
-        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.of(user))
+    fun `returns false when LOCAL account is disabled`() {
+        val user = localUserWith(enabled = false)
+        whenever(userRepository.findByUsernameAndSource("alice", UserSource.LOCAL)).thenReturn(Optional.of(user))
 
         assertThat(validator.validate("alice", "secret")).isFalse()
     }
 
     @Test
     fun `returns false when password does not match`() {
-        val user = userWith(enabled = true)
-        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.of(user))
+        val user = localUserWith(enabled = true)
+        whenever(userRepository.findByUsernameAndSource("alice", UserSource.LOCAL)).thenReturn(Optional.of(user))
         whenever(passwordEncoder.matches("wrong", user.passwordHash)).thenReturn(false)
 
         assertThat(validator.validate("alice", "wrong")).isFalse()

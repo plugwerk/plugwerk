@@ -19,8 +19,13 @@
 package io.plugwerk.server.security
 
 import io.plugwerk.server.PlugwerkProperties
+import io.plugwerk.server.domain.OidcProviderEntity
+import io.plugwerk.server.domain.OidcProviderType
 import io.plugwerk.server.domain.UserEntity
-import io.plugwerk.server.repository.UserRepository
+import io.plugwerk.server.domain.UserSource
+import io.plugwerk.server.repository.OidcProviderRepository
+import io.plugwerk.server.service.OidcEmailMissingException
+import io.plugwerk.server.service.OidcIdentityService
 import io.plugwerk.server.service.RefreshTokenService
 import io.plugwerk.server.service.RefreshTokenService.IssuedToken
 import org.assertj.core.api.Assertions.assertThat
@@ -31,9 +36,7 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
-import org.mockito.kotlin.argThat
 import org.mockito.kotlin.eq
-import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.http.HttpHeaders
@@ -46,29 +49,20 @@ import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User
 import java.time.Duration
 import java.time.Instant
+import java.util.Optional
+import java.util.UUID
 
 /**
- * Unit tests for [OidcLoginSuccessHandler]. Asserts the post-OIDC-callback
- * contract:
- *
- *   - The OIDC `sub` claim is mapped to a Plugwerk `user_subject` of the form
- *     `<registrationId>:<sub>`. Stable identifier; survives admin-UI provider
- *     renames thanks to the UUID-based registrationId from
- *     [OidcRegistrationIds] (#79).
- *   - The same httpOnly refresh cookie a local login would set is sent on the
- *     response — never an access token in the URL or response body.
- *   - The browser is redirected to `/` (the SPA root) so the frontend's
- *     `hydrate()` flow can immediately exchange the cookie for a Plugwerk
- *     access token via `/api/v1/auth/refresh`.
- *   - A non-OAuth2 [Authentication] is treated as a wiring bug and surfaces
- *     loudly rather than silently no-opping.
+ * Unit tests for [OidcLoginSuccessHandler] (post-#351 refactor).
  */
 @ExtendWith(MockitoExtension::class)
 class OidcLoginSuccessHandlerTest {
 
     @Mock lateinit var refreshTokenService: RefreshTokenService
 
-    @Mock lateinit var userRepository: UserRepository
+    @Mock lateinit var oidcIdentityService: OidcIdentityService
+
+    @Mock lateinit var oidcProviderRepository: OidcProviderRepository
 
     private val cookieFactory = RefreshTokenCookieFactory(
         PlugwerkProperties(
@@ -80,27 +74,59 @@ class OidcLoginSuccessHandlerTest {
         ),
     )
 
+    private val providerId = UUID.fromString("11111111-2222-3333-4444-555555555555")
+    private val provider = OidcProviderEntity(
+        id = providerId,
+        name = "Test Keycloak",
+        providerType = OidcProviderType.KEYCLOAK,
+        enabled = true,
+        clientId = "test-client",
+        clientSecretEncrypted = "encrypted",
+        issuerUri = "https://kc/realms/test",
+    )
+
+    private val resolvedUser = UserEntity(
+        id = UUID.randomUUID(),
+        username = null,
+        displayName = "Alice",
+        email = "alice@example.test",
+        source = UserSource.OIDC,
+        passwordHash = null,
+    )
+
     @Test
-    fun `maps OIDC sub to Plugwerk user_subject of the form registrationId-colon-sub (#79)`() {
-        val registrationId = "11111111-2222-3333-4444-555555555555"
-        val sub = "0123abcd-4567-89ef-0123-456789abcdef"
-        val token = oauth2AuthenticationTokenFor(registrationId = registrationId, sub = sub)
-        whenever(refreshTokenService.issue(eq("$registrationId:$sub"), anyOrNull())).thenReturn(stubIssuedToken())
+    fun `delegates identity resolution to OidcIdentityService and issues refresh token bound to the resolved user`() {
+        val tokenValue = "eyJhbGciOiJSUzI1NiJ9.fake-id-token.signature"
+        val token = oidcAuthenticationTokenFor(
+            registrationId = providerId.toString(),
+            sub = "alice-sub",
+            idTokenValue = tokenValue,
+        )
+        whenever(oidcProviderRepository.findById(providerId)).thenReturn(Optional.of(provider))
+        whenever(oidcIdentityService.upsertOnLogin(eq(provider), eq("alice-sub"), any())).thenReturn(resolvedUser)
+        whenever(refreshTokenService.issue(eq(resolvedUser.id!!), anyOrNull())).thenReturn(stubIssuedToken())
 
-        val handler = OidcLoginSuccessHandler(refreshTokenService, cookieFactory, userRepository)
-        val response = MockHttpServletResponse()
+        val handler =
+            OidcLoginSuccessHandler(refreshTokenService, cookieFactory, oidcIdentityService, oidcProviderRepository)
+        handler.onAuthenticationSuccess(MockHttpServletRequest(), MockHttpServletResponse(), token)
 
-        handler.onAuthenticationSuccess(MockHttpServletRequest(), response, token)
-
-        verify(refreshTokenService).issue(eq("$registrationId:$sub"), anyOrNull())
+        verify(oidcIdentityService).upsertOnLogin(eq(provider), eq("alice-sub"), any())
+        verify(refreshTokenService).issue(eq(resolvedUser.id!!), eq(tokenValue))
     }
 
     @Test
-    fun `sets httpOnly refresh cookie on the response and redirects to SPA root`() {
-        val token = oauth2AuthenticationTokenFor(registrationId = "kc", sub = "alice-sub")
-        whenever(refreshTokenService.issue(any(), anyOrNull())).thenReturn(stubIssuedToken())
+    fun `sets httpOnly refresh cookie and redirects to SPA root`() {
+        val token = oidcAuthenticationTokenFor(
+            registrationId = providerId.toString(),
+            sub = "alice-sub",
+            idTokenValue = "eyJ.x.y",
+        )
+        whenever(oidcProviderRepository.findById(providerId)).thenReturn(Optional.of(provider))
+        whenever(oidcIdentityService.upsertOnLogin(any(), any(), any())).thenReturn(resolvedUser)
+        whenever(refreshTokenService.issue(any<UUID>(), anyOrNull())).thenReturn(stubIssuedToken())
 
-        val handler = OidcLoginSuccessHandler(refreshTokenService, cookieFactory, userRepository)
+        val handler =
+            OidcLoginSuccessHandler(refreshTokenService, cookieFactory, oidcIdentityService, oidcProviderRepository)
         val response = MockHttpServletResponse()
 
         handler.onAuthenticationSuccess(MockHttpServletRequest(), response, token)
@@ -108,78 +134,49 @@ class OidcLoginSuccessHandlerTest {
         val setCookie = response.getHeader(HttpHeaders.SET_COOKIE)
         assertThat(setCookie).isNotNull()
         assertThat(setCookie!!).contains("HttpOnly")
-        // We deliberately never put the access token in the URL or response body —
+        // Deliberately never include the access token in the URL or response body —
         // the frontend picks it up via /api/v1/auth/refresh against the cookie.
         assertThat(response.redirectedUrl).isEqualTo("/")
     }
 
     @Test
-    fun `auto-provisions a local user row on first OIDC login (#79)`() {
-        val token = oauth2AuthenticationTokenFor(registrationId = "kc", sub = "alice-sub")
-        whenever(userRepository.existsByUsername("kc:alice-sub")).thenReturn(false)
-        whenever(refreshTokenService.issue(any(), anyOrNull())).thenReturn(stubIssuedToken())
-
-        val handler = OidcLoginSuccessHandler(refreshTokenService, cookieFactory, userRepository)
-        handler.onAuthenticationSuccess(MockHttpServletRequest(), MockHttpServletResponse(), token)
-
-        verify(userRepository).save(
-            argThat<UserEntity> {
-                username == "kc:alice-sub" &&
-                    email == null && // see Kotlindoc on ensureLocalUserRow
-                    !passwordChangeRequired && // user has no password to change
-                    enabled &&
-                    !isSuperadmin &&
-                    passwordHash == "OIDC:no-password" // not a valid BCrypt — local /auth/login can never succeed
-            },
-        )
-    }
-
-    @Test
-    fun `does not re-provision when local user row already exists (idempotent)`() {
-        val token = oauth2AuthenticationTokenFor(registrationId = "kc", sub = "alice-sub")
-        whenever(userRepository.existsByUsername("kc:alice-sub")).thenReturn(true)
-        whenever(refreshTokenService.issue(any(), anyOrNull())).thenReturn(stubIssuedToken())
-
-        val handler = OidcLoginSuccessHandler(refreshTokenService, cookieFactory, userRepository)
-        handler.onAuthenticationSuccess(MockHttpServletRequest(), MockHttpServletResponse(), token)
-
-        verify(userRepository, never()).save(any<UserEntity>())
-    }
-
-    @Test
-    fun `captures upstream id_token and hands it to RefreshTokenService for OIDC users (#352)`() {
-        val tokenValue = "eyJhbGciOiJSUzI1NiJ9.fake-id-token.signature"
+    fun `rejects login with 400 when OIDC provider returned no email claim`() {
         val token = oidcAuthenticationTokenFor(
-            registrationId = "kc",
+            registrationId = providerId.toString(),
             sub = "alice-sub",
-            idTokenValue = tokenValue,
+            idTokenValue = "eyJ.x.y",
         )
-        whenever(userRepository.existsByUsername("kc:alice-sub")).thenReturn(true)
-        whenever(refreshTokenService.issue(any(), anyOrNull())).thenReturn(stubIssuedToken())
+        whenever(oidcProviderRepository.findById(providerId)).thenReturn(Optional.of(provider))
+        whenever(oidcIdentityService.upsertOnLogin(any(), any(), any()))
+            .thenThrow(OidcEmailMissingException(provider.name))
 
-        val handler = OidcLoginSuccessHandler(refreshTokenService, cookieFactory, userRepository)
-        handler.onAuthenticationSuccess(MockHttpServletRequest(), MockHttpServletResponse(), token)
+        val handler =
+            OidcLoginSuccessHandler(refreshTokenService, cookieFactory, oidcIdentityService, oidcProviderRepository)
+        val response = MockHttpServletResponse()
 
-        verify(refreshTokenService).issue(eq("kc:alice-sub"), eq(tokenValue))
+        handler.onAuthenticationSuccess(MockHttpServletRequest(), response, token)
+
+        assertThat(response.status).isEqualTo(400)
     }
 
     @Test
     fun `passes null id_token for non-OIDC OAuth2 principals (graceful degradation, #352)`() {
-        // OAuth2 (non-OIDC) flows have no ID token to capture; the handler must still
-        // succeed and just record null on the refresh-token row.
-        val token = oauth2AuthenticationTokenFor(registrationId = "kc", sub = "alice-sub")
-        whenever(userRepository.existsByUsername("kc:alice-sub")).thenReturn(true)
-        whenever(refreshTokenService.issue(any(), anyOrNull())).thenReturn(stubIssuedToken())
+        val token = oauth2AuthenticationTokenFor(registrationId = providerId.toString(), sub = "alice-sub")
+        whenever(oidcProviderRepository.findById(providerId)).thenReturn(Optional.of(provider))
+        whenever(oidcIdentityService.upsertOnLogin(any(), any(), any())).thenReturn(resolvedUser)
+        whenever(refreshTokenService.issue(any<UUID>(), anyOrNull())).thenReturn(stubIssuedToken())
 
-        val handler = OidcLoginSuccessHandler(refreshTokenService, cookieFactory, userRepository)
+        val handler =
+            OidcLoginSuccessHandler(refreshTokenService, cookieFactory, oidcIdentityService, oidcProviderRepository)
         handler.onAuthenticationSuccess(MockHttpServletRequest(), MockHttpServletResponse(), token)
 
-        verify(refreshTokenService).issue(eq("kc:alice-sub"), eq(null))
+        verify(refreshTokenService).issue(eq(resolvedUser.id!!), eq(null))
     }
 
     @Test
     fun `non-OAuth2 authentication is treated as a wiring bug and fails loudly`() {
-        val handler = OidcLoginSuccessHandler(refreshTokenService, cookieFactory, userRepository)
+        val handler =
+            OidcLoginSuccessHandler(refreshTokenService, cookieFactory, oidcIdentityService, oidcProviderRepository)
         val plainAuth = TestingAuthenticationToken("alice", "irrelevant")
 
         assertThatThrownBy {
@@ -193,8 +190,8 @@ class OidcLoginSuccessHandlerTest {
         plaintext = "refresh-plaintext",
         expiresAt = java.time.OffsetDateTime.now().plusDays(7),
         maxAge = Duration.ofDays(7),
-        familyId = java.util.UUID.randomUUID(),
-        rowId = java.util.UUID.randomUUID(),
+        familyId = UUID.randomUUID(),
+        rowId = UUID.randomUUID(),
     )
 
     private fun oauth2AuthenticationTokenFor(registrationId: String, sub: String): OAuth2AuthenticationToken {
@@ -211,9 +208,6 @@ class OidcLoginSuccessHandlerTest {
         sub: String,
         idTokenValue: String,
     ): OAuth2AuthenticationToken {
-        // Mirror what Spring Security's OIDC client filter constructs after the code
-        // exchange: an OidcUser whose backing OidcIdToken carries the raw token value
-        // we want to pin on the refresh-token row for later RP-Initiated Logout.
         val now = Instant.now()
         val idToken = OidcIdToken(
             idTokenValue,

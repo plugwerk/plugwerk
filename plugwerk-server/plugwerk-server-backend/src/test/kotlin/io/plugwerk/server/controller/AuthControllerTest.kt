@@ -89,6 +89,10 @@ class AuthControllerTest {
 
     @MockitoBean lateinit var oidcEndSessionUrlResolver: OidcEndSessionUrlResolver
 
+    @MockitoBean lateinit var oidcIdentityRepository: io.plugwerk.server.repository.OidcIdentityRepository
+
+    @MockitoBean lateinit var currentUserResolver: io.plugwerk.server.security.CurrentUserResolver
+
     @MockitoBean lateinit var jwtDecoder: JwtDecoder
 
     @BeforeEach
@@ -97,7 +101,7 @@ class AuthControllerTest {
         // every valid-credential test does not have to repeat the setup. The two-arg
         // signature (#352) accepts a nullable upstreamIdToken; local-login callers
         // pass null.
-        whenever(refreshTokenService.issue(any(), org.mockito.kotlin.anyOrNull())).thenAnswer {
+        whenever(refreshTokenService.issue(any<UUID>(), org.mockito.kotlin.anyOrNull())).thenAnswer {
             RefreshTokenService.IssuedToken(
                 plaintext = "stub-refresh-plaintext",
                 expiresAt = OffsetDateTime.now(ZoneOffset.UTC).plusHours(168),
@@ -120,10 +124,20 @@ class AuthControllerTest {
 
     @Test
     fun `POST login returns 200 and token for valid credentials`() {
+        val userId = UUID.randomUUID()
+        val user = UserEntity(
+            id = userId,
+            username = "alice",
+            displayName = "Alice",
+            email = "alice@example.test",
+            source = io.plugwerk.server.domain.UserSource.LOCAL,
+            passwordHash = "\$2a\$12\$hash",
+        )
         whenever(credentialValidator.validate("alice", "secret")).thenReturn(true)
-        whenever(jwtTokenService.generateToken("alice")).thenReturn("tok.abc.xyz")
+        whenever(jwtTokenService.generateToken(userId.toString())).thenReturn("tok.abc.xyz")
         whenever(jwtTokenService.tokenValiditySeconds()).thenReturn(28800L)
-        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.empty())
+        whenever(userRepository.findByUsernameAndSource("alice", io.plugwerk.server.domain.UserSource.LOCAL))
+            .thenReturn(Optional.of(user))
 
         mockMvc.post("/api/v1/auth/login") {
             contentType = MediaType.APPLICATION_JSON
@@ -133,16 +147,28 @@ class AuthControllerTest {
             jsonPath("$.accessToken") { value("tok.abc.xyz") }
             jsonPath("$.tokenType") { value("Bearer") }
             jsonPath("$.expiresIn") { value(28800) }
+            jsonPath("$.userId") { value(userId.toString()) }
+            jsonPath("$.displayName") { value("Alice") }
         }
     }
 
     @Test
     fun `POST login sets passwordChangeRequired true when user requires it`() {
-        val user = UserEntity(username = "alice", passwordHash = "\$2a\$12\$hash", passwordChangeRequired = true)
+        val userId = UUID.randomUUID()
+        val user = UserEntity(
+            id = userId,
+            username = "alice",
+            displayName = "Alice",
+            email = "alice@example.test",
+            source = io.plugwerk.server.domain.UserSource.LOCAL,
+            passwordHash = "\$2a\$12\$hash",
+            passwordChangeRequired = true,
+        )
         whenever(credentialValidator.validate("alice", "secret")).thenReturn(true)
-        whenever(jwtTokenService.generateToken("alice")).thenReturn("tok.abc.xyz")
+        whenever(jwtTokenService.generateToken(userId.toString())).thenReturn("tok.abc.xyz")
         whenever(jwtTokenService.tokenValiditySeconds()).thenReturn(28800L)
-        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.of(user))
+        whenever(userRepository.findByUsernameAndSource("alice", io.plugwerk.server.domain.UserSource.LOCAL))
+            .thenReturn(Optional.of(user))
 
         mockMvc.post("/api/v1/auth/login") {
             contentType = MediaType.APPLICATION_JSON

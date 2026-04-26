@@ -1,0 +1,602 @@
+# Identity-Hub refactor (issue #351 — replaces the JIT-provisioning hack from #350).
+#
+# Three structural changes happen atomically across this changelog file:
+#
+#   1. plugwerk_user becomes the identity hub. New `source` discriminator
+#      ('LOCAL' | 'OIDC'), new mandatory `display_name`, mandatory `email`.
+#      `username` and `password_hash` become nullable (LOCAL-only). CHECK
+#      constraint enforces the cross-column invariant.
+#
+#   2. New oidc_identity table. UNIQUE(user_id) — strict 1:1, no identity
+#      linking now or later by accident. UNIQUE(provider_id, subject) — a
+#      given OIDC subject maps to exactly one Plugwerk user.
+#
+#   3. namespace_member.user_subject (free text) → namespace_member.user_id
+#      (FK → plugwerk_user(id), CASCADE). Authorization is now PK-based,
+#      not synthetic-string-based.
+#
+# The synthetic <provider-uuid>:<sub> usernames written by PR #350's
+# OidcLoginSuccessHandler are detected and split into proper oidc_identity
+# rows. Email-NULL rows (the same hack also wrote email=NULL to dodge #271's
+# UNIQUE index) get a synthetic placeholder so the new email NOT NULL passes;
+# operators can correct those values manually after the migration completes.
+#
+# JWT-sub format wechselt von username/<sub-string> auf plugwerk_user.id (UUID).
+# All in-flight refresh_token rows are revoked here so users re-authenticate
+# against the new format. Pre-1.0.0-beta.1 → no production deployments → the
+# enforced re-login is acceptable.
+#
+# Provider-Delete-Politik (Issue #351): cascade deletes the oidc_identity
+# rows; the orphaned plugwerk_user rows are disabled by application code in
+# OidcProviderService.delete BEFORE the SQL cascade runs, preserving the
+# audit trail.
+databaseChangeLog:
+  # ===========================================================================
+  # 1) New table: oidc_identity
+  # ===========================================================================
+  - changeSet:
+      id: 0017-create-oidc-identity
+      author: plugwerk
+      comment: >
+        Issue #351: oidc_identity table. UNIQUE(user_id) enforces the
+        no-linking policy at schema level — see plan.
+      changes:
+        - createTable:
+            tableName: oidc_identity
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: oidc_provider_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_oidc_identity_provider
+                    references: oidc_provider(id)
+                    deleteCascade: true
+              - column:
+                  name: subject
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uq_oidc_identity_user
+                    foreignKeyName: fk_oidc_identity_user
+                    references: plugwerk_user(id)
+                    deleteCascade: true
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: last_login_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: oidc_identity
+            columnNames: oidc_provider_id, subject
+            constraintName: uq_oidc_identity_provider_subject
+        - createIndex:
+            tableName: oidc_identity
+            indexName: idx_oidc_identity_user_id
+            columns:
+              - column:
+                  name: user_id
+      rollback:
+        - dropTable:
+            tableName: oidc_identity
+            cascadeConstraints: true
+
+  # ===========================================================================
+  # 2) Add new columns to plugwerk_user (display_name, source — both with
+  #    temporary defaults so existing rows stay valid through the migration).
+  # ===========================================================================
+  - changeSet:
+      id: 0017-add-plugwerk-user-display-name
+      author: plugwerk
+      comment: >
+        Issue #351: display_name is the user-facing label shown in profile
+        and member-list UI. Replaces the synthetic OIDC username from #350.
+      changes:
+        - addColumn:
+            tableName: plugwerk_user
+            columns:
+              - column:
+                  name: display_name
+                  type: varchar(255)
+      rollback:
+        - dropColumn:
+            tableName: plugwerk_user
+            columnName: display_name
+
+  - changeSet:
+      id: 0017-add-plugwerk-user-source
+      author: plugwerk
+      comment: >
+        Issue #351: source discriminator for LOCAL vs. OIDC. Default LOCAL
+        is temporary — every existing OIDC sentinel row is flipped to OIDC
+        in the data-migration changeset that follows.
+      changes:
+        - addColumn:
+            tableName: plugwerk_user
+            columns:
+              - column:
+                  name: source
+                  type: varchar(10)
+                  defaultValue: LOCAL
+                  constraints:
+                    nullable: false
+      rollback:
+        - dropColumn:
+            tableName: plugwerk_user
+            columnName: source
+
+  # ===========================================================================
+  # 3) Add namespace_member.user_id (nullable; populated then constrained).
+  # ===========================================================================
+  - changeSet:
+      id: 0017-add-namespace-member-user-id
+      author: plugwerk
+      comment: >
+        Issue #351: namespace_member.user_id replaces user_subject (free text)
+        with a proper FK. Added nullable; populated by the data-migration
+        step before being made NOT NULL.
+      changes:
+        - addColumn:
+            tableName: namespace_member
+            columns:
+              - column:
+                  name: user_id
+                  type: uuid
+      rollback:
+        - dropColumn:
+            tableName: namespace_member
+            columnName: user_id
+
+  # ===========================================================================
+  # 3.5) Make username and password_hash nullable BEFORE the data migration.
+  #     The data migration sets these columns to NULL on every OIDC-sentinel
+  #     row; doing it the other way round trips the still-active NOT NULL
+  #     constraint and the whole changeset rolls back. Also drop the column-
+  #     level UNIQUE on username here so the partial index introduced later
+  #     can take over without overlap.
+  # ===========================================================================
+  - changeSet:
+      id: 0017-drop-username-unique-constraint
+      author: plugwerk
+      changes:
+        - dropUniqueConstraint:
+            tableName: plugwerk_user
+            constraintName: uq_user_username
+      rollback:
+        - addUniqueConstraint:
+            tableName: plugwerk_user
+            columnNames: username
+            constraintName: uq_user_username
+
+  - changeSet:
+      id: 0017-username-nullable
+      author: plugwerk
+      changes:
+        - dropNotNullConstraint:
+            tableName: plugwerk_user
+            columnName: username
+            columnDataType: varchar(255)
+      rollback:
+        - addNotNullConstraint:
+            tableName: plugwerk_user
+            columnName: username
+            columnDataType: varchar(255)
+
+  - changeSet:
+      id: 0017-password-hash-nullable
+      author: plugwerk
+      changes:
+        - dropNotNullConstraint:
+            tableName: plugwerk_user
+            columnName: password_hash
+            columnDataType: varchar(255)
+      rollback:
+        - addNotNullConstraint:
+            tableName: plugwerk_user
+            columnName: password_hash
+            columnDataType: varchar(255)
+
+  # ===========================================================================
+  # 4) Data migration — single SQL block.
+  #
+  # Order within the block matters: oidc_identity rows must be inserted before
+  # plugwerk_user.username is cleared (the regex match drives the INSERT),
+  # and namespace_member.user_id must be resolved while user_subject is still
+  # there (we drop user_subject in a later changeset).
+  # ===========================================================================
+  - changeSet:
+      id: 0017-data-migration
+      author: plugwerk
+      comment: >
+        Issue #351: split synthetic OIDC sentinel rows into proper
+        plugwerk_user + oidc_identity pairs, fill display_name, fill the
+        synthetic email placeholder for legacy NULL-email rows, resolve
+        namespace_member.user_id, and revoke all active refresh tokens
+        (force re-login on the new JWT-sub format).
+      changes:
+        - sql:
+            splitStatements: false
+            stripComments: false
+            sql: |
+              -- 4a) Insert oidc_identity rows for the synthetic <uuid>:<sub> usernames.
+              --     The regex pin matches OidcLoginSuccessHandler's exact format
+              --     from PR #350: registrationId is a canonical UUID with dashes,
+              --     the colon is the separator, and the sub may contain anything
+              --     non-empty (we use position()/substring rather than split_part
+              --     so subs that legitimately contain colons are preserved).
+              INSERT INTO oidc_identity (id, oidc_provider_id, subject, user_id, created_at, last_login_at)
+              SELECT gen_random_uuid(),
+                     (substring(username FROM 1 FOR 36))::uuid,
+                     substring(username FROM 38),
+                     id,
+                     COALESCE(created_at, now()),
+                     COALESCE(updated_at, now())
+                FROM plugwerk_user
+               WHERE username ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:.+$';
+
+              -- 4b) Flip the matched plugwerk_user rows to OIDC source and clear
+              --     the LOCAL-only credential columns.
+              UPDATE plugwerk_user
+                 SET source = 'OIDC',
+                     display_name = COALESCE(display_name, substring(username FROM 38)),
+                     username = NULL,
+                     password_hash = NULL
+               WHERE id IN (SELECT user_id FROM oidc_identity);
+
+              -- 4c) For LOCAL rows, default display_name to the existing username
+              --     so the UI has something to show.
+              UPDATE plugwerk_user
+                 SET display_name = COALESCE(display_name, username)
+               WHERE source = 'LOCAL' AND display_name IS NULL;
+
+              -- 4d) Email-NULL → synthetic placeholder. Pre-1.0 deployment, so
+              --     this only affects test/dev databases. Operators receive a
+              --     visible marker (`migrated-…@plugwerk-migration.local`) so
+              --     they can manually correct the address post-migration.
+              UPDATE plugwerk_user
+                 SET email = 'migrated-' || id::text || '@plugwerk-migration.local'
+               WHERE email IS NULL;
+
+              -- 4e) namespace_member.user_id resolution.
+              --     Local rows: user_subject equals plugwerk_user.username.
+              UPDATE namespace_member nm
+                 SET user_id = pu.id
+                FROM plugwerk_user pu
+               WHERE nm.user_subject = pu.username
+                 AND pu.source = 'LOCAL';
+              --     OIDC rows: user_subject was the '<provider_id>:<sub>' string;
+              --     match via the oidc_identity row we just inserted.
+              UPDATE namespace_member nm
+                 SET user_id = oi.user_id
+                FROM oidc_identity oi
+               WHERE nm.user_subject = (oi.oidc_provider_id::text || ':' || oi.subject)
+                 AND nm.user_id IS NULL;
+
+              -- 4f) Migrate user_setting.user_subject to the new UUID format.
+              --     UserSettingsController.requireAuthenticatedSubject() reads
+              --     the JWT-`sub` directly into this column; after #351 the JWT
+              --     carries plugwerk_user.id, so existing rows keyed by the old
+              --     username/<provider>:<sub> string would silently disappear
+              --     for the user. The free-text shape is unchanged — only the
+              --     value format flips.
+              UPDATE user_setting us
+                 SET user_subject = pu.id::text
+                FROM plugwerk_user pu
+               WHERE us.user_subject = pu.username
+                 AND pu.source = 'LOCAL';
+
+              UPDATE user_setting us
+                 SET user_subject = oi.user_id::text
+                FROM oidc_identity oi
+               WHERE us.user_subject = (oi.oidc_provider_id::text || ':' || oi.subject);
+
+              -- 4g) Force re-login by revoking all active refresh tokens.
+              --     The JWT-sub format changes from username/userSubject to
+              --     plugwerk_user.id (UUID); existing access tokens with the
+              --     old format would no longer resolve a user.
+              UPDATE refresh_token
+                 SET revoked_at = now(),
+                     revocation_reason = 'SCHEMA_MIGRATION_0017'
+               WHERE revoked_at IS NULL;
+      rollback:
+        - sql:
+            sql: |
+              -- Best-effort rollback: re-construct the synthetic <uuid>:<sub> usernames
+              -- and clear the new columns. Tokens stay revoked (no recovery).
+              UPDATE plugwerk_user pu
+                 SET source = 'LOCAL',
+                     username = oi.oidc_provider_id::text || ':' || oi.subject,
+                     password_hash = 'OIDC:no-password',
+                     display_name = NULL
+                FROM oidc_identity oi
+               WHERE oi.user_id = pu.id;
+
+  # ===========================================================================
+  # 5) display_name NOT NULL  (now that every row has a value).
+  # ===========================================================================
+  - changeSet:
+      id: 0017-display-name-not-null
+      author: plugwerk
+      changes:
+        - addNotNullConstraint:
+            tableName: plugwerk_user
+            columnName: display_name
+            columnDataType: varchar(255)
+      rollback:
+        - dropNotNullConstraint:
+            tableName: plugwerk_user
+            columnName: display_name
+            columnDataType: varchar(255)
+
+  # ===========================================================================
+  # 6) email NOT NULL.
+  # ===========================================================================
+  - changeSet:
+      id: 0017-email-not-null
+      author: plugwerk
+      changes:
+        - addNotNullConstraint:
+            tableName: plugwerk_user
+            columnName: email
+            columnDataType: varchar(255)
+      rollback:
+        - dropNotNullConstraint:
+            tableName: plugwerk_user
+            columnName: email
+            columnDataType: varchar(255)
+
+  # ===========================================================================
+  # 7) Drop the temporary default on `source`. New inserts must specify it.
+  # ===========================================================================
+  - changeSet:
+      id: 0017-source-drop-default
+      author: plugwerk
+      changes:
+        - dropDefaultValue:
+            tableName: plugwerk_user
+            columnName: source
+            columnDataType: varchar(10)
+      rollback:
+        - addDefaultValue:
+            tableName: plugwerk_user
+            columnName: source
+            columnDataType: varchar(10)
+            defaultValue: LOCAL
+
+  # ===========================================================================
+  # 8) Replace global email uniqueness with LOCAL-scoped partial unique index.
+  # ===========================================================================
+  - changeSet:
+      id: 0017-replace-email-uniqueness
+      author: plugwerk
+      comment: >
+        Issue #351 (Frage 1, Variante b): drop the global LOWER(email) partial
+        index from #271 and replace it with a LOCAL-only one. OIDC accounts
+        identify via (provider_id, subject) and are intentionally allowed to
+        share emails with each other and with local accounts.
+      changes:
+        - sql:
+            sql: |
+              DROP INDEX uq_user_email_lower;
+              CREATE UNIQUE INDEX uq_plugwerk_user_email_local
+                ON plugwerk_user (LOWER(email))
+                WHERE source = 'LOCAL';
+      rollback:
+        - sql:
+            sql: |
+              DROP INDEX uq_plugwerk_user_email_local;
+              CREATE UNIQUE INDEX uq_user_email_lower
+                ON plugwerk_user (LOWER(email))
+                WHERE email IS NOT NULL;
+
+  # ===========================================================================
+  # 9) Replace the dropped column-level UNIQUE on username (handled in 3.5)
+  #    with a LOCAL-scoped partial unique index.
+  # ===========================================================================
+  - changeSet:
+      id: 0017-create-username-local-unique-index
+      author: plugwerk
+      changes:
+        - sql:
+            sql: |
+              CREATE UNIQUE INDEX uq_plugwerk_user_username_local
+                ON plugwerk_user (username)
+                WHERE source = 'LOCAL';
+      rollback:
+        - sql:
+            sql: |
+              DROP INDEX uq_plugwerk_user_username_local;
+
+  # ===========================================================================
+  # 11) CHECK constraints — invariants that the application would otherwise
+  #     have to enforce on every write. Defence-in-depth.
+  # ===========================================================================
+  - changeSet:
+      id: 0017-check-source-domain
+      author: plugwerk
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE plugwerk_user
+                ADD CONSTRAINT chk_plugwerk_user_source
+                CHECK (source IN ('LOCAL', 'OIDC'));
+      rollback:
+        - sql:
+            sql: |
+              ALTER TABLE plugwerk_user DROP CONSTRAINT chk_plugwerk_user_source;
+
+  - changeSet:
+      id: 0017-check-credentials-by-source
+      author: plugwerk
+      comment: >
+        Per-source credential invariant: LOCAL must have username + password_hash,
+        OIDC must have neither. Catches application bugs that would otherwise
+        produce half-formed rows (e.g. an OIDC user with a stale username left
+        over from rollback).
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE plugwerk_user
+                ADD CONSTRAINT chk_plugwerk_user_credentials
+                CHECK (
+                  (source = 'LOCAL' AND username IS NOT NULL AND password_hash IS NOT NULL)
+                  OR
+                  (source = 'OIDC' AND username IS NULL AND password_hash IS NULL)
+                );
+      rollback:
+        - sql:
+            sql: |
+              ALTER TABLE plugwerk_user DROP CONSTRAINT chk_plugwerk_user_credentials;
+
+  # ===========================================================================
+  # 12) namespace_member finalisation — user_id NOT NULL + FK + unique +
+  #     drop user_subject.
+  # ===========================================================================
+  - changeSet:
+      id: 0017-namespace-member-user-id-not-null
+      author: plugwerk
+      changes:
+        - addNotNullConstraint:
+            tableName: namespace_member
+            columnName: user_id
+            columnDataType: uuid
+      rollback:
+        - dropNotNullConstraint:
+            tableName: namespace_member
+            columnName: user_id
+            columnDataType: uuid
+
+  - changeSet:
+      id: 0017-namespace-member-fk
+      author: plugwerk
+      changes:
+        - addForeignKeyConstraint:
+            constraintName: fk_namespace_member_user
+            baseTableName: namespace_member
+            baseColumnNames: user_id
+            referencedTableName: plugwerk_user
+            referencedColumnNames: id
+            onDelete: CASCADE
+      rollback:
+        - dropForeignKeyConstraint:
+            baseTableName: namespace_member
+            constraintName: fk_namespace_member_user
+
+  - changeSet:
+      id: 0017-namespace-member-replace-unique
+      author: plugwerk
+      changes:
+        - dropUniqueConstraint:
+            tableName: namespace_member
+            constraintName: uq_namespace_member_ns_subject
+        - addUniqueConstraint:
+            tableName: namespace_member
+            columnNames: namespace_id, user_id
+            constraintName: uq_namespace_member_ns_user
+      rollback:
+        - dropUniqueConstraint:
+            tableName: namespace_member
+            constraintName: uq_namespace_member_ns_user
+        - addUniqueConstraint:
+            tableName: namespace_member
+            columnNames: namespace_id, user_subject
+            constraintName: uq_namespace_member_ns_subject
+
+  - changeSet:
+      id: 0017-drop-namespace-member-user-subject-index
+      author: plugwerk
+      comment: >
+        Migration 0008 created idx_namespace_member_user_subject on the column
+        we are about to drop. Postgres would drop the index implicitly with
+        the column, but Liquibase tracks both as separate changesets — without
+        an explicit drop here, rolling back the whole changelog later (e.g. in
+        LiquibaseRollbackIT) would try to DROP an already-missing index and
+        fail.
+      changes:
+        - dropIndex:
+            tableName: namespace_member
+            indexName: idx_namespace_member_user_subject
+      rollback:
+        - createIndex:
+            tableName: namespace_member
+            indexName: idx_namespace_member_user_subject
+            columns:
+              - column:
+                  name: user_subject
+
+  - changeSet:
+      id: 0017-namespace-member-drop-user-subject
+      author: plugwerk
+      changes:
+        - dropColumn:
+            tableName: namespace_member
+            columnName: user_subject
+      rollback:
+        - addColumn:
+            tableName: namespace_member
+            columns:
+              - column:
+                  name: user_subject
+                  type: text
+
+  - changeSet:
+      id: 0017-create-namespace-member-user-id-index
+      author: plugwerk
+      comment: >
+        Replaces the dropped idx_namespace_member_user_subject. Same rationale
+        as the original (added in 0008): NamespaceMemberRepository has queries
+        that filter on user_id alone (findAllByUserId, findNamespacesByUserId,
+        deleteAllByUserId, countByUserId after the entity refactor) which would
+        sequentially scan without a dedicated index.
+      changes:
+        - createIndex:
+            tableName: namespace_member
+            indexName: idx_namespace_member_user_id
+            columns:
+              - column:
+                  name: user_id
+      rollback:
+        - dropIndex:
+            tableName: namespace_member
+            indexName: idx_namespace_member_user_id
+
+  # ===========================================================================
+  # 13) Rename revoked_token.username → subject. The column historically held
+  #     the JWT-`sub` claim (a username before #351, a plugwerk_user.id UUID
+  #     after). Keeping the misleading name was just stale terminology — the
+  #     audit column simply records "which subject was revoked".
+  # ===========================================================================
+  - changeSet:
+      id: 0017-rename-revoked-token-username-to-subject
+      author: plugwerk
+      changes:
+        - renameColumn:
+            tableName: revoked_token
+            oldColumnName: username
+            newColumnName: subject
+            columnDataType: varchar(255)
+      rollback:
+        - renameColumn:
+            tableName: revoked_token
+            oldColumnName: subject
+            newColumnName: username
+            columnDataType: varchar(255)

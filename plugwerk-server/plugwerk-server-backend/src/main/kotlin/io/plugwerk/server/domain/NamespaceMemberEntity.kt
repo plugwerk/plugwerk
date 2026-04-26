@@ -36,7 +36,7 @@ import java.time.OffsetDateTime
 import java.util.UUID
 
 /**
- * Namespace-scoped role that a subject (local user or OIDC identity) holds.
+ * Namespace-scoped role that a Plugwerk user holds.
  *
  * - [ADMIN]: Full write access within the namespace — upload releases, manage access keys,
  *   approve reviews, manage namespace members.
@@ -51,20 +51,22 @@ enum class NamespaceRole {
 }
 
 /**
- * JPA entity that assigns a [NamespaceRole] to a subject within a [NamespaceEntity].
+ * JPA entity that assigns a [NamespaceRole] to a Plugwerk user within a [NamespaceEntity].
  *
- * The [userSubject] field is a portable identity key that works for both local users
- * (their [UserEntity.username]) and OIDC identities (their `sub` claim). This design
- * avoids a foreign-key dependency on [UserEntity], so external identities can hold
- * namespace roles without having a local user record.
+ * Pre-#351 this used a free-text `user_subject` string that worked for both local users
+ * (their username) and the synthetic `<provider-uuid>:<sub>` for OIDC identities. The
+ * identity-hub refactor (issue #351, migration 0017) replaced that with a proper
+ * `user_id` FK on `plugwerk_user(id)` — authorization is now PK-based, identity
+ * resolution lives in the auth layer (CurrentUserResolver), and OIDC subjects no
+ * longer leak into membership rows.
  *
  * **Data model:** Maps to the `namespace_member` table.
- * Unique constraint on `(namespace_id, user_subject)` — one role per subject per namespace.
+ * Unique constraint on `(namespace_id, user_id)` — one role per user per namespace.
  *
  * @property id Primary key, UUIDv7.
  * @property namespace The namespace this membership belongs to.
- * @property userSubject Stable identity key: local username or OIDC `sub` claim.
- * @property role The role granted to the subject within this namespace.
+ * @property user The Plugwerk user holding this role.
+ * @property role The role granted to the user within this namespace.
  * @property createdAt Creation timestamp (set automatically, immutable).
  */
 @Entity
@@ -72,8 +74,8 @@ enum class NamespaceRole {
     name = "namespace_member",
     uniqueConstraints = [
         UniqueConstraint(
-            name = "uq_namespace_member_ns_subject",
-            columnNames = ["namespace_id", "user_subject"],
+            name = "uq_namespace_member_ns_user",
+            columnNames = ["namespace_id", "user_id"],
         ),
     ],
 )
@@ -88,8 +90,10 @@ class NamespaceMemberEntity(
     @OnDelete(action = OnDeleteAction.CASCADE)
     var namespace: NamespaceEntity,
 
-    @Column(name = "user_subject", nullable = false)
-    var userSubject: String,
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false, updatable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    var user: UserEntity,
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 50)

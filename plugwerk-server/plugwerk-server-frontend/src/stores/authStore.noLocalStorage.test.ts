@@ -65,6 +65,9 @@ describe("authStore does not persist credentials in localStorage", () => {
         status: 200,
         json: async () => ({
           accessToken: "test-token",
+          userId: "11111111-2222-3333-4444-555555555555",
+          displayName: "Alice",
+          username: "alice",
           passwordChangeRequired: false,
           isSuperadmin: false,
         }),
@@ -87,7 +90,11 @@ describe("authStore does not persist credentials in localStorage", () => {
     const { useAuthStore } = await import("./authStore");
     useAuthStore.getState().setAuth({
       accessToken: "test",
+      userId: "11111111-2222-3333-4444-555555555555",
+      displayName: "Alice",
       username: "alice",
+      email: "alice@example.test",
+      source: "LOCAL",
       passwordChangeRequired: false,
       isSuperadmin: false,
     });

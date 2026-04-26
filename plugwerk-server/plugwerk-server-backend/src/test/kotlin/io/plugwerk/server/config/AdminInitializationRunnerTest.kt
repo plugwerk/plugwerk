@@ -69,7 +69,9 @@ class AdminInitializationRunnerTest {
 
     @Test
     fun `null admin password generates random credential and requires change on first login`() {
-        whenever(userRepository.existsByUsername("admin")).thenReturn(false)
+        whenever(
+            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.LOCAL),
+        ).thenReturn(false)
         whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] }
 
         runnerWith(null).run(DefaultApplicationArguments())
@@ -81,7 +83,9 @@ class AdminInitializationRunnerTest {
 
     @Test
     fun `blank admin password is treated as unset - random credential, change required`() {
-        whenever(userRepository.existsByUsername("admin")).thenReturn(false)
+        whenever(
+            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.LOCAL),
+        ).thenReturn(false)
         whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] }
 
         runnerWith("").run(DefaultApplicationArguments())
@@ -93,7 +97,9 @@ class AdminInitializationRunnerTest {
 
     @Test
     fun `whitespace-only admin password is treated as unset - random credential, change required`() {
-        whenever(userRepository.existsByUsername("admin")).thenReturn(false)
+        whenever(
+            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.LOCAL),
+        ).thenReturn(false)
         whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] }
 
         runnerWith("   ").run(DefaultApplicationArguments())
@@ -105,7 +111,9 @@ class AdminInitializationRunnerTest {
 
     @Test
     fun `non-blank admin password is used verbatim without forcing change`() {
-        whenever(userRepository.existsByUsername("admin")).thenReturn(false)
+        whenever(
+            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.LOCAL),
+        ).thenReturn(false)
         whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] }
 
         runnerWith("CI-smoke-test-password").run(DefaultApplicationArguments())
@@ -117,11 +125,13 @@ class AdminInitializationRunnerTest {
 
     @Test
     fun `existing admin user short-circuits the runner`() {
-        whenever(userRepository.existsByUsername("admin")).thenReturn(true)
+        whenever(
+            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.LOCAL),
+        ).thenReturn(true)
 
         runnerWith("anything").run(DefaultApplicationArguments())
 
-        verify(userRepository).existsByUsername("admin")
+        verify(userRepository).existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.LOCAL)
         verifyNoMoreInteractions(userRepository)
     }
 }

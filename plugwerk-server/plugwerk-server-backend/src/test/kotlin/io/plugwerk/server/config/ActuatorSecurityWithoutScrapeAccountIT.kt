@@ -71,7 +71,9 @@ class ActuatorSecurityWithoutScrapeAccountIT {
         userRepository.deleteAll()
         val superadmin = UserEntity(
             username = "actuator-default-root",
+            displayName = "Actuator Default Root",
             email = "root@actuator-default.local",
+            source = io.plugwerk.server.domain.UserSource.LOCAL,
             passwordHash = passwordEncoder.encode("ignored-for-jwt-test")!!,
             enabled = true,
             passwordChangeRequired = false,
@@ -79,15 +81,17 @@ class ActuatorSecurityWithoutScrapeAccountIT {
         )
         val nonAdmin = UserEntity(
             username = "actuator-default-alice",
+            displayName = "Actuator Default Alice",
             email = "alice@actuator-default.local",
+            source = io.plugwerk.server.domain.UserSource.LOCAL,
             passwordHash = passwordEncoder.encode("ignored-for-jwt-test")!!,
             enabled = true,
             passwordChangeRequired = false,
             isSuperadmin = false,
         )
-        userRepository.saveAll(listOf(superadmin, nonAdmin))
-        superadminToken = jwtTokenService.generateToken(superadmin.username)
-        nonAdminToken = jwtTokenService.generateToken(nonAdmin.username)
+        val saved = userRepository.saveAll(listOf(superadmin, nonAdmin))
+        superadminToken = jwtTokenService.generateToken(saved[0].id!!.toString())
+        nonAdminToken = jwtTokenService.generateToken(saved[1].id!!.toString())
     }
 
     private fun basicAuth(user: String, password: String): String =

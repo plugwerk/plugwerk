@@ -21,6 +21,7 @@ package io.plugwerk.server.service
 import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.domain.RevokedTokenEntity
 import io.plugwerk.server.domain.UserEntity
+import io.plugwerk.server.domain.UserSource
 import io.plugwerk.server.repository.RevokedTokenRepository
 import io.plugwerk.server.repository.UserRepository
 import org.assertj.core.api.Assertions.assertThat
@@ -63,28 +64,35 @@ class TokenRevocationServiceTest {
         service = TokenRevocationService(revokedTokenRepository, userRepository, props)
     }
 
+    private fun localUser(id: UUID, passwordInvalidatedBefore: OffsetDateTime? = null) = UserEntity(
+        id = id,
+        username = "u-$id",
+        displayName = "User $id",
+        email = "$id@example.test",
+        source = UserSource.LOCAL,
+        passwordHash = "hash",
+        passwordInvalidatedBefore = passwordInvalidatedBefore,
+    )
+
     @Test
     fun `revokeToken persists entry to database`() {
         val jti = UUID.randomUUID().toString()
+        val subject = UUID.randomUUID().toString()
         whenever(revokedTokenRepository.existsByJti(sha256Hex(jti))).thenReturn(false)
         whenever(revokedTokenRepository.save(any<RevokedTokenEntity>())).thenAnswer { it.arguments[0] }
 
-        service.revokeToken(jti, "alice", Instant.now().plusSeconds(3600))
+        service.revokeToken(jti, subject, Instant.now().plusSeconds(3600))
 
-        verify(revokedTokenRepository).save(argThat { this.jti == sha256Hex(jti) && this.username == "alice" })
+        verify(revokedTokenRepository).save(argThat { this.jti == sha256Hex(jti) && this.subject == subject })
     }
 
     @Test
     fun `revokeToken stores SHA-256 hash of jti, never the plain value (SBS-013 #268)`() {
-        // Defence-in-depth regression guard: a future refactor that bypasses
-        // hashJti() (e.g. by accidentally restoring the pre-fix code path)
-        // must fail this test. The persisted entity's jti must be the 64-char
-        // hex digest, and it must NOT equal the raw input.
         val jti = "0123abcd-4567-89ef-0123-456789abcdef"
         whenever(revokedTokenRepository.existsByJti(any())).thenReturn(false)
         whenever(revokedTokenRepository.save(any<RevokedTokenEntity>())).thenAnswer { it.arguments[0] }
 
-        service.revokeToken(jti, "alice", Instant.now().plusSeconds(3600))
+        service.revokeToken(jti, UUID.randomUUID().toString(), Instant.now().plusSeconds(3600))
 
         verify(revokedTokenRepository).save(
             argThat {
@@ -101,7 +109,7 @@ class TokenRevocationServiceTest {
         val jti = UUID.randomUUID().toString()
         whenever(revokedTokenRepository.existsByJti(sha256Hex(jti))).thenReturn(true)
 
-        service.revokeToken(jti, "alice", Instant.now().plusSeconds(3600))
+        service.revokeToken(jti, UUID.randomUUID().toString(), Instant.now().plusSeconds(3600))
 
         verify(revokedTokenRepository, never()).save(any())
     }
@@ -111,69 +119,70 @@ class TokenRevocationServiceTest {
         val jti = UUID.randomUUID().toString()
         whenever(revokedTokenRepository.existsByJti(sha256Hex(jti))).thenReturn(true)
 
-        assertThat(service.isRevoked(jti, "alice", Instant.now())).isTrue()
+        assertThat(service.isRevoked(jti, UUID.randomUUID().toString(), Instant.now())).isTrue()
     }
 
     @Test
     fun `isRevoked returns false for non-revoked token`() {
+        val userId = UUID.randomUUID()
         val jti = UUID.randomUUID().toString()
         whenever(revokedTokenRepository.existsByJti(sha256Hex(jti))).thenReturn(false)
-        whenever(userRepository.findByUsername("alice")).thenReturn(
-            Optional.of(
-                UserEntity(username = "alice", passwordHash = "hash"),
-            ),
-        )
+        whenever(userRepository.findById(userId)).thenReturn(Optional.of(localUser(userId)))
 
-        assertThat(service.isRevoked(jti, "alice", Instant.now())).isFalse()
+        assertThat(service.isRevoked(jti, userId.toString(), Instant.now())).isFalse()
     }
 
     @Test
     fun `isRevoked returns true when token issued before password invalidation`() {
+        val userId = UUID.randomUUID()
         val jti = UUID.randomUUID().toString()
         val passwordChangedAt = OffsetDateTime.now(ZoneOffset.UTC)
         val tokenIssuedAt = passwordChangedAt.toInstant().minusSeconds(60)
 
         whenever(revokedTokenRepository.existsByJti(sha256Hex(jti))).thenReturn(false)
-        whenever(userRepository.findByUsername("alice")).thenReturn(
-            Optional.of(
-                UserEntity(
-                    username = "alice",
-                    passwordHash = "hash",
-                    passwordInvalidatedBefore = passwordChangedAt,
-                ),
-            ),
+        whenever(userRepository.findById(userId)).thenReturn(
+            Optional.of(localUser(userId, passwordInvalidatedBefore = passwordChangedAt)),
         )
 
-        assertThat(service.isRevoked(jti, "alice", tokenIssuedAt)).isTrue()
+        assertThat(service.isRevoked(jti, userId.toString(), tokenIssuedAt)).isTrue()
     }
 
     @Test
     fun `isRevoked returns false when token issued after password invalidation`() {
+        val userId = UUID.randomUUID()
         val jti = UUID.randomUUID().toString()
         val passwordChangedAt = OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(60)
         val tokenIssuedAt = Instant.now()
 
         whenever(revokedTokenRepository.existsByJti(sha256Hex(jti))).thenReturn(false)
-        whenever(userRepository.findByUsername("alice")).thenReturn(
-            Optional.of(
-                UserEntity(
-                    username = "alice",
-                    passwordHash = "hash",
-                    passwordInvalidatedBefore = passwordChangedAt,
-                ),
-            ),
+        whenever(userRepository.findById(userId)).thenReturn(
+            Optional.of(localUser(userId, passwordInvalidatedBefore = passwordChangedAt)),
         )
 
-        assertThat(service.isRevoked(jti, "alice", tokenIssuedAt)).isFalse()
+        assertThat(service.isRevoked(jti, userId.toString(), tokenIssuedAt)).isFalse()
+    }
+
+    @Test
+    fun `isRevoked returns false when subject is not a UUID (legacy or forged)`() {
+        // After #351 the JWT-`sub` is the plugwerk_user.id UUID. A non-UUID
+        // subject can only originate from a forged or pre-#351 token. The
+        // explicit-revocation path (above) still rejects forged tokens via
+        // JWS verification before this check runs; here we just ensure the
+        // bulk-invalidation path no-ops gracefully instead of throwing.
+        val jti = UUID.randomUUID().toString()
+        whenever(revokedTokenRepository.existsByJti(sha256Hex(jti))).thenReturn(false)
+
+        assertThat(service.isRevoked(jti, "alice-legacy-username", Instant.now())).isFalse()
     }
 
     @Test
     fun `revokeAllForUser sets passwordInvalidatedBefore`() {
-        val user = UserEntity(username = "alice", passwordHash = "hash")
-        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.of(user))
+        val userId = UUID.randomUUID()
+        val user = localUser(userId)
+        whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
         whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] }
 
-        service.revokeAllForUser("alice")
+        service.revokeAllForUser(userId)
 
         verify(userRepository).save(argThat { passwordInvalidatedBefore != null })
     }

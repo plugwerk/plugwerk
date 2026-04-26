@@ -28,6 +28,7 @@ import io.plugwerk.server.domain.NamespaceMemberEntity
 import io.plugwerk.server.repository.NamespaceMemberRepository
 import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.UserRepository
+import io.plugwerk.server.security.CurrentUserResolver
 import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.security.currentAuthentication
 import io.plugwerk.server.service.ConflictException
@@ -39,6 +40,7 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.net.URI
+import java.util.UUID
 import io.plugwerk.server.domain.NamespaceRole as DomainRole
 
 @RestController
@@ -49,13 +51,10 @@ class NamespaceMemberController(
     private val namespaceMemberRepository: NamespaceMemberRepository,
     private val userRepository: UserRepository,
     private val namespaceAuthorizationService: NamespaceAuthorizationService,
+    private val currentUserResolver: CurrentUserResolver,
 ) : NamespaceMembersApi {
 
     override fun getMyMembership(ns: String): ResponseEntity<NamespaceMembershipDto> {
-        // currentAuthentication() throws UnauthorizedException → 401 with the standard
-        // structured error envelope (matches every other endpoint). The previous
-        // raw `ResponseEntity.status(401).build()` returned an empty body and
-        // bypassed the GlobalExceptionHandler envelope contract — see #336.
         val authentication = currentAuthentication()
         val namespace = namespaceRepository.findBySlug(ns)
             .orElseThrow { NamespaceNotFoundException(ns) }
@@ -70,10 +69,9 @@ class NamespaceMemberController(
             return ResponseEntity.ok(NamespaceMembershipDto(role = NamespaceRole.READ_ONLY))
         }
 
-        val member = namespaceMemberRepository.findByNamespaceIdAndUserSubject(
-            namespace.id!!,
-            authentication.name,
-        ).orElseThrow { EntityNotFoundException("NamespaceMember", authentication.name) }
+        val userId = currentUserResolver.currentUserId()
+        val member = namespaceMemberRepository.findByNamespaceIdAndUserId(namespace.id!!, userId)
+            .orElseThrow { EntityNotFoundException("NamespaceMember", userId.toString()) }
         return ResponseEntity.ok(NamespaceMembershipDto(role = member.role.toDto()))
     }
 
@@ -99,33 +97,27 @@ class NamespaceMemberController(
             DomainRole.ADMIN,
         )
         val namespace = namespaceRepository.findBySlug(ns).orElseThrow { NamespaceNotFoundException(ns) }
-        val subject = namespaceMemberCreateRequest.userSubject
-        if (!userRepository.existsByUsername(subject)) {
-            throw EntityNotFoundException("User", subject)
-        }
-        val exists = namespaceMemberRepository.findByNamespaceIdAndUserSubject(
-            namespace.id!!,
-            namespaceMemberCreateRequest.userSubject,
-        ).isPresent
+        val userId = namespaceMemberCreateRequest.userId
+        val user = userRepository.findById(userId)
+            .orElseThrow { EntityNotFoundException("User", userId.toString()) }
+        val exists = namespaceMemberRepository.findByNamespaceIdAndUserId(namespace.id!!, userId).isPresent
         if (exists) {
-            throw ConflictException(
-                "Subject '${namespaceMemberCreateRequest.userSubject}' already has a role in namespace '$ns'",
-            )
+            throw ConflictException("User '${user.displayName}' already has a role in namespace '$ns'")
         }
         val member = namespaceMemberRepository.save(
             NamespaceMemberEntity(
                 namespace = namespace,
-                userSubject = namespaceMemberCreateRequest.userSubject,
+                user = user,
                 role = namespaceMemberCreateRequest.role.toDomain(),
             ),
         )
-        return ResponseEntity.created(URI("/api/v1/namespaces/$ns/members/${member.userSubject}")).body(member.toDto())
+        return ResponseEntity.created(URI("/api/v1/namespaces/$ns/members/${user.id}")).body(member.toDto())
     }
 
     @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'ADMIN')")
     override fun updateNamespaceMember(
         ns: String,
-        userSubject: String,
+        userId: UUID,
         namespaceMemberUpdateRequest: NamespaceMemberUpdateRequest,
     ): ResponseEntity<NamespaceMemberDto> {
         namespaceAuthorizationService.requireRole(
@@ -134,29 +126,31 @@ class NamespaceMemberController(
             DomainRole.ADMIN,
         )
         val namespace = namespaceRepository.findBySlug(ns).orElseThrow { NamespaceNotFoundException(ns) }
-        val member = namespaceMemberRepository.findByNamespaceIdAndUserSubject(namespace.id!!, userSubject)
-            .orElseThrow { EntityNotFoundException("NamespaceMember", userSubject) }
+        val member = namespaceMemberRepository.findByNamespaceIdAndUserId(namespace.id!!, userId)
+            .orElseThrow { EntityNotFoundException("NamespaceMember", userId.toString()) }
         member.role = namespaceMemberUpdateRequest.role.toDomain()
         return ResponseEntity.ok(namespaceMemberRepository.save(member).toDto())
     }
 
     @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'ADMIN')")
-    override fun removeNamespaceMember(ns: String, userSubject: String): ResponseEntity<Unit> {
+    override fun removeNamespaceMember(ns: String, userId: UUID): ResponseEntity<Unit> {
         namespaceAuthorizationService.requireRole(
             ns,
             currentAuthentication(),
             DomainRole.ADMIN,
         )
         val namespace = namespaceRepository.findBySlug(ns).orElseThrow { NamespaceNotFoundException(ns) }
-        if (!namespaceMemberRepository.findByNamespaceIdAndUserSubject(namespace.id!!, userSubject).isPresent) {
-            throw EntityNotFoundException("NamespaceMember", userSubject)
+        if (!namespaceMemberRepository.findByNamespaceIdAndUserId(namespace.id!!, userId).isPresent) {
+            throw EntityNotFoundException("NamespaceMember", userId.toString())
         }
-        namespaceMemberRepository.deleteByNamespaceIdAndUserSubject(namespace.id!!, userSubject)
+        namespaceMemberRepository.deleteByNamespaceIdAndUserId(namespace.id!!, userId)
         return ResponseEntity.noContent().build()
     }
 
     private fun NamespaceMemberEntity.toDto() = NamespaceMemberDto(
-        userSubject = userSubject,
+        userId = requireNotNull(user.id),
+        displayName = user.displayName,
+        username = user.username,
         role = role.toDto(),
         createdAt = createdAt,
     )

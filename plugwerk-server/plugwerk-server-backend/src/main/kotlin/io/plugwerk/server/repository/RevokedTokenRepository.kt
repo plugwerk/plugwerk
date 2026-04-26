@@ -34,5 +34,5 @@ interface RevokedTokenRepository : JpaRepository<RevokedTokenEntity, UUID> {
     fun deleteExpiredBefore(cutoff: OffsetDateTime): Int
 
     @Modifying
-    fun deleteByUsername(username: String)
+    fun deleteBySubject(subject: String): Int
 }
