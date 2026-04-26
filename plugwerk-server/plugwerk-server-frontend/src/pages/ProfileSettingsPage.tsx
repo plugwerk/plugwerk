@@ -22,12 +22,22 @@ import {
   Button,
   Container,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Select,
+  Tooltip,
   Typography,
 } from "@mui/material";
-import { User, Globe, FolderOpen, Lock, Palette } from "lucide-react";
+import {
+  User,
+  Globe,
+  FolderOpen,
+  Lock,
+  Palette,
+  Copy,
+  Check,
+} from "lucide-react";
 import { TimezoneSelect } from "../components/common/TimezoneSelect";
 import { Link } from "react-router-dom";
 import { Section } from "../components/common/Section";
@@ -40,11 +50,24 @@ import { useUiStore } from "../stores/uiStore";
 interface InfoRowProps {
   label: string;
   value: string;
+  copyable?: boolean;
 }
 
-function InfoRow({ label, value }: InfoRowProps) {
+function InfoRow({ label, value, copyable = false }: InfoRowProps) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard not available
+    }
+  }
+
   return (
-    <Box sx={{ display: "flex", alignItems: "baseline", gap: 2, py: 0.75 }}>
+    <Box sx={{ display: "flex", alignItems: "center", gap: 2, py: 0.75 }}>
       <Typography
         variant="caption"
         color="text.secondary"
@@ -53,6 +76,21 @@ function InfoRow({ label, value }: InfoRowProps) {
         {label}
       </Typography>
       <Typography variant="body2">{value}</Typography>
+      {copyable && value && value !== "—" && (
+        <Tooltip
+          title={copied ? "Copied!" : `Copy ${label.toLowerCase()}`}
+          arrow
+        >
+          <IconButton
+            size="small"
+            onClick={handleCopy}
+            aria-label={`Copy ${label.toLowerCase()}`}
+            sx={{ p: 0.25, color: "text.disabled" }}
+          >
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+          </IconButton>
+        </Tooltip>
+      )}
     </Box>
   );
 }
@@ -122,7 +160,7 @@ export function ProfileSettingsPage() {
           <Section icon={<User size={18} />} title="Personal Information">
             <InfoRow label="Name" value={displayName ?? "—"} />
             {username && <InfoRow label="Username" value={username} />}
-            <InfoRow label="Email" value={email ?? "—"} />
+            <InfoRow label="Email" value={email ?? "—"} copyable />
             <InfoRow
               label="Source"
               value={source === "OIDC" ? "OIDC provider" : "Local account"}
