@@ -14,6 +14,7 @@ junit = "6.0.3"
 mockito = "5.23.0"
 mockito-kotlin = "6.3.0"
 testcontainers = "2.0.4"
+mock-oauth2-server = "2.1.10"
 swagger-annotations = "2.2.46"
 jakarta-validation = "3.1.1"
 jakarta-annotation = "3.0.0"
@@ -93,6 +94,7 @@ mockito-kotlin = { module = "org.mockito.kotlin:mockito-kotlin", version.ref = "
 testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
 testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
+mock-oauth2-server = { module = "no.nav.security:mock-oauth2-server", version.ref = "mock-oauth2-server" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
