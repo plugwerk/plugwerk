@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.security.core.Authentication
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken
+import org.springframework.security.oauth2.core.oidc.user.OidcUser
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -94,9 +95,16 @@ class OidcLoginSuccessHandler(
 
         val userSubject = "$registrationId:$sub"
         ensureLocalUserRow(userSubject)
-        val refresh = refreshTokenService.issue(userSubject)
+        // Capture the upstream ID token now so logout can perform RP-Initiated Logout
+        // against the IdP later (#352). Pure-OAuth2 (non-OIDC) flows have no ID token
+        // and will fall through with null — RP-Initiated Logout simply degrades to a
+        // local-cookie-clear in that case.
+        val idTokenValue = (principal as? OidcUser)?.idToken?.tokenValue
+        val refresh = refreshTokenService.issue(userSubject, idTokenValue)
         val cookie = refreshTokenCookieFactory.build(refresh.plaintext, refresh.maxAge)
 
+        // Deliberately do NOT log idTokenValue or any of its decoded claims — it is
+        // PII (email, name, possibly groups) and would land in stdout/journal/Loki.
         log.info("OIDC login success — registrationId={} sub={} userSubject={}", registrationId, sub, userSubject)
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString())

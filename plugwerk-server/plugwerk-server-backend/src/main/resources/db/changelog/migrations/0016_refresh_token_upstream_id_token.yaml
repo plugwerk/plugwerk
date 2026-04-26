@@ -1,0 +1,42 @@
+# RP-Initiated Logout for OIDC sessions (issue #352, follow-up to #79 / #350).
+#
+# OIDC sessions need to remember the upstream `id_token` value so that
+# /api/v1/auth/logout can hand it back to the IdP as `id_token_hint` on the
+# RFC-spec'd OIDC RP-Initiated Logout endpoint. Without this round-trip the
+# Plugwerk session ends but the IdP keeps its `KEYCLOAK_IDENTITY` /
+# `KEYCLOAK_SESSION` cookies (10 h Max-Age in the dev realm), which results
+# in silent SSO when the user clicks "Login with Keycloak" again — they want
+# to switch accounts but get re-authenticated as the same user.
+#
+# The natural home is `refresh_token`: the upstream ID token has the same
+# session lifetime semantics (one OIDC login → one refresh-token family),
+# the FK-on-cascade-delete tying refresh tokens to the user already covers
+# the privacy story (delete user → delete tokens), and rotation copies the
+# value forward across successors so a long-lived active session still has
+# a hint to send at logout time. Local-login rows leave the column NULL.
+#
+# Storage shape: TEXT, nullable. Keycloak ID tokens are typically ~1.5 KB;
+# we leave them unbounded rather than picking a varchar length that breaks
+# silently on a provider that ships extra claims. The column is never
+# logged and never returned to API clients — it lives strictly between
+# OidcLoginSuccessHandler.onAuthenticationSuccess and AuthController.logout.
+databaseChangeLog:
+  - changeSet:
+      id: 0016-add-refresh-token-upstream-id-token
+      author: plugwerk
+      comment: >
+        Issue #352: store the upstream OIDC id_token on the refresh-token
+        row so logout can perform RP-Initiated Logout against the provider.
+      changes:
+        - addColumn:
+            tableName: refresh_token
+            columns:
+              - column:
+                  name: upstream_id_token
+                  type: text
+                  constraints:
+                    nullable: true
+      rollback:
+        - dropColumn:
+            tableName: refresh_token
+            columnName: upstream_id_token

@@ -147,13 +147,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   async logout() {
     const token = get().accessToken;
+    let endSessionUrl: string | null = null;
     if (token) {
       try {
-        await fetch("/api/v1/auth/logout", {
+        const response = await fetch("/api/v1/auth/logout", {
           method: "POST",
           credentials: "include",
           headers: { Authorization: `Bearer ${token}` },
         });
+        // OIDC sessions get a 200 + LogoutResponse body; local-login sessions get
+        // 204. Anything else (a network blip, server error) we silently ignore —
+        // the local cleanup below still runs.
+        if (response.ok && response.status === 200) {
+          try {
+            const body = await response.json();
+            if (typeof body?.endSessionUrl === "string" && body.endSessionUrl) {
+              endSessionUrl = body.endSessionUrl;
+            }
+          } catch {
+            // Body was not JSON / was empty — fall through to local cleanup.
+          }
+        }
       } catch {
         // Network failure on logout is non-fatal — the server-side revocation is
         // best-effort; the client still clears its state.
@@ -162,6 +176,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Namespace is a UI preference (not credential material) and is intentionally
     // retained across logout/login on the same browser.
     get().clearAuth();
+    if (endSessionUrl) {
+      // Hand control to the IdP for RP-Initiated Logout (#352). The IdP destroys
+      // its session cookies and bounces us back to ${plugwerk.server.base-url}/login,
+      // at which point the SPA boots fresh and the next "Login with provider" click
+      // shows the credential prompt instead of silent SSO.
+      window.location.assign(endSessionUrl);
+    }
   },
 
   async hydrate() {

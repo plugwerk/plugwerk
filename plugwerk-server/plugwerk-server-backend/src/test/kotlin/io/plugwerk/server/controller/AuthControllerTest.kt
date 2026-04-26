@@ -23,6 +23,7 @@ import io.plugwerk.server.repository.UserRepository
 import io.plugwerk.server.security.ChangePasswordRateLimitFilter
 import io.plugwerk.server.security.LoginRateLimitFilter
 import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
+import io.plugwerk.server.security.OidcEndSessionUrlResolver
 import io.plugwerk.server.security.PasswordChangeRequiredFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.security.RefreshRateLimitFilter
@@ -86,13 +87,17 @@ class AuthControllerTest {
 
     @MockitoBean lateinit var userService: UserService
 
+    @MockitoBean lateinit var oidcEndSessionUrlResolver: OidcEndSessionUrlResolver
+
     @MockitoBean lateinit var jwtDecoder: JwtDecoder
 
     @BeforeEach
     fun stubRefreshPath() {
         // Login emits a refresh cookie after credential validation; stub once here so
-        // every valid-credential test does not have to repeat the setup.
-        whenever(refreshTokenService.issue(any())).thenAnswer {
+        // every valid-credential test does not have to repeat the setup. The two-arg
+        // signature (#352) accepts a nullable upstreamIdToken; local-login callers
+        // pass null.
+        whenever(refreshTokenService.issue(any(), org.mockito.kotlin.anyOrNull())).thenAnswer {
             RefreshTokenService.IssuedToken(
                 plaintext = "stub-refresh-plaintext",
                 expiresAt = OffsetDateTime.now(ZoneOffset.UTC).plusHours(168),

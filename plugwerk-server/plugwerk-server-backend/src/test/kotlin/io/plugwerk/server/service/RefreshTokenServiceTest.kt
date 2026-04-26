@@ -218,4 +218,56 @@ class RefreshTokenServiceTest {
         val rows = repository.findAll()
         assertThat(rows.all { it.revokedAt != null }).isTrue()
     }
+
+    @Test
+    fun `issue without upstreamIdToken stores NULL (local-login compatibility) (#352)`() {
+        service.issue(username)
+
+        val row = repository.findAll().single()
+        assertThat(row.upstreamIdToken).isNull()
+    }
+
+    @Test
+    fun `issue with upstreamIdToken persists it on the row (#352)`() {
+        val idToken = "eyJ.fake.id-token-payload-${UUID.randomUUID()}"
+        service.issue(username, idToken)
+
+        val row = repository.findAll().single()
+        assertThat(row.upstreamIdToken).isEqualTo(idToken)
+    }
+
+    @Test
+    fun `rotate copies upstreamIdToken forward to the successor (#352)`() {
+        val idToken = "eyJ.long-lived.${UUID.randomUUID()}"
+        val first = service.issue(username, idToken)
+
+        val result = service.rotate(first.plaintext) as RefreshTokenService.RotationResult.Success
+        val successorId = result.issuedToken.rowId
+        val successor = repository.findById(successorId).orElseThrow()
+
+        // The original row keeps its token (it stays on disk until expiry for reuse-detection),
+        // and the successor must carry the same hint so a logout after many rotations still
+        // has something to send to the IdP as id_token_hint.
+        assertThat(successor.upstreamIdToken).isEqualTo(idToken)
+    }
+
+    @Test
+    fun `findUpstreamIdToken returns the value for a presented OIDC plaintext (#352)`() {
+        val idToken = "eyJ.find.${UUID.randomUUID()}"
+        val issued = service.issue(username, idToken)
+
+        assertThat(service.findUpstreamIdToken(issued.plaintext)).isEqualTo(idToken)
+    }
+
+    @Test
+    fun `findUpstreamIdToken returns null for a local-login plaintext (#352)`() {
+        val issued = service.issue(username) // no upstream ID token
+
+        assertThat(service.findUpstreamIdToken(issued.plaintext)).isNull()
+    }
+
+    @Test
+    fun `findUpstreamIdToken returns null for an unknown plaintext (#352)`() {
+        assertThat(service.findUpstreamIdToken("not-a-real-token")).isNull()
+    }
 }

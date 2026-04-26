@@ -22,7 +22,9 @@ import io.plugwerk.api.AuthApi
 import io.plugwerk.api.model.ChangePasswordRequest
 import io.plugwerk.api.model.LoginRequest
 import io.plugwerk.api.model.LoginResponse
+import io.plugwerk.api.model.LogoutResponse
 import io.plugwerk.server.repository.UserRepository
+import io.plugwerk.server.security.OidcEndSessionUrlResolver
 import io.plugwerk.server.security.RefreshTokenCookieFactory
 import io.plugwerk.server.security.UserCredentialValidator
 import io.plugwerk.server.security.currentAuthentication
@@ -51,6 +53,7 @@ class AuthController(
     private val refreshTokenCookieFactory: RefreshTokenCookieFactory,
     private val userRepository: UserRepository,
     private val userService: UserService,
+    private val oidcEndSessionUrlResolver: OidcEndSessionUrlResolver,
 ) : AuthApi {
 
     override fun login(loginRequest: LoginRequest): ResponseEntity<LoginResponse> {
@@ -115,7 +118,7 @@ class AuthController(
         }
     }
 
-    override fun logout(): ResponseEntity<Unit> {
+    override fun logout(): ResponseEntity<LogoutResponse> {
         val authentication = currentAuthentication()
         val jwt = authentication.credentials as? Jwt
             ?: throw UnauthorizedException("Bearer token required for logout")
@@ -123,12 +126,43 @@ class AuthController(
         val expiresAt = jwt.expiresAt ?: throw UnauthorizedException("Token missing exp claim")
         tokenRevocationService.revokeToken(jti, jwt.subject, expiresAt)
 
-        // Also revoke the refresh-token family (if a cookie is attached — it will not be
-        // on cross-origin Bearer-only API clients) and clear the cookie on the response.
-        readRefreshCookie()?.let { refreshTokenService.revokePresentedFamily(it) }
-        return ResponseEntity.noContent()
-            .header(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.clear().toString())
-            .build()
+        // Resolve the upstream RP-Initiated Logout URL *before* burning the refresh-token
+        // family — once the row is revoked we lose access to the upstream id_token hint
+        // it carried (#352).
+        val refreshPlaintext = readRefreshCookie()
+        val endSessionUrl = refreshPlaintext?.let { resolveEndSessionUrl(jwt.subject, it) }
+        refreshPlaintext?.let { refreshTokenService.revokePresentedFamily(it) }
+
+        val cookieClearHeader = refreshTokenCookieFactory.clear().toString()
+        return if (endSessionUrl != null) {
+            ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookieClearHeader)
+                .body(LogoutResponse(endSessionUrl = endSessionUrl))
+        } else {
+            ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, cookieClearHeader)
+                .build()
+        }
+    }
+
+    /**
+     * Builds the RP-Initiated Logout URL for OIDC subjects (#352). Returns `null` for
+     * local logins (subject does not match the OIDC sentinel shape), for OIDC
+     * providers that do not advertise `end_session_endpoint`, and for any path that
+     * leaves the row without an upstream id-token hint. Caller falls back to the
+     * `204 No Content` plain-cookie-clear flow in those cases.
+     *
+     * Subject-shape detection is a regex check (`<uuid>:<sub>`) — synthetic and
+     * brittle, but it matches what [io.plugwerk.server.security.OidcLoginSuccessHandler]
+     * writes today. Issue #351 will replace this with a proper `oidc_identity` table
+     * + foreign key, after which the regex test should be deleted.
+     */
+    private fun resolveEndSessionUrl(jwtSubject: String?, refreshPlaintext: String): String? {
+        val subject = jwtSubject ?: return null
+        val match = OIDC_SUBJECT_REGEX.matchEntire(subject) ?: return null
+        val registrationId = match.groupValues[1]
+        val idTokenHint = refreshTokenService.findUpstreamIdToken(refreshPlaintext)
+        return oidcEndSessionUrlResolver.resolve(registrationId, idTokenHint)
     }
 
     override fun changePassword(changePasswordRequest: ChangePasswordRequest): ResponseEntity<Unit> {
@@ -155,4 +189,15 @@ class AuthController(
     private fun unauthorizedWithClearedCookie(): ResponseEntity<LoginResponse> = ResponseEntity.status(401)
         .header(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.clear().toString())
         .build()
+
+    private companion object {
+        // OIDC user_subject shape from OidcLoginSuccessHandler:
+        //   "<provider-uuid>:<sub-claim>"
+        // The registrationId is the canonical UUID form (8-4-4-4-12 hex with dashes);
+        // the sub is whatever the IdP returned and may contain colons of its own, so
+        // we anchor only the prefix and treat everything after the first colon as the
+        // sub. Local-login usernames never contain a colon and never match.
+        private val OIDC_SUBJECT_REGEX =
+            Regex("^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):.+$")
+    }
 }

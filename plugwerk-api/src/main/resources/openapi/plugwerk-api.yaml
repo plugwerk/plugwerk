@@ -997,19 +997,42 @@ paths:
         - Auth
       summary: Logout (revoke current token)
       description: |
-        Revokes the JWT used to authenticate this request. The token becomes immediately
-        invalid and any subsequent request using it will receive `401 Unauthorized`.
+        Revokes the JWT used to authenticate this request and clears the refresh
+        cookie. The token becomes immediately invalid and any subsequent request
+        using it will receive `401 Unauthorized`.
 
-        This is a best-effort operation — the server persists the token's `jti` claim in a
-        revocation list that is checked on every authenticated request.
+        This is a best-effort operation — the server persists the token's `jti` claim
+        in a revocation list that is checked on every authenticated request.
+
+        Two response shapes (issue #352):
+
+        * **Local-login sessions** → `204 No Content`. The browser stays on the
+          Plugwerk SPA and routes to the login page on its own.
+        * **OIDC-sourced sessions** → `200 OK` with a `LogoutResponse` body that
+          contains an `endSessionUrl`. The frontend MUST navigate the browser to
+          that URL — it is the IdP's RP-Initiated Logout endpoint, with the
+          `id_token_hint` and `post_logout_redirect_uri` parameters already filled
+          in. After the IdP destroys its session, the browser is bounced back to
+          `${plugwerk.server.base-url}/login` and the SPA boots fresh. Without
+          this step the upstream IdP keeps its session cookies and the next
+          "Login with provider" click would silently re-authenticate the same
+          user instead of showing the credential prompt.
 
         Requires authentication (Bearer token).
       operationId: logout
       security:
         - BearerAuth: []
       responses:
+        '200':
+          description: |
+            OIDC session — caller must follow `endSessionUrl` for the IdP to
+            destroy its session and bounce back to the Plugwerk login page.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
         '204':
-          description: Token revoked successfully
+          description: Local-login session — token revoked, no further client action required.
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -1812,6 +1835,31 @@ components:
         - expiresIn
         - passwordChangeRequired
         - isSuperadmin
+
+    LogoutResponse:
+      type: object
+      description: |
+        Body returned by `POST /auth/logout` for OIDC-sourced sessions (issue #352).
+        Local-login sessions return `204 No Content` and never produce this body.
+      properties:
+        endSessionUrl:
+          type: string
+          description: |
+            Pre-built RP-Initiated Logout URL pointing at the upstream IdP's
+            `end_session_endpoint`. Already carries the `id_token_hint` and
+            `post_logout_redirect_uri` query parameters; the frontend MUST
+            navigate the browser to this URL to terminate the IdP session.
+            After the IdP redirects back, the SPA boots fresh on the login
+            page.
+
+            Modeled as a plain string (not `format: uri`) because consumers
+            navigate the browser directly to it via `window.location.assign`
+            — they neither parse the value nor relativize it, so introducing
+            a typed URI just adds friction at every call site without buying
+            any safety the IdP allow-list does not already enforce.
+          example: https://auth.example.com/realms/plugwerk/protocol/openid-connect/logout?id_token_hint=eyJ...&post_logout_redirect_uri=https%3A%2F%2Fapp.example.com%2Flogin
+      required:
+        - endSessionUrl
 
     NamespaceSummary:
       type: object

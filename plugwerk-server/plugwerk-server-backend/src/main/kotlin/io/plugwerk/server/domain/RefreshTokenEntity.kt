@@ -59,6 +59,11 @@ import java.util.UUID
  * @property revocationReason Machine-readable reason enum; see class-level KDoc.
  * @property rotatedToId Successor row (non-null when this token was rotated forward),
  *   self-referencing FK with `ON DELETE SET NULL` so chain deletes do not cascade.
+ * @property upstreamIdToken Raw upstream OIDC `id_token` value, captured at OIDC login
+ *   time and copied forward across rotations. Used as `id_token_hint` for RP-Initiated
+ *   Logout against the IdP's `end_session_endpoint` (#352). Null for local-login rows
+ *   and for OIDC providers that never returned an ID token. Never logged or returned
+ *   to API clients.
  */
 @Entity
 @Table(name = "refresh_token")
@@ -91,4 +96,7 @@ class RefreshTokenEntity(
 
     @Column(name = "rotated_to_id")
     var rotatedToId: UUID? = null,
+
+    @Column(name = "upstream_id_token", columnDefinition = "TEXT")
+    var upstreamIdToken: String? = null,
 )
