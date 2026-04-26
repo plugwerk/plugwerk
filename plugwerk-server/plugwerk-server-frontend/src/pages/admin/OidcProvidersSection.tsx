@@ -23,7 +23,6 @@ import {
   TextField,
   Button,
   Divider,
-  Alert,
   Select,
   MenuItem,
   FormControl,
@@ -243,11 +242,6 @@ export function OidcProvidersSection() {
           Add Provider
         </Button>
       </Box>
-
-      <Alert severity="info">
-        OIDC is disabled by default. Enable individual providers after adding
-        their credentials.
-      </Alert>
 
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
