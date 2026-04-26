@@ -27,6 +27,7 @@ import type { NamespaceSummary } from "../api/generated/model";
 export function OnboardingPage() {
   const navigate = useNavigate();
   const setNamespace = useAuthStore((s) => s.setNamespace);
+  const isSuperadmin = useAuthStore((s) => s.isSuperadmin);
   const [createOpen, setCreateOpen] = useState(false);
 
   function handleCreated(ns: NamespaceSummary) {
@@ -54,38 +55,51 @@ export function OnboardingPage() {
           Welcome to Plugwerk
         </Typography>
 
-        <Typography
-          variant="body1"
-          color="text.secondary"
-          sx={{ mb: 4, maxWidth: 420, mx: "auto" }}
-        >
-          No namespaces have been created yet. Create your first namespace to
-          start publishing and managing plugins.
-        </Typography>
+        {isSuperadmin ? (
+          <>
+            <Typography
+              variant="body1"
+              color="text.secondary"
+              sx={{ mb: 4, maxWidth: 420, mx: "auto" }}
+            >
+              No namespaces have been created yet. Create your first namespace
+              to start publishing and managing plugins.
+            </Typography>
 
-        <Button
-          variant="contained"
-          size="large"
-          startIcon={<Plus size={18} />}
-          onClick={() => setCreateOpen(true)}
-        >
-          Create Namespace
-        </Button>
+            <Button
+              variant="contained"
+              size="large"
+              startIcon={<Plus size={18} />}
+              onClick={() => setCreateOpen(true)}
+            >
+              Create Namespace
+            </Button>
 
-        <Typography
-          variant="caption"
-          color="text.disabled"
-          sx={{ display: "block", mt: 3 }}
-        >
-          A namespace groups your plugins and controls who can access them.
-        </Typography>
+            <Typography
+              variant="caption"
+              color="text.disabled"
+              sx={{ display: "block", mt: 3 }}
+            >
+              A namespace groups your plugins and controls who can access them.
+            </Typography>
 
-        <CreateNamespaceDialog
-          open={createOpen}
-          onClose={() => setCreateOpen(false)}
-          onCreated={handleCreated}
-          onError={() => {}}
-        />
+            <CreateNamespaceDialog
+              open={createOpen}
+              onClose={() => setCreateOpen(false)}
+              onCreated={handleCreated}
+              onError={() => {}}
+            />
+          </>
+        ) : (
+          <Typography
+            variant="body1"
+            color="text.secondary"
+            sx={{ mb: 4, maxWidth: 460, mx: "auto" }}
+          >
+            You don't have access to any namespace yet. Ask a Plugwerk
+            administrator to add you to one.
+          </Typography>
+        )}
       </Container>
     </Box>
   );
