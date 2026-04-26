@@ -77,28 +77,25 @@ class UserServiceTest {
         assertThat(saved.email).isEqualTo("bob@example.com")
     }
 
-    @Test
-    fun `create stores null when email is null`() {
-        val saved = service.create("carol", null, "password-123")
+    // Pre-#351 the create signature accepted a nullable email and tests
+    // exercised the empty-string/whitespace/null collapse paths. Since #351
+    // email is mandatory: the OpenAPI request schema enforces it and the
+    // service signature is `email: String`. The collapse paths therefore
+    // cannot be exercised through this method anymore — the OpenAPI layer
+    // rejects the request before reaching the service.
 
-        assertThat(saved.email).isNull()
+    @Test
+    fun `create defaults displayName to username when not supplied`() {
+        val saved = service.create("ash", "ash@example.com", "password-123")
+
+        assertThat(saved.displayName).isEqualTo("ash")
     }
 
     @Test
-    fun `create stores null when email is empty string`() {
-        val saved = service.create("dave", "", "password-123")
+    fun `create stores supplied displayName verbatim`() {
+        val saved = service.create("blake", "blake@example.com", "password-123", displayName = "Blake the Brave")
 
-        assertThat(saved.email).isNull()
-    }
-
-    @Test
-    fun `create stores null when email is whitespace only`() {
-        // A whitespace-only input must not produce an empty-string email row;
-        // collapse to null so it does not collide with the partial unique
-        // index's WHERE email IS NOT NULL predicate either.
-        val saved = service.create("eve", "   ", "password-123")
-
-        assertThat(saved.email).isNull()
+        assertThat(saved.displayName).isEqualTo("Blake the Brave")
     }
 
     @Test

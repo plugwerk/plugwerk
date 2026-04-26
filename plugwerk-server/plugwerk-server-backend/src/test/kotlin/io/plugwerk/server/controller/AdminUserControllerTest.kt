@@ -100,7 +100,9 @@ class AdminUserControllerTest {
     private fun stubUser(username: String = "alice", enabled: Boolean = true): UserEntity = UserEntity(
         id = UUID.randomUUID(),
         username = username,
+        displayName = username,
         email = "$username@example.com",
+        source = io.plugwerk.server.domain.UserSource.LOCAL,
         passwordHash = "\$2a\$12\$hash",
         enabled = enabled,
         passwordChangeRequired = false,
@@ -168,11 +170,11 @@ class AdminUserControllerTest {
     @Test
     fun `POST admin users creates user and returns 201`() {
         val user = stubUser("bob")
-        whenever(userService.create(any(), anyOrNull(), any())).thenReturn(user)
+        whenever(userService.create(any(), any(), any(), anyOrNull())).thenReturn(user)
 
         mockMvc.post("/api/v1/admin/users") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"username":"bob","password":"secret123long"}"""
+            content = """{"username":"bob","email":"bob@example.com","password":"secret123long"}"""
         }.andExpect {
             status { isCreated() }
             jsonPath("$.username") { value("bob") }
@@ -181,11 +183,11 @@ class AdminUserControllerTest {
 
     @Test
     fun `POST admin users returns 409 when username already exists`() {
-        doThrow(ConflictException("username taken")).whenever(userService).create(any(), anyOrNull(), any())
+        doThrow(ConflictException("username taken")).whenever(userService).create(any(), any(), any(), anyOrNull())
 
         mockMvc.post("/api/v1/admin/users") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"username":"alice","password":"password12345"}"""
+            content = """{"username":"alice","email":"alice@example.com","password":"password12345"}"""
         }.andExpect {
             status { isConflict() }
         }
@@ -267,7 +269,7 @@ class AdminUserControllerTest {
 
         mockMvc.post("/api/v1/admin/users") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"username":"eve","password":"password12345"}"""
+            content = """{"username":"eve","email":"eve@example.com","password":"password12345"}"""
         }.andExpect {
             status { isForbidden() }
         }

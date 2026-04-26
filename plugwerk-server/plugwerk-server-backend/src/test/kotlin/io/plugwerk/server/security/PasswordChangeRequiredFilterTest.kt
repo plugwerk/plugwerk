@@ -19,6 +19,7 @@
 package io.plugwerk.server.security
 
 import io.plugwerk.server.domain.UserEntity
+import io.plugwerk.server.domain.UserSource
 import io.plugwerk.server.repository.UserRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -59,24 +60,32 @@ class PasswordChangeRequiredFilterTest {
         SecurityContextHolder.clearContext()
     }
 
-    private fun jwtAuthFor(username: String): JwtAuthenticationToken {
+    private fun jwtAuthFor(subject: String): JwtAuthenticationToken {
         val jwt = Jwt.withTokenValue("token")
             .header("alg", "HS256")
-            .subject(username)
+            .subject(subject)
             .issuedAt(Instant.now())
             .expiresAt(Instant.now().plusSeconds(3600))
             .build()
         return JwtAuthenticationToken(jwt)
     }
 
-    private fun userEntity(username: String, passwordChangeRequired: Boolean) =
-        UserEntity(username = username, passwordHash = "hash", passwordChangeRequired = passwordChangeRequired)
+    private fun userEntity(id: UUID, passwordChangeRequired: Boolean) = UserEntity(
+        id = id,
+        username = "u-$id",
+        displayName = "User $id",
+        email = "$id@example.test",
+        source = UserSource.LOCAL,
+        passwordHash = "hash",
+        passwordChangeRequired = passwordChangeRequired,
+    )
 
     @Test
     fun `blocks request when JWT user has passwordChangeRequired true`() {
-        SecurityContextHolder.getContext().authentication = jwtAuthFor("admin")
-        whenever(userRepository.findByUsername("admin"))
-            .thenReturn(Optional.of(userEntity("admin", passwordChangeRequired = true)))
+        val userId = UUID.randomUUID()
+        SecurityContextHolder.getContext().authentication = jwtAuthFor(userId.toString())
+        whenever(userRepository.findById(userId))
+            .thenReturn(Optional.of(userEntity(userId, passwordChangeRequired = true)))
 
         val request = MockHttpServletRequest("GET", "/api/v1/namespaces/default/plugins")
         val response = MockHttpServletResponse()
@@ -91,9 +100,10 @@ class PasswordChangeRequiredFilterTest {
 
     @Test
     fun `allows change-password endpoint when passwordChangeRequired true`() {
-        SecurityContextHolder.getContext().authentication = jwtAuthFor("admin")
-        whenever(userRepository.findByUsername("admin"))
-            .thenReturn(Optional.of(userEntity("admin", passwordChangeRequired = true)))
+        val userId = UUID.randomUUID()
+        SecurityContextHolder.getContext().authentication = jwtAuthFor(userId.toString())
+        whenever(userRepository.findById(userId))
+            .thenReturn(Optional.of(userEntity(userId, passwordChangeRequired = true)))
 
         val request = MockHttpServletRequest("POST", "/api/v1/auth/change-password")
         val response = MockHttpServletResponse()
@@ -107,9 +117,10 @@ class PasswordChangeRequiredFilterTest {
 
     @Test
     fun `allows login endpoint when passwordChangeRequired true`() {
-        SecurityContextHolder.getContext().authentication = jwtAuthFor("admin")
-        whenever(userRepository.findByUsername("admin"))
-            .thenReturn(Optional.of(userEntity("admin", passwordChangeRequired = true)))
+        val userId = UUID.randomUUID()
+        SecurityContextHolder.getContext().authentication = jwtAuthFor(userId.toString())
+        whenever(userRepository.findById(userId))
+            .thenReturn(Optional.of(userEntity(userId, passwordChangeRequired = true)))
 
         val request = MockHttpServletRequest("POST", "/api/v1/auth/login")
         val response = MockHttpServletResponse()
@@ -123,9 +134,10 @@ class PasswordChangeRequiredFilterTest {
 
     @Test
     fun `passes through when JWT user has passwordChangeRequired false`() {
-        SecurityContextHolder.getContext().authentication = jwtAuthFor("alice")
-        whenever(userRepository.findByUsername("alice"))
-            .thenReturn(Optional.of(userEntity("alice", passwordChangeRequired = false)))
+        val userId = UUID.randomUUID()
+        SecurityContextHolder.getContext().authentication = jwtAuthFor(userId.toString())
+        whenever(userRepository.findById(userId))
+            .thenReturn(Optional.of(userEntity(userId, passwordChangeRequired = false)))
 
         val request = MockHttpServletRequest("GET", "/api/v1/namespaces/default/plugins")
         val response = MockHttpServletResponse()
@@ -169,9 +181,10 @@ class PasswordChangeRequiredFilterTest {
     }
 
     @Test
-    fun `blocks non-auth endpoints even for unknown users`() {
-        SecurityContextHolder.getContext().authentication = jwtAuthFor("ghost")
-        whenever(userRepository.findByUsername("ghost")).thenReturn(Optional.empty())
+    fun `passes through for unknown user (defensive default = false)`() {
+        val ghostId = UUID.randomUUID()
+        SecurityContextHolder.getContext().authentication = jwtAuthFor(ghostId.toString())
+        whenever(userRepository.findById(ghostId)).thenReturn(Optional.empty())
 
         val request = MockHttpServletRequest("GET", "/api/v1/admin/users")
         val response = MockHttpServletResponse()
@@ -179,7 +192,23 @@ class PasswordChangeRequiredFilterTest {
 
         filter.doFilter(request, response, chain)
 
-        // Unknown user → passwordChangeRequired defaults to false → passes through
+        assertThat(response.status).isEqualTo(200)
+        assertThat(chain.request).isNotNull()
+    }
+
+    @Test
+    fun `passes through when JWT subject is not a parseable UUID (legacy or forged token)`() {
+        // Pre-#351 tokens carried a username as `sub` — they should not bleed
+        // through to a 403 here; downstream filters will reject them on the
+        // signature/exp/revocation paths.
+        SecurityContextHolder.getContext().authentication = jwtAuthFor("alice-legacy-username")
+
+        val request = MockHttpServletRequest("GET", "/api/v1/namespaces/default/plugins")
+        val response = MockHttpServletResponse()
+        val chain = MockFilterChain()
+
+        filter.doFilter(request, response, chain)
+
         assertThat(response.status).isEqualTo(200)
         assertThat(chain.request).isNotNull()
     }

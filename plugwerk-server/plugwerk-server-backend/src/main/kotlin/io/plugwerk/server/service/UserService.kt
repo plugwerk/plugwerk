@@ -19,6 +19,7 @@
 package io.plugwerk.server.service
 
 import io.plugwerk.server.domain.UserEntity
+import io.plugwerk.server.domain.UserSource
 import io.plugwerk.server.repository.NamespaceMemberRepository
 import io.plugwerk.server.repository.RevokedTokenRepository
 import io.plugwerk.server.repository.UserRepository
@@ -47,14 +48,23 @@ class UserService(
     fun findById(id: UUID): UserEntity =
         userRepository.findById(id).orElseThrow { EntityNotFoundException("User", id.toString()) }
 
-    fun create(username: String, email: String?, password: String): UserEntity {
-        if (userRepository.existsByUsername(username)) {
+    /**
+     * Creates a LOCAL user (`source = 'LOCAL'`) with username + password. After
+     * the identity-hub split (#351), `email` is mandatory and `displayName`
+     * defaults to the username when not supplied — both go through the
+     * `chk_plugwerk_user_credentials` CHECK constraint and the partial unique
+     * indexes for LOCAL rows.
+     */
+    fun create(username: String, email: String, password: String, displayName: String? = null): UserEntity {
+        if (userRepository.existsByUsernameAndSource(username, UserSource.LOCAL)) {
             throw ConflictException("Username '$username' is already taken")
         }
         return userRepository.save(
             UserEntity(
                 username = username,
                 email = normalizeEmail(email),
+                displayName = displayName ?: username,
+                source = UserSource.LOCAL,
                 passwordHash = hashPassword(password),
                 passwordChangeRequired = true,
             ),
@@ -62,15 +72,14 @@ class UserService(
     }
 
     /**
-     * Normalises an optional email for storage: trims surrounding whitespace,
-     * lowercases the entire address, and collapses blank/whitespace-only inputs
-     * to `null`. Pairs with the partial functional unique index
-     * `uq_user_email_lower` on `LOWER(email)` introduced in migration 0013
-     * (DB-013 / #271). The DB index is the defence-in-depth — direct SQL or a
-     * future second writer cannot bypass it — but normalising on write keeps
-     * the stored value canonical and avoids surprising display roundtrips.
+     * Trims surrounding whitespace and lowercases the address. Pairs with the partial
+     * functional unique index `uq_plugwerk_user_email_local` on
+     * `LOWER(email) WHERE source='LOCAL'` (migration 0017). The DB index is the
+     * defence-in-depth — direct SQL or a future second writer cannot bypass it —
+     * but normalising on write keeps the stored value canonical and avoids
+     * surprising display roundtrips.
      */
-    private fun normalizeEmail(email: String?): String? = email?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+    private fun normalizeEmail(email: String): String = email.trim().lowercase()
 
     fun setEnabled(id: UUID, enabled: Boolean): UserEntity {
         val user = findById(id)
@@ -80,25 +89,36 @@ class UserService(
 
     fun resetPassword(id: UUID, newPassword: String): UserEntity {
         val user = findById(id)
+        require(user.isLocal()) {
+            "Cannot reset password on OIDC-sourced user — credentials live with the upstream provider"
+        }
         user.passwordHash = hashPassword(newPassword)
         user.passwordChangeRequired = true
         val saved = userRepository.save(user)
-        tokenRevocationService.revokeAllForUser(user.username)
+        tokenRevocationService.revokeAllForUser(id)
         return saved
     }
 
     fun delete(id: UUID) {
         val user = findById(id)
         if (user.isSuperadmin) throw ForbiddenException("The superadmin account cannot be deleted")
-        namespaceMemberRepository.deleteAllByUserSubject(user.username)
-        revokedTokenRepository.deleteByUsername(user.username)
+        // namespace_member rows cascade automatically via the FK introduced in
+        // migration 0017; revoked_token rows for this subject (now keyed by
+        // plugwerk_user.id UUID-string) are wiped explicitly so the audit
+        // surface for the deleted user does not linger.
+        revokedTokenRepository.deleteBySubject(id.toString())
+        namespaceMemberRepository.deleteAllByUserId(id)
         userRepository.delete(user)
     }
 
-    fun changePassword(username: String, currentPassword: String, newPassword: String): UserEntity {
-        val user = userRepository.findByUsername(username)
-            .orElseThrow { EntityNotFoundException("User", username) }
-        if (!passwordEncoder.matches(currentPassword, user.passwordHash)) {
+    fun changePassword(userId: UUID, currentPassword: String, newPassword: String): UserEntity {
+        val user = findById(userId)
+        require(user.isLocal()) {
+            "Cannot change password on OIDC-sourced user — credentials live with the upstream provider"
+        }
+        val currentHash = user.passwordHash
+            ?: throw UnauthorizedException("Current password is incorrect")
+        if (!passwordEncoder.matches(currentPassword, currentHash)) {
             throw UnauthorizedException("Current password is incorrect")
         }
         user.passwordHash = hashPassword(newPassword)

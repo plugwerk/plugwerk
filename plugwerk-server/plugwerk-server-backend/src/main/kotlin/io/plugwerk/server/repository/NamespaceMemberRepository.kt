@@ -29,11 +29,11 @@ import java.util.UUID
 
 interface NamespaceMemberRepository : JpaRepository<NamespaceMemberEntity, UUID> {
 
-    fun findByNamespaceIdAndUserSubject(namespaceId: UUID, userSubject: String): Optional<NamespaceMemberEntity>
+    fun findByNamespaceIdAndUserId(namespaceId: UUID, userId: UUID): Optional<NamespaceMemberEntity>
 
     fun findAllByNamespaceId(namespaceId: UUID): List<NamespaceMemberEntity>
 
-    fun findAllByUserSubject(userSubject: String): List<NamespaceMemberEntity>
+    fun findAllByUserId(userId: UUID): List<NamespaceMemberEntity>
 
     /**
      * Returns the namespaces a user is a member of, eagerly fetching the namespace entity
@@ -42,20 +42,20 @@ interface NamespaceMemberRepository : JpaRepository<NamespaceMemberEntity, UUID>
     @Query(
         """
         SELECT m.namespace FROM NamespaceMemberEntity m
-        WHERE m.userSubject = :userSubject
+        WHERE m.user.id = :userId
         """,
     )
-    fun findNamespacesByUserSubject(@Param("userSubject") userSubject: String): List<NamespaceEntity>
+    fun findNamespacesByUserId(@Param("userId") userId: UUID): List<NamespaceEntity>
 
-    fun existsByNamespaceIdAndUserSubjectAndRoleIn(
+    fun existsByNamespaceIdAndUserIdAndRoleIn(
         namespaceId: UUID,
-        userSubject: String,
+        userId: UUID,
         roles: Collection<NamespaceRole>,
     ): Boolean
 
-    fun deleteByNamespaceIdAndUserSubject(namespaceId: UUID, userSubject: String)
+    fun deleteByNamespaceIdAndUserId(namespaceId: UUID, userId: UUID)
 
-    fun deleteAllByUserSubject(userSubject: String)
+    fun deleteAllByUserId(userId: UUID)
 
-    fun countByUserSubject(userSubject: String): Long
+    fun countByUserId(userId: UUID): Long
 }

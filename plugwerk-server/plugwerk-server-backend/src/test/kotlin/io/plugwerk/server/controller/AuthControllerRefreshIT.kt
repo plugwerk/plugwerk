@@ -42,6 +42,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
+import java.util.UUID
 
 /**
  * End-to-end auth flow tests (ADR-0027 / #294).
@@ -96,7 +97,9 @@ class AuthControllerRefreshIT {
         userRepository.save(
             UserEntity(
                 username = username,
+                displayName = username,
                 email = "$username@refresh.test",
+                source = io.plugwerk.server.domain.UserSource.LOCAL,
                 passwordHash = passwordEncoder.encode(password)!!,
                 enabled = true,
                 passwordChangeRequired = false,
@@ -278,28 +281,53 @@ class AuthControllerRefreshIT {
             .resolve(org.mockito.kotlin.any(), org.mockito.kotlin.any())
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private lateinit var oidcProviderRepository: io.plugwerk.server.repository.OidcProviderRepository
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private lateinit var oidcIdentityRepository: io.plugwerk.server.repository.OidcIdentityRepository
+
     /**
      * Builds an OIDC-shaped session in the DB and returns a Bearer access token plus the
      * refresh cookie that points at the just-issued refresh-token row. Mirrors what
      * [io.plugwerk.server.security.OidcLoginSuccessHandler] does on a successful OIDC
-     * callback, minus the actual OAuth2 round-trip.
+     * callback, minus the actual OAuth2 round-trip — the post-#351 shape requires both
+     * a `plugwerk_user` row (source=OIDC) and a linked `oidc_identity` row, because
+     * the logout flow discriminates OIDC sessions by looking up the identity FK.
      */
     private fun setUpOidcSession(idTokenHint: String): Pair<String, Cookie> {
-        val registrationId = "11111111-2222-3333-4444-555555555555"
-        val sub = "alice-keycloak-sub"
-        val oidcUsername = "$registrationId:$sub"
-        userRepository.save(
+        val provider = oidcProviderRepository.save(
+            io.plugwerk.server.domain.OidcProviderEntity(
+                name = "Test KC ${UUID.randomUUID()}",
+                providerType = io.plugwerk.server.domain.OidcProviderType.KEYCLOAK,
+                clientId = "test-client",
+                clientSecretEncrypted = "encrypted",
+                issuerUri = "https://kc/realms/test",
+                enabled = true,
+            ),
+        )
+        val user = userRepository.save(
             UserEntity(
-                username = oidcUsername,
-                email = null,
-                passwordHash = "OIDC:no-password",
+                username = null,
+                displayName = "Alice (Keycloak)",
+                email = "alice-${UUID.randomUUID()}@oidc.test",
+                source = io.plugwerk.server.domain.UserSource.OIDC,
+                passwordHash = null,
                 enabled = true,
                 passwordChangeRequired = false,
                 isSuperadmin = false,
             ),
         )
-        val accessToken = jwtTokenService.generateToken(oidcUsername)
-        val issued = refreshTokenService.issue(oidcUsername, idTokenHint)
+        oidcIdentityRepository.save(
+            io.plugwerk.server.domain.OidcIdentityEntity(
+                oidcProvider = provider,
+                subject = "alice-sub-${UUID.randomUUID()}",
+                user = user,
+            ),
+        )
+        val userId = user.id!!
+        val accessToken = jwtTokenService.generateToken(userId.toString())
+        val issued = refreshTokenService.issue(userId, idTokenHint)
         val cookie = Cookie(RefreshTokenCookieFactory.COOKIE_NAME, issued.plaintext)
         return accessToken to cookie
     }

@@ -30,7 +30,12 @@
  */
 export interface RefreshedAuth {
   accessToken: string;
-  username: string;
+  /** Stable Plugwerk user identifier (`plugwerk_user.id`). Issue #351. */
+  userId: string;
+  /** Human-readable label for the user (display in profile / member lists). */
+  displayName: string;
+  /** Local-login username; null for OIDC-sourced sessions. */
+  username: string | null;
   passwordChangeRequired: boolean;
   isSuperadmin: boolean;
 }
@@ -118,17 +123,20 @@ async function doRefresh(): Promise<RefreshAttempt> {
     return { auth: null, status: response.status };
   }
   const data = await response.json();
-  if (typeof data.accessToken !== "string") {
+  if (typeof data.accessToken !== "string" || typeof data.userId !== "string") {
     return { auth: null, status: response.status };
   }
-  // The server encodes username in the JWT subject; decode locally to avoid a
-  // second round-trip. Only the `sub` claim is read and never trusted for
-  // authorization — the server already validated the token.
-  const subject = decodeJwtSubject(data.accessToken) ?? "";
   return {
     auth: {
       accessToken: data.accessToken,
-      username: subject,
+      userId: data.userId,
+      displayName:
+        typeof data.displayName === "string" && data.displayName
+          ? data.displayName
+          : typeof data.username === "string"
+            ? data.username
+            : data.userId,
+      username: typeof data.username === "string" ? data.username : null,
       passwordChangeRequired: data.passwordChangeRequired === true,
       isSuperadmin: data.isSuperadmin === true,
     },
@@ -144,17 +152,4 @@ function readCookie(name: string): string | null {
     }
   }
   return null;
-}
-
-function decodeJwtSubject(jwt: string): string | null {
-  const parts = jwt.split(".");
-  if (parts.length < 2) return null;
-  try {
-    const payload = JSON.parse(
-      atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")),
-    );
-    return typeof payload.sub === "string" ? payload.sub : null;
-  } catch {
-    return null;
-  }
 }

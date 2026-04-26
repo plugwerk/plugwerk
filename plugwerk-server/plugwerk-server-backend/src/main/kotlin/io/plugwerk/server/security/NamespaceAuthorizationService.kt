@@ -27,15 +27,17 @@ import io.plugwerk.server.service.ForbiddenException
 import io.plugwerk.server.service.NamespaceNotFoundException
 import org.springframework.security.core.Authentication
 import org.springframework.stereotype.Service
+import java.util.UUID
 
 /**
  * Enforces namespace-scoped role-based access control (RBAC).
  *
- * The caller's identity ([userSubject]) is extracted from the [Authentication] principal's
- * `name` field, which holds the JWT `sub` claim. For locally issued tokens this equals the
- * username; for OIDC tokens this is the provider's `sub` claim.
+ * The caller's identity is resolved from the [Authentication] principal's `name` field,
+ * which holds the JWT `sub` claim. After the identity-hub split (#351) the `sub` is
+ * always the `plugwerk_user.id` UUID — local users and OIDC users alike. Authorization
+ * is FK-based against `namespace_member.user_id`, never against a free-text subject.
  *
- * The [namespace_access_key] auth filter sets the principal's name to the namespace slug
+ * The [NamespaceAccessKeyAuthFilter] sets the principal's name to the namespace slug
  * prefixed with `key:` — access keys have READ_ONLY access to their namespace. They can
  * list, search, and download plugins but cannot perform write operations (upload, delete,
  * approve, manage members/keys). Write operations require a JWT Bearer token.
@@ -101,17 +103,17 @@ class NamespaceAuthorizationService(
         }
 
         // Superadmin has implicit ADMIN in every namespace.
-        // Use the Authentication-typed overload so the `key:`-prefix guard is applied
-        // consistently (RC-015 / KT-014 / #282).
         if (isSuperadmin(authentication)) return
 
+        val userId = parseUserId(authentication)
+            ?: throw ForbiddenException("Authentication subject is not a Plugwerk user")
         val namespace = namespaceRepository.findBySlug(namespaceSlug)
             .orElseThrow { NamespaceNotFoundException(namespaceSlug) }
 
         val allowedRoles = rolesAtOrAbove(minimumRole)
-        val hasRole = namespaceMemberRepository.existsByNamespaceIdAndUserSubjectAndRoleIn(
+        val hasRole = namespaceMemberRepository.existsByNamespaceIdAndUserIdAndRoleIn(
             namespaceId = namespace.id!!,
-            userSubject = authentication.name,
+            userId = userId,
             roles = allowedRoles,
         )
 
@@ -125,8 +127,11 @@ class NamespaceAuthorizationService(
      *
      * Access key principals (`key:` prefix) are service accounts and are never superadmin.
      */
-    fun isSuperadmin(authentication: Authentication): Boolean = !authentication.name.startsWith("key:") &&
-        userRepository.findByUsername(authentication.name).map { it.isSuperadmin }.orElse(false)
+    fun isSuperadmin(authentication: Authentication): Boolean {
+        if (authentication.name.startsWith("key:")) return false
+        val userId = parseUserId(authentication) ?: return false
+        return userRepository.findById(userId).map { it.isSuperadmin }.orElse(false)
+    }
 
     /**
      * SpEL-friendly mirror of [requireRole] for use in `@PreAuthorize` annotations.
@@ -175,7 +180,19 @@ class NamespaceAuthorizationService(
                 .map { listOf(it) }.orElse(emptyList())
         }
 
-        return namespaceMemberRepository.findNamespacesByUserSubject(authentication.name)
+        val userId = parseUserId(authentication) ?: return emptyList()
+        return namespaceMemberRepository.findNamespacesByUserId(userId)
+    }
+
+    /**
+     * Parses the JWT `sub` claim into a `plugwerk_user.id` UUID. Returns `null` for
+     * access-key principals (handled in their own branch by every caller) and for
+     * non-UUID subjects (forged or pre-#351 tokens — both should land on the
+     * deny-by-default path).
+     */
+    private fun parseUserId(authentication: Authentication): UUID? {
+        if (authentication.name.startsWith("key:")) return null
+        return runCatching { UUID.fromString(authentication.name) }.getOrNull()
     }
 
     private fun rolesAtOrAbove(minimumRole: NamespaceRole): List<NamespaceRole> = when (minimumRole) {

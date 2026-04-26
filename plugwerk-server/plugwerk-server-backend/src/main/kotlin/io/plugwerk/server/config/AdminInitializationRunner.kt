@@ -20,6 +20,7 @@ package io.plugwerk.server.config
 
 import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.domain.UserEntity
+import io.plugwerk.server.domain.UserSource
 import io.plugwerk.server.repository.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
@@ -58,10 +59,18 @@ class AdminInitializationRunner(
     companion object {
         /** Fixed admin username — not configurable. */
         const val ADMIN_USERNAME = "admin"
+
+        /**
+         * Default email assigned to the bootstrap superadmin row. Users can update
+         * it after first login via the profile UI; the value just needs to satisfy
+         * the post-#351 NOT NULL constraint and the LOCAL-scoped email-uniqueness
+         * index (no other admin can land on the same address).
+         */
+        const val ADMIN_DEFAULT_EMAIL = "admin@plugwerk.local"
     }
 
     override fun run(args: ApplicationArguments) {
-        if (userRepository.existsByUsername(ADMIN_USERNAME)) return
+        if (userRepository.existsByUsernameAndSource(ADMIN_USERNAME, UserSource.LOCAL)) return
 
         // takeUnless treats blank / whitespace-only values the same as unset.
         // SEC-044: the bundled docker-compose.yml previously pre-declared the env var as
@@ -74,6 +83,9 @@ class AdminInitializationRunner(
         val admin = userRepository.save(
             UserEntity(
                 username = ADMIN_USERNAME,
+                displayName = "Administrator",
+                email = ADMIN_DEFAULT_EMAIL,
+                source = UserSource.LOCAL,
                 passwordHash = passwordEncoder.encode(initialPassword)!!,
                 passwordChangeRequired = passwordChangeRequired,
                 isSuperadmin = true,

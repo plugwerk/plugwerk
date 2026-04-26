@@ -32,6 +32,19 @@ import { useUiStore } from "./uiStore";
  */
 interface AuthState {
   accessToken: string | null;
+  /**
+   * Stable Plugwerk user identifier (`plugwerk_user.id`). Authoritative reference
+   * after the identity-hub split (#351) — every audit log, FK, and JWT `sub` keys
+   * off this. UI display goes through [displayName].
+   */
+  userId: string | null;
+  /** Human-readable label shown in the UI. Defaults to username for LOCAL users. */
+  displayName: string | null;
+  /**
+   * Local-login username. `null` for OIDC-sourced sessions — those identities live
+   * with the upstream provider and Plugwerk has no local username for them. The
+   * profile page falls back to [displayName] when this is `null`.
+   */
   username: string | null;
   namespace: string | null | undefined;
   isAuthenticated: boolean;
@@ -45,7 +58,9 @@ interface AuthState {
   hydrate: () => Promise<void>;
   setAuth: (fields: {
     accessToken: string;
-    username: string;
+    userId: string;
+    displayName: string;
+    username?: string | null;
     passwordChangeRequired: boolean;
     isSuperadmin: boolean;
   }) => void;
@@ -94,6 +109,8 @@ function migrateLegacyAuthKeys(): void {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   accessToken: null,
+  userId: null,
+  displayName: null,
   username: null,
   namespace: undefined,
   isAuthenticated: false,
@@ -105,10 +122,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return get().accessToken;
   },
 
-  setAuth({ accessToken, username, passwordChangeRequired, isSuperadmin }) {
+  setAuth({
+    accessToken,
+    userId,
+    displayName,
+    username,
+    passwordChangeRequired,
+    isSuperadmin,
+  }) {
     set({
       accessToken,
-      username,
+      userId,
+      displayName,
+      username: username ?? null,
       isAuthenticated: true,
       passwordChangeRequired,
       isSuperadmin,
@@ -118,6 +144,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   clearAuth() {
     set({
       accessToken: null,
+      userId: null,
+      displayName: null,
       username: null,
       namespace: undefined,
       isAuthenticated: false,
@@ -139,7 +167,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const data = await response.json();
     get().setAuth({
       accessToken: data.accessToken,
-      username,
+      userId: data.userId,
+      displayName: data.displayName,
+      username: typeof data.username === "string" ? data.username : username,
       passwordChangeRequired: data.passwordChangeRequired === true,
       isSuperadmin: data.isSuperadmin === true,
     });

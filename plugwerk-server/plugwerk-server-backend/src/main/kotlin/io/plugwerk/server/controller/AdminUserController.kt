@@ -22,6 +22,7 @@ import io.plugwerk.api.AdminUsersApi
 import io.plugwerk.api.model.UserCreateRequest
 import io.plugwerk.api.model.UserDto
 import io.plugwerk.api.model.UserUpdateRequest
+import io.plugwerk.server.domain.UserSource
 import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.security.currentAuthentication
 import io.plugwerk.server.service.UserService
@@ -55,6 +56,7 @@ class AdminUserController(
             username = userCreateRequest.username,
             email = userCreateRequest.email,
             password = userCreateRequest.password,
+            displayName = userCreateRequest.displayName,
         )
         return ResponseEntity.created(URI("/api/v1/admin/users/${user.id}")).body(user.toDto())
     }
@@ -79,12 +81,17 @@ class AdminUserController(
 
     private fun io.plugwerk.server.domain.UserEntity.toDto() = UserDto(
         id = id!!,
+        displayName = displayName,
+        source = when (source) {
+            UserSource.LOCAL -> UserDto.Source.LOCAL
+            UserSource.OIDC -> UserDto.Source.OIDC
+        },
         username = username,
         email = email,
         enabled = enabled,
         passwordChangeRequired = passwordChangeRequired,
         isSuperadmin = isSuperadmin,
         createdAt = createdAt,
-        namespaceMembershipCount = namespaceMemberRepository.countByUserSubject(username).toInt(),
+        namespaceMembershipCount = namespaceMemberRepository.countByUserId(id!!).toInt(),
     )
 }

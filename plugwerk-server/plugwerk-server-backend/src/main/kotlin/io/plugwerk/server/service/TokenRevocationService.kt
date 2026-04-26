@@ -32,6 +32,7 @@ import java.security.MessageDigest
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 /**
@@ -63,20 +64,22 @@ class TokenRevocationService(
      *
      * The raw [jti] is hashed (SHA-256 hex) before being persisted or cached so a
      * database leak exposes only opaque digests, not still-valid JWT IDs (SBS-013 / #268).
+     *
+     * @param subject The JWT `sub` claim — `plugwerk_user.id` UUID-string after #351.
      */
     @Transactional
-    fun revokeToken(jti: String, username: String, expiresAt: Instant) {
+    fun revokeToken(jti: String, subject: String, expiresAt: Instant) {
         val jtiHash = hashJti(jti)
         if (revokedTokenRepository.existsByJti(jtiHash)) return
         revokedTokenRepository.save(
             RevokedTokenEntity(
                 jti = jtiHash,
-                username = username,
+                subject = subject,
                 expiresAt = expiresAt.atOffset(ZoneOffset.UTC),
             ),
         )
         revokedJtiCache.put(jtiHash, true)
-        log.debug("Revoked token jtiHash={} for user={}", jtiHash, username)
+        log.debug("Revoked token jtiHash={} for subject={}", jtiHash, subject)
     }
 
     /**
@@ -84,11 +87,11 @@ class TokenRevocationService(
      * or because the user's password was changed after the token was issued.
      *
      * @param jti The JWT ID claim.
-     * @param username The token subject.
+     * @param subject The JWT `sub` claim — `plugwerk_user.id` UUID-string after #351.
      * @param issuedAt The `iat` claim of the token.
      * @return `true` if the token must be rejected.
      */
-    fun isRevoked(jti: String, username: String, issuedAt: Instant): Boolean {
+    fun isRevoked(jti: String, subject: String, issuedAt: Instant): Boolean {
         // Check explicit revocation (cache → DB fallback). Both the cache key
         // and the repository lookup use the SHA-256 hash so the raw jti never
         // leaves this method (SBS-013 / #268).
@@ -96,8 +99,13 @@ class TokenRevocationService(
         val explicitlyRevoked = revokedJtiCache.get(jtiHash) { revokedTokenRepository.existsByJti(it) }
         if (explicitlyRevoked == true) return true
 
-        // Check bulk invalidation via password change
-        val user = userRepository.findByUsername(username).orElse(null) ?: return false
+        // Check bulk invalidation via password change. After #351 the JWT-sub
+        // is the plugwerk_user.id UUID; a non-UUID value can only come from a
+        // forged or pre-migration token, both of which we want to treat as
+        // not-bulk-invalidated (the explicit-revocation path above will still
+        // reject forged tokens via JWS verification before this check runs).
+        val userId = runCatching { UUID.fromString(subject) }.getOrNull() ?: return false
+        val user = userRepository.findById(userId).orElse(null) ?: return false
         val invalidatedBefore = user.passwordInvalidatedBefore ?: return false
         return issuedAt.isBefore(invalidatedBefore.toInstant())
     }
@@ -116,16 +124,16 @@ class TokenRevocationService(
     }
 
     /**
-     * Invalidates all tokens for the given [username] by setting `passwordInvalidatedBefore`
+     * Invalidates all tokens for the given user by setting `passwordInvalidatedBefore`
      * to the current time. Existing tokens issued before this timestamp will be rejected.
      */
     @Transactional
-    fun revokeAllForUser(username: String) {
-        val user = userRepository.findByUsername(username)
-            .orElseThrow { EntityNotFoundException("User", username) }
+    fun revokeAllForUser(userId: UUID) {
+        val user = userRepository.findById(userId)
+            .orElseThrow { EntityNotFoundException("User", userId.toString()) }
         user.passwordInvalidatedBefore = OffsetDateTime.now(ZoneOffset.UTC)
         userRepository.save(user)
-        log.info("Invalidated all tokens for user={}", username)
+        log.info("Invalidated all tokens for user_id={}", userId)
     }
 
     /**

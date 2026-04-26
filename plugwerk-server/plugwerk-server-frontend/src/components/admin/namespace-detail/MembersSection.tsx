@@ -21,7 +21,6 @@ import {
   Box,
   Typography,
   Button,
-  TextField,
   Alert,
   CircularProgress,
   Select,
@@ -29,6 +28,7 @@ import {
   FormControl,
   InputLabel,
   Autocomplete,
+  TextField,
 } from "@mui/material";
 import { Plus, Trash2 } from "lucide-react";
 import { AppDialog } from "../../common/AppDialog";
@@ -53,19 +53,26 @@ const ROLE_LABELS: Record<string, string> = {
   READ_ONLY: "Read Only",
 };
 
+interface UserOption {
+  /** Plugwerk user UUID — submitted to the API. */
+  userId: string;
+  /** Visible label for the picker. */
+  label: string;
+}
+
 export function MembersSection({ slug }: { slug: string }) {
   const addToast = useUiStore((s) => s.addToast);
   const queryClient = useQueryClient();
   const [members, setMembers] = useState<NamespaceMemberDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
-  const [newSubject, setNewSubject] = useState("");
+  const [newUser, setNewUser] = useState<UserOption | null>(null);
   const [newRole, setNewRole] = useState<NamespaceRole>(
     NamespaceRoleEnum.Member,
   );
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
-  const [userOptions, setUserOptions] = useState<string[]>([]);
+  const [userOptions, setUserOptions] = useState<UserOption[]>([]);
 
   const loadMembers = useCallback(async () => {
     setLoading(true);
@@ -88,11 +95,19 @@ export function MembersSection({ slug }: { slug: string }) {
     async function loadUsers() {
       try {
         const res = await adminUsersApi.listUsers({ enabled: true });
-        const existing = new Set(members.map((m) => m.userSubject));
+        const existing = new Set(members.map((m) => m.userId));
         setUserOptions(
           res.data
-            .filter((u) => !u.isSuperadmin && !existing.has(u.username))
-            .map((u) => u.username),
+            .filter((u) => !u.isSuperadmin && !existing.has(u.id))
+            .map((u) => ({
+              userId: u.id,
+              // Prefer displayName for the picker; fall back to username for
+              // local-account-only deployments where displayName === username.
+              label:
+                u.username && u.username !== u.displayName
+                  ? `${u.displayName} (${u.username})`
+                  : u.displayName,
+            })),
         );
       } catch {
         setUserOptions([]);
@@ -117,16 +132,16 @@ export function MembersSection({ slug }: { slug: string }) {
     try {
       const res = await namespaceMembersApi.updateNamespaceMember({
         ns: slug,
-        userSubject: member.userSubject,
+        userId: member.userId,
         namespaceMemberUpdateRequest: { role },
       });
       invalidateRoleCache();
       setMembers((prev) =>
-        prev.map((m) => (m.userSubject === member.userSubject ? res.data : m)),
+        prev.map((m) => (m.userId === member.userId ? res.data : m)),
       );
     } catch {
       addToast({
-        message: `Failed to update role for "${member.userSubject}".`,
+        message: `Failed to update role for "${member.displayName}".`,
         type: "error",
       });
     }
@@ -136,50 +151,48 @@ export function MembersSection({ slug }: { slug: string }) {
     try {
       await namespaceMembersApi.removeNamespaceMember({
         ns: slug,
-        userSubject: member.userSubject,
+        userId: member.userId,
       });
       invalidateRoleCache();
-      setMembers((prev) =>
-        prev.filter((m) => m.userSubject !== member.userSubject),
-      );
+      setMembers((prev) => prev.filter((m) => m.userId !== member.userId));
       addToast({
-        message: `Member "${member.userSubject}" removed.`,
+        message: `Member "${member.displayName}" removed.`,
         type: "success",
       });
     } catch {
       addToast({
-        message: `Failed to remove member "${member.userSubject}".`,
+        message: `Failed to remove member "${member.displayName}".`,
         type: "error",
       });
     }
   }
 
   async function handleAdd() {
-    if (!newSubject.trim()) return;
+    if (!newUser) return;
     setAddSaving(true);
     setAddError(null);
     try {
       const res = await namespaceMembersApi.addNamespaceMember({
         ns: slug,
         namespaceMemberCreateRequest: {
-          userSubject: newSubject.trim(),
+          userId: newUser.userId,
           role: newRole,
         },
       });
       invalidateRoleCache();
       setMembers((prev) => [...prev, res.data]);
       addToast({
-        message: `Member "${newSubject.trim()}" added.`,
+        message: `Member "${newUser.label}" added.`,
         type: "success",
       });
       setAddOpen(false);
-      setNewSubject("");
+      setNewUser(null);
       setNewRole(NamespaceRoleEnum.Member);
     } catch (error: unknown) {
       if (isAxiosError(error) && error.response?.status === 409) {
         setAddError(
           error.response.data?.message ??
-            `User "${newSubject.trim()}" is already a member of this namespace.`,
+            `User "${newUser.label}" is already a member of this namespace.`,
         );
       } else {
         setAddError("Failed to add member.");
@@ -191,12 +204,19 @@ export function MembersSection({ slug }: { slug: string }) {
 
   const memberColumns: DataColumn<NamespaceMemberDto>[] = [
     {
-      key: "subject",
-      header: "Subject",
+      key: "displayName",
+      header: "User",
       render: (member) => (
-        <Typography variant="body2" fontWeight={500}>
-          {member.userSubject}
-        </Typography>
+        <Box>
+          <Typography variant="body2" fontWeight={500}>
+            {member.displayName}
+          </Typography>
+          {member.username && member.username !== member.displayName && (
+            <Typography variant="caption" color="text.secondary">
+              {member.username}
+            </Typography>
+          )}
+        </Box>
       ),
     },
     {
@@ -277,7 +297,7 @@ export function MembersSection({ slug }: { slug: string }) {
         <DataTable<NamespaceMemberDto>
           columns={memberColumns}
           rows={members}
-          keyFn={(member) => member.userSubject}
+          keyFn={(member) => member.userId}
           ariaLabel="Namespace members"
         />
       )}
@@ -289,36 +309,28 @@ export function MembersSection({ slug }: { slug: string }) {
           setAddError(null);
         }}
         title="Add Member"
-        description="Add a user to this namespace by entering their username or OIDC subject claim and selecting a role."
+        description="Select an existing Plugwerk user to grant a role within this namespace."
         actionLabel="Add Member"
         onAction={handleAdd}
-        actionDisabled={!newSubject.trim()}
+        actionDisabled={!newUser}
         actionLoading={addSaving}
       >
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {addError && <Alert severity="error">{addError}</Alert>}
           <Autocomplete
-            freeSolo
             options={userOptions}
-            inputValue={newSubject}
-            onInputChange={(_, value) => {
-              setNewSubject(value);
-              setAddError(null);
-            }}
+            value={newUser}
+            onChange={(_, value) => setNewUser(value)}
+            getOptionLabel={(option) => option.label}
+            isOptionEqualToValue={(a, b) => a.userId === b.userId}
             renderInput={(params) => (
-              <TextField
-                {...params}
-                label="User"
-                required
-                size="small"
-                autoFocus
-                helperText="Username or OIDC subject claim."
-              />
+              <TextField {...params} label="User" size="small" />
             )}
           />
-          <FormControl size="small" required>
-            <InputLabel>Role</InputLabel>
+          <FormControl size="small" fullWidth>
+            <InputLabel id="add-member-role-label">Role</InputLabel>
             <Select
+              labelId="add-member-role-label"
               value={newRole}
               label="Role"
               onChange={(e) => setNewRole(e.target.value as NamespaceRole)}

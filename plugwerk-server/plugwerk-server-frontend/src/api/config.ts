@@ -44,7 +44,9 @@ type AuthStoreAccessor = {
   getAccessToken: () => string | null;
   setAuthenticated: (fields: {
     accessToken: string;
-    username: string;
+    userId: string;
+    displayName: string;
+    username?: string | null;
     passwordChangeRequired: boolean;
     isSuperadmin: boolean;
   }) => void;

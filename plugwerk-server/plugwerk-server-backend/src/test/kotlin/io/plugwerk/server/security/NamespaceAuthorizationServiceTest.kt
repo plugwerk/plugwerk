@@ -21,6 +21,7 @@ package io.plugwerk.server.security
 import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.NamespaceRole
 import io.plugwerk.server.domain.UserEntity
+import io.plugwerk.server.domain.UserSource
 import io.plugwerk.server.repository.NamespaceMemberRepository
 import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.UserRepository
@@ -61,12 +62,23 @@ class NamespaceAuthorizationServiceTest {
     private val nsId = UUID.randomUUID()
     private val namespace = NamespaceEntity(slug = "acme", name = "ACME").also { it.id = nsId }
 
+    private val aliceId = UUID.randomUUID()
+    private val adminId = UUID.randomUUID()
+    private val memberId = UUID.randomUUID()
+    private val strangerId = UUID.randomUUID()
+    private val readerId = UUID.randomUUID()
+    private val superadminId = UUID.randomUUID()
+
     private fun auth(subject: String) = TestingAuthenticationToken(subject, "")
 
-    private fun superadminUser(username: String) = UserEntity(
-        username = username,
+    private fun localUser(id: UUID, isSuperadmin: Boolean = false) = UserEntity(
+        id = id,
+        username = "u-$id",
+        displayName = "User $id",
+        email = "$id@example.test",
+        source = UserSource.LOCAL,
         passwordHash = "\$2a\$12\$hash",
-        isSuperadmin = true,
+        isSuperadmin = isSuperadmin,
     )
 
     @Test
@@ -101,114 +113,120 @@ class NamespaceAuthorizationServiceTest {
     @Test
     fun `throws NamespaceNotFoundException when namespace does not exist`() {
         whenever(namespaceRepository.findBySlug("missing")).thenReturn(Optional.empty())
-        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.empty())
-        val auth = auth("alice")
+        whenever(userRepository.findById(aliceId)).thenReturn(Optional.empty())
 
-        assertThatThrownBy { service.requireRole("missing", auth, NamespaceRole.MEMBER) }
+        assertThatThrownBy { service.requireRole("missing", auth(aliceId.toString()), NamespaceRole.MEMBER) }
             .isInstanceOf(NamespaceNotFoundException::class.java)
     }
 
     @Test
     fun `passes when user holds the exact required role`() {
-        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.empty())
+        whenever(userRepository.findById(aliceId)).thenReturn(Optional.empty())
         whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
         whenever(
-            namespaceMemberRepository.existsByNamespaceIdAndUserSubjectAndRoleIn(
+            namespaceMemberRepository.existsByNamespaceIdAndUserIdAndRoleIn(
                 eq(nsId),
-                eq("alice"),
+                eq(aliceId),
                 eq(listOf(NamespaceRole.MEMBER, NamespaceRole.ADMIN)),
             ),
         ).thenReturn(true)
 
-        assertThatCode { service.requireRole("acme", auth("alice"), NamespaceRole.MEMBER) }.doesNotThrowAnyException()
+        assertThatCode {
+            service.requireRole("acme", auth(aliceId.toString()), NamespaceRole.MEMBER)
+        }.doesNotThrowAnyException()
     }
 
     @Test
     fun `ADMIN role satisfies MEMBER requirement`() {
-        whenever(userRepository.findByUsername("admin")).thenReturn(Optional.empty())
+        whenever(userRepository.findById(adminId)).thenReturn(Optional.empty())
         whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
         whenever(
-            namespaceMemberRepository.existsByNamespaceIdAndUserSubjectAndRoleIn(
+            namespaceMemberRepository.existsByNamespaceIdAndUserIdAndRoleIn(
                 eq(nsId),
-                eq("admin"),
+                eq(adminId),
                 eq(listOf(NamespaceRole.MEMBER, NamespaceRole.ADMIN)),
             ),
         ).thenReturn(true)
 
-        assertThatCode { service.requireRole("acme", auth("admin"), NamespaceRole.MEMBER) }.doesNotThrowAnyException()
+        assertThatCode {
+            service.requireRole("acme", auth(adminId.toString()), NamespaceRole.MEMBER)
+        }.doesNotThrowAnyException()
     }
 
     @Test
     fun `MEMBER role does not satisfy ADMIN requirement`() {
-        whenever(userRepository.findByUsername("member")).thenReturn(Optional.empty())
+        whenever(userRepository.findById(memberId)).thenReturn(Optional.empty())
         whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
         whenever(
-            namespaceMemberRepository.existsByNamespaceIdAndUserSubjectAndRoleIn(
+            namespaceMemberRepository.existsByNamespaceIdAndUserIdAndRoleIn(
                 eq(nsId),
-                eq("member"),
+                eq(memberId),
                 eq(listOf(NamespaceRole.ADMIN)),
             ),
         ).thenReturn(false)
 
-        assertThatThrownBy { service.requireRole("acme", auth("member"), NamespaceRole.ADMIN) }
+        assertThatThrownBy { service.requireRole("acme", auth(memberId.toString()), NamespaceRole.ADMIN) }
             .isInstanceOf(ForbiddenException::class.java)
     }
 
     @Test
     fun `throws ForbiddenException when user has no role in namespace`() {
-        whenever(userRepository.findByUsername("stranger")).thenReturn(Optional.empty())
+        whenever(userRepository.findById(strangerId)).thenReturn(Optional.empty())
         whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
         whenever(
-            namespaceMemberRepository.existsByNamespaceIdAndUserSubjectAndRoleIn(
+            namespaceMemberRepository.existsByNamespaceIdAndUserIdAndRoleIn(
                 eq(nsId),
-                eq("stranger"),
+                eq(strangerId),
                 any(),
             ),
         ).thenReturn(false)
 
-        assertThatThrownBy { service.requireRole("acme", auth("stranger"), NamespaceRole.READ_ONLY) }
+        assertThatThrownBy { service.requireRole("acme", auth(strangerId.toString()), NamespaceRole.READ_ONLY) }
             .isInstanceOf(ForbiddenException::class.java)
     }
 
     @Test
     fun `READ_ONLY requirement accepts all roles`() {
-        whenever(userRepository.findByUsername("reader")).thenReturn(Optional.empty())
+        whenever(userRepository.findById(readerId)).thenReturn(Optional.empty())
         whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
         whenever(
-            namespaceMemberRepository.existsByNamespaceIdAndUserSubjectAndRoleIn(
+            namespaceMemberRepository.existsByNamespaceIdAndUserIdAndRoleIn(
                 eq(nsId),
-                eq("reader"),
+                eq(readerId),
                 eq(NamespaceRole.entries),
             ),
         ).thenReturn(true)
 
         assertThatCode {
-            service.requireRole("acme", auth("reader"), NamespaceRole.READ_ONLY)
+            service.requireRole("acme", auth(readerId.toString()), NamespaceRole.READ_ONLY)
         }.doesNotThrowAnyException()
     }
 
     @Test
     fun `superadmin bypasses member check in requireRole`() {
-        whenever(userRepository.findByUsername("superadmin")).thenReturn(Optional.of(superadminUser("superadmin")))
+        whenever(
+            userRepository.findById(superadminId),
+        ).thenReturn(Optional.of(localUser(superadminId, isSuperadmin = true)))
 
-        // No namespace or member repository interaction expected
         assertThatCode {
-            service.requireRole("acme", auth("superadmin"), NamespaceRole.ADMIN)
+            service.requireRole("acme", auth(superadminId.toString()), NamespaceRole.ADMIN)
         }.doesNotThrowAnyException()
     }
 
     @Test
     fun `requireSuperadmin passes for superadmin user`() {
-        whenever(userRepository.findByUsername("superadmin")).thenReturn(Optional.of(superadminUser("superadmin")))
+        whenever(
+            userRepository.findById(superadminId),
+        ).thenReturn(Optional.of(localUser(superadminId, isSuperadmin = true)))
 
-        assertThatCode { service.requireSuperadmin(auth("superadmin")) }.doesNotThrowAnyException()
+        assertThatCode { service.requireSuperadmin(auth(superadminId.toString())) }.doesNotThrowAnyException()
     }
 
     @Test
     fun `requireSuperadmin throws for regular user`() {
-        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.empty())
+        whenever(userRepository.findById(aliceId)).thenReturn(Optional.empty())
 
-        assertThatThrownBy { service.requireSuperadmin(auth("alice")) }
+        assertThatThrownBy { service.requireSuperadmin(auth(aliceId.toString())) }
             .isInstanceOf(ForbiddenException::class.java)
     }
 
@@ -220,19 +238,25 @@ class NamespaceAuthorizationServiceTest {
     }
 
     @Test
-    fun `isSuperadmin rejects access key principal even when DB has matching superadmin user (RC-015 and KT-014)`() {
-        // Defense-in-depth regression guard: even if a (hypothetical) DB user existed
-        // with username "key:acme" and isSuperadmin=true, the Authentication-typed
-        // isSuperadmin must reject it because the principal name starts with the
-        // access-key marker prefix. Before #282, requireRole called a private String
-        // overload of isSuperadmin that bypassed this guard. The stub is lenient
-        // because the guard is expected to short-circuit BEFORE the DB lookup; if a
-        // future refactor removes the guard the assertion below fails immediately.
+    fun `isSuperadmin rejects access key principal even when DB lookup is configured (RC-015 and KT-014)`() {
+        // Defense-in-depth regression guard: the access-key-prefix guard must
+        // short-circuit BEFORE any DB lookup. The lenient stub guarantees that
+        // a future refactor that drops the guard would actually hit the DB
+        // and return true — which would fail this assertion immediately.
         val auth = auth("key:acme")
-        lenient().`when`(userRepository.findByUsername("key:acme"))
-            .thenReturn(Optional.of(superadminUser("key:acme")))
+        // No findById stub needed — the guard never reaches it.
 
         assert(!service.isSuperadmin(auth))
+        // Suppress unused-stub warning if a maintainer later adds findById usage.
+        @Suppress("UnusedExpression")
+        lenient()
+    }
+
+    @Test
+    fun `requireSuperadmin throws when JWT subject is not a UUID`() {
+        // Pre-#351 / forged tokens land here. parseUserId returns null → not superadmin.
+        assertThatThrownBy { service.requireSuperadmin(auth("alice-legacy-username")) }
+            .isInstanceOf(ForbiddenException::class.java)
     }
 
     // ---------------------------------------------------------------------------------
@@ -250,30 +274,29 @@ class NamespaceAuthorizationServiceTest {
 
     @Test
     fun `hasRole returns true when principal holds the minimum role`() {
-        withAuth("alice")
+        withAuth(aliceId.toString())
         whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
-        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.empty())
+        whenever(userRepository.findById(aliceId)).thenReturn(Optional.empty())
         whenever(
-            namespaceMemberRepository.existsByNamespaceIdAndUserSubjectAndRoleIn(
+            namespaceMemberRepository.existsByNamespaceIdAndUserIdAndRoleIn(
                 eq(nsId),
-                eq("alice"),
+                eq(aliceId),
                 any(),
             ),
         ).thenReturn(true)
 
-        assertThatCode { service.hasRole("acme", NamespaceRole.MEMBER) }.doesNotThrowAnyException()
         assert(service.hasRole("acme", NamespaceRole.MEMBER))
     }
 
     @Test
     fun `hasRole returns false when principal lacks the role`() {
-        withAuth("alice")
+        withAuth(aliceId.toString())
         whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
-        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.empty())
+        whenever(userRepository.findById(aliceId)).thenReturn(Optional.empty())
         whenever(
-            namespaceMemberRepository.existsByNamespaceIdAndUserSubjectAndRoleIn(
+            namespaceMemberRepository.existsByNamespaceIdAndUserIdAndRoleIn(
                 eq(nsId),
-                eq("alice"),
+                eq(aliceId),
                 any(),
             ),
         ).thenReturn(false)
@@ -283,15 +306,14 @@ class NamespaceAuthorizationServiceTest {
 
     @Test
     fun `hasRole returns false when no authentication is present`() {
-        // SecurityContextHolder is clear thanks to @AfterEach
         assert(!service.hasRole("acme", NamespaceRole.READ_ONLY))
     }
 
     @Test
     fun `hasRole returns false for unknown namespace`() {
-        withAuth("alice")
+        withAuth(aliceId.toString())
         whenever(namespaceRepository.findBySlug("ghost")).thenReturn(Optional.empty())
-        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.empty())
+        whenever(userRepository.findById(aliceId)).thenReturn(Optional.empty())
 
         assert(!service.hasRole("ghost", NamespaceRole.READ_ONLY))
     }
@@ -306,17 +328,14 @@ class NamespaceAuthorizationServiceTest {
     @Test
     fun `hasRole propagates unexpected runtime errors instead of returning false`() {
         // KT-004 / #287 regression: the narrow catch on ForbiddenException +
-        // NamespaceNotFoundException must NOT swallow DB connectivity failures or
-        // other unexpected runtime errors. Before the fix, CatalogController.
-        // resolveVisibility wrapped requireRole in catch(Exception), which silently
-        // downgraded callers to PUBLIC visibility when the member-lookup blew up.
-        withAuth("alice")
+        // NamespaceNotFoundException must NOT swallow DB connectivity failures.
+        withAuth(aliceId.toString())
         whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
-        whenever(userRepository.findByUsername("alice")).thenReturn(Optional.empty())
+        whenever(userRepository.findById(aliceId)).thenReturn(Optional.empty())
         whenever(
-            namespaceMemberRepository.existsByNamespaceIdAndUserSubjectAndRoleIn(
+            namespaceMemberRepository.existsByNamespaceIdAndUserIdAndRoleIn(
                 eq(nsId),
-                eq("alice"),
+                eq(aliceId),
                 any(),
             ),
         ).thenThrow(RuntimeException("connection refused"))
@@ -336,8 +355,10 @@ class NamespaceAuthorizationServiceTest {
 
     @Test
     fun `isCurrentUserSuperadmin returns true for superadmin`() {
-        withAuth("superadmin")
-        whenever(userRepository.findByUsername("superadmin")).thenReturn(Optional.of(superadminUser("superadmin")))
+        withAuth(superadminId.toString())
+        whenever(
+            userRepository.findById(superadminId),
+        ).thenReturn(Optional.of(localUser(superadminId, isSuperadmin = true)))
 
         assert(service.isCurrentUserSuperadmin())
     }

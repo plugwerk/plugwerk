@@ -72,7 +72,9 @@ class RefreshTokenServiceTest {
         val user = userRepository.save(
             UserEntity(
                 username = username,
+                displayName = username,
                 email = "$username@refresh.test",
+                source = io.plugwerk.server.domain.UserSource.LOCAL,
                 passwordHash = passwordEncoder.encode("irrelevant")!!,
                 enabled = true,
                 passwordChangeRequired = false,
@@ -84,7 +86,7 @@ class RefreshTokenServiceTest {
 
     @Test
     fun `issue returns plaintext and persists a lookup hash distinct from plaintext`() {
-        val issued = service.issue(username)
+        val issued = service.issue(userId)
 
         assertThat(issued.plaintext).isNotBlank()
         assertThat(issued.plaintext.length).isGreaterThanOrEqualTo(40)
@@ -99,7 +101,7 @@ class RefreshTokenServiceTest {
 
     @Test
     fun `rotate revokes old row and issues successor in the same family`() {
-        val first = service.issue(username)
+        val first = service.issue(userId)
 
         val result = service.rotate(first.plaintext)
 
@@ -117,7 +119,7 @@ class RefreshTokenServiceTest {
 
     @Test
     fun `rotate with replayed revoked token revokes the whole family (reuse detection)`() {
-        val first = service.issue(username)
+        val first = service.issue(userId)
         // First rotation: valid, revokes the original and issues a successor.
         val secondResult = service.rotate(first.plaintext) as RefreshTokenService.RotationResult.Success
 
@@ -180,7 +182,7 @@ class RefreshTokenServiceTest {
 
         assertThat(repository.findAll()).isEmpty()
         // Sanity: issuing a fresh one still works after cleanup.
-        assertThat(service.issue(username).plaintext).isNotBlank()
+        assertThat(service.issue(userId).plaintext).isNotBlank()
     }
 
     /**
@@ -193,11 +195,11 @@ class RefreshTokenServiceTest {
 
     @Test
     fun `revokeAllForUser revokes every active row for the user`() {
-        service.issue(username)
-        service.issue(username)
-        service.issue(username)
+        service.issue(userId)
+        service.issue(userId)
+        service.issue(userId)
 
-        service.revokeAllForUser(username)
+        service.revokeAllForUser(userId)
 
         val rows = repository.findAll()
         assertThat(rows).hasSize(3)
@@ -207,7 +209,7 @@ class RefreshTokenServiceTest {
 
     @Test
     fun `revokePresentedFamily revokes the whole family from a single plaintext`() {
-        val issued = service.issue(username)
+        val issued = service.issue(userId)
         service.rotate(issued.plaintext) // successor in same family
 
         val revoked = service.revokePresentedFamily(issued.plaintext)
@@ -221,7 +223,7 @@ class RefreshTokenServiceTest {
 
     @Test
     fun `issue without upstreamIdToken stores NULL (local-login compatibility) (#352)`() {
-        service.issue(username)
+        service.issue(userId)
 
         val row = repository.findAll().single()
         assertThat(row.upstreamIdToken).isNull()
@@ -230,7 +232,7 @@ class RefreshTokenServiceTest {
     @Test
     fun `issue with upstreamIdToken persists it on the row (#352)`() {
         val idToken = "eyJ.fake.id-token-payload-${UUID.randomUUID()}"
-        service.issue(username, idToken)
+        service.issue(userId, idToken)
 
         val row = repository.findAll().single()
         assertThat(row.upstreamIdToken).isEqualTo(idToken)
@@ -239,7 +241,7 @@ class RefreshTokenServiceTest {
     @Test
     fun `rotate copies upstreamIdToken forward to the successor (#352)`() {
         val idToken = "eyJ.long-lived.${UUID.randomUUID()}"
-        val first = service.issue(username, idToken)
+        val first = service.issue(userId, idToken)
 
         val result = service.rotate(first.plaintext) as RefreshTokenService.RotationResult.Success
         val successorId = result.issuedToken.rowId
@@ -254,14 +256,14 @@ class RefreshTokenServiceTest {
     @Test
     fun `findUpstreamIdToken returns the value for a presented OIDC plaintext (#352)`() {
         val idToken = "eyJ.find.${UUID.randomUUID()}"
-        val issued = service.issue(username, idToken)
+        val issued = service.issue(userId, idToken)
 
         assertThat(service.findUpstreamIdToken(issued.plaintext)).isEqualTo(idToken)
     }
 
     @Test
     fun `findUpstreamIdToken returns null for a local-login plaintext (#352)`() {
-        val issued = service.issue(username) // no upstream ID token
+        val issued = service.issue(userId) // no upstream ID token
 
         assertThat(service.findUpstreamIdToken(issued.plaintext)).isNull()
     }

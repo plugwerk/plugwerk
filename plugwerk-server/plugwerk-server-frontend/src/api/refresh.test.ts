@@ -16,13 +16,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { refreshAccessToken } from "./refresh";
 
-// Minimal JWT payload `{"sub":"alice"}` base64url-encoded so `decodeJwtSubject`
-// pulls the username back out without failing on decode.
-const JWT_PAYLOAD = Buffer.from('{"sub":"alice"}').toString("base64url");
-const FAKE_ACCESS_TOKEN = `hdr.${JWT_PAYLOAD}.sig`;
+// After #351 the JWT-`sub` is the plugwerk_user.id UUID and the refresh
+// response carries `userId` + `displayName` directly — no client-side JWT
+// decode anymore.
+const FAKE_USER_ID = "11111111-2222-3333-4444-555555555555";
+const FAKE_ACCESS_TOKEN = "hdr.payload.sig";
 
 const SUCCESS_BODY = {
   accessToken: FAKE_ACCESS_TOKEN,
+  userId: FAKE_USER_ID,
+  displayName: "Alice",
+  username: "alice",
   passwordChangeRequired: false,
   isSuperadmin: false,
 };
@@ -56,7 +60,9 @@ describe("refreshAccessToken — CSRF bootstrap retry", () => {
 
     expect(result).not.toBeNull();
     expect(result!.accessToken).toBe(FAKE_ACCESS_TOKEN);
+    expect(result!.userId).toBe(FAKE_USER_ID);
     expect(result!.username).toBe("alice");
+    expect(result!.displayName).toBe("Alice");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 

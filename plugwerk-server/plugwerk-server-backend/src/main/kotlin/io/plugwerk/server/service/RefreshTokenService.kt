@@ -21,7 +21,6 @@ package io.plugwerk.server.service
 import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.domain.RefreshTokenEntity
 import io.plugwerk.server.repository.RefreshTokenRepository
-import io.plugwerk.server.repository.UserRepository
 import io.plugwerk.server.security.AccessKeyHmac
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
@@ -53,7 +52,6 @@ import java.util.UUID
 @Service
 class RefreshTokenService(
     private val refreshTokenRepository: RefreshTokenRepository,
-    private val userRepository: UserRepository,
     private val accessKeyHmac: AccessKeyHmac,
     private val props: PlugwerkProperties,
 ) {
@@ -62,12 +60,13 @@ class RefreshTokenService(
     private val secureRandom = SecureRandom()
 
     /**
-     * Issues a new refresh token for [username]. Used on initial login and as the
-     * successor-issuance step inside [rotate] (see [issueInFamily]).
+     * Issues a new refresh token bound to [userId] (= `plugwerk_user.id`).
+     * Used on initial login and as the successor-issuance step inside [rotate]
+     * (see [issueInFamily]).
      *
-     * @param username Plugwerk subject — for OIDC sessions this is the
-     *   `<registrationId>:<sub>` synthetic identifier from
-     *   [io.plugwerk.server.security.OidcLoginSuccessHandler].
+     * @param userId Plugwerk user identifier — direct PK lookup. Caller is
+     *   responsible for verifying the user exists; an unknown id results in
+     *   a FK-constraint failure on insert.
      * @param upstreamIdToken Raw OIDC `id_token` value to remember on this row,
      *   so [io.plugwerk.server.controller.AuthController.logout] can perform
      *   RP-Initiated Logout against the IdP (#352). `null` for local logins and
@@ -77,12 +76,8 @@ class RefreshTokenService(
      *   stored — only `HMAC-SHA256(jwtSecret, plaintext)`.
      */
     @Transactional
-    fun issue(username: String, upstreamIdToken: String? = null): IssuedToken {
-        val user = userRepository.findByUsername(username)
-            .orElseThrow { EntityNotFoundException("User", username) }
-        val userId = requireNotNull(user.id) { "User $username has no id — entity not persisted?" }
-        return issueInFamily(userId, UUID.randomUUID(), upstreamIdToken)
-    }
+    fun issue(userId: UUID, upstreamIdToken: String? = null): IssuedToken =
+        issueInFamily(userId, UUID.randomUUID(), upstreamIdToken)
 
     /**
      * Rotates a presented refresh token. See class-level KDoc for the reuse-detection
@@ -132,13 +127,11 @@ class RefreshTokenService(
      * disable actions.
      */
     @Transactional
-    fun revokeAllForUser(username: String, reason: String = LOGOUT) {
-        val user = userRepository.findByUsername(username).orElse(null) ?: return
-        val userId = user.id ?: return
+    fun revokeAllForUser(userId: UUID, reason: String = LOGOUT) {
         val now = OffsetDateTime.now(ZoneOffset.UTC)
         val revoked = refreshTokenRepository.revokeAllForUser(userId, reason, now)
         if (revoked > 0) {
-            log.info("Revoked {} refresh token(s) for user={} reason={}", revoked, username, reason)
+            log.info("Revoked {} refresh token(s) for user_id={} reason={}", revoked, userId, reason)
         }
     }
 

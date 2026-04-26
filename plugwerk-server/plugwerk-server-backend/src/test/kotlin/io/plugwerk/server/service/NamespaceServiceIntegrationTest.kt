@@ -91,6 +91,9 @@ class NamespaceServiceIntegrationTest {
     lateinit var namespaceMemberRepository: NamespaceMemberRepository
 
     @Autowired
+    lateinit var userRepository: io.plugwerk.server.repository.UserRepository
+
+    @Autowired
     lateinit var namespaceAccessKeyRepository: NamespaceAccessKeyRepository
 
     @Autowired
@@ -178,10 +181,19 @@ class NamespaceServiceIntegrationTest {
             ),
         )
 
+        val alice = userRepository.save(
+            io.plugwerk.server.domain.UserEntity(
+                username = "alice-cascade",
+                displayName = "Alice (Cascade)",
+                email = "alice-cascade@cascade.test",
+                source = io.plugwerk.server.domain.UserSource.LOCAL,
+                passwordHash = "\$2a\$12\$hash",
+            ),
+        )
         namespaceMemberRepository.save(
             NamespaceMemberEntity(
                 namespace = namespace,
-                userSubject = "alice",
+                user = alice,
                 role = NamespaceRole.ADMIN,
             ),
         )

@@ -56,6 +56,7 @@ class AdminUserEndpointAuthzTest : AbstractAuthorizationTest() {
                     objectMapper.writeValueAsString(
                         mapOf(
                             "username" to "denied-${UUID.randomUUID().toString().take(8)}",
+                            "email" to "denied-${UUID.randomUUID()}@e2e.test",
                             "password" to TEST_PASSWORD,
                         ),
                     ),
@@ -66,6 +67,7 @@ class AdminUserEndpointAuthzTest : AbstractAuthorizationTest() {
 
     @Test
     fun `superadmin can create user`() {
+        val username = "created-${UUID.randomUUID().toString().take(8)}"
         mockMvc.perform(
             post("/api/v1/admin/users")
                 .actAs(Actor.SUPERADMIN)
@@ -73,7 +75,8 @@ class AdminUserEndpointAuthzTest : AbstractAuthorizationTest() {
                 .content(
                     objectMapper.writeValueAsString(
                         mapOf(
-                            "username" to "created-${UUID.randomUUID().toString().take(8)}",
+                            "username" to username,
+                            "email" to "$username@e2e.test",
                             "password" to TEST_PASSWORD,
                         ),
                     ),
@@ -126,12 +129,11 @@ class AdminUserEndpointAuthzTest : AbstractAuthorizationTest() {
     fun `deleting user removes all namespace memberships`() {
         // Create a user and add them to both namespaces
         val userId = createEphemeralUser()
-        val user = userRepository.findById(userId).orElseThrow()
-        createEphemeralMembership(NS1, user.username)
-        createEphemeralMembership(NS2, user.username)
+        createEphemeralMembership(NS1, userId)
+        createEphemeralMembership(NS2, userId)
 
         // Verify memberships exist
-        val membersBefore = namespaceMemberRepository.findAllByUserSubject(user.username)
+        val membersBefore = namespaceMemberRepository.findAllByUserId(userId)
         assert(membersBefore.size == 2) { "Expected 2 memberships before delete, got ${membersBefore.size}" }
 
         // Delete the user
@@ -139,7 +141,7 @@ class AdminUserEndpointAuthzTest : AbstractAuthorizationTest() {
             .andExpect(status().isNoContent)
 
         // Verify all memberships are gone
-        val membersAfter = namespaceMemberRepository.findAllByUserSubject(user.username)
+        val membersAfter = namespaceMemberRepository.findAllByUserId(userId)
         assert(membersAfter.isEmpty()) {
             "Expected 0 memberships after user deletion, got ${membersAfter.size}"
         }

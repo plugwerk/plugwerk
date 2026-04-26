@@ -67,14 +67,16 @@ class CsrfScopeIT {
         val user = userRepository.save(
             UserEntity(
                 username = "csrf-scope-user",
+                displayName = "CSRF Scope",
                 email = "csrf-scope@it.test",
+                source = io.plugwerk.server.domain.UserSource.LOCAL,
                 passwordHash = passwordEncoder.encode("irrelevant")!!,
                 enabled = true,
                 passwordChangeRequired = false,
                 isSuperadmin = false,
             ),
         )
-        bearer = jwtTokenService.generateToken(user.username)
+        bearer = jwtTokenService.generateToken(user.id!!.toString())
     }
 
     @Test

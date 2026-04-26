@@ -91,10 +91,13 @@ class FkIndexMigrationIT {
     }
 
     @Test
-    fun `idx_namespace_member_user_subject exists on namespace_member(user_subject)`() {
-        val indexDef = indexDefinition("namespace_member", "idx_namespace_member_user_subject")
+    fun `idx_namespace_member_user_id exists on namespace_member(user_id) (post-0017 identity-hub split)`() {
+        // Migration 0008 originally created idx_namespace_member_user_subject; the
+        // 0017 identity-hub split replaced user_subject with a user_id FK and
+        // re-created the equivalent index under the new column name.
+        val indexDef = indexDefinition("namespace_member", "idx_namespace_member_user_id")
         assertThat(indexDef).isNotNull()
-        assertThat(indexDef!!).contains("(user_subject)")
+        assertThat(indexDef!!).contains("(user_id)")
     }
 
     @Test
@@ -112,10 +115,10 @@ class FkIndexMigrationIT {
     }
 
     @Test
-    fun `DB-010 uq_namespace_member_ns_subject still leads on namespace_id`() {
-        val indexDef = indexDefinition("namespace_member", "uq_namespace_member_ns_subject")
+    fun `DB-010 uq_namespace_member_ns_user still leads on namespace_id (post-0017 identity-hub split)`() {
+        val indexDef = indexDefinition("namespace_member", "uq_namespace_member_ns_user")
         assertThat(indexDef).isNotNull()
-        assertThat(indexDef!!).contains("(namespace_id, user_subject)")
+        assertThat(indexDef!!).contains("(namespace_id, user_id)")
     }
 
     private fun indexDefinition(table: String, indexName: String): String? {

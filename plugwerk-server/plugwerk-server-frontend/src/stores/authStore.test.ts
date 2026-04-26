@@ -54,6 +54,7 @@ describe("useAuthStore", () => {
 
   describe("login", () => {
     it("sets accessToken and isAuthenticated on success; NEVER persists to localStorage", async () => {
+      const userId = "11111111-2222-3333-4444-555555555555";
       vi.stubGlobal(
         "fetch",
         vi.fn().mockResolvedValue({
@@ -61,6 +62,9 @@ describe("useAuthStore", () => {
           json: () =>
             Promise.resolve({
               accessToken: "tok_abc",
+              userId,
+              displayName: "Alice",
+              username: "alice",
               expiresIn: 900,
               passwordChangeRequired: false,
               isSuperadmin: false,
@@ -74,6 +78,8 @@ describe("useAuthStore", () => {
 
       expect(useAuthStore.getState().isAuthenticated).toBe(true);
       expect(useAuthStore.getState().accessToken).toBe("tok_abc");
+      expect(useAuthStore.getState().userId).toBe(userId);
+      expect(useAuthStore.getState().displayName).toBe("Alice");
       expect(useAuthStore.getState().username).toBe("alice");
       // The whole point of #294: no credential keys leak into localStorage.
       expect(localStorage.getItem("pw-access-token")).toBeNull();
@@ -317,7 +323,10 @@ describe("useAuthStore", () => {
           ok: true,
           json: () =>
             Promise.resolve({
-              accessToken: buildJwt("alice"),
+              accessToken: "tok_abc",
+              userId: "11111111-2222-3333-4444-555555555555",
+              displayName: "Alice",
+              username: "alice",
               passwordChangeRequired: false,
               isSuperadmin: true,
             }),
@@ -330,6 +339,7 @@ describe("useAuthStore", () => {
 
       expect(useAuthStore.getState().isAuthenticated).toBe(true);
       expect(useAuthStore.getState().isSuperadmin).toBe(true);
+      expect(useAuthStore.getState().displayName).toBe("Alice");
       expect(useAuthStore.getState().isHydrating).toBe(false);
       vi.unstubAllGlobals();
     });
@@ -351,15 +361,3 @@ describe("useAuthStore", () => {
     });
   });
 });
-
-function buildJwt(subject: string): string {
-  const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }))
-    .replace(/=+$/, "")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
-  const payload = btoa(JSON.stringify({ sub: subject, exp: 9999999999 }))
-    .replace(/=+$/, "")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
-  return `${header}.${payload}.fake-signature`;
-}
