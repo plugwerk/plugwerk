@@ -143,23 +143,32 @@ describe("useAuthStore", () => {
       vi.unstubAllGlobals();
     });
 
-    it("navigates to endSessionUrl when server returns 200 + endSessionUrl (#352)", async () => {
-      const endSessionUrl =
+    it("navigates to endSessionUrl with post_logout_redirect_uri rewritten to current origin (#352)", async () => {
+      // Backend hands us a URL whose post_logout_redirect_uri points at the
+      // configured `plugwerk.server.base-url` (here: http://app/login). In
+      // dev that is the Spring backend on :8080 while the browser actually
+      // runs on :5173 — letting the IdP bounce to the backend would land
+      // outside the SPA. The store rewrites the parameter to the current
+      // browser origin before navigating.
+      const backendUrl =
         "http://kc.local/realms/plugwerk/protocol/openid-connect/logout?id_token_hint=eyJ&post_logout_redirect_uri=http%3A%2F%2Fapp%2Flogin";
       vi.stubGlobal(
         "fetch",
         vi.fn().mockResolvedValue({
           ok: true,
           status: 200,
-          json: () => Promise.resolve({ endSessionUrl }),
+          json: () => Promise.resolve({ endSessionUrl: backendUrl }),
         }),
       );
       const assignSpy = vi.fn();
-      // jsdom's window.location is read-only; replace with a minimal stub.
       const originalLocation = window.location;
       Object.defineProperty(window, "location", {
         configurable: true,
-        value: { ...originalLocation, assign: assignSpy },
+        value: {
+          ...originalLocation,
+          origin: "http://localhost:5173",
+          assign: assignSpy,
+        },
       });
       useAuthStore.setState({
         accessToken: "tok_oidc",
@@ -176,7 +185,14 @@ describe("useAuthStore", () => {
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
       expect(useAuthStore.getState().accessToken).toBeNull();
       expect(assignSpy).toHaveBeenCalledOnce();
-      expect(assignSpy).toHaveBeenCalledWith(endSessionUrl);
+      const navigatedTo = new URL(assignSpy.mock.calls[0][0] as string);
+      expect(navigatedTo.origin + navigatedTo.pathname).toBe(
+        "http://kc.local/realms/plugwerk/protocol/openid-connect/logout",
+      );
+      expect(navigatedTo.searchParams.get("id_token_hint")).toBe("eyJ");
+      expect(navigatedTo.searchParams.get("post_logout_redirect_uri")).toBe(
+        "http://localhost:5173/login",
+      );
 
       Object.defineProperty(window, "location", {
         configurable: true,

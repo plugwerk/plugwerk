@@ -208,10 +208,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     get().clearAuth();
     if (endSessionUrl) {
       // Hand control to the IdP for RP-Initiated Logout (#352). The IdP destroys
-      // its session cookies and bounces us back to ${plugwerk.server.base-url}/login,
-      // at which point the SPA boots fresh and the next "Login with provider" click
-      // shows the credential prompt instead of silent SSO.
-      window.location.assign(endSessionUrl);
+      // its session cookies and bounces us back to `post_logout_redirect_uri`,
+      // at which point the SPA boots fresh and the next "Login with provider"
+      // click shows the credential prompt instead of silent SSO.
+      //
+      // Override `post_logout_redirect_uri` with the actual browser origin: the
+      // backend builds it from `plugwerk.server.base-url` (typically the
+      // production server), but in the Vite dev setup the browser runs on
+      // :5173 while the backend thinks it lives on :8080. Letting Keycloak
+      // bounce to :8080 lands the user outside the SPA. The browser's own
+      // `window.location.origin` is always the correct destination — both the
+      // dev :5173 and the prod hostname must be in the IdP allow-list anyway
+      // (the OAuth2 redirect URI is whitelisted on the same wildcard).
+      window.location.assign(rewritePostLogoutRedirect(endSessionUrl));
     }
   },
 
@@ -273,3 +282,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ passwordChangeRequired: false });
   },
 }));
+
+/**
+ * Replaces the `post_logout_redirect_uri` query parameter with
+ * `${window.location.origin}/login`. Falls back to the original URL when the
+ * input is not parseable — RP-Initiated Logout still works against the IdP,
+ * the bounce target just stays at whatever the backend produced.
+ */
+function rewritePostLogoutRedirect(endSessionUrl: string): string {
+  try {
+    const url = new URL(endSessionUrl);
+    url.searchParams.set(
+      "post_logout_redirect_uri",
+      `${window.location.origin}/login`,
+    );
+    return url.toString();
+  } catch {
+    return endSessionUrl;
+  }
+}
