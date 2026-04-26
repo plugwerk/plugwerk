@@ -54,7 +54,7 @@ Three new tables added via Liquibase migration `0002_user_and_rbac.yaml`:
 
 `OidcProviderRegistry` loads all enabled providers from `oidc_provider` at startup:
 - Builds a `JwtDecoder` per provider type:
-  - `GENERIC_OIDC` / `KEYCLOAK`: `NimbusJwtDecoder.withIssuerLocation(issuerUri)` (OIDC discovery)
+  - `OIDC`: `NimbusJwtDecoder.withIssuerLocation(issuerUri)` (OIDC discovery — covers Keycloak, Authentik, Auth0, Dex, …)
   - `GITHUB` / `GOOGLE` / `FACEBOOK`: pre-configured well-known JWKS URLs
 - Stores decoders in an `AtomicReference<List<JwtDecoder>>` for thread-safe live reload
 - `refresh()` is called by `OidcProviderService.setEnabled()` and `delete()` so changes take effect without restart

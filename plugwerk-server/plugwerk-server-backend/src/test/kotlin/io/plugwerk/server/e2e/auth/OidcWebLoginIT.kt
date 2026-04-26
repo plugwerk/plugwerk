@@ -143,7 +143,7 @@ class OidcWebLoginIT {
         val provider = oidcProviderRepository.saveAndFlush(
             OidcProviderEntity(
                 name = "Mock IdP",
-                providerType = OidcProviderType.GENERIC_OIDC,
+                providerType = OidcProviderType.OIDC,
                 enabled = true,
                 clientId = MOCK_CLIENT_ID,
                 clientSecretEncrypted = textEncryptor.encrypt(MOCK_CLIENT_SECRET),

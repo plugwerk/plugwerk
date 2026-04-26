@@ -28,7 +28,7 @@ import java.time.Instant
 
 /**
  * Covers audit findings SBS-010 (GitHub audience missing) and SBS-011 (Facebook issuer
- * missing) plus the parity audience/issuer hardening across GENERIC_OIDC, KEYCLOAK, GOOGLE.
+ * missing) plus the parity audience/issuer hardening across OIDC and GOOGLE.
  *
  * Uses `Jwt.withTokenValue` to construct decoded-JWT instances directly — no JWKS mocking,
  * no signing. The validator layer is what matters for the security gap; signature
@@ -136,13 +136,13 @@ class OidcJwtValidatorsTest {
         assertThat(result.hasErrors()).isTrue()
     }
 
-    // -------------------------- GENERIC_OIDC / KEYCLOAK --------------------------------
+    // -------------------------- OIDC (any standards-compliant provider) ---------------
 
     @Test
-    fun `GENERIC_OIDC uses configured issuerUri for validation`() {
+    fun `OIDC uses configured issuerUri for validation`() {
         val configuredIssuer = "https://keycloak.example.com/realms/plugwerk"
         val validator = OidcJwtValidators.forProvider(
-            OidcProviderType.GENERIC_OIDC,
+            OidcProviderType.OIDC,
             configuredIssuer,
             expectedAudience,
         )
@@ -152,25 +152,14 @@ class OidcJwtValidatorsTest {
     }
 
     @Test
-    fun `GENERIC_OIDC rejects token with wrong audience`() {
+    fun `OIDC rejects token with wrong audience`() {
         val configuredIssuer = "https://keycloak.example.com/realms/plugwerk"
         val validator = OidcJwtValidators.forProvider(
-            OidcProviderType.GENERIC_OIDC,
+            OidcProviderType.OIDC,
             configuredIssuer,
             expectedAudience,
         )
         assertThat(validator.validate(jwt(configuredIssuer, listOf("wrong-aud"))).hasErrors()).isTrue()
-    }
-
-    @Test
-    fun `KEYCLOAK uses configured issuerUri for validation`() {
-        val configuredIssuer = "https://keycloak.example.com/realms/plugwerk"
-        val validator = OidcJwtValidators.forProvider(
-            OidcProviderType.KEYCLOAK,
-            configuredIssuer,
-            expectedAudience,
-        )
-        assertThat(validator.validate(jwt(configuredIssuer, listOf(expectedAudience))).hasErrors()).isFalse()
     }
 
     // -------------------------- Configuration errors -----------------------------------
@@ -184,17 +173,17 @@ class OidcJwtValidatorsTest {
     }
 
     @Test
-    fun `missing issuerUri for GENERIC_OIDC is rejected as a configuration error`() {
+    fun `missing issuerUri for OIDC is rejected as a configuration error`() {
         assertThatThrownBy {
-            OidcJwtValidators.forProvider(OidcProviderType.GENERIC_OIDC, null, expectedAudience)
+            OidcJwtValidators.forProvider(OidcProviderType.OIDC, null, expectedAudience)
         }.isInstanceOf(IllegalArgumentException::class.java)
             .hasMessageContaining("issuerUri")
     }
 
     @Test
-    fun `blank issuerUri for KEYCLOAK is rejected as a configuration error`() {
+    fun `blank issuerUri for OIDC is rejected as a configuration error`() {
         assertThatThrownBy {
-            OidcJwtValidators.forProvider(OidcProviderType.KEYCLOAK, "   ", expectedAudience)
+            OidcJwtValidators.forProvider(OidcProviderType.OIDC, "   ", expectedAudience)
         }.isInstanceOf(IllegalArgumentException::class.java)
             .hasMessageContaining("issuerUri")
     }

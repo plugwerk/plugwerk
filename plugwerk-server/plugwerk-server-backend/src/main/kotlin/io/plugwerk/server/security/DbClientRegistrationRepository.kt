@@ -55,9 +55,9 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * ## Provider type support (Phase 1 of #79)
  *
- * Browser login is currently wired only for [OidcProviderType.KEYCLOAK] and
- * [OidcProviderType.GENERIC_OIDC] — both rely on RFC-8414 / OIDC discovery
- * via `issuerUri`. The vendor providers (GitHub / Google / Facebook) have
+ * Browser login is currently wired only for [OidcProviderType.OIDC] — it
+ * relies on RFC-8414 / OIDC discovery via `issuerUri`. The vendor providers
+ * (GitHub / Google / Facebook) have
  * sufficient metadata in [OidcProviderRegistry] to validate incoming bearer
  * tokens, but the browser-flow client metadata (authorization endpoint with
  * the right vendor quirks) is not yet implemented. They are silently
@@ -118,7 +118,7 @@ class DbClientRegistrationRepository(
     private fun buildRegistration(provider: OidcProviderEntity): ClientRegistration {
         val registrationId = OidcRegistrationIds.of(provider)
         val builder = when (provider.providerType) {
-            OidcProviderType.KEYCLOAK, OidcProviderType.GENERIC_OIDC -> {
+            OidcProviderType.OIDC -> {
                 val issuerUri = requireNotNull(provider.issuerUri) {
                     "issuerUri is required for provider type ${provider.providerType}"
                 }

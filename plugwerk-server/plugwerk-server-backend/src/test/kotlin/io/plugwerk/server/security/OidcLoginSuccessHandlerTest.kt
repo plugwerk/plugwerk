@@ -78,7 +78,7 @@ class OidcLoginSuccessHandlerTest {
     private val provider = OidcProviderEntity(
         id = providerId,
         name = "Test Keycloak",
-        providerType = OidcProviderType.KEYCLOAK,
+        providerType = OidcProviderType.OIDC,
         enabled = true,
         clientId = "test-client",
         clientSecretEncrypted = "encrypted",

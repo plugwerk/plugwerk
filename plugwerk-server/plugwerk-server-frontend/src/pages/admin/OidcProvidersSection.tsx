@@ -44,22 +44,20 @@ import type {
 } from "../../api/generated/model";
 
 const PROVIDER_TYPE_LABELS: Record<string, string> = {
-  GENERIC_OIDC: "Generic OIDC",
-  KEYCLOAK: "Keycloak",
+  OIDC: "OIDC (Keycloak, Authentik, Auth0, …)",
   GITHUB: "GitHub",
   GOOGLE: "Google",
   FACEBOOK: "Facebook",
 };
 
-const ISSUER_REQUIRED_TYPES = new Set(["GENERIC_OIDC", "KEYCLOAK"]);
+const ISSUER_REQUIRED_TYPES = new Set(["OIDC"]);
 
 export function OidcProvidersSection() {
   const [providers, setProviders] = useState<OidcProviderDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState("");
-  const [providerType, setProviderType] =
-    useState<OidcProviderType>("GENERIC_OIDC");
+  const [providerType, setProviderType] = useState<OidcProviderType>("OIDC");
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const [issuerUri, setIssuerUri] = useState("");
@@ -145,7 +143,7 @@ export function OidcProvidersSection() {
       setClientSecret("");
       setIssuerUri("");
       setScope("openid profile email");
-      setProviderType("GENERIC_OIDC");
+      setProviderType("OIDC");
     } catch {
       addToast({ message: "Failed to create OIDC provider.", type: "error" });
     } finally {

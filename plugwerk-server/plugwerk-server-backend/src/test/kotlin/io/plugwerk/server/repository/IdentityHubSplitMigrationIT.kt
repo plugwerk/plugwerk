@@ -133,7 +133,11 @@ class IdentityHubSplitMigrationIT {
      * hash) plus a pure-LOCAL row plus a namespace_member each.
      */
     private fun seedPreMigrationData(conn: Connection) {
-        // OIDC provider row (referenced by the synthetic username).
+        // OIDC provider row (referenced by the synthetic username). 'KEYCLOAK'
+        // is the historical enum value that existed before migration 0018 folded
+        // it into 'OIDC'; the seed runs after 0018 has already executed (against
+        // an empty table), so the value survives untouched and exercises 0017's
+        // logic exactly as it would have run pre-consolidation.
         conn.prepareStatement(
             """
             INSERT INTO oidc_provider

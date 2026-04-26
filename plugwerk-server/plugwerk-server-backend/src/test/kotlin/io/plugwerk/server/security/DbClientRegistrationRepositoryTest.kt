@@ -71,7 +71,7 @@ class DbClientRegistrationRepositoryTest {
         val unreachableProvider = OidcProviderEntity(
             id = UUID.fromString("99999999-9999-9999-9999-999999999999"),
             name = "Down Keycloak",
-            providerType = OidcProviderType.KEYCLOAK,
+            providerType = OidcProviderType.OIDC,
             enabled = true,
             clientId = "ignored",
             clientSecretEncrypted = "{cipher}ignored",

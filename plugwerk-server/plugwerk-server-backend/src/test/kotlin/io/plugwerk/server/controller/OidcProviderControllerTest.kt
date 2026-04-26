@@ -97,7 +97,7 @@ class OidcProviderControllerTest {
         OidcProviderEntity(
             id = UUID.randomUUID(),
             name = name,
-            providerType = OidcProviderType.KEYCLOAK,
+            providerType = OidcProviderType.OIDC,
             enabled = enabled,
             clientId = "my-client",
             clientSecretEncrypted = "encrypted-secret",
@@ -113,7 +113,7 @@ class OidcProviderControllerTest {
         mockMvc.get("/api/v1/admin/oidc-providers").andExpect {
             status { isOk() }
             jsonPath("$[0].name") { value("My Keycloak") }
-            jsonPath("$[0].providerType") { value("KEYCLOAK") }
+            jsonPath("$[0].providerType") { value("OIDC") }
             jsonPath("$[0].enabled") { value(false) }
         }
     }
@@ -200,7 +200,7 @@ class OidcProviderControllerTest {
         mockMvc.post("/api/v1/admin/oidc-providers") {
             contentType = MediaType.APPLICATION_JSON
             content =
-                """{"name":"Rogue","providerType":"GENERIC_OIDC","clientId":"x","clientSecret":"y","issuerUri":"https://evil.example.com"}"""
+                """{"name":"Rogue","providerType":"OIDC","clientId":"x","clientSecret":"y","issuerUri":"https://evil.example.com"}"""
         }.andExpect {
             status { isForbidden() }
         }

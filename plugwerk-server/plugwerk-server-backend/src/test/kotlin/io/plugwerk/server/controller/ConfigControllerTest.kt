@@ -126,7 +126,7 @@ class ConfigControllerTest {
                 OidcProviderEntity(
                     id = providerId,
                     name = "Keycloak Local",
-                    providerType = OidcProviderType.KEYCLOAK,
+                    providerType = OidcProviderType.OIDC,
                     enabled = true,
                     clientId = "plugwerk-local",
                     clientSecretEncrypted = "ignored-for-this-test",
@@ -162,7 +162,7 @@ class ConfigControllerTest {
                 OidcProviderEntity(
                     id = providerId,
                     name = "Internal Keycloak",
-                    providerType = OidcProviderType.KEYCLOAK,
+                    providerType = OidcProviderType.OIDC,
                     enabled = true,
                     clientId = "plugwerk-internal",
                     clientSecretEncrypted = "{cipher}leaked-secret-must-not-appear",
