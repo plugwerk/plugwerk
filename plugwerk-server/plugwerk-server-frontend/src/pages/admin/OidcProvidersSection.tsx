@@ -44,7 +44,7 @@ import type {
 } from "../../api/generated/model";
 
 const PROVIDER_TYPE_LABELS: Record<string, string> = {
-  OIDC: "Generic OIDC (Keycloak, Authentik, Auth0, …)",
+  OIDC: "OIDC (Keycloak, Authentik, Auth0, …)",
   GITHUB: "GitHub",
   GOOGLE: "Google",
   FACEBOOK: "Facebook",
