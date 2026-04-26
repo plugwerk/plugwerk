@@ -46,6 +46,13 @@ interface AuthState {
    * profile page falls back to [displayName] when this is `null`.
    */
   username: string | null;
+  email: string | null;
+  /**
+   * `LOCAL` for password-based accounts, `OIDC` for accounts sourced from an
+   * upstream identity provider. Used by the UI to disable password-change
+   * affordances for OIDC users.
+   */
+  source: "LOCAL" | "OIDC" | null;
   namespace: string | null | undefined;
   isAuthenticated: boolean;
   passwordChangeRequired: boolean;
@@ -61,6 +68,8 @@ interface AuthState {
     userId: string;
     displayName: string;
     username?: string | null;
+    email: string;
+    source: "LOCAL" | "OIDC";
     passwordChangeRequired: boolean;
     isSuperadmin: boolean;
   }) => void;
@@ -112,6 +121,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   userId: null,
   displayName: null,
   username: null,
+  email: null,
+  source: null,
   namespace: undefined,
   isAuthenticated: false,
   passwordChangeRequired: false,
@@ -127,6 +138,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     userId,
     displayName,
     username,
+    email,
+    source,
     passwordChangeRequired,
     isSuperadmin,
   }) {
@@ -135,6 +148,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       userId,
       displayName,
       username: username ?? null,
+      email,
+      source,
       isAuthenticated: true,
       passwordChangeRequired,
       isSuperadmin,
@@ -147,6 +162,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       userId: null,
       displayName: null,
       username: null,
+      email: null,
+      source: null,
       namespace: undefined,
       isAuthenticated: false,
       passwordChangeRequired: false,
@@ -170,6 +187,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       userId: data.userId,
       displayName: data.displayName,
       username: typeof data.username === "string" ? data.username : username,
+      email: data.email,
+      source: data.source === "OIDC" ? "OIDC" : "LOCAL",
       passwordChangeRequired: data.passwordChangeRequired === true,
       isSuperadmin: data.isSuperadmin === true,
     });

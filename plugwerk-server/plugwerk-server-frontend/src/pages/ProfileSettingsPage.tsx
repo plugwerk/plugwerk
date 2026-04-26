@@ -58,7 +58,9 @@ function InfoRow({ label, value }: InfoRowProps) {
 }
 
 export function ProfileSettingsPage() {
-  const { username, namespace, setNamespace } = useAuthStore();
+  const { displayName, username, email, source, namespace, setNamespace } =
+    useAuthStore();
+  const isLocal = source === "LOCAL";
   const { data: namespaces = [] } = useNamespaces();
   const { addToast } = useUiStore();
   const {
@@ -118,21 +120,31 @@ export function ProfileSettingsPage() {
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
           {/* Personal Information */}
           <Section icon={<User size={18} />} title="Personal Information">
-            <InfoRow label="Username" value={username ?? "—"} />
-            <InfoRow label="Email" value="Not set" />
+            <InfoRow label="Name" value={displayName ?? "—"} />
+            {username && <InfoRow label="Username" value={username} />}
+            <InfoRow label="Email" value={email ?? "—"} />
+            <InfoRow
+              label="Source"
+              value={source === "OIDC" ? "OIDC provider" : "Local account"}
+            />
           </Section>
 
           {/* Security */}
           <Section
             icon={<Lock size={18} />}
             title="Security"
-            description="Manage your password"
+            description={
+              isLocal
+                ? "Manage your password"
+                : "Your password is managed by your identity provider"
+            }
           >
             <Button
-              component={Link}
-              to="/change-password"
+              component={isLocal ? Link : "button"}
+              to={isLocal ? "/change-password" : undefined}
               variant="outlined"
               size="small"
+              disabled={!isLocal}
               sx={{ borderRadius: tokens.radius.btn }}
             >
               Change Password

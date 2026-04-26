@@ -1841,6 +1841,18 @@ components:
             identity lives with the upstream provider. Frontend should prefer
             `displayName` for display and only show `username` as a secondary
             label on local-account profile pages.
+        email:
+          type: string
+          description: |
+            User's email address. Mandatory after #351; populated for both
+            LOCAL and OIDC-sourced accounts.
+        source:
+          type: string
+          enum: [LOCAL, OIDC]
+          description: |
+            Discriminator for the account's authentication mechanism (#351).
+            Used by the frontend to decide whether to surface password-change
+            UI (LOCAL only).
         passwordChangeRequired:
           type: boolean
           description: |
@@ -1860,6 +1872,8 @@ components:
         - expiresIn
         - userId
         - displayName
+        - email
+        - source
         - passwordChangeRequired
         - isSuperadmin
 

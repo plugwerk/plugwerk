@@ -36,6 +36,8 @@ export interface RefreshedAuth {
   displayName: string;
   /** Local-login username; null for OIDC-sourced sessions. */
   username: string | null;
+  email: string;
+  source: "LOCAL" | "OIDC";
   passwordChangeRequired: boolean;
   isSuperadmin: boolean;
 }
@@ -137,6 +139,8 @@ async function doRefresh(): Promise<RefreshAttempt> {
             ? data.username
             : data.userId,
       username: typeof data.username === "string" ? data.username : null,
+      email: typeof data.email === "string" ? data.email : "",
+      source: data.source === "OIDC" ? "OIDC" : "LOCAL",
       passwordChangeRequired: data.passwordChangeRequired === true,
       isSuperadmin: data.isSuperadmin === true,
     },

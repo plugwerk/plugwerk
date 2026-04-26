@@ -180,6 +180,11 @@ class AuthController(
         expiresIn = jwtTokenService.tokenValiditySeconds(),
         userId = requireNotNull(user.id),
         displayName = user.displayName,
+        email = user.email,
+        source = when (user.source) {
+            UserSource.LOCAL -> LoginResponse.Source.LOCAL
+            UserSource.OIDC -> LoginResponse.Source.OIDC
+        },
         passwordChangeRequired = user.passwordChangeRequired,
         isSuperadmin = user.isSuperadmin,
         username = user.username,

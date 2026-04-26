@@ -93,6 +93,8 @@ describe("authStore does not persist credentials in localStorage", () => {
       userId: "11111111-2222-3333-4444-555555555555",
       displayName: "Alice",
       username: "alice",
+      email: "alice@example.test",
+      source: "LOCAL",
       passwordChangeRequired: false,
       isSuperadmin: false,
     });
