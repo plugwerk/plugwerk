@@ -21,7 +21,10 @@ package io.plugwerk.server.controller
 import io.plugwerk.server.domain.UserEntity
 import io.plugwerk.server.repository.RefreshTokenRepository
 import io.plugwerk.server.repository.UserRepository
+import io.plugwerk.server.security.OidcEndSessionUrlResolver
 import io.plugwerk.server.security.RefreshTokenCookieFactory
+import io.plugwerk.server.service.JwtTokenService
+import io.plugwerk.server.service.RefreshTokenService
 import jakarta.servlet.http.Cookie
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -34,6 +37,7 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.TestPropertySource
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
 import tools.jackson.databind.JsonNode
@@ -69,6 +73,18 @@ class AuthControllerRefreshIT {
     @Autowired private lateinit var passwordEncoder: PasswordEncoder
 
     @Autowired private lateinit var objectMapper: ObjectMapper
+
+    @Autowired private lateinit var jwtTokenService: JwtTokenService
+
+    @Autowired private lateinit var refreshTokenService: RefreshTokenService
+
+    /**
+     * The real resolver depends on a populated [io.plugwerk.server.security.DbClientRegistrationRepository]
+     * (i.e. a Keycloak/issuer reachable for OIDC discovery), which is overkill
+     * for an in-memory IT. We mock the resolver per-test to control whether the
+     * controller hits the OIDC code path or the local-login code path.
+     */
+    @MockitoBean private lateinit var oidcEndSessionUrlResolver: OidcEndSessionUrlResolver
 
     private val username = "auth-refresh-it-user"
     private val password = "refresh-it-password-123"
@@ -194,6 +210,98 @@ class AuthControllerRefreshIT {
         // Refresh-token row is revoked
         val rows = refreshTokenRepository.findAll()
         assertThat(rows).allSatisfy { assertThat(it.revokedAt).isNotNull }
+    }
+
+    @Test
+    fun `logout for OIDC subject returns 200 and endSessionUrl when provider supports RP-initiated logout (#352)`() {
+        val (accessToken, cookie) = setUpOidcSession(idTokenHint = "eyJ.alice.id-token")
+        org.mockito.kotlin.whenever(
+            oidcEndSessionUrlResolver.resolve(
+                org.mockito.kotlin.any(),
+                org.mockito.kotlin.any(),
+            ),
+        ).thenReturn("http://kc.local/realms/plugwerk/protocol/openid-connect/logout?id_token_hint=eyJ.alice.id-token")
+
+        val response = mockMvc.post("/api/v1/auth/logout") {
+            header("Authorization", "Bearer $accessToken")
+            cookie(cookie)
+            with(csrf())
+        }.andReturn().response
+
+        assertThat(response.status).isEqualTo(200)
+        val body = objectMapper.readTree(response.contentAsString)
+        assertThat(body["endSessionUrl"].asString())
+            .startsWith("http://kc.local/realms/plugwerk/protocol/openid-connect/logout")
+        // Cookie still cleared and family still revoked, regardless of the response shape.
+        val setCookie = response.getHeader("Set-Cookie")
+        assertThat(setCookie).contains("Max-Age=0")
+        assertThat(refreshTokenRepository.findAll()).allSatisfy { assertThat(it.revokedAt).isNotNull }
+    }
+
+    @Test
+    fun `logout for OIDC subject returns 204 when provider does not advertise end_session_endpoint (#352)`() {
+        val (accessToken, cookie) = setUpOidcSession(idTokenHint = "eyJ.alice.id-token")
+        // Resolver returns null when the IdP did not advertise end_session_endpoint
+        // — controller MUST fall back to the local cookie-clear flow.
+        org.mockito.kotlin.whenever(
+            oidcEndSessionUrlResolver.resolve(
+                org.mockito.kotlin.any(),
+                org.mockito.kotlin.any(),
+            ),
+        ).thenReturn(null)
+
+        val response = mockMvc.post("/api/v1/auth/logout") {
+            header("Authorization", "Bearer $accessToken")
+            cookie(cookie)
+            with(csrf())
+        }.andReturn().response
+
+        assertThat(response.status).isEqualTo(204)
+        assertThat(response.contentLength).isLessThanOrEqualTo(0)
+        assertThat(response.getHeader("Set-Cookie")).contains("Max-Age=0")
+        assertThat(refreshTokenRepository.findAll()).allSatisfy { assertThat(it.revokedAt).isNotNull }
+    }
+
+    @Test
+    fun `logout for local-login subject never invokes the OIDC resolver (#352)`() {
+        val (accessToken, cookie) = loginAndGetAccessAndCookie()
+
+        mockMvc.post("/api/v1/auth/logout") {
+            header("Authorization", "Bearer $accessToken")
+            cookie(cookie)
+            with(csrf())
+        }.andReturn().response
+
+        // Local usernames have no colon → regex never matches → resolver never called.
+        // Guards against accidentally widening the regex (e.g. dropping the UUID anchor).
+        org.mockito.kotlin.verify(oidcEndSessionUrlResolver, org.mockito.kotlin.never())
+            .resolve(org.mockito.kotlin.any(), org.mockito.kotlin.any())
+    }
+
+    /**
+     * Builds an OIDC-shaped session in the DB and returns a Bearer access token plus the
+     * refresh cookie that points at the just-issued refresh-token row. Mirrors what
+     * [io.plugwerk.server.security.OidcLoginSuccessHandler] does on a successful OIDC
+     * callback, minus the actual OAuth2 round-trip.
+     */
+    private fun setUpOidcSession(idTokenHint: String): Pair<String, Cookie> {
+        val registrationId = "11111111-2222-3333-4444-555555555555"
+        val sub = "alice-keycloak-sub"
+        val oidcUsername = "$registrationId:$sub"
+        userRepository.save(
+            UserEntity(
+                username = oidcUsername,
+                email = null,
+                passwordHash = "OIDC:no-password",
+                enabled = true,
+                passwordChangeRequired = false,
+                isSuperadmin = false,
+            ),
+        )
+        val accessToken = jwtTokenService.generateToken(oidcUsername)
+        val issued = refreshTokenService.issue(oidcUsername, idTokenHint)
+        val cookie = Cookie(RefreshTokenCookieFactory.COOKIE_NAME, issued.plaintext)
+        return accessToken to cookie
     }
 
     // ---------- helpers ----------

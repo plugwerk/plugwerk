@@ -65,16 +65,23 @@ class RefreshTokenService(
      * Issues a new refresh token for [username]. Used on initial login and as the
      * successor-issuance step inside [rotate] (see [issueInFamily]).
      *
+     * @param username Plugwerk subject — for OIDC sessions this is the
+     *   `<registrationId>:<sub>` synthetic identifier from
+     *   [io.plugwerk.server.security.OidcLoginSuccessHandler].
+     * @param upstreamIdToken Raw OIDC `id_token` value to remember on this row,
+     *   so [io.plugwerk.server.controller.AuthController.logout] can perform
+     *   RP-Initiated Logout against the IdP (#352). `null` for local logins and
+     *   for OIDC providers that do not return an ID token.
      * @return [IssuedToken] containing the plaintext token (for the `Set-Cookie` header),
      *   the computed expiry, and the [familyId]/row-id pair. The plaintext is *never*
      *   stored — only `HMAC-SHA256(jwtSecret, plaintext)`.
      */
     @Transactional
-    fun issue(username: String): IssuedToken {
+    fun issue(username: String, upstreamIdToken: String? = null): IssuedToken {
         val user = userRepository.findByUsername(username)
             .orElseThrow { EntityNotFoundException("User", username) }
         val userId = requireNotNull(user.id) { "User $username has no id — entity not persisted?" }
-        return issueInFamily(userId, UUID.randomUUID())
+        return issueInFamily(userId, UUID.randomUUID(), upstreamIdToken)
     }
 
     /**
@@ -105,7 +112,10 @@ class RefreshTokenService(
         }
 
         // Happy path: revoke the presented row, issue its successor in the same family.
-        val successor = issueInFamily(row.userId, row.familyId)
+        // Carry the upstream ID-token forward so a long-lived OIDC session — many
+        // refresh-rotations after the original login — can still hand the IdP a
+        // hint at logout time (#352).
+        val successor = issueInFamily(row.userId, row.familyId, row.upstreamIdToken)
         row.revokedAt = now
         row.revocationReason = ROTATED
         row.rotatedToId = successor.rowId
@@ -164,7 +174,24 @@ class RefreshTokenService(
         }
     }
 
-    private fun issueInFamily(userId: UUID, familyId: UUID): IssuedToken {
+    /**
+     * Looks up the upstream OIDC `id_token` recorded for the row backing the given
+     * presented refresh-cookie plaintext. Returns `null` for local-login rows, for
+     * OIDC providers that never returned an ID token, for unknown plaintexts, and
+     * for already-revoked rows (a logout after rotation may legitimately race with
+     * the next /auth/refresh — accepting both states keeps the call site simple).
+     *
+     * Used by [io.plugwerk.server.controller.AuthController.logout] to construct the
+     * RP-Initiated Logout `id_token_hint` parameter (#352). Read-only; never mutates
+     * the row's revocation state — the caller's `revokePresentedFamily` does that.
+     */
+    @Transactional(readOnly = true)
+    fun findUpstreamIdToken(presentedPlaintext: String): String? {
+        val hash = accessKeyHmac.compute(presentedPlaintext)
+        return refreshTokenRepository.findByTokenLookupHash(hash).orElse(null)?.upstreamIdToken
+    }
+
+    private fun issueInFamily(userId: UUID, familyId: UUID, upstreamIdToken: String? = null): IssuedToken {
         val plaintext = generatePlaintext()
         val hash = accessKeyHmac.compute(plaintext)
         val issuedAt = OffsetDateTime.now(ZoneOffset.UTC)
@@ -176,6 +203,7 @@ class RefreshTokenService(
                 tokenLookupHash = hash,
                 issuedAt = issuedAt,
                 expiresAt = expiresAt,
+                upstreamIdToken = upstreamIdToken,
             ),
         )
         return IssuedToken(

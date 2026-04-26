@@ -30,6 +30,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argThat
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
@@ -40,8 +41,11 @@ import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.security.authentication.TestingAuthenticationToken
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken
+import org.springframework.security.oauth2.core.oidc.OidcIdToken
+import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User
 import java.time.Duration
+import java.time.Instant
 
 /**
  * Unit tests for [OidcLoginSuccessHandler]. Asserts the post-OIDC-callback
@@ -81,20 +85,20 @@ class OidcLoginSuccessHandlerTest {
         val registrationId = "11111111-2222-3333-4444-555555555555"
         val sub = "0123abcd-4567-89ef-0123-456789abcdef"
         val token = oauth2AuthenticationTokenFor(registrationId = registrationId, sub = sub)
-        whenever(refreshTokenService.issue(eq("$registrationId:$sub"))).thenReturn(stubIssuedToken())
+        whenever(refreshTokenService.issue(eq("$registrationId:$sub"), anyOrNull())).thenReturn(stubIssuedToken())
 
         val handler = OidcLoginSuccessHandler(refreshTokenService, cookieFactory, userRepository)
         val response = MockHttpServletResponse()
 
         handler.onAuthenticationSuccess(MockHttpServletRequest(), response, token)
 
-        verify(refreshTokenService).issue("$registrationId:$sub")
+        verify(refreshTokenService).issue(eq("$registrationId:$sub"), anyOrNull())
     }
 
     @Test
     fun `sets httpOnly refresh cookie on the response and redirects to SPA root`() {
         val token = oauth2AuthenticationTokenFor(registrationId = "kc", sub = "alice-sub")
-        whenever(refreshTokenService.issue(any())).thenReturn(stubIssuedToken())
+        whenever(refreshTokenService.issue(any(), anyOrNull())).thenReturn(stubIssuedToken())
 
         val handler = OidcLoginSuccessHandler(refreshTokenService, cookieFactory, userRepository)
         val response = MockHttpServletResponse()
@@ -113,7 +117,7 @@ class OidcLoginSuccessHandlerTest {
     fun `auto-provisions a local user row on first OIDC login (#79)`() {
         val token = oauth2AuthenticationTokenFor(registrationId = "kc", sub = "alice-sub")
         whenever(userRepository.existsByUsername("kc:alice-sub")).thenReturn(false)
-        whenever(refreshTokenService.issue(any())).thenReturn(stubIssuedToken())
+        whenever(refreshTokenService.issue(any(), anyOrNull())).thenReturn(stubIssuedToken())
 
         val handler = OidcLoginSuccessHandler(refreshTokenService, cookieFactory, userRepository)
         handler.onAuthenticationSuccess(MockHttpServletRequest(), MockHttpServletResponse(), token)
@@ -134,12 +138,43 @@ class OidcLoginSuccessHandlerTest {
     fun `does not re-provision when local user row already exists (idempotent)`() {
         val token = oauth2AuthenticationTokenFor(registrationId = "kc", sub = "alice-sub")
         whenever(userRepository.existsByUsername("kc:alice-sub")).thenReturn(true)
-        whenever(refreshTokenService.issue(any())).thenReturn(stubIssuedToken())
+        whenever(refreshTokenService.issue(any(), anyOrNull())).thenReturn(stubIssuedToken())
 
         val handler = OidcLoginSuccessHandler(refreshTokenService, cookieFactory, userRepository)
         handler.onAuthenticationSuccess(MockHttpServletRequest(), MockHttpServletResponse(), token)
 
         verify(userRepository, never()).save(any<UserEntity>())
+    }
+
+    @Test
+    fun `captures upstream id_token and hands it to RefreshTokenService for OIDC users (#352)`() {
+        val tokenValue = "eyJhbGciOiJSUzI1NiJ9.fake-id-token.signature"
+        val token = oidcAuthenticationTokenFor(
+            registrationId = "kc",
+            sub = "alice-sub",
+            idTokenValue = tokenValue,
+        )
+        whenever(userRepository.existsByUsername("kc:alice-sub")).thenReturn(true)
+        whenever(refreshTokenService.issue(any(), anyOrNull())).thenReturn(stubIssuedToken())
+
+        val handler = OidcLoginSuccessHandler(refreshTokenService, cookieFactory, userRepository)
+        handler.onAuthenticationSuccess(MockHttpServletRequest(), MockHttpServletResponse(), token)
+
+        verify(refreshTokenService).issue(eq("kc:alice-sub"), eq(tokenValue))
+    }
+
+    @Test
+    fun `passes null id_token for non-OIDC OAuth2 principals (graceful degradation, #352)`() {
+        // OAuth2 (non-OIDC) flows have no ID token to capture; the handler must still
+        // succeed and just record null on the refresh-token row.
+        val token = oauth2AuthenticationTokenFor(registrationId = "kc", sub = "alice-sub")
+        whenever(userRepository.existsByUsername("kc:alice-sub")).thenReturn(true)
+        whenever(refreshTokenService.issue(any(), anyOrNull())).thenReturn(stubIssuedToken())
+
+        val handler = OidcLoginSuccessHandler(refreshTokenService, cookieFactory, userRepository)
+        handler.onAuthenticationSuccess(MockHttpServletRequest(), MockHttpServletResponse(), token)
+
+        verify(refreshTokenService).issue(eq("kc:alice-sub"), eq(null))
     }
 
     @Test
@@ -168,6 +203,25 @@ class OidcLoginSuccessHandlerTest {
             mapOf("sub" to sub, "email" to "test@plugwerk.test"),
             "sub",
         )
+        return OAuth2AuthenticationToken(user, emptyList(), registrationId)
+    }
+
+    private fun oidcAuthenticationTokenFor(
+        registrationId: String,
+        sub: String,
+        idTokenValue: String,
+    ): OAuth2AuthenticationToken {
+        // Mirror what Spring Security's OIDC client filter constructs after the code
+        // exchange: an OidcUser whose backing OidcIdToken carries the raw token value
+        // we want to pin on the refresh-token row for later RP-Initiated Logout.
+        val now = Instant.now()
+        val idToken = OidcIdToken(
+            idTokenValue,
+            now,
+            now.plusSeconds(300),
+            mapOf("sub" to sub, "email" to "test@plugwerk.test"),
+        )
+        val user = DefaultOidcUser(emptyList(), idToken)
         return OAuth2AuthenticationToken(user, emptyList(), registrationId)
     }
 }

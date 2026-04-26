@@ -99,7 +99,10 @@ describe("useAuthStore", () => {
 
   describe("logout", () => {
     it("clears accessToken and isAuthenticated", async () => {
-      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ ok: true, status: 204 }),
+      );
       useAuthStore.setState({
         accessToken: "tok_xyz",
         isAuthenticated: true,
@@ -116,7 +119,10 @@ describe("useAuthStore", () => {
     });
 
     it("clears namespace from state", async () => {
-      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ ok: true, status: 204 }),
+      );
       useAuthStore.setState({
         accessToken: "tok_xyz",
         isAuthenticated: true,
@@ -128,6 +134,112 @@ describe("useAuthStore", () => {
       });
 
       expect(useAuthStore.getState().namespace).toBeUndefined();
+      vi.unstubAllGlobals();
+    });
+
+    it("navigates to endSessionUrl when server returns 200 + endSessionUrl (#352)", async () => {
+      const endSessionUrl =
+        "http://kc.local/realms/plugwerk/protocol/openid-connect/logout?id_token_hint=eyJ&post_logout_redirect_uri=http%3A%2F%2Fapp%2Flogin";
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ endSessionUrl }),
+        }),
+      );
+      const assignSpy = vi.fn();
+      // jsdom's window.location is read-only; replace with a minimal stub.
+      const originalLocation = window.location;
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: { ...originalLocation, assign: assignSpy },
+      });
+      useAuthStore.setState({
+        accessToken: "tok_oidc",
+        isAuthenticated: true,
+        username: "kc:alice-sub",
+      });
+
+      await act(async () => {
+        await useAuthStore.getState().logout();
+      });
+
+      // Local cleanup STILL happens before the redirect — accessToken in memory
+      // is dropped first so a racing tab does not see it.
+      expect(useAuthStore.getState().isAuthenticated).toBe(false);
+      expect(useAuthStore.getState().accessToken).toBeNull();
+      expect(assignSpy).toHaveBeenCalledOnce();
+      expect(assignSpy).toHaveBeenCalledWith(endSessionUrl);
+
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: originalLocation,
+      });
+      vi.unstubAllGlobals();
+    });
+
+    it("does NOT navigate when server returns 200 with empty endSessionUrl (#352)", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ endSessionUrl: "" }),
+        }),
+      );
+      const assignSpy = vi.fn();
+      const originalLocation = window.location;
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: { ...originalLocation, assign: assignSpy },
+      });
+      useAuthStore.setState({
+        accessToken: "tok",
+        isAuthenticated: true,
+        username: "alice",
+      });
+
+      await act(async () => {
+        await useAuthStore.getState().logout();
+      });
+
+      expect(assignSpy).not.toHaveBeenCalled();
+
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: originalLocation,
+      });
+      vi.unstubAllGlobals();
+    });
+
+    it("does NOT navigate on 204 No Content (local-login flow, #352)", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ ok: true, status: 204 }),
+      );
+      const assignSpy = vi.fn();
+      const originalLocation = window.location;
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: { ...originalLocation, assign: assignSpy },
+      });
+      useAuthStore.setState({
+        accessToken: "tok",
+        isAuthenticated: true,
+        username: "alice",
+      });
+
+      await act(async () => {
+        await useAuthStore.getState().logout();
+      });
+
+      expect(assignSpy).not.toHaveBeenCalled();
+
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: originalLocation,
+      });
       vi.unstubAllGlobals();
     });
   });
