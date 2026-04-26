@@ -167,6 +167,55 @@ databaseChangeLog:
             columnName: user_id
 
   # ===========================================================================
+  # 3.5) Make username and password_hash nullable BEFORE the data migration.
+  #     The data migration sets these columns to NULL on every OIDC-sentinel
+  #     row; doing it the other way round trips the still-active NOT NULL
+  #     constraint and the whole changeset rolls back. Also drop the column-
+  #     level UNIQUE on username here so the partial index introduced later
+  #     can take over without overlap.
+  # ===========================================================================
+  - changeSet:
+      id: 0017-drop-username-unique-constraint
+      author: plugwerk
+      changes:
+        - dropUniqueConstraint:
+            tableName: plugwerk_user
+            constraintName: uq_user_username
+      rollback:
+        - addUniqueConstraint:
+            tableName: plugwerk_user
+            columnNames: username
+            constraintName: uq_user_username
+
+  - changeSet:
+      id: 0017-username-nullable
+      author: plugwerk
+      changes:
+        - dropNotNullConstraint:
+            tableName: plugwerk_user
+            columnName: username
+            columnDataType: varchar(255)
+      rollback:
+        - addNotNullConstraint:
+            tableName: plugwerk_user
+            columnName: username
+            columnDataType: varchar(255)
+
+  - changeSet:
+      id: 0017-password-hash-nullable
+      author: plugwerk
+      changes:
+        - dropNotNullConstraint:
+            tableName: plugwerk_user
+            columnName: password_hash
+            columnDataType: varchar(255)
+      rollback:
+        - addNotNullConstraint:
+            tableName: plugwerk_user
+            columnName: password_hash
+            columnDataType: varchar(255)
+
+  # ===========================================================================
   # 4) Data migration — single SQL block.
   #
   # Order within the block matters: oidc_identity rows must be inserted before
@@ -360,36 +409,9 @@ databaseChangeLog:
                 WHERE email IS NOT NULL;
 
   # ===========================================================================
-  # 9) Replace column-level UNIQUE on username with a LOCAL-scoped partial
-  #    unique index. Drop the NOT NULL on username.
+  # 9) Replace the dropped column-level UNIQUE on username (handled in 3.5)
+  #    with a LOCAL-scoped partial unique index.
   # ===========================================================================
-  - changeSet:
-      id: 0017-drop-username-unique-constraint
-      author: plugwerk
-      changes:
-        - dropUniqueConstraint:
-            tableName: plugwerk_user
-            constraintName: uq_user_username
-      rollback:
-        - addUniqueConstraint:
-            tableName: plugwerk_user
-            columnNames: username
-            constraintName: uq_user_username
-
-  - changeSet:
-      id: 0017-username-nullable
-      author: plugwerk
-      changes:
-        - dropNotNullConstraint:
-            tableName: plugwerk_user
-            columnName: username
-            columnDataType: varchar(255)
-      rollback:
-        - addNotNullConstraint:
-            tableName: plugwerk_user
-            columnName: username
-            columnDataType: varchar(255)
-
   - changeSet:
       id: 0017-create-username-local-unique-index
       author: plugwerk
@@ -403,23 +425,6 @@ databaseChangeLog:
         - sql:
             sql: |
               DROP INDEX uq_plugwerk_user_username_local;
-
-  # ===========================================================================
-  # 10) password_hash nullable.
-  # ===========================================================================
-  - changeSet:
-      id: 0017-password-hash-nullable
-      author: plugwerk
-      changes:
-        - dropNotNullConstraint:
-            tableName: plugwerk_user
-            columnName: password_hash
-            columnDataType: varchar(255)
-      rollback:
-        - addNotNullConstraint:
-            tableName: plugwerk_user
-            columnName: password_hash
-            columnDataType: varchar(255)
 
   # ===========================================================================
   # 11) CHECK constraints — invariants that the application would otherwise
