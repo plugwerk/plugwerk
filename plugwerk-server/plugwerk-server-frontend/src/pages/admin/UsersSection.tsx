@@ -153,14 +153,6 @@ export function UsersSection() {
               ({user.username})
             </Typography>
           )}
-          {user.source === "OIDC" && (
-            <Chip
-              label="OIDC"
-              size="small"
-              variant="outlined"
-              sx={{ height: 18, fontSize: "0.65rem" }}
-            />
-          )}
           {user.isSuperadmin && (
             <Chip
               icon={<Shield size={12} />}
@@ -179,6 +171,18 @@ export function UsersSection() {
             />
           )}
         </Box>
+      ),
+    },
+    {
+      key: "source",
+      header: "Source",
+      render: (user) => (
+        <Chip
+          label={user.source}
+          size="small"
+          variant="outlined"
+          color={user.source === "OIDC" ? "info" : "default"}
+        />
       ),
     },
     {
