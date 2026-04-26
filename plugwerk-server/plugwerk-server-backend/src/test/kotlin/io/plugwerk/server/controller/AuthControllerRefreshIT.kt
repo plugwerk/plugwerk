@@ -299,7 +299,7 @@ class AuthControllerRefreshIT {
         val provider = oidcProviderRepository.save(
             io.plugwerk.server.domain.OidcProviderEntity(
                 name = "Test KC ${UUID.randomUUID()}",
-                providerType = io.plugwerk.server.domain.OidcProviderType.KEYCLOAK,
+                providerType = io.plugwerk.server.domain.OidcProviderType.OIDC,
                 clientId = "test-client",
                 clientSecretEncrypted = "encrypted",
                 issuerUri = "https://kc/realms/test",

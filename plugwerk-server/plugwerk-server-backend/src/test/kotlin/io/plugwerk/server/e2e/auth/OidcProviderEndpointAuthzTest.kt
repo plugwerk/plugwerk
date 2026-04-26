@@ -56,7 +56,7 @@ class OidcProviderEndpointAuthzTest : AbstractAuthorizationTest() {
                     objectMapper.writeValueAsString(
                         mapOf(
                             "name" to "denied-${UUID.randomUUID().toString().take(8)}",
-                            "providerType" to "GENERIC_OIDC",
+                            "providerType" to "OIDC",
                             "clientId" to "test-client-id",
                             "clientSecret" to "test-client-secret",
                             "issuerUri" to "https://example.com",

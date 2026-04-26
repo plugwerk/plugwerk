@@ -35,15 +35,13 @@ import java.util.UUID
  *
  * Pre-configured providers ([GITHUB], [GOOGLE], [FACEBOOK]) have their well-known
  * endpoints embedded in the server — the admin only needs to supply `clientId` and
- * `clientSecret`. Generic providers ([GENERIC_OIDC], [KEYCLOAK]) require an [issuerUri]
- * so the server can discover their JWKS endpoint at runtime.
+ * `clientSecret`. The generic [OIDC] type covers any standards-compliant
+ * OpenID Connect provider (Keycloak, Authentik, Auth0, Dex, …) and requires an
+ * [issuerUri] so the server can discover its JWKS endpoint at runtime.
  */
 enum class OidcProviderType {
-    /** Arbitrary OIDC-compliant provider (e.g. Auth0, Authentik, Dex). Requires [issuerUri]. */
-    GENERIC_OIDC,
-
-    /** Keycloak instance. Requires [issuerUri] (realm URL). */
-    KEYCLOAK,
+    /** Any OIDC-compliant provider (Keycloak, Authentik, Auth0, Dex, …). Requires [issuerUri]. */
+    OIDC,
 
     /** GitHub OAuth2 (no OIDC discovery; uses fixed token/JWKS endpoints). */
     GITHUB,
@@ -83,10 +81,10 @@ enum class OidcProviderType {
  *   see every token rejected.
  * @property clientSecretEncrypted Encrypted client secret. Use [OidcProviderService] to
  *   encrypt/decrypt — never access this field directly from controllers.
- * @property issuerUri OIDC issuer URI (required for [OidcProviderType.GENERIC_OIDC] and
- *   [OidcProviderType.KEYCLOAK]). Used for JWKS endpoint discovery. Ignored for the three
- *   vendor types ([OidcProviderType.GITHUB], [OidcProviderType.GOOGLE],
- *   [OidcProviderType.FACEBOOK]) which use hardcoded canonical issuers — see
+ * @property issuerUri OIDC issuer URI (required for [OidcProviderType.OIDC]). Used for
+ *   JWKS endpoint discovery. Ignored for the three vendor types
+ *   ([OidcProviderType.GITHUB], [OidcProviderType.GOOGLE], [OidcProviderType.FACEBOOK])
+ *   which use hardcoded canonical issuers — see
  *   [io.plugwerk.server.security.OidcJwtValidators].
  * @property scope Space-separated OAuth2 scopes requested during token validation.
  * @property createdAt Creation timestamp (immutable).

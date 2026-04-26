@@ -203,8 +203,9 @@ tags:
       Manage external OIDC / OAuth2 providers for token validation.
 
       Plugwerk acts as an OAuth2 Resource Server: it validates `Authorization: Bearer` tokens
-      issued by any enabled provider. Each provider type has pre-configured JWKS endpoints;
-      only `GENERIC_OIDC` and `KEYCLOAK` require an explicit `issuerUri`.
+      issued by any enabled provider. The `GITHUB`, `GOOGLE`, and `FACEBOOK` types ship with
+      pre-configured JWKS endpoints; the generic `OIDC` type requires an explicit `issuerUri`
+      and works with any standards-compliant provider (Keycloak, Authentik, Auth0, Dex, …).
 
       All providers are disabled by default. Requires server-admin authentication.
 
@@ -2751,7 +2752,7 @@ components:
         issuerUri:
           type: string
           nullable: true
-          description: Required for GENERIC_OIDC and KEYCLOAK provider types
+          description: Required for the OIDC provider type
         scope:
           type: string
           default: openid email profile
@@ -2776,15 +2777,15 @@ components:
     OidcProviderType:
       type: string
       enum:
-        - GENERIC_OIDC
-        - KEYCLOAK
+        - OIDC
         - GITHUB
         - GOOGLE
         - FACEBOOK
       description: |
         Provider type. Pre-configured providers (GITHUB, GOOGLE, FACEBOOK) have well-known
-        endpoints embedded — only clientId and clientSecret are required.
-        GENERIC_OIDC and KEYCLOAK require an explicit issuerUri.
+        endpoints embedded — only clientId and clientSecret are required. The generic OIDC
+        type requires an explicit issuerUri and works with any standards-compliant provider
+        (Keycloak, Authentik, Auth0, Dex, …).
 
     ServerConfigResponse:
       type: object

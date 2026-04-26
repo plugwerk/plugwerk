@@ -69,7 +69,7 @@ class OidcProviderRegistry(private val oidcProviderRepository: OidcProviderRepos
         val decoders = providers.mapNotNull { provider ->
             runCatching {
                 val decoder: NimbusJwtDecoder = when (provider.providerType) {
-                    OidcProviderType.GENERIC_OIDC, OidcProviderType.KEYCLOAK -> {
+                    OidcProviderType.OIDC -> {
                         val issuerUri = requireNotNull(provider.issuerUri) {
                             "issuerUri is required for provider type ${provider.providerType}"
                         }
@@ -92,8 +92,8 @@ class OidcProviderRegistry(private val oidcProviderRepository: OidcProviderRepos
                 // Replace Spring's default validator chain with our unified
                 // timestamp + issuer + audience chain. This closes audit findings
                 // SBS-010 (GitHub audience missing) and SBS-011 (Facebook issuer
-                // missing), and also adds audience enforcement to GENERIC_OIDC,
-                // KEYCLOAK, and GOOGLE so every provider type behaves uniformly.
+                // missing), and also adds audience enforcement to OIDC and
+                // GOOGLE so every provider type behaves uniformly.
                 decoder.setJwtValidator(
                     OidcJwtValidators.forProvider(
                         providerType = provider.providerType,

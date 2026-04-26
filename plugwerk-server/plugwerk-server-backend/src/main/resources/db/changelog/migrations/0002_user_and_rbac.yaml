@@ -135,7 +135,8 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
-                  # Supported: GENERIC_OIDC, KEYCLOAK, GITHUB, GOOGLE, FACEBOOK
+                  # Supported: OIDC, GITHUB, GOOGLE, FACEBOOK (KEYCLOAK + GENERIC_OIDC
+                  # were collapsed into OIDC in migration 0018).
                   name: provider_type
                   type: varchar(50)
                   constraints:
@@ -158,7 +159,7 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
-                  # Required for GENERIC_OIDC and KEYCLOAK; null for GITHUB/GOOGLE/FACEBOOK
+                  # Required for OIDC; null for GITHUB/GOOGLE/FACEBOOK.
                   name: issuer_uri
                   type: varchar(2048)
               - column:

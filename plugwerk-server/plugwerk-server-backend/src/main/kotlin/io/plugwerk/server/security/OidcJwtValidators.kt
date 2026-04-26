@@ -74,8 +74,8 @@ object OidcJwtValidators {
      *
      * @param providerType which vendor (or custom) OIDC flow this validator serves
      * @param issuerUri issuer URI from [io.plugwerk.server.domain.OidcProviderEntity.issuerUri]
-     *   — only consulted for [OidcProviderType.GENERIC_OIDC] and [OidcProviderType.KEYCLOAK];
-     *   ignored for the three vendor types which use hardcoded canonical issuers
+     *   — only consulted for [OidcProviderType.OIDC]; ignored for the three vendor types
+     *   which use hardcoded canonical issuers
      * @param expectedAudience value expected in the token's `aud` claim; must match
      *   [io.plugwerk.server.domain.OidcProviderEntity.clientId]
      */
@@ -88,7 +88,7 @@ object OidcJwtValidators {
             "expectedAudience (client_id) must not be blank for OIDC provider of type $providerType"
         }
         val issuer = when (providerType) {
-            OidcProviderType.GENERIC_OIDC, OidcProviderType.KEYCLOAK -> {
+            OidcProviderType.OIDC -> {
                 require(!issuerUri.isNullOrBlank()) {
                     "issuerUri is required for OIDC provider type $providerType"
                 }

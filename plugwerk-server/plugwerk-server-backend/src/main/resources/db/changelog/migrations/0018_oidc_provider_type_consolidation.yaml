@@ -1,0 +1,32 @@
+# Consolidate the GENERIC_OIDC / KEYCLOAK enum values down to a single OIDC.
+#
+# Both branches in DbClientRegistrationRepository, OidcProviderRegistry, and
+# OidcJwtValidators were already identical: ClientRegistrations.fromIssuerLocation
+# does the discovery, validators trust the issuer claim. KEYCLOAK was a label,
+# not a behavioural distinction. Operators that point at a Keycloak realm get the
+# same code path as Authentik, Dex, Auth0, etc.
+#
+# Schema-wise this is a pure data migration — provider_type stays as
+# varchar(50). Existing rows are folded forwards: KEYCLOAK and GENERIC_OIDC
+# both become OIDC. The rollback recreates the GENERIC_OIDC label only;
+# the KEYCLOAK label is intentionally not restored on rollback because no
+# code path uses it differently from GENERIC_OIDC even before this change.
+databaseChangeLog:
+  - changeSet:
+      id: 0018-rename-oidc-provider-type-values
+      author: plugwerk
+      comment: >
+        Issue #357 follow-up / Option C: collapse KEYCLOAK + GENERIC_OIDC
+        into a single OIDC enum value. No schema change — only data.
+      changes:
+        - sql:
+            sql: |
+              UPDATE oidc_provider
+                 SET provider_type = 'OIDC'
+               WHERE provider_type IN ('KEYCLOAK', 'GENERIC_OIDC');
+      rollback:
+        - sql:
+            sql: |
+              UPDATE oidc_provider
+                 SET provider_type = 'GENERIC_OIDC'
+               WHERE provider_type = 'OIDC';

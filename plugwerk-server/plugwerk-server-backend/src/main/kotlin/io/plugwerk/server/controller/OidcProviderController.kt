@@ -101,16 +101,14 @@ class OidcProviderController(
     )
 
     private fun DomainType.toDto(): OidcProviderType = when (this) {
-        DomainType.GENERIC_OIDC -> OidcProviderType.GENERIC_OIDC
-        DomainType.KEYCLOAK -> OidcProviderType.KEYCLOAK
+        DomainType.OIDC -> OidcProviderType.OIDC
         DomainType.GITHUB -> OidcProviderType.GITHUB
         DomainType.GOOGLE -> OidcProviderType.GOOGLE
         DomainType.FACEBOOK -> OidcProviderType.FACEBOOK
     }
 
     private fun OidcProviderType.toDomain(): DomainType = when (this) {
-        OidcProviderType.GENERIC_OIDC -> DomainType.GENERIC_OIDC
-        OidcProviderType.KEYCLOAK -> DomainType.KEYCLOAK
+        OidcProviderType.OIDC -> DomainType.OIDC
         OidcProviderType.GITHUB -> DomainType.GITHUB
         OidcProviderType.GOOGLE -> DomainType.GOOGLE
         OidcProviderType.FACEBOOK -> DomainType.FACEBOOK

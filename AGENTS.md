@@ -358,7 +358,7 @@ docker compose --profile keycloak down -v         # Stop and wipe the realm/stat
 | Test users    | `alice` / `password` and `bob` / `password` (both with `<name>@plugwerk.test`) |
 
 After Keycloak is up, register the issuer in the Plugwerk Admin UI under
-**Admin → OIDC Providers → Add Provider** with type `KEYCLOAK`. The realm
+**Admin → OIDC Providers → Add Provider** with type `OIDC`. The realm
 definition lives in `docker/keycloak/plugwerk-realm.json`; edit it there and
 restart the container with `down -v` to pick up changes (Keycloak only
 imports realms that don't already exist).
