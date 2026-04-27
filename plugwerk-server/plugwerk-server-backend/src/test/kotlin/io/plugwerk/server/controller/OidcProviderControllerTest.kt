@@ -29,7 +29,9 @@ import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.security.RefreshRateLimitFilter
 import io.plugwerk.server.service.EntityNotFoundException
 import io.plugwerk.server.service.ForbiddenException
+import io.plugwerk.server.service.OidcProviderPatch
 import io.plugwerk.server.service.OidcProviderService
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -37,6 +39,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.eq
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration
@@ -143,11 +146,10 @@ class OidcProviderControllerTest {
     }
 
     @Test
-    fun `PATCH oidc-providers enables provider`() {
+    fun `PATCH oidc-providers enables provider via update`() {
         val providerId = UUID.randomUUID()
         val provider = stubProvider(enabled = true)
-        whenever(oidcProviderService.findById(providerId)).thenReturn(provider)
-        whenever(oidcProviderService.setEnabled(eq(providerId), eq(true))).thenReturn(provider)
+        whenever(oidcProviderService.update(eq(providerId), any())).thenReturn(provider)
 
         mockMvc.patch("/api/v1/admin/oidc-providers/$providerId") {
             contentType = MediaType.APPLICATION_JSON
@@ -156,13 +158,124 @@ class OidcProviderControllerTest {
             status { isOk() }
             jsonPath("$.enabled") { value(true) }
         }
+
+        verify(oidcProviderService).update(
+            eq(providerId),
+            org.mockito.kotlin.check { patch ->
+                assertThat(patch.enabled).isTrue()
+                assertThat(patch.name).isNull()
+                assertThat(patch.clientId).isNull()
+                assertThat(patch.clientSecretPlaintext).isNull()
+            },
+        )
+    }
+
+    @Test
+    fun `PATCH oidc-providers patches name only`() {
+        val providerId = UUID.randomUUID()
+        val updated = stubProvider(name = "Renamed")
+        whenever(oidcProviderService.update(eq(providerId), any())).thenReturn(updated)
+
+        mockMvc.patch("/api/v1/admin/oidc-providers/$providerId") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"name":"Renamed"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.name") { value("Renamed") }
+        }
+
+        verify(oidcProviderService).update(
+            eq(providerId),
+            org.mockito.kotlin.check { patch ->
+                assertThat(patch.name).isEqualTo("Renamed")
+                assertThat(patch.enabled).isNull()
+            },
+        )
+    }
+
+    @Test
+    fun `PATCH oidc-providers forwards multi-field patch as a single update call`() {
+        val providerId = UUID.randomUUID()
+        val updated = stubProvider(name = "New name")
+        whenever(oidcProviderService.update(eq(providerId), any())).thenReturn(updated)
+
+        mockMvc.patch("/api/v1/admin/oidc-providers/$providerId") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{
+                "name":"New name",
+                "clientId":"new-client",
+                "scope":"openid email",
+                "issuerUri":"https://new.example.com"
+            }"""
+        }.andExpect {
+            status { isOk() }
+        }
+
+        verify(oidcProviderService).update(
+            eq(providerId),
+            org.mockito.kotlin.check { patch ->
+                assertThat(patch.name).isEqualTo("New name")
+                assertThat(patch.clientId).isEqualTo("new-client")
+                assertThat(patch.scope).isEqualTo("openid email")
+                assertThat(patch.issuerUri).isEqualTo("https://new.example.com")
+            },
+        )
+    }
+
+    @Test
+    fun `PATCH oidc-providers forwards clientSecret as plaintext patch field`() {
+        val providerId = UUID.randomUUID()
+        whenever(oidcProviderService.update(eq(providerId), any())).thenReturn(stubProvider())
+
+        mockMvc.patch("/api/v1/admin/oidc-providers/$providerId") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"clientSecret":"new-rotated-secret"}"""
+        }.andExpect {
+            status { isOk() }
+        }
+
+        verify(oidcProviderService).update(
+            eq(providerId),
+            org.mockito.kotlin.check { patch ->
+                assertThat(patch.clientSecretPlaintext).isEqualTo("new-rotated-secret")
+            },
+        )
+    }
+
+    @Test
+    fun `PATCH response never exposes clientSecret or clientSecretEncrypted`() {
+        val providerId = UUID.randomUUID()
+        whenever(oidcProviderService.update(eq(providerId), any())).thenReturn(stubProvider())
+
+        mockMvc.patch("/api/v1/admin/oidc-providers/$providerId") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"name":"X"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.clientSecret") { doesNotExist() }
+            jsonPath("$.clientSecretEncrypted") { doesNotExist() }
+        }
+    }
+
+    @Test
+    fun `PATCH oidc-providers returns 400 when service rejects with IllegalArgumentException`() {
+        val providerId = UUID.randomUUID()
+        whenever(oidcProviderService.update(eq(providerId), any()))
+            .thenThrow(IllegalArgumentException("scope for OIDC providers must include 'openid'"))
+
+        mockMvc.patch("/api/v1/admin/oidc-providers/$providerId") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"scope":"email profile"}"""
+        }.andExpect {
+            status { isBadRequest() }
+        }
     }
 
     @Test
     fun `PATCH oidc-providers returns 404 when provider not found`() {
         val providerId = UUID.randomUUID()
         whenever(
-            oidcProviderService.findById(providerId),
+            oidcProviderService.update(eq(providerId), any()),
         ).thenThrow(EntityNotFoundException("OidcProvider", providerId.toString()))
 
         mockMvc.patch("/api/v1/admin/oidc-providers/$providerId") {
@@ -170,6 +283,20 @@ class OidcProviderControllerTest {
             content = """{"enabled":true}"""
         }.andExpect {
             status { isNotFound() }
+        }
+    }
+
+    @Test
+    fun `PATCH oidc-providers returns 403 for non-superadmin`() {
+        val providerId = UUID.randomUUID()
+        doThrow(ForbiddenException("Superadmin privileges required"))
+            .whenever(namespaceAuthorizationService).requireSuperadmin(any())
+
+        mockMvc.patch("/api/v1/admin/oidc-providers/$providerId") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"name":"x"}"""
+        }.andExpect {
+            status { isForbidden() }
         }
     }
 

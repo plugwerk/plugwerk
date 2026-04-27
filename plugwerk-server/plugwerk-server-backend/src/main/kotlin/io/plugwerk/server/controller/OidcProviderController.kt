@@ -26,6 +26,7 @@ import io.plugwerk.api.model.OidcProviderUpdateRequest
 import io.plugwerk.server.domain.OidcProviderEntity
 import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.security.currentAuthentication
+import io.plugwerk.server.service.OidcProviderPatch
 import io.plugwerk.server.service.OidcProviderService
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
@@ -72,12 +73,16 @@ class OidcProviderController(
     ): ResponseEntity<OidcProviderDto> {
         val auth = currentAuthentication()
         namespaceAuthorizationService.requireSuperadmin(auth)
-        var provider = oidcProviderService.findById(providerId)
-        oidcProviderUpdateRequest.enabled?.let { provider = oidcProviderService.setEnabled(providerId, it) }
-        oidcProviderUpdateRequest.clientSecret?.let {
-            provider = oidcProviderService.updateClientSecret(providerId, it)
-        }
-        return ResponseEntity.ok(provider.toDto())
+        val patch = OidcProviderPatch(
+            enabled = oidcProviderUpdateRequest.enabled,
+            name = oidcProviderUpdateRequest.name,
+            clientId = oidcProviderUpdateRequest.clientId,
+            clientSecretPlaintext = oidcProviderUpdateRequest.clientSecret,
+            issuerUri = oidcProviderUpdateRequest.issuerUri?.toString(),
+            scope = oidcProviderUpdateRequest.scope,
+        )
+        val updated = oidcProviderService.update(providerId, patch)
+        return ResponseEntity.ok(updated.toDto())
     }
 
     @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")

@@ -20,49 +20,54 @@ import { useState, useEffect } from "react";
 import {
   Box,
   Typography,
-  TextField,
   Button,
   Divider,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   CircularProgress,
   Chip,
   Switch,
 } from "@mui/material";
-import { Plus, Trash2 } from "lucide-react";
-import { AppDialog } from "../../components/common/AppDialog";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import { isAxiosError } from "axios";
 import { DataTable } from "../../components/common/DataTable";
 import type { DataColumn } from "../../components/common/DataTable";
 import { ActionIconButton } from "../../components/common/ActionIconButton";
 import { oidcProvidersApi } from "../../api/config";
 import { useUiStore } from "../../stores/uiStore";
 import type {
+  OidcProviderCreateRequest,
   OidcProviderDto,
   OidcProviderType,
+  OidcProviderUpdateRequest,
 } from "../../api/generated/model";
+import { OidcProviderFormDialog } from "./OidcProviderFormDialog";
 
-const PROVIDER_TYPE_LABELS: Record<string, string> = {
+const PROVIDER_TYPE_LABELS: Record<OidcProviderType, string> = {
   OIDC: "OIDC (Keycloak, Authentik, Auth0, …)",
   GITHUB: "GitHub",
   GOOGLE: "Google",
   FACEBOOK: "Facebook",
 };
 
-const ISSUER_REQUIRED_TYPES = new Set(["OIDC"]);
+/** Pulls a server-supplied error message out of an Axios error if present. */
+function extractServerMessage(err: unknown, fallback: string): string {
+  if (
+    isAxiosError(err) &&
+    typeof err.response?.data === "object" &&
+    err.response?.data !== null &&
+    "message" in err.response.data
+  ) {
+    const msg = (err.response.data as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+  }
+  return fallback;
+}
 
 export function OidcProvidersSection() {
   const [providers, setProviders] = useState<OidcProviderDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [providerType, setProviderType] = useState<OidcProviderType>("OIDC");
-  const [clientId, setClientId] = useState("");
-  const [clientSecret, setClientSecret] = useState("");
-  const [issuerUri, setIssuerUri] = useState("");
-  const [scope, setScope] = useState("openid profile email");
-  const [saving, setSaving] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editingProvider, setEditingProvider] =
+    useState<OidcProviderDto | null>(null);
   const addToast = useUiStore((s) => s.addToast);
 
   useEffect(() => {
@@ -93,9 +98,12 @@ export function OidcProvidersSection() {
         message: `Provider "${provider.name}" ${res.data.enabled ? "enabled" : "disabled"}.`,
         type: "success",
       });
-    } catch {
+    } catch (err) {
       addToast({
-        message: `Failed to update provider "${provider.name}".`,
+        message: extractServerMessage(
+          err,
+          `Failed to update provider "${provider.name}".`,
+        ),
         type: "error",
       });
     }
@@ -109,49 +117,83 @@ export function OidcProvidersSection() {
         message: `Provider "${provider.name}" deleted.`,
         type: "success",
       });
-    } catch {
+    } catch (err) {
       addToast({
-        message: `Failed to delete provider "${provider.name}".`,
+        message: extractServerMessage(
+          err,
+          `Failed to delete provider "${provider.name}".`,
+        ),
         type: "error",
       });
     }
   }
 
-  async function handleCreate() {
-    if (!name.trim() || !clientId.trim() || !clientSecret.trim()) return;
-    if (ISSUER_REQUIRED_TYPES.has(providerType) && !issuerUri.trim()) return;
-    setSaving(true);
+  /**
+   * Create flow — appends new row on success. No optimistic update because the
+   * server assigns the UUID, so we'd have nothing to merge until the response
+   * comes back anyway.
+   */
+  async function handleCreate(payload: OidcProviderCreateRequest) {
     try {
       const res = await oidcProvidersApi.createOidcProvider({
-        oidcProviderCreateRequest: {
-          name: name.trim(),
-          providerType,
-          clientId: clientId.trim(),
-          clientSecret: clientSecret.trim(),
-          issuerUri: issuerUri.trim() || undefined,
-          scope: scope.trim() || undefined,
-        },
+        oidcProviderCreateRequest: payload,
       });
       setProviders((prev) => [...prev, res.data]);
       addToast({
         message: `Provider "${res.data.name}" created.`,
         type: "success",
       });
-      setDialogOpen(false);
-      setName("");
-      setClientId("");
-      setClientSecret("");
-      setIssuerUri("");
-      setScope("openid profile email");
-      setProviderType("OIDC");
-    } catch {
-      addToast({ message: "Failed to create OIDC provider.", type: "error" });
-    } finally {
-      setSaving(false);
+      setCreateOpen(false);
+    } catch (err) {
+      addToast({
+        message: extractServerMessage(err, "Failed to create OIDC provider."),
+        type: "error",
+      });
     }
   }
 
-  const issuerRequired = ISSUER_REQUIRED_TYPES.has(providerType);
+  /**
+   * Edit flow with optimistic update — merge the diff into the row before the
+   * PATCH returns; on failure restore the previous row state and surface the
+   * server's actual error message. `clientSecret` is in the request payload but
+   * not in the response DTO, so it stays out of the optimistic merge.
+   */
+  async function handleEditSubmit(
+    provider: OidcProviderDto,
+    diff: OidcProviderUpdateRequest,
+  ) {
+    const previous = provider;
+    const { clientSecret: _ignored, ...visibleDiff } = diff;
+    const optimistic: OidcProviderDto = { ...provider, ...visibleDiff };
+    setProviders((prev) =>
+      prev.map((p) => (p.id === provider.id ? optimistic : p)),
+    );
+    try {
+      const res = await oidcProvidersApi.updateOidcProvider({
+        providerId: provider.id,
+        oidcProviderUpdateRequest: diff,
+      });
+      setProviders((prev) =>
+        prev.map((p) => (p.id === provider.id ? res.data : p)),
+      );
+      addToast({
+        message: `Provider "${res.data.name}" updated.`,
+        type: "success",
+      });
+      setEditingProvider(null);
+    } catch (err) {
+      setProviders((prev) =>
+        prev.map((p) => (p.id === provider.id ? previous : p)),
+      );
+      addToast({
+        message: extractServerMessage(err, "Failed to update provider."),
+        type: "error",
+      });
+      // Re-throw so the form dialog can catch and stay open for the operator
+      // to fix the error and retry.
+      throw err;
+    }
+  }
 
   const oidcColumns: DataColumn<OidcProviderDto>[] = [
     {
@@ -206,12 +248,19 @@ export function OidcProvidersSection() {
       header: "",
       align: "right",
       render: (provider) => (
-        <ActionIconButton
-          icon={Trash2}
-          tooltip="Delete"
-          color="error"
-          onClick={() => handleDelete(provider)}
-        />
+        <Box sx={{ display: "flex", gap: 0.5, justifyContent: "flex-end" }}>
+          <ActionIconButton
+            icon={Pencil}
+            tooltip="Edit"
+            onClick={() => setEditingProvider(provider)}
+          />
+          <ActionIconButton
+            icon={Trash2}
+            tooltip="Delete"
+            color="error"
+            onClick={() => handleDelete(provider)}
+          />
+        </Box>
       ),
     },
   ];
@@ -235,7 +284,7 @@ export function OidcProvidersSection() {
           variant="outlined"
           size="small"
           startIcon={<Plus size={14} />}
-          onClick={() => setDialogOpen(true)}
+          onClick={() => setCreateOpen(true)}
         >
           Add Provider
         </Button>
@@ -258,81 +307,27 @@ export function OidcProvidersSection() {
         />
       )}
 
-      <AppDialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        title="Add OIDC Provider"
-        description="Configure an external identity provider for single sign-on. The provider is disabled by default after creation."
-        actionLabel="Create Provider"
-        onAction={handleCreate}
-        actionDisabled={
-          !name.trim() ||
-          !clientId.trim() ||
-          !clientSecret.trim() ||
-          (issuerRequired && !issuerUri.trim())
+      <OidcProviderFormDialog
+        open={createOpen}
+        mode="create"
+        onClose={() => setCreateOpen(false)}
+        onSubmit={(payload) =>
+          handleCreate(payload as OidcProviderCreateRequest)
         }
-        actionLoading={saving}
-        maxWidth={600}
-      >
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <TextField
-            label="Display Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            size="small"
-            autoFocus
-          />
-          <FormControl size="small" required>
-            <InputLabel>Provider Type</InputLabel>
-            <Select
-              value={providerType}
-              label="Provider Type"
-              onChange={(e) =>
-                setProviderType(e.target.value as OidcProviderType)
-              }
-            >
-              {Object.entries(PROVIDER_TYPE_LABELS).map(([value, label]) => (
-                <MenuItem key={value} value={value}>
-                  {label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <TextField
-            label="Client ID"
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            required
-            size="small"
-          />
-          <TextField
-            label="Client Secret"
-            type="password"
-            value={clientSecret}
-            onChange={(e) => setClientSecret(e.target.value)}
-            required
-            size="small"
-          />
-          {issuerRequired && (
-            <TextField
-              label="Issuer URI"
-              value={issuerUri}
-              onChange={(e) => setIssuerUri(e.target.value)}
-              required
-              size="small"
-              placeholder="https://your-idp.example.com/realms/myrealm"
-            />
-          )}
-          <TextField
-            label="Scope"
-            value={scope}
-            onChange={(e) => setScope(e.target.value)}
-            size="small"
-            helperText="Space-separated OAuth2 scopes"
-          />
-        </Box>
-      </AppDialog>
+      />
+
+      <OidcProviderFormDialog
+        open={editingProvider !== null}
+        mode="edit"
+        initialValues={editingProvider ?? undefined}
+        onClose={() => setEditingProvider(null)}
+        onSubmit={(payload) =>
+          handleEditSubmit(
+            editingProvider!,
+            payload as OidcProviderUpdateRequest,
+          )
+        }
+      />
     </Box>
   );
 }
