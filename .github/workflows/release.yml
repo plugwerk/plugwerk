@@ -97,25 +97,25 @@ jobs:
           echo "📦 Collected artifacts:"
           ls -lh "$STAGING_DIR/"
 
+      - name: Create GitHub Release
+        # release.yml owns the GitHub Release lifecycle. Previously
+        # prepare-release.yml created it after waiting for release.yml to
+        # finish, while release.yml waited 5 minutes for that release to
+        # appear before falling back to creating it itself; the two
+        # workflows deadlocked and prepare-release's create step then
+        # failed with HTTP 422 "tag_name already exists". Now there is
+        # exactly one creator: this step.
+        run: |
+          TAG="v${{ steps.version.outputs.VERSION }}"
+          echo "📦 Creating GitHub Release $TAG..."
+          gh release create "$TAG" --title "$TAG" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Upload assets to GitHub Release
         run: |
           STAGING_DIR="${{ steps.artifacts.outputs.STAGING_DIR }}"
           TAG="v${{ steps.version.outputs.VERSION }}"
-
-          # Wait for the GitHub Release to exist (created by prepare-release.yml)
-          for i in $(seq 1 30); do
-            if gh release view "$TAG" >/dev/null 2>&1; then
-              break
-            fi
-            echo "  Waiting for GitHub Release $TAG to be created... ($i/30)"
-            sleep 10
-          done
-
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
-            echo "⚠️  GitHub Release $TAG not found — creating it now"
-            gh release create "$TAG" --title "$TAG" --generate-notes
-          fi
-
           echo "📤 Uploading assets to GitHub Release $TAG..."
           gh release upload "$TAG" "$STAGING_DIR"/* --clobber
           echo "✅ Assets uploaded"

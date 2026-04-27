@@ -111,6 +111,11 @@ jobs:
           git push origin main "v${{ inputs.release_version }}"
 
       - name: Wait for release workflow
+        # release.yml is triggered by the tag push (above) and owns the
+        # entire publish + GitHub-Release lifecycle — Maven Central,
+        # GitHub Packages, the GitHub Release itself, asset upload, and
+        # the website-sync dispatches. We just wait here so the operator
+        # sees the full chain green/red in one place.
         run: |
           PUSH_TIME="${{ steps.push.outputs.PUSH_TIME }}"
           TAG="v${{ inputs.release_version }}"
@@ -145,14 +150,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create GitHub Release
-        run: |
-          gh release create "v${{ inputs.release_version }}" \
-            --title "v${{ inputs.release_version }}" \
-            --generate-notes
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Notify downstream repositories
         if: success()
         run: |
@@ -184,5 +181,5 @@ jobs:
           echo "| Version bump to \`${{ inputs.release_version }}\` | ✅ |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Tag \`v${{ inputs.release_version }}\` created | ✅ |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Next snapshot \`${{ inputs.next_version }}\` | ✅ |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Maven Central publish | ✅ |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| GitHub Release created | ✅ |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Maven Central publish (release.yml) | ✅ |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| GitHub Release created (release.yml) | ✅ |" >> "$GITHUB_STEP_SUMMARY"
