@@ -22,6 +22,7 @@ import io.plugwerk.server.domain.UserSettingEntity
 import io.plugwerk.server.repository.UserSettingRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.util.UUID
 
 /**
  * Reads and writes per-user settings (ADR-0018).
@@ -33,22 +34,22 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class UserSettingsService(private val repository: UserSettingRepository) {
 
-    fun getAll(userSubject: String): Map<String, String> {
-        val stored = repository.findByUserSubject(userSubject).associate { it.settingKey to (it.settingValue ?: "") }
+    fun getAll(userId: UUID): Map<String, String> {
+        val stored = repository.findByUserId(userId).associate { it.settingKey to (it.settingValue ?: "") }
         return UserSettingKey.entries.associate { key ->
             key.key to (stored[key.key]?.ifEmpty { null } ?: key.defaultValue)
         }
     }
 
-    fun get(userSubject: String, key: UserSettingKey): String {
-        val entity = repository.findByUserSubjectAndSettingKey(userSubject, key.key).orElse(null)
+    fun get(userId: UUID, key: UserSettingKey): String {
+        val entity = repository.findByUserIdAndSettingKey(userId, key.key).orElse(null)
         val value = entity?.settingValue
         return if (value.isNullOrEmpty()) key.defaultValue else value
     }
 
     @Transactional
-    fun update(userSubject: String, settings: Map<String, String>): Map<String, String> {
-        val existingByKey = repository.findByUserSubject(userSubject).associateBy { it.settingKey }
+    fun update(userId: UUID, settings: Map<String, String>): Map<String, String> {
+        val existingByKey = repository.findByUserId(userId).associateBy { it.settingKey }
         val toSave = mutableListOf<UserSettingEntity>()
         for ((rawKey, rawValue) in settings) {
             val key = UserSettingKey.byKey(rawKey)
@@ -62,19 +63,19 @@ class UserSettingsService(private val repository: UserSettingRepository) {
                 toSave += existing
             } else {
                 toSave += UserSettingEntity(
-                    userSubject = userSubject,
+                    userId = userId,
                     settingKey = key.key,
                     settingValue = rawValue,
                 )
             }
         }
         repository.saveAll(toSave)
-        return getAll(userSubject)
+        return getAll(userId)
     }
 
     @Transactional
-    fun deleteAll(userSubject: String) {
-        repository.deleteByUserSubject(userSubject)
+    fun deleteAll(userId: UUID) {
+        repository.deleteByUserId(userId)
     }
 
     @Transactional

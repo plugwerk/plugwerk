@@ -35,3 +35,5 @@ databaseChangeLog:
       file: db/changelog/migrations/0017_identity_hub_split.yaml
   - include:
       file: db/changelog/migrations/0018_oidc_provider_type_consolidation.yaml
+  - include:
+      file: db/changelog/migrations/0019_user_setting_user_id_fk.yaml

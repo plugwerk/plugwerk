@@ -1,0 +1,184 @@
+# user_setting.user_subject (free text) → user_setting.user_id (uuid FK on
+# plugwerk_user). Issue #360.
+#
+# Background: every other user-referencing table was converted to a proper
+# UUID FK in #351 / migration 0017. user_setting was missed. Migration 0017
+# already rewrote the *values* in user_subject to plugwerk_user.id UUID
+# strings (see 0017_identity_hub_split.yaml changeset 0017-data-migration,
+# step 4f) — this migration just finishes the job by tightening the schema.
+#
+# Effects:
+#   - Adds user_id uuid FK with ON DELETE CASCADE so user deletes via
+#     /admin/users no longer leak orphan setting rows.
+#   - Drops the misleading user_subject column whose name implied "any JWT
+#     sub" but in practice held only UUIDs post-#351.
+#   - Replaces the (user_subject, setting_key) unique constraint with one
+#     on (user_id, setting_key). The constraint's btree index also serves
+#     prefix lookups by user_id alone, so no separate idx_user_setting_user_id
+#     is needed (the previous idx_user_setting_subject was redundant for the
+#     same reason).
+databaseChangeLog:
+  # ===========================================================================
+  # 1) Safety probe — abort if any user_subject is not UUID-shaped. After 0017
+  #    every value should be a canonical UUID; if this fires, 0017 missed a row
+  #    and we want a loud failure rather than an INSERT NULL or a cast crash.
+  # ===========================================================================
+  - changeSet:
+      id: 0019-precheck-all-user-subjects-are-uuids
+      author: plugwerk
+      preConditions:
+        - onFail: HALT
+        - sqlCheck:
+            expectedResult: 0
+            sql: >
+              SELECT count(*) FROM user_setting
+               WHERE user_subject !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      changes:
+        - sql:
+            sql: "SELECT 1"
+      rollback:
+        - sql:
+            sql: "SELECT 1"
+
+  # ===========================================================================
+  # 2) Add the new FK column nullable so the backfill (step 3) can populate it
+  #    before NOT NULL is enforced (step 4).
+  # ===========================================================================
+  - changeSet:
+      id: 0019-add-user-id-column
+      author: plugwerk
+      changes:
+        - addColumn:
+            tableName: user_setting
+            columns:
+              - column:
+                  name: user_id
+                  type: uuid
+      rollback:
+        - dropColumn:
+            tableName: user_setting
+            columnName: user_id
+
+  # ===========================================================================
+  # 3) Backfill: cast every existing user_subject to UUID. Safe because of
+  #    step 1's precondition — without that probe a single malformed row would
+  #    crash the whole migration.
+  # ===========================================================================
+  - changeSet:
+      id: 0019-backfill-user-id
+      author: plugwerk
+      changes:
+        - sql:
+            sql: |
+              UPDATE user_setting
+                 SET user_id = user_subject::uuid;
+      rollback:
+        - sql:
+            sql: |
+              UPDATE user_setting
+                 SET user_id = NULL;
+
+  # ===========================================================================
+  # 4) Lock down: NOT NULL + FK with ON DELETE CASCADE. CASCADE is the same
+  #    semantics #351 chose for namespace_member.user_id and
+  #    oidc_identity.user_id — deleting a user removes their setting rows
+  #    rather than leaving them orphaned.
+  # ===========================================================================
+  - changeSet:
+      id: 0019-user-id-not-null
+      author: plugwerk
+      changes:
+        - addNotNullConstraint:
+            tableName: user_setting
+            columnName: user_id
+            columnDataType: uuid
+      rollback:
+        - dropNotNullConstraint:
+            tableName: user_setting
+            columnName: user_id
+            columnDataType: uuid
+
+  - changeSet:
+      id: 0019-user-id-fk
+      author: plugwerk
+      changes:
+        - addForeignKeyConstraint:
+            constraintName: fk_user_setting_user
+            baseTableName: user_setting
+            baseColumnNames: user_id
+            referencedTableName: plugwerk_user
+            referencedColumnNames: id
+            onDelete: CASCADE
+      rollback:
+        - dropForeignKeyConstraint:
+            baseTableName: user_setting
+            constraintName: fk_user_setting_user
+
+  # ===========================================================================
+  # 5) Constraint + index swap. The new unique constraint creates a btree
+  #    index that also serves "WHERE user_id = ?" prefix lookups, so a
+  #    separate idx_user_setting_user_id would be redundant — same reason
+  #    idx_user_setting_subject was redundant before this migration.
+  # ===========================================================================
+  - changeSet:
+      id: 0019-drop-old-unique-and-index
+      author: plugwerk
+      changes:
+        - dropUniqueConstraint:
+            tableName: user_setting
+            constraintName: uq_user_setting_subject_key
+        - dropIndex:
+            tableName: user_setting
+            indexName: idx_user_setting_subject
+      rollback:
+        - createIndex:
+            tableName: user_setting
+            indexName: idx_user_setting_subject
+            columns:
+              - column:
+                  name: user_subject
+        - addUniqueConstraint:
+            tableName: user_setting
+            columnNames: user_subject, setting_key
+            constraintName: uq_user_setting_subject_key
+
+  - changeSet:
+      id: 0019-add-new-unique
+      author: plugwerk
+      changes:
+        - addUniqueConstraint:
+            tableName: user_setting
+            columnNames: user_id, setting_key
+            constraintName: uq_user_setting_user_key
+      rollback:
+        - dropUniqueConstraint:
+            tableName: user_setting
+            constraintName: uq_user_setting_user_key
+
+  # ===========================================================================
+  # 6) Drop the legacy column. Rollback recreates it and re-populates from
+  #    user_id::text so LiquibaseRollbackIT continues to land on a usable
+  #    schema state.
+  # ===========================================================================
+  - changeSet:
+      id: 0019-drop-user-subject
+      author: plugwerk
+      changes:
+        - dropColumn:
+            tableName: user_setting
+            columnName: user_subject
+      rollback:
+        - addColumn:
+            tableName: user_setting
+            columns:
+              - column:
+                  name: user_subject
+                  type: varchar(255)
+        - sql:
+            sql: |
+              UPDATE user_setting
+                 SET user_subject = user_id::text;
+        - addNotNullConstraint:
+            tableName: user_setting
+            columnName: user_subject
+            columnDataType: varchar(255)

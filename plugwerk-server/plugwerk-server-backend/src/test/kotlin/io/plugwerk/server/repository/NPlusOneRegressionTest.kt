@@ -23,7 +23,9 @@ import io.plugwerk.server.countingStatements
 import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.PluginEntity
 import io.plugwerk.server.domain.PluginReleaseEntity
+import io.plugwerk.server.domain.UserEntity
 import io.plugwerk.server.domain.UserSettingEntity
+import io.plugwerk.server.domain.UserSource
 import io.plugwerk.server.service.settings.UserSettingKey
 import io.plugwerk.server.service.settings.UserSettingsService
 import io.plugwerk.spi.model.PluginStatus
@@ -139,17 +141,17 @@ class NPlusOneRegressionTest : AbstractRepositoryTest() {
 
     @Test
     fun `DB-018 UserSettingsService update uses statement count independent of number of keys`() {
-        val subjectSmall = "user-small"
-        val subjectLarge = "user-large"
+        val userSmall = seedTestUser("user-small")
+        val userLarge = seedTestUser("user-large")
         val allKeys = UserSettingKey.entries
 
         // Pre-seed so both updates hit the UPDATE path uniformly
         allKeys.forEach { key ->
             entityManager.persist(
-                UserSettingEntity(userSubject = subjectSmall, settingKey = key.key, settingValue = "x"),
+                UserSettingEntity(userId = userSmall, settingKey = key.key, settingValue = "x"),
             )
             entityManager.persist(
-                UserSettingEntity(userSubject = subjectLarge, settingKey = key.key, settingValue = "x"),
+                UserSettingEntity(userId = userLarge, settingKey = key.key, settingValue = "x"),
             )
         }
         entityManager.flush()
@@ -159,10 +161,10 @@ class NPlusOneRegressionTest : AbstractRepositoryTest() {
         val largeInput = allKeys.associate { it.key to it.defaultValue }
 
         val (_, smallCount) = entityManager.countingStatements {
-            userSettingsService.update(subjectSmall, smallInput)
+            userSettingsService.update(userSmall, smallInput)
         }
         val (_, largeCount) = entityManager.countingStatements {
-            userSettingsService.update(subjectLarge, largeInput)
+            userSettingsService.update(userLarge, largeInput)
         }
 
         assertThat(smallCount)
@@ -176,6 +178,25 @@ class NPlusOneRegressionTest : AbstractRepositoryTest() {
                 allKeys.size,
             )
             .isEqualTo(smallCount)
+    }
+
+    /**
+     * Persists a minimal LOCAL-source [UserEntity] and returns its assigned id.
+     * Required since #360 introduced a FK from `user_setting.user_id` to
+     * `plugwerk_user(id)` — the previous fixture seeded raw subject strings
+     * without backing user rows, which would now violate the constraint.
+     */
+    private fun seedTestUser(usernameSuffix: String): java.util.UUID {
+        val user = UserEntity(
+            displayName = "Test $usernameSuffix",
+            email = "$usernameSuffix@plugwerk.test",
+            source = UserSource.LOCAL,
+            username = usernameSuffix,
+            passwordHash = "\$2a\$12\$dummyhash",
+        )
+        entityManager.persist(user)
+        entityManager.flush()
+        return requireNotNull(user.id)
     }
 
     @Test

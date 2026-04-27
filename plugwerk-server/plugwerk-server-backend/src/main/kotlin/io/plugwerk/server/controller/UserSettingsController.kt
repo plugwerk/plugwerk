@@ -21,8 +21,7 @@ package io.plugwerk.server.controller
 import io.plugwerk.api.UserSettingsApi
 import io.plugwerk.api.model.UserSettingsResponse
 import io.plugwerk.api.model.UserSettingsUpdateRequest
-import io.plugwerk.server.security.currentAuthentication
-import io.plugwerk.server.service.UnauthorizedException
+import io.plugwerk.server.security.CurrentUserResolver
 import io.plugwerk.server.service.settings.UserSettingsService
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
@@ -31,11 +30,18 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/api/v1")
-class UserSettingsController(private val userSettingsService: UserSettingsService) : UserSettingsApi {
+class UserSettingsController(
+    private val userSettingsService: UserSettingsService,
+    private val currentUserResolver: CurrentUserResolver,
+) : UserSettingsApi {
 
     override fun getUserSettings(): ResponseEntity<UserSettingsResponse> {
-        val subject = requireAuthenticatedSubject()
-        val settings = userSettingsService.getAll(subject)
+        // CurrentUserResolver throws UnauthorizedException (→ 401) when the
+        // request lacks an auth or carries a non-UUID subject. API-key callers
+        // present `key:<id>` as their auth name; that fails the UUID parse
+        // and gets the same 401 the previous explicit guard returned.
+        val userId = currentUserResolver.currentUserId()
+        val settings = userSettingsService.getAll(userId)
         return ResponseEntity.ok(UserSettingsResponse(settings = settings))
     }
 
@@ -43,17 +49,8 @@ class UserSettingsController(private val userSettingsService: UserSettingsServic
     override fun updateUserSettings(
         userSettingsUpdateRequest: UserSettingsUpdateRequest,
     ): ResponseEntity<UserSettingsResponse> {
-        val subject = requireAuthenticatedSubject()
-        val updated = userSettingsService.update(subject, userSettingsUpdateRequest.settings)
+        val userId = currentUserResolver.currentUserId()
+        val updated = userSettingsService.update(userId, userSettingsUpdateRequest.settings)
         return ResponseEntity.ok(UserSettingsResponse(settings = updated))
-    }
-
-    private fun requireAuthenticatedSubject(): String {
-        val auth = currentAuthentication()
-        val name = auth.name
-        if (name.isNullOrBlank() || name.startsWith("key:")) {
-            throw UnauthorizedException("User settings are not available for API key authentication")
-        }
-        return name
     }
 }
