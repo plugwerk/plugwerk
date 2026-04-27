@@ -297,9 +297,7 @@ databaseChangeLog:
               --     carries plugwerk_user.id, so existing rows keyed by the old
               --     username/<provider>:<sub> string would silently disappear
               --     for the user. The free-text shape is unchanged — only the
-              --     value format flips. (Migration 0019 / issue #360 finishes
-              --     the job by converting this column to a proper UUID FK and
-              --     dropping `user_subject`.)
+              --     value format flips.
               UPDATE user_setting us
                  SET user_subject = pu.id::text
                 FROM plugwerk_user pu
