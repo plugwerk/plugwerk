@@ -33,8 +33,8 @@ import java.util.UUID
     name = "user_setting",
     uniqueConstraints = [
         UniqueConstraint(
-            name = "uq_user_setting_subject_key",
-            columnNames = ["user_subject", "setting_key"],
+            name = "uq_user_setting_user_key",
+            columnNames = ["user_id", "setting_key"],
         ),
     ],
 )
@@ -44,8 +44,8 @@ class UserSettingEntity(
     @Column(name = "id", updatable = false)
     var id: UUID? = null,
 
-    @Column(name = "user_subject", nullable = false, length = 255, updatable = false)
-    var userSubject: String,
+    @Column(name = "user_id", nullable = false, updatable = false)
+    var userId: UUID,
 
     @Column(name = "setting_key", nullable = false, length = 128, updatable = false)
     var settingKey: String,

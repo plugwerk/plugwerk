@@ -28,9 +28,9 @@ import java.util.UUID
 
 @Repository
 interface UserSettingRepository : JpaRepository<UserSettingEntity, UUID> {
-    fun findByUserSubject(userSubject: String): List<UserSettingEntity>
-    fun findByUserSubjectAndSettingKey(userSubject: String, settingKey: String): Optional<UserSettingEntity>
-    fun deleteByUserSubject(userSubject: String)
+    fun findByUserId(userId: UUID): List<UserSettingEntity>
+    fun findByUserIdAndSettingKey(userId: UUID, settingKey: String): Optional<UserSettingEntity>
+    fun deleteByUserId(userId: UUID)
 
     @Modifying
     @Query(
