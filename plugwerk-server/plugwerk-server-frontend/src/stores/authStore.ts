@@ -60,7 +60,11 @@ interface AuthState {
   /** `true` until hydrate() has resolved (success or 401). Blocks initial API calls. */
   isHydrating: boolean;
 
-  login: (username: string, password: string) => Promise<void>;
+  login: (
+    username: string,
+    password: string,
+    rememberMe?: boolean,
+  ) => Promise<void>;
   logout: () => Promise<void>;
   hydrate: () => Promise<void>;
   setAuth: (fields: {
@@ -171,12 +175,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
 
-  async login(username: string, password: string) {
+  async login(username: string, password: string, rememberMe: boolean = true) {
+    // `rememberMe` toggles the refresh-cookie's persistence (#317):
+    //   true  → cookie carries Max-Age=7d, survives browser restart (default).
+    //   false → no Max-Age, session-cookie shape, dropped on browser close.
+    // The server-side TTL on the refresh-token row is unchanged either way.
     const response = await fetch("/api/v1/auth/login", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, rememberMe }),
     });
     if (!response.ok) {
       throw new Error("Invalid credentials");

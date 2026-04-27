@@ -68,14 +68,28 @@ class RefreshTokenCookieFactory(private val props: PlugwerkProperties) {
         }
     }
 
-    /** Builds the cookie for a freshly-issued refresh token. */
-    fun build(plaintext: String, maxAge: Duration): ResponseCookie = ResponseCookie.from(COOKIE_NAME, plaintext)
-        .httpOnly(true)
-        .secure(props.auth.cookieSecure)
-        .sameSite(SAME_SITE)
-        .path(COOKIE_PATH)
-        .maxAge(maxAge)
-        .build()
+    /**
+     * Builds the cookie for a freshly-issued refresh token.
+     *
+     * [persistent] toggles the "Stay logged in" behaviour from #317:
+     *   - `true` (default): cookie carries `Max-Age=<refresh-TTL>` and survives
+     *     browser restarts — current behaviour, preserved for existing clients
+     *     that don't send the new flag.
+     *   - `false`: `Max-Age` is intentionally omitted. Per RFC 6265 §5.3 a
+     *     Set-Cookie without `Max-Age` and without `Expires` is a session
+     *     cookie that the browser drops on close. The server-side TTL on the
+     *     refresh-token row is identical either way; only the cookie's
+     *     persistence changes.
+     */
+    fun build(plaintext: String, maxAge: Duration, persistent: Boolean = true): ResponseCookie {
+        val builder = ResponseCookie.from(COOKIE_NAME, plaintext)
+            .httpOnly(true)
+            .secure(props.auth.cookieSecure)
+            .sameSite(SAME_SITE)
+            .path(COOKIE_PATH)
+        if (persistent) builder.maxAge(maxAge)
+        return builder.build()
+    }
 
     /** Builds a clearing cookie (empty value, `Max-Age=0`) for logout / failed refresh. */
     fun clear(): ResponseCookie = ResponseCookie.from(COOKIE_NAME, "")

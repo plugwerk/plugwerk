@@ -83,7 +83,9 @@ describe("LoginPage", () => {
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith("alice", "secret");
+      // Default rememberMe=true preserves pre-#317 behaviour for any client
+      // that does not explicitly toggle the checkbox.
+      expect(mockLogin).toHaveBeenCalledWith("alice", "secret", true);
     });
   });
 
@@ -98,7 +100,9 @@ describe("LoginPage", () => {
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith("alice", "secret");
+      // Default rememberMe=true preserves pre-#317 behaviour for any client
+      // that does not explicitly toggle the checkbox.
+      expect(mockLogin).toHaveBeenCalledWith("alice", "secret", true);
     });
   });
 
@@ -126,5 +130,48 @@ describe("LoginPage", () => {
     expect(screen.getByRole("alert")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /close/i }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  // ─── #317 "Stay logged in" checkbox ────────────────────────────────────────
+
+  it("renders the Stay logged in checkbox checked by default", () => {
+    renderWithRouter(<LoginPage />);
+    const checkbox = screen.getByRole("checkbox", { name: /stay logged in/i });
+    expect(checkbox).toBeInTheDocument();
+    expect(checkbox).toBeChecked();
+  });
+
+  it("forwards rememberMe=false to login when the checkbox is unticked", async () => {
+    const mockLogin = vi.fn().mockResolvedValue(undefined);
+    useAuthStore.setState({ login: mockLogin } as never);
+
+    const user = userEvent.setup();
+    renderWithRouter(<LoginPage />);
+    await user.type(screen.getByLabelText(/username/i), "alice");
+    await user.type(screen.getByLabelText(/password/i), "secret");
+    await user.click(screen.getByRole("checkbox", { name: /stay logged in/i }));
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(mockLogin).toHaveBeenCalledWith("alice", "secret", false);
+    });
+  });
+
+  it("forwards rememberMe=true after toggling the checkbox off and back on", async () => {
+    const mockLogin = vi.fn().mockResolvedValue(undefined);
+    useAuthStore.setState({ login: mockLogin } as never);
+
+    const user = userEvent.setup();
+    renderWithRouter(<LoginPage />);
+    const checkbox = screen.getByRole("checkbox", { name: /stay logged in/i });
+    await user.click(checkbox); // off
+    await user.click(checkbox); // on again
+    await user.type(screen.getByLabelText(/username/i), "alice");
+    await user.type(screen.getByLabelText(/password/i), "secret");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(mockLogin).toHaveBeenCalledWith("alice", "secret", true);
+    });
   });
 });

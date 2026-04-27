@@ -23,7 +23,9 @@ import {
   TextField,
   Button,
   Alert,
+  Checkbox,
   Divider,
+  FormControlLabel,
   Typography,
 } from "@mui/material";
 import { AuthCard } from "../components/auth/AuthCard";
@@ -49,6 +51,10 @@ export function LoginPage() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  // Default checked → preserves the pre-#317 behaviour where every login
+  // produced a 7-day persistent cookie. Unticking gives the user a
+  // shared-computer mode: cookie is dropped when the browser closes.
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -61,7 +67,7 @@ export function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      await login(username.trim(), password);
+      await login(username.trim(), password, rememberMe);
       await useAuthStore.getState().initNamespace();
       const { passwordChangeRequired, namespace } = useAuthStore.getState();
       if (passwordChangeRequired) {
@@ -119,6 +125,20 @@ export function LoginPage() {
           required
           autoComplete="current-password"
           size="small"
+        />
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              size="small"
+              inputProps={{ "aria-label": "Stay logged in" }}
+            />
+          }
+          label="Stay logged in"
+          // Tighter vertical rhythm than the default — the form already has
+          // gap=2, an extra block of margin would make this feel detached.
+          sx={{ mt: -0.5, mb: -0.5 }}
         />
         <Button
           type="submit"

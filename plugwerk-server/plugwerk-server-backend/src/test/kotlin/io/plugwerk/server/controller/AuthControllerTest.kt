@@ -38,6 +38,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration
@@ -110,10 +111,16 @@ class AuthControllerTest {
                 rowId = UUID.randomUUID(),
             )
         }
-        whenever(refreshTokenCookieFactory.build(any(), any())).thenAnswer {
-            ResponseCookie.from("plugwerk_refresh", "stub-refresh-plaintext")
+        // Stub the 3-arg signature introduced in #317. Note the third arg
+        // (persistent) is a Boolean; the answer below faithfully toggles
+        // Max-Age so the persistent=false branch tests can assert on the
+        // returned header without re-stubbing.
+        whenever(refreshTokenCookieFactory.build(any(), any(), any())).thenAnswer { invocation ->
+            val persistent = invocation.arguments[2] as Boolean
+            val builder = ResponseCookie.from("plugwerk_refresh", "stub-refresh-plaintext")
                 .httpOnly(true).secure(false).sameSite("Strict").path("/api/v1/auth")
-                .maxAge(Duration.ofHours(168)).build()
+            if (persistent) builder.maxAge(Duration.ofHours(168))
+            builder.build()
         }
         whenever(refreshTokenCookieFactory.clear()).thenAnswer {
             ResponseCookie.from("plugwerk_refresh", "")
@@ -150,6 +157,86 @@ class AuthControllerTest {
             jsonPath("$.userId") { value(userId.toString()) }
             jsonPath("$.displayName") { value("Alice") }
         }
+    }
+
+    @Test
+    fun `POST login with rememberMe=true forwards persistent=true to the cookie factory`() {
+        stubValidLogin("alice", "secret")
+
+        mockMvc.post("/api/v1/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"username":"alice","password":"secret","rememberMe":true}"""
+        }.andExpect {
+            status { isOk() }
+            // Stub builds Max-Age=604800 (= 168h) when persistent=true.
+            header { string("Set-Cookie", org.hamcrest.Matchers.containsString("Max-Age=604800")) }
+        }
+
+        verify(refreshTokenCookieFactory).build(any(), any(), eq(true))
+    }
+
+    @Test
+    fun `POST login with rememberMe=false forwards persistent=false and the cookie has no Max-Age`() {
+        stubValidLogin("alice", "secret")
+
+        mockMvc.post("/api/v1/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"username":"alice","password":"secret","rememberMe":false}"""
+        }.andExpect {
+            status { isOk() }
+            header {
+                string(
+                    "Set-Cookie",
+                    org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Max-Age")),
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Expires")),
+                        org.hamcrest.Matchers.containsString("HttpOnly"),
+                        org.hamcrest.Matchers.containsString("SameSite=Strict"),
+                        org.hamcrest.Matchers.containsString("Path=/api/v1/auth"),
+                    ),
+                )
+            }
+        }
+
+        verify(refreshTokenCookieFactory).build(any(), any(), eq(false))
+    }
+
+    @Test
+    fun `POST login without rememberMe field defaults to persistent=true (back-compat)`() {
+        stubValidLogin("alice", "secret")
+
+        mockMvc.post("/api/v1/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            // No rememberMe key in the body — pre-#317 client shape.
+            content = """{"username":"alice","password":"secret"}"""
+        }.andExpect {
+            status { isOk() }
+            header { string("Set-Cookie", org.hamcrest.Matchers.containsString("Max-Age=604800")) }
+        }
+
+        verify(refreshTokenCookieFactory).build(any(), any(), eq(true))
+    }
+
+    /**
+     * Shared stub for the three `rememberMe`-variant login tests so each test
+     * stays focused on the cookie behaviour rather than re-stating the user
+     * lookup / token-generation plumbing.
+     */
+    private fun stubValidLogin(username: String, password: String) {
+        val userId = UUID.randomUUID()
+        val user = UserEntity(
+            id = userId,
+            username = username,
+            displayName = "Alice",
+            email = "$username@example.test",
+            source = io.plugwerk.server.domain.UserSource.LOCAL,
+            passwordHash = "\$2a\$12\$hash",
+        )
+        whenever(credentialValidator.validate(username, password)).thenReturn(true)
+        whenever(jwtTokenService.generateToken(userId.toString())).thenReturn("tok.abc.xyz")
+        whenever(jwtTokenService.tokenValiditySeconds()).thenReturn(28800L)
+        whenever(userRepository.findByUsernameAndSource(username, io.plugwerk.server.domain.UserSource.LOCAL))
+            .thenReturn(Optional.of(user))
     }
 
     @Test

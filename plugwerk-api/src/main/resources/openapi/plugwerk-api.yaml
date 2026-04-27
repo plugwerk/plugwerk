@@ -1799,6 +1799,15 @@ components:
           minLength: 1
           description: The account password (transmitted over HTTPS, never stored in plain text)
           example: changeme
+        rememberMe:
+          type: boolean
+          nullable: true
+          description: |
+            When true (default), the refresh cookie persists across browser restarts for
+            the configured TTL (7 days). When false, the cookie has no Max-Age attribute —
+            browsers drop it on close, giving the user a "shared computer" mode. The
+            server-side TTL on the refresh-token row is identical in both modes.
+          example: true
       required:
         - username
         - password

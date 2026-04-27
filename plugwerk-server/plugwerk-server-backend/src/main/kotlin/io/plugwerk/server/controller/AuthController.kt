@@ -72,7 +72,9 @@ class AuthController(
         // the JWT subject + refresh-token row).
         val user = userRepository.findByUsernameAndSource(loginRequest.username, UserSource.LOCAL).orElse(null)
             ?: return ResponseEntity.status(401).build()
-        return issueLoginResponse(user)
+        // rememberMe absent OR explicit-null both default to true (#317): preserves
+        // the pre-flag behaviour for any client that has not been updated.
+        return issueLoginResponse(user, persistent = loginRequest.rememberMe ?: true)
     }
 
     /**
@@ -163,12 +165,24 @@ class AuthController(
             .build()
     }
 
-    /** Issues a fresh access token + refresh cookie pair for [user] and returns the response. */
-    private fun issueLoginResponse(user: UserEntity): ResponseEntity<LoginResponse> {
+    /**
+     * Issues a fresh access token + refresh cookie pair for [user] and returns the response.
+     *
+     * [persistent] controls the cookie's `Max-Age` attribute (#317):
+     *   - `true` (default): persistent cookie, survives browser restart.
+     *   - `false`: session cookie, dropped on browser close.
+     *
+     * The server-side refresh-token TTL is unaffected. Note: `/auth/refresh` does not
+     * carry the persistent flag forward — a session-cookie login is rotated to a
+     * persistent cookie on the first refresh round-trip. Tracked as a known limitation
+     * on #317; remembering the choice across rotations would need a column on
+     * `refresh_token` (out of scope for this issue).
+     */
+    private fun issueLoginResponse(user: UserEntity, persistent: Boolean = true): ResponseEntity<LoginResponse> {
         val userId = requireNotNull(user.id) { "User ${user.username} has no id — entity not persisted?" }
         val accessToken = jwtTokenService.generateToken(userId.toString())
         val refresh = refreshTokenService.issue(userId)
-        val cookie = refreshTokenCookieFactory.build(refresh.plaintext, refresh.maxAge)
+        val cookie = refreshTokenCookieFactory.build(refresh.plaintext, refresh.maxAge, persistent)
         return ResponseEntity.ok()
             .header(HttpHeaders.SET_COOKIE, cookie.toString())
             .body(buildLoginResponse(user, accessToken))
