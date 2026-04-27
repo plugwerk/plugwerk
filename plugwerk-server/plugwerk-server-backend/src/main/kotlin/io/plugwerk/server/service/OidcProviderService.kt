@@ -29,7 +29,26 @@ import org.slf4j.LoggerFactory
 import org.springframework.security.crypto.encrypt.TextEncryptor
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.net.URI
+import java.net.URISyntaxException
 import java.util.UUID
+
+/**
+ * Patch payload for [OidcProviderService.update]. Each non-null field is
+ * applied; null means "leave unchanged" (PATCH semantics). [clientSecretPlaintext]
+ * is additionally treated as "leave unchanged" when blank, so a UI form that
+ * submits an empty password input does not accidentally null out the stored
+ * encrypted secret. `providerType` is intentionally absent from this type —
+ * see the schema description for the rationale.
+ */
+data class OidcProviderPatch(
+    val enabled: Boolean? = null,
+    val name: String? = null,
+    val clientId: String? = null,
+    val clientSecretPlaintext: String? = null,
+    val issuerUri: String? = null,
+    val scope: String? = null,
+)
 
 @Service
 @Transactional
@@ -87,21 +106,91 @@ class OidcProviderService(
         return provider
     }
 
-    fun setEnabled(id: UUID, enabled: Boolean): OidcProviderEntity {
+    /**
+     * Single transactional patch path for an existing OIDC provider. Replaces
+     * the previous setEnabled / updateClientSecret split so that a multi-field
+     * UI patch produces exactly one row write and exactly one registry refresh.
+     *
+     * Validation rules (each applied only when the corresponding patch field
+     * is non-null):
+     *   - [OidcProviderPatch.name]: trimmed, must be 1..255 chars after trim.
+     *   - [OidcProviderPatch.clientId]: trimmed, 1..255 chars. Note that
+     *     changing this on an enabled provider invalidates every previously
+     *     issued access token (different `aud` claim) — the UI must warn the
+     *     operator before submitting; the service does not block.
+     *   - [OidcProviderPatch.clientSecretPlaintext]: minimum 8 chars when set
+     *     (the upstream provider enforces real strength). Blank is treated as
+     *     "do not change" so an empty password input cannot accidentally null
+     *     out the stored secret.
+     *   - [OidcProviderPatch.issuerUri]: must parse as a valid http(s) URI.
+     *     Reachability is verified lazily by [refreshAllRegistries] — failures
+     *     there are logged-and-skipped, NOT propagated as a 4xx, so operators
+     *     can patch the URI ahead of an upstream cutover.
+     *   - [OidcProviderPatch.scope]: trimmed, non-blank. For [OidcProviderType.OIDC]
+     *     the resulting scope set must include `openid`, otherwise the patch is
+     *     rejected — an OIDC client without the openid scope cannot complete
+     *     the OIDC flow at all, so this is a hard error not a warning.
+     *
+     * `refreshAllRegistries()` runs exactly once at the end, regardless of how
+     * many fields changed. Both the resource-server [OidcProviderRegistry] and
+     * the browser-flow [DbClientRegistrationRepository] pick up the changes
+     * without a server restart.
+     *
+     * The provider's UUID is the source of `registrationId` (see
+     * `OidcRegistrationIds`), so the redirect URI registered at the upstream
+     * provider stays valid across name/clientId/issuer/scope edits.
+     */
+    fun update(id: UUID, patch: OidcProviderPatch): OidcProviderEntity {
         val provider = findById(id)
-        provider.enabled = enabled
-        val saved = oidcProviderRepository.save(provider)
-        refreshAllRegistries()
-        return saved
-    }
 
-    fun updateClientSecret(id: UUID, newSecret: String): OidcProviderEntity {
-        val provider = findById(id)
-        provider.clientSecretEncrypted = textEncryptor.encrypt(newSecret)
+        patch.enabled?.let { provider.enabled = it }
+
+        patch.name?.let {
+            val trimmed = it.trim()
+            require(trimmed.isNotEmpty()) { "name must not be blank" }
+            require(trimmed.length <= 255) { "name must be at most 255 characters" }
+            provider.name = trimmed
+        }
+
+        patch.clientId?.let {
+            val trimmed = it.trim()
+            require(trimmed.isNotEmpty()) { "clientId must not be blank" }
+            require(trimmed.length <= 255) { "clientId must be at most 255 characters" }
+            provider.clientId = trimmed
+        }
+
+        patch.clientSecretPlaintext?.takeIf { it.isNotBlank() }?.let {
+            require(it.length >= 8) { "clientSecret must be at least 8 characters" }
+            provider.clientSecretEncrypted = textEncryptor.encrypt(it)
+        }
+
+        patch.issuerUri?.let {
+            val trimmed = it.trim()
+            require(trimmed.isNotEmpty()) { "issuerUri must not be blank" }
+            val parsed = try {
+                URI(trimmed)
+            } catch (e: URISyntaxException) {
+                throw IllegalArgumentException("issuerUri is not a valid URI: ${e.message}")
+            }
+            require(parsed.scheme in setOf("http", "https")) {
+                "issuerUri must use http or https scheme"
+            }
+            provider.issuerUri = trimmed
+        }
+
+        patch.scope?.let {
+            val trimmed = it.trim()
+            require(trimmed.isNotEmpty()) { "scope must not be blank" }
+            if (provider.providerType == OidcProviderType.OIDC) {
+                val tokens = trimmed.split(' ').filter { token -> token.isNotEmpty() }
+                require("openid" in tokens) {
+                    "scope for OIDC providers must include 'openid'"
+                }
+            }
+            provider.scope = trimmed
+        }
+
         val saved = oidcProviderRepository.save(provider)
-        // The browser-flow ClientRegistration caches the decrypted secret in
-        // the registration object; without a refresh, an updated secret would
-        // not take effect until the next server restart.
         refreshAllRegistries()
         return saved
     }

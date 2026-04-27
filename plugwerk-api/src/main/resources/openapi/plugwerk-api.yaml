@@ -2764,15 +2764,56 @@ components:
 
     OidcProviderUpdateRequest:
       type: object
-      description: Partial update — include only fields to change
+      description: |
+        Partial update — include only fields you want to change. `providerType` is
+        intentionally NOT editable: switching a row's type would require re-validating
+        every previously issued access token (different `iss` claim, possibly different
+        `aud` claim) and would tempt operators to "convert" rather than create a fresh
+        provider. To change `providerType`, delete and recreate the provider.
       properties:
         enabled:
           type: boolean
           nullable: true
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          nullable: true
+          description: Display name shown on the login page.
+        clientId:
+          type: string
+          minLength: 1
+          maxLength: 255
+          nullable: true
+          description: |
+            OAuth2 client ID. Changing this on an enabled provider invalidates all existing
+            access tokens issued by that provider (the `aud` claim no longer matches), so
+            users must re-login.
         clientSecret:
           type: string
+          minLength: 8
+          writeOnly: true
           nullable: true
-          description: Provide to rotate the client secret
+          description: |
+            Provide to rotate the client secret. Blank or omitted leaves the existing
+            encrypted value untouched. Never returned in responses.
+        issuerUri:
+          type: string
+          format: uri
+          nullable: true
+          description: |
+            OIDC issuer URI for type `OIDC`. Reachability is verified lazily by the
+            registration refresh after the patch is saved — a temporarily unreachable
+            issuer does NOT roll back the patch (operators may legitimately patch the
+            URI before the upstream is reachable, e.g. during a realm cutover). Cannot
+            be cleared via PATCH; to remove, delete and recreate the provider.
+        scope:
+          type: string
+          minLength: 1
+          nullable: true
+          description: |
+            Space-separated OAuth2 scopes. For type `OIDC` the scope set must include
+            `openid`; otherwise the patch is rejected.
 
     OidcProviderType:
       type: string
