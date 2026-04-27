@@ -244,28 +244,23 @@ export function OidcProvidersSection() {
       ),
     },
     {
-      key: "edit",
+      key: "actions",
       header: "",
       align: "right",
       render: (provider) => (
-        <ActionIconButton
-          icon={Pencil}
-          tooltip="Edit"
-          onClick={() => setEditingProvider(provider)}
-        />
-      ),
-    },
-    {
-      key: "delete",
-      header: "",
-      align: "right",
-      render: (provider) => (
-        <ActionIconButton
-          icon={Trash2}
-          tooltip="Delete"
-          color="error"
-          onClick={() => handleDelete(provider)}
-        />
+        <Box sx={{ display: "flex", gap: 0.5, justifyContent: "flex-end" }}>
+          <ActionIconButton
+            icon={Pencil}
+            tooltip="Edit"
+            onClick={() => setEditingProvider(provider)}
+          />
+          <ActionIconButton
+            icon={Trash2}
+            tooltip="Delete"
+            color="error"
+            onClick={() => handleDelete(provider)}
+          />
+        </Box>
       ),
     },
   ];
