@@ -69,7 +69,8 @@ info:
     ```
     X-Api-Key: <your-api-key>
     ```
-    API keys are managed by the server administrator.
+    Namespace-scoped access keys are provisioned by a namespace ADMIN; each key grants implicit
+    ADMIN access to its issuing namespace.
 
     ## Quick Start
 
@@ -108,11 +109,14 @@ security: []
 tags:
   - name: Auth
     description: |
-      Endpoints for obtaining and refreshing authentication credentials.
+      Endpoints for obtaining authentication credentials.
 
       Call `POST /api/v1/auth/login` to exchange a username/password pair for a short-lived JWT
       Bearer token. Include this token in the `Authorization` header of all subsequent requests
       that require authentication.
+
+      A refresh-cookie endpoint exists at `/api/v1/auth/refresh` but is not modelled in this
+      spec because it returns `Set-Cookie`, which the OpenAPI generator does not represent.
   - name: Namespaces
     description: |
       Create and list namespaces.
@@ -161,7 +165,7 @@ tags:
       These endpoints require authentication and admin-level permissions on the namespace.
   - name: AdminUsers
     description: |
-      Server-level user management. Requires authentication with a server-admin account.
+      Server-level user management. Requires superadmin privileges.
 
       Create local Plugwerk users, toggle their enabled state, and reset passwords.
       Users created here have `passwordChangeRequired = true` by default, forcing them
@@ -189,8 +193,9 @@ tags:
       Per-user settings for the authenticated user (ADR-0018).
 
       Each user can store preferences such as preferred language, theme, and default namespace.
-      Settings are created lazily on first write. The user subject is derived from the JWT
-      `sub` claim, so both local and OIDC-authenticated users are supported.
+      Settings are created lazily on first write and keyed by `plugwerk_user.id` (a UUID FK).
+      Both LOCAL and OIDC users are supported uniformly because the identity hub assigns the
+      same id type to both.
   - name: ServerConfig
     description: |
       Public, unauthenticated endpoint exposing non-sensitive server configuration.
@@ -200,14 +205,19 @@ tags:
       The values returned here mirror the operator-configurable `plugwerk.*` properties.
   - name: OidcProviders
     description: |
-      Manage external OIDC / OAuth2 providers for token validation.
+      Manage external OIDC / OAuth2 providers.
 
-      Plugwerk acts as an OAuth2 Resource Server: it validates `Authorization: Bearer` tokens
-      issued by any enabled provider. The `GITHUB`, `GOOGLE`, and `FACEBOOK` types ship with
-      pre-configured JWKS endpoints; the generic `OIDC` type requires an explicit `issuerUri`
-      and works with any standards-compliant provider (Keycloak, Authentik, Auth0, Dex, …).
+      Plugwerk supports two integration modes for each enabled provider:
 
-      All providers are disabled by default. Requires server-admin authentication.
+      - **Resource Server**: validates `Authorization: Bearer` tokens issued by the provider
+        for direct API calls. The `GITHUB`, `GOOGLE`, and `FACEBOOK` types ship with
+        pre-configured JWKS endpoints; the generic `OIDC` type requires an explicit `issuerUri`
+        and works with any standards-compliant provider (Keycloak, Authentik, Auth0, Dex, …).
+      - **Browser login (OAuth2 Authorization Code Flow)**: enabled providers appear on the
+        Web UI's login page; clicking one starts the standard redirect dance via Spring
+        Security's `oauth2Login` and provisions a Plugwerk user on first successful callback.
+
+      All providers are disabled by default. Requires superadmin privileges.
 
 paths:
   /config:
@@ -257,6 +267,12 @@ paths:
 
         The token is valid for 8 hours (28 800 seconds) by default. Include it in all
         authenticated requests as `Authorization: Bearer <token>`.
+
+        On success, the response also sets a `plugwerk_refresh` cookie:
+        `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/v1/auth`, with a 7-day TTL.
+        This cookie is consumed by `POST /api/v1/auth/refresh` to mint a fresh
+        access token without re-prompting the user. The refresh endpoint is not
+        modelled in this OpenAPI spec because it returns `Set-Cookie`.
 
         Returns `401 Unauthorized` if the username does not exist or the password is wrong.
         The response body is intentionally empty on `401` to avoid leaking user existence.
@@ -1547,8 +1563,21 @@ paths:
     patch:
       tags:
         - OidcProviders
-      summary: Enable or disable an OIDC provider
-      description: Updates an OIDC provider configuration. Requires superadmin privileges.
+      summary: Update an OIDC provider
+      description: |
+        Patches one or more configuration fields on an existing OIDC provider.
+        Patchable fields: `enabled`, `name`, `clientId`, `clientSecret`, `issuerUri`, `scope`.
+
+        `providerType` is intentionally NOT patchable — switching the type would
+        invalidate every previously issued access token (different `iss` / `aud`
+        claim shape) and would tempt operators to "convert" rather than create
+        a fresh provider. To change `providerType`, delete and recreate.
+
+        Blank or omitted `clientSecret` keeps the stored encrypted value
+        untouched, so an empty password input cannot accidentally null out the
+        secret.
+
+        Requires superadmin privileges.
       operationId: updateOidcProvider
       security:
         - BearerAuth: []
@@ -3183,4 +3212,5 @@ components:
       description: |
         Long-lived API key for CI/CD pipelines and service accounts.
         Include as `X-Api-Key: <your-api-key>` header.
-        API keys are provisioned by the server administrator.
+        Namespace-scoped access keys are provisioned by a namespace ADMIN;
+        each key grants implicit ADMIN access to its issuing namespace.
