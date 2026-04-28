@@ -19,29 +19,26 @@ import io.plugwerk.spi.PlugwerkConfig
 import io.plugwerk.spi.PlugwerkPlugin
 import io.plugwerk.spi.extension.PlugwerkMarketplace
 import org.pf4j.Plugin
-import java.util.concurrent.ConcurrentHashMap
+import java.lang.ref.WeakReference
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * PF4J plugin entry point for the Plugwerk Client SDK.
  *
  * This class is referenced in `MANIFEST.MF` via `Plugin-Class`. PF4J instantiates it
- * when the SDK JAR is loaded as a plugin.
+ * when the SDK JAR is loaded as a plugin; hosts then access it through the
+ * [PlugwerkPlugin] interface and call [connect] to open marketplaces.
  *
- * Host applications interact with this class exclusively through the [PlugwerkPlugin]
- * interface defined in `plugwerk-spi`:
+ * ### Lifecycle
  *
- * ```kotlin
- * val plugin = pluginManager.getPlugin(PlugwerkPlugin.PLUGIN_ID).plugin as PlugwerkPlugin
- * plugin.configure(config)
- * val marketplace = plugin.marketplace()
- * ```
+ * The plugin keeps a list of [WeakReference]s to every marketplace it hands out.
+ * On PF4J [stop], any still-reachable marketplace is closed as a defence-in-depth
+ * measure for hosts that forget [PlugwerkMarketplace.close]. The contract remains
+ * "the caller closes what the caller opened" — the weak-ref sweep is a safety net,
+ * not the canonical cleanup path.
  *
- * ```java
- * PlugwerkPlugin plugin = (PlugwerkPlugin)
- *     pluginManager.getPlugin(PlugwerkPlugin.PLUGIN_ID).getPlugin();
- * plugin.configure(config);
- * PlugwerkMarketplace marketplace = plugin.marketplace();
- * ```
+ * Garbage-collected marketplaces drop out of the list automatically; we don't bother
+ * pruning eagerly since the list is consulted only at [stop] time.
  *
  * @see PlugwerkPlugin
  */
@@ -49,42 +46,20 @@ class PlugwerkPluginImpl :
     Plugin(),
     PlugwerkPlugin {
 
-    private data class ServerEntry(val config: PlugwerkConfig, var marketplace: PlugwerkMarketplaceImpl? = null)
+    private val openMarketplaces = CopyOnWriteArrayList<WeakReference<PlugwerkMarketplaceImpl>>()
 
-    private val servers = ConcurrentHashMap<String, ServerEntry>()
-
-    override fun configure(serverId: String, config: PlugwerkConfig) {
-        val old = servers.put(serverId, ServerEntry(config))
-        old?.marketplace?.close()
-    }
-
-    override fun marketplace(serverId: String): PlugwerkMarketplace {
-        val entry = servers[serverId] ?: throw IllegalStateException(
-            "No server configured with ID '$serverId'. " +
-                "Call plugin.configure(\"$serverId\", config) first.",
-        )
-        entry.marketplace?.let { return it }
-
-        val instance = PlugwerkMarketplaceImpl.create(entry.config)
-        entry.marketplace = instance
-        return instance
-    }
-
-    override fun serverIds(): Set<String> = servers.keys.toSet()
-
-    override fun remove(serverId: String): Boolean {
-        val entry = servers.remove(serverId)
-        entry?.marketplace?.close()
-        return entry != null
-    }
-
-    override fun removeAll() {
-        val entries = servers.values.toList()
-        servers.clear()
-        entries.forEach { it.marketplace?.close() }
+    override fun connect(config: PlugwerkConfig): PlugwerkMarketplace {
+        val marketplace = PlugwerkMarketplaceImpl.create(config)
+        openMarketplaces.add(WeakReference(marketplace))
+        return marketplace
     }
 
     override fun stop() {
-        removeAll()
+        // Defense-in-depth: close any marketplaces still alive when PF4J unloads
+        // this plugin. Hosts that closed properly leave nothing for us to do here;
+        // forgetful hosts get their HTTP clients reclaimed before classloader
+        // unloading rather than leaking dispatcher threads.
+        openMarketplaces.forEach { ref -> ref.get()?.close() }
+        openMarketplaces.clear()
     }
 }

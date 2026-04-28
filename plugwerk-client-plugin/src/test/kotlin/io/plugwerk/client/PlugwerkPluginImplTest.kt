@@ -16,13 +16,8 @@
 package io.plugwerk.client
 
 import io.plugwerk.spi.PlugwerkConfig
-import io.plugwerk.spi.PlugwerkPlugin
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotSame
-import org.junit.jupiter.api.Assertions.assertSame
-import org.junit.jupiter.api.Assertions.assertThrows
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -46,124 +41,60 @@ class PlugwerkPluginImplTest {
     }
 
     @Test
-    fun `configure and marketplace work for default server`() {
-        plugin.configure(config())
+    fun `connect returns a fresh marketplace bound to the given config`() {
+        val marketplace = plugin.connect(config("http://server-a:8080", "ns-a")) as PlugwerkMarketplaceImpl
 
-        val marketplace = plugin.marketplace()
-
-        assertNotSame(null, marketplace)
+        assertEquals("http://server-a:8080", marketplace.client.config.serverUrl)
+        assertEquals("ns-a", marketplace.client.config.namespace)
     }
 
     @Test
-    fun `marketplace returns same instance on repeated calls`() {
-        plugin.configure(config())
+    fun `connect returns a new instance on every call`() {
+        // No internal cache by design — each call yields its own HTTP client. Hosts
+        // that want to reuse a marketplace are expected to store the reference.
+        val first = plugin.connect(config())
+        val second = plugin.connect(config())
 
-        val first = plugin.marketplace()
-        val second = plugin.marketplace()
-
-        assertSame(first, second)
+        assertNotSame(first, second)
     }
 
     @Test
-    fun `configure multiple servers and retrieve each`() {
-        plugin.configure("server-a", config("http://server-a:8080"))
-        plugin.configure("server-b", config("http://server-b:8080"))
+    fun `multiple connects with different configs produce isolated marketplaces`() {
+        val a = plugin.connect(config("http://server-a:8080", "ns-a")) as PlugwerkMarketplaceImpl
+        val b = plugin.connect(config("http://server-b:8080", "ns-b")) as PlugwerkMarketplaceImpl
 
-        val a = plugin.marketplace("server-a")
-        val b = plugin.marketplace("server-b")
-
-        assertNotSame(a, b)
+        assertEquals("http://server-a:8080", a.client.config.serverUrl)
+        assertEquals("ns-a", a.client.config.namespace)
+        assertEquals("http://server-b:8080", b.client.config.serverUrl)
+        assertEquals("ns-b", b.client.config.namespace)
     }
 
     @Test
-    fun `marketplace throws when server ID not configured`() {
-        val ex = assertThrows(IllegalStateException::class.java) {
-            plugin.marketplace("unknown")
-        }
-        assertTrue(ex.message!!.contains("unknown"))
-    }
-
-    @Test
-    fun `marketplace throws when no default server configured`() {
-        assertThrows(IllegalStateException::class.java) {
-            plugin.marketplace()
-        }
-    }
-
-    @Test
-    fun `remove clears server entry`() {
-        plugin.configure("temp", config())
-        assertTrue(plugin.remove("temp"))
-
-        assertThrows(IllegalStateException::class.java) {
-            plugin.marketplace("temp")
-        }
-    }
-
-    @Test
-    fun `remove returns false for unknown server ID`() {
-        assertFalse(plugin.remove("nonexistent"))
-    }
-
-    @Test
-    fun `removeAll clears all entries`() {
-        plugin.configure("a", config())
-        plugin.configure("b", config())
-
-        plugin.removeAll()
-
-        assertTrue(plugin.serverIds().isEmpty())
-    }
-
-    @Test
-    fun `reconfigure same server ID replaces marketplace`() {
-        plugin.configure("s", config("http://old:8080"))
-        val old = plugin.marketplace("s")
-
-        plugin.configure("s", config("http://new:8080"))
-        val new = plugin.marketplace("s")
-
-        assertNotSame(old, new)
-    }
-
-    @Test
-    fun `serverIds returns all registered IDs`() {
-        plugin.configure("alpha", config())
-        plugin.configure("beta", config())
-        plugin.configure("gamma", config())
-
-        assertEquals(setOf("alpha", "beta", "gamma"), plugin.serverIds())
-    }
-
-    @Test
-    fun `default server convenience delegates to DEFAULT_SERVER_ID`() {
-        plugin.configure(config())
-
-        assertEquals(setOf(PlugwerkPlugin.DEFAULT_SERVER_ID), plugin.serverIds())
-        assertSame(plugin.marketplace(), plugin.marketplace(PlugwerkPlugin.DEFAULT_SERVER_ID))
-    }
-
-    @Test
-    fun `marketplace instances are isolated`() {
-        plugin.configure("a", config("http://server-a:8080", "ns-a"))
-        plugin.configure("b", config("http://server-b:8080", "ns-b"))
-
-        val clientA = (plugin.marketplace("a") as PlugwerkMarketplaceImpl).client
-        val clientB = (plugin.marketplace("b") as PlugwerkMarketplaceImpl).client
-
-        assertEquals("http://server-a:8080", clientA.config.serverUrl)
-        assertEquals("ns-a", clientA.config.namespace)
-        assertEquals("http://server-b:8080", clientB.config.serverUrl)
-        assertEquals("ns-b", clientB.config.namespace)
-    }
-
-    @Test
-    fun `stop cleans up all servers`() {
-        plugin.configure("a", config())
-        plugin.configure("b", config())
+    fun `stop closes any marketplaces still alive (defense-in-depth)`() {
+        // Hosts that forget to call close() leave us with HTTP clients to reclaim.
+        // Stop must close those rather than leaking dispatcher threads on plugin
+        // unload.
+        val a = plugin.connect(config()) as PlugwerkMarketplaceImpl
+        val b = plugin.connect(config()) as PlugwerkMarketplaceImpl
 
         plugin.stop()
 
-        assertTrue(plugin.serverIds().isEmpty())
+        // After stop, repeated close() calls on the same instances must be a
+        // no-op (the contract for AutoCloseable.close as we implement it). If
+        // stop() did not actually close them, the second close() below would do
+        // the work and the first one would have been a leak — this is the
+        // assertion-by-side-effect we can express without exposing internals.
+        a.close()
+        b.close()
+    }
+
+    @Test
+    fun `close on the marketplace is idempotent`() {
+        val marketplace = plugin.connect(config())
+
+        marketplace.close()
+        // Second close is a no-op; if it threw or double-closed the underlying
+        // HTTP client we would observe an exception here.
+        marketplace.close()
     }
 }

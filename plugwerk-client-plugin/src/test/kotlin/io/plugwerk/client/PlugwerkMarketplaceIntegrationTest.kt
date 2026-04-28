@@ -61,6 +61,7 @@ class PlugwerkMarketplaceIntegrationTest {
 
     @AfterEach
     fun tearDown() {
+        marketplace.close()
         server.shutdown()
     }
 
@@ -172,8 +173,7 @@ class PlugwerkMarketplaceIntegrationTest {
 
         try {
             val plugin = PlugwerkPluginImpl()
-            plugin.configure(
-                "server-a",
+            val marketplaceA = plugin.connect(
                 PlugwerkConfig(
                     serverUrl = server.url("/").toString().trimEnd('/'),
                     namespace = "ns-a",
@@ -181,8 +181,7 @@ class PlugwerkMarketplaceIntegrationTest {
                     pluginDirectory = pluginDir,
                 ),
             )
-            plugin.configure(
-                "server-b",
+            val marketplaceB = plugin.connect(
                 PlugwerkConfig(
                     serverUrl = serverB.url("/").toString().trimEnd('/'),
                     namespace = "ns-b",
@@ -195,8 +194,8 @@ class PlugwerkMarketplaceIntegrationTest {
             server.enqueue(MockResponse().setBody(emptyPage).setResponseCode(200))
             serverB.enqueue(MockResponse().setBody(emptyPage).setResponseCode(200))
 
-            plugin.marketplace("server-a").catalog().listPlugins()
-            plugin.marketplace("server-b").catalog().listPlugins()
+            marketplaceA.catalog().listPlugins()
+            marketplaceB.catalog().listPlugins()
 
             val requestA = server.takeRequest()
             assertTrue(requestA.path!!.contains("/namespaces/ns-a/"))
@@ -206,7 +205,10 @@ class PlugwerkMarketplaceIntegrationTest {
             assertTrue(requestB.path!!.contains("/namespaces/ns-b/"))
             assertEquals("Bearer token-b", requestB.getHeader("Authorization"))
 
-            plugin.removeAll()
+            // Host owns lifecycle. PF4J stop() would also close them as a safety
+            // net, but the canonical pattern is the host closing what it opened.
+            marketplaceA.close()
+            marketplaceB.close()
         } finally {
             serverB.shutdown()
         }
