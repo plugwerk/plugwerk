@@ -274,13 +274,20 @@ Auth & admin endpoints (under `/api/v1/`):
 ### Client Plugin Core Classes
 
 ```kotlin
+PlugwerkPlugin           // Host-facing factory: connect(config): PlugwerkMarketplace (JDBC-style)
 PlugwerkConfig           // Builder pattern or properties file
 PlugwerkClient           // OkHttp-based HTTP client
 PlugwerkCatalog          // Catalog queries (ExtensionPoint)
 PlugwerkInstaller        // Download + SHA-256 verification + transactional install (ExtensionPoint)
 PlugwerkUpdateChecker    // Update polling (ExtensionPoint)
-PlugwerkMarketplace      // Facade combining all three (ExtensionPoint)
+PlugwerkMarketplace      // Facade combining all three (ExtensionPoint, AutoCloseable)
 ```
+
+Host wiring is `plugin.connect(config).use { marketplace -> ... }` (Kotlin) or
+`try (var mp = plugin.connect(config)) { ... }` (Java). The plugin is a stateless
+factory — every `connect()` returns a fresh marketplace with its own HTTP client;
+the caller closes what the caller opened. Multi-server hosts compose their own
+collection (e.g. Spring `@Bean(destroyMethod = "close")` per server).
 
 ### Client Plugin Authentication ([ADR-0011](docs/adrs/0011-client-auth-api-key-strategy.md))
 

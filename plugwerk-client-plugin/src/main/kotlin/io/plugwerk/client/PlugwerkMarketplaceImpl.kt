@@ -29,17 +29,18 @@ import io.plugwerk.spi.extension.PlugwerkUpdateChecker
  * [PlugwerkMarketplace] implementation.
  *
  * **PF4J plugin mode (recommended):**
- * Obtain the instance via [io.plugwerk.spi.PlugwerkPlugin.marketplace] after configuring the plugin:
+ * Obtain the instance via [io.plugwerk.spi.PlugwerkPlugin.connect]:
  * ```kotlin
  * val plugin = pluginManager.getPlugin(PlugwerkPlugin.PLUGIN_ID)
  *     .plugin as PlugwerkPlugin
- * plugin.configure(config)
- * val marketplace = plugin.marketplace()
+ * plugin.connect(config).use { marketplace ->
+ *     marketplace.catalog().listPlugins()
+ * }
  * ```
  *
  * **Programmatic construction (testing / embedding without PF4J):**
  * ```kotlin
- * val marketplace = PlugwerkMarketplaceImpl.create(config)
+ * PlugwerkMarketplaceImpl.create(config).use { marketplace -> /* ... */ }
  * ```
  */
 class PlugwerkMarketplaceImpl internal constructor(
@@ -49,14 +50,24 @@ class PlugwerkMarketplaceImpl internal constructor(
     private val updateChecker: PlugwerkUpdateChecker,
 ) : PlugwerkMarketplace {
 
+    @Volatile
+    private var closed: Boolean = false
+
     override fun catalog(): PlugwerkCatalog = catalog
 
     override fun installer(): PlugwerkInstaller = installer
 
     override fun updateChecker(): PlugwerkUpdateChecker = updateChecker
 
-    /** Shuts down the underlying HTTP client, releasing connection pool and dispatcher threads. */
-    internal fun close() {
+    /**
+     * Shuts down the underlying HTTP client, releasing the connection pool and
+     * dispatcher threads. Idempotent — repeated calls are a no-op so PF4J's
+     * `stop()` defense-in-depth sweep is safe even when the host already closed
+     * the marketplace itself.
+     */
+    override fun close() {
+        if (closed) return
+        closed = true
         client.close()
     }
 

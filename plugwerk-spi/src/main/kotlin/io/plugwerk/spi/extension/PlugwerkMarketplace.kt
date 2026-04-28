@@ -18,55 +18,49 @@ package io.plugwerk.spi.extension
 import org.pf4j.ExtensionPoint
 
 /**
- * Unified facade extension point that provides access to all Plugwerk SDK capabilities.
+ * Unified facade for one Plugwerk server connection. Bundles the catalog, installer,
+ * and update-check capabilities so the host does not have to wire three extension
+ * points individually; all three share the same HTTP client and configuration.
  *
- * Host applications retrieve this facade from the [io.plugwerk.spi.PlugwerkPlugin]
- * after configuring it, instead of querying [PlugwerkCatalog], [PlugwerkInstaller], and
- * [PlugwerkUpdateChecker] individually. All three sub-components share the same server connection
- * and configuration.
- *
- * Typical usage in a host application:
+ * Obtain an instance via [io.plugwerk.spi.PlugwerkPlugin.connect]. The caller owns
+ * the lifecycle — `close()` releases the underlying HTTP client. `PlugwerkMarketplace`
+ * implements [AutoCloseable], so Kotlin's `use { }` and Java's try-with-resources
+ * both apply directly.
  *
  * Kotlin:
  * ```kotlin
  * val plugin = pluginManager.getPlugin(PlugwerkPlugin.PLUGIN_ID)
  *     .plugin as PlugwerkPlugin
- * plugin.configure(config)
- * val marketplace = plugin.marketplace()
- *
- * // Browse the catalog
- * val plugins = marketplace.catalog().listPlugins()
- *
- * // Install a specific version
- * marketplace.installer().install("io.example.my-plugin", "1.0.0")
- *
- * // Check for updates of all installed plugins
- * val updates = marketplace.updateChecker().checkForUpdates(installedVersions)
+ * plugin.connect(config).use { marketplace ->
+ *     val plugins = marketplace.catalog().listPlugins()
+ *     marketplace.installer().install("io.example.my-plugin", "1.0.0")
+ *     val updates = marketplace.updateChecker().checkForUpdates(installedVersions)
+ * }
  * ```
  *
  * Java:
  * ```java
  * PlugwerkPlugin plugin = (PlugwerkPlugin)
  *     pluginManager.getPlugin(PlugwerkPlugin.PLUGIN_ID).getPlugin();
- * plugin.configure(config);
- * PlugwerkMarketplace marketplace = plugin.marketplace();
- *
- * // Browse the catalog
- * List<PluginInfo> plugins = marketplace.catalog().listPlugins();
- *
- * // Install a specific version
- * marketplace.installer().install("io.example.my-plugin", "1.0.0");
- *
- * // Check for updates of all installed plugins
- * Map<String, String> installed = Map.of("io.example.my-plugin", "1.0.0");
- * List<UpdateInfo> updates = marketplace.updateChecker().checkForUpdates(installed);
+ * try (PlugwerkMarketplace marketplace = plugin.connect(config)) {
+ *     List<PluginInfo> plugins = marketplace.catalog().listPlugins();
+ *     marketplace.installer().install("io.example.my-plugin", "1.0.0");
+ *     Map<String, String> installed = Map.of("io.example.my-plugin", "1.0.0");
+ *     List<UpdateInfo> updates = marketplace.updateChecker().checkForUpdates(installed);
+ * }
  * ```
+ *
+ * Calling [close] is idempotent. Operations on the catalog / installer / update
+ * checker after [close] have undefined behaviour — implementations are expected
+ * to throw rather than silently no-op, but the contract is "do not use after close".
  *
  * @see PlugwerkCatalog
  * @see PlugwerkInstaller
  * @see PlugwerkUpdateChecker
  */
-interface PlugwerkMarketplace : ExtensionPoint {
+interface PlugwerkMarketplace :
+    ExtensionPoint,
+    AutoCloseable {
     /**
      * Returns the catalog component for browsing and searching available plugins.
      */
@@ -81,4 +75,10 @@ interface PlugwerkMarketplace : ExtensionPoint {
      * Returns the update checker component for detecting newer plugin versions.
      */
     fun updateChecker(): PlugwerkUpdateChecker
+
+    /**
+     * Releases the underlying HTTP client and any other resources held by this
+     * marketplace. Idempotent — calling more than once is a no-op.
+     */
+    override fun close()
 }

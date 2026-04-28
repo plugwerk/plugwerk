@@ -18,38 +18,64 @@ package io.plugwerk.spi
 import io.plugwerk.spi.extension.PlugwerkMarketplace
 
 /**
- * Host-facing contract for configuring and accessing Plugwerk marketplace instances.
+ * Host-facing entry point for the Plugwerk Client SDK — a JDBC-style **factory** for
+ * [PlugwerkMarketplace] connections.
  *
- * A single plugin can manage connections to **multiple Plugwerk servers** simultaneously.
- * Each server is identified by a string ID chosen by the host application.
+ * One method, one job: hand the host a fresh marketplace bound to a given
+ * [PlugwerkConfig]. The host owns the returned marketplace; closing it (or letting
+ * the PF4J plugin's `stop()` lifecycle do it) releases the underlying HTTP client.
  *
- * **Single server (convenience):**
+ * **Single server:**
  * ```kotlin
- * val plugin = wrapper.plugin as PlugwerkPlugin
- * plugin.configure(config)
- * val marketplace = plugin.marketplace()
+ * val plugin = pluginManager.getPlugin(PlugwerkPlugin.PLUGIN_ID).plugin as PlugwerkPlugin
+ * plugin.connect(config).use { marketplace ->
+ *     marketplace.catalog().listPlugins()
+ * }
  * ```
  *
- * **Multiple servers:**
+ * **Long-lived connections (typical Spring host):**
  * ```kotlin
- * val plugin = wrapper.plugin as PlugwerkPlugin
- * plugin.configure("production", prodConfig)
- * plugin.configure("staging", stagingConfig)
+ * @Configuration
+ * class PlugwerkBeans(private val plugin: PlugwerkPlugin) {
+ *     @Bean(destroyMethod = "close")
+ *     fun marketplace() = plugin.connect(config)
+ * }
+ * ```
  *
- * val prodCatalog = plugin.marketplace("production").catalog()
- * val stagingInstaller = plugin.marketplace("staging").installer()
+ * **Multiple servers — host owns composition:**
+ * ```kotlin
+ * class PlugwerkServers(plugin: PlugwerkPlugin) : AutoCloseable {
+ *     val production = plugin.connect(prodConfig)
+ *     val staging = plugin.connect(stagingConfig)
+ *     override fun close() { production.close(); staging.close() }
+ * }
  * ```
  *
  * **Java:**
  * ```java
  * PlugwerkPlugin plugin = (PlugwerkPlugin)
  *     pluginManager.getPlugin(PlugwerkPlugin.PLUGIN_ID).getPlugin();
- * plugin.configure("production", prodConfig);
- * plugin.configure("staging", stagingConfig);
- *
- * PlugwerkMarketplace prod = plugin.marketplace("production");
- * PlugwerkMarketplace staging = plugin.marketplace("staging");
+ * try (PlugwerkMarketplace mp = plugin.connect(config)) {
+ *     mp.catalog().listPlugins();
+ * }
  * ```
+ *
+ * ### Why no internal registry
+ *
+ * Earlier versions of this SPI tracked configurations under string IDs and required a
+ * two-step `configure()` + `marketplace()` flow. That made `marketplace()` callable
+ * before `configure()` — a runtime-only error the type system could not catch. The
+ * registry was also redundant for any host with a DI container or a small map of
+ * its own. The current design follows the JDBC `DataSource → Connection` shape:
+ * the plugin is a stateless factory, the host composes its own collection of
+ * marketplaces.
+ *
+ * ### Lifecycle safety net
+ *
+ * Implementations may track marketplaces handed out via [connect] using weak
+ * references and close any still alive when the PF4J plugin stops. This is a
+ * defence-in-depth measure against hosts that forget [PlugwerkMarketplace.close];
+ * the canonical contract remains "the caller closes what the caller opened".
  *
  * @see PlugwerkConfig
  * @see PlugwerkMarketplace
@@ -59,56 +85,19 @@ interface PlugwerkPlugin {
     companion object {
         /** PF4J Plugin-Id of the Plugwerk Client SDK plugin. */
         const val PLUGIN_ID = "plugwerk-client-plugin"
-
-        /** Default server ID used by the single-server convenience methods. */
-        const val DEFAULT_SERVER_ID = "default"
     }
 
     /**
-     * Registers a server configuration under the given [serverId].
+     * Opens a fresh [PlugwerkMarketplace] backed by [config]. The caller owns the
+     * returned instance — call `close()` (or use it in a `use { }` / try-with-resources
+     * block) to release the underlying HTTP client.
      *
-     * If a server with this ID was already configured, the old marketplace instance is
-     * closed and replaced on the next [marketplace] call.
+     * Each call returns a new marketplace with its own HTTP client; there is no
+     * internal cache. Hosts that want to reuse a marketplace across call sites
+     * should store the reference (a property, a DI bean, a small map) — see the
+     * class-level KDoc for typical patterns.
      *
-     * @param serverId identifier chosen by the host application (e.g. `"production"`, `"vendor-a"`)
-     * @param config server URL, namespace, credentials, and plugin directory
-     */
-    fun configure(serverId: String, config: PlugwerkConfig)
-
-    /**
-     * Convenience overload that registers the config under [DEFAULT_SERVER_ID].
-     *
-     * Equivalent to `configure(DEFAULT_SERVER_ID, config)`.
-     */
-    fun configure(config: PlugwerkConfig) {
-        configure(DEFAULT_SERVER_ID, config)
-    }
-
-    /**
-     * Returns the [PlugwerkMarketplace] facade for the given [serverId], creating it lazily.
-     *
-     * @throws IllegalStateException if no server with this ID has been configured.
      * @throws IllegalStateException if [PlugwerkConfig.pluginDirectory] is not set.
      */
-    fun marketplace(serverId: String): PlugwerkMarketplace
-
-    /**
-     * Convenience overload that returns the marketplace for [DEFAULT_SERVER_ID].
-     *
-     * Equivalent to `marketplace(DEFAULT_SERVER_ID)`.
-     */
-    fun marketplace(): PlugwerkMarketplace = marketplace(DEFAULT_SERVER_ID)
-
-    /** Returns an immutable snapshot of all registered server IDs. */
-    fun serverIds(): Set<String>
-
-    /**
-     * Removes the server entry for the given [serverId] and closes its HTTP client.
-     *
-     * @return `true` if a server with this ID was registered, `false` otherwise.
-     */
-    fun remove(serverId: String): Boolean
-
-    /** Removes all server entries and closes their HTTP clients. */
-    fun removeAll()
+    fun connect(config: PlugwerkConfig): PlugwerkMarketplace
 }
