@@ -135,33 +135,36 @@ dependencies {
 
 Or download it directly from the [GitHub Releases](https://github.com/plugwerk/plugwerk/releases) page.
 
-### Configure and use the client
+### Connect and use the client
 
 ```kotlin
 import io.plugwerk.spi.PlugwerkConfig
-import io.plugwerk.spi.PlugwerkMarketplace
+import io.plugwerk.spi.PlugwerkPlugin
 
 // Build the configuration
-val config = PlugwerkConfig.builder()
-    .serverUrl("https://plugins.mycompany.com")
-    .namespace("myproduct")
+val config = PlugwerkConfig.Builder("https://plugins.mycompany.com", "myproduct")
     .apiKey(System.getenv("PLUGWERK_API_KEY"))
+    .pluginDirectory(Path.of("/var/app/plugins"))
     .build()
 
-// Access the SDK via PF4J extension points
-val marketplace = pluginManager
-    .getExtensions(PlugwerkMarketplace::class.java)
-    .first()
+// Connect via the PlugwerkPlugin factory. The returned marketplace is
+// AutoCloseable — wrap in `use { }` (Kotlin) or try-with-resources (Java)
+// for scoped lifetimes, or store the reference and call close() at shutdown.
+val plugin = pluginManager
+    .getPlugin(PlugwerkPlugin.PLUGIN_ID)
+    .plugin as PlugwerkPlugin
 
-// Browse the catalog
-val plugins = marketplace.catalog().listPlugins()
+plugin.connect(config).use { marketplace ->
+    // Browse the catalog
+    val plugins = marketplace.catalog().listPlugins()
 
-// Install a plugin
-val result = marketplace.installer().install("my-plugin", "1.0.0")
+    // Install a plugin
+    val result = marketplace.installer().install("my-plugin", "1.0.0")
 
-// Check for updates
-val updates = marketplace.updateChecker()
-    .checkForUpdates(mapOf("my-plugin" to "1.0.0"))
+    // Check for updates
+    val updates = marketplace.updateChecker()
+        .checkForUpdates(mapOf("my-plugin" to "1.0.0"))
+}
 ```
 
 > **Note:** The SDK does **not** depend on pf4j-update and does not implement `UpdateRepository`.

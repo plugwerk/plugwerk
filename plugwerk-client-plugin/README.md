@@ -41,53 +41,63 @@ Plugin Classloader (isolated)
 
 ## Configuration
 
-The host application configures the plugin by passing a `PlugwerkConfig` instance:
+The host application opens a marketplace connection by passing a `PlugwerkConfig` instance to `PlugwerkPlugin.connect`. The returned `PlugwerkMarketplace` is `AutoCloseable` — the host owns the lifecycle.
 
 ```kotlin
 val pluginManager = DefaultPluginManager(pluginsDir)
 pluginManager.loadPlugins()
 pluginManager.startPlugins()
 
-val plugin = pluginManager.getPlugin("plugwerk-client-plugin")
+val plugin = pluginManager.getPlugin(PlugwerkPlugin.PLUGIN_ID)
     .plugin as PlugwerkPlugin
-plugin.configure(
+
+plugin.connect(
     PlugwerkConfig.Builder("https://plugwerk.example.com", "acme-crm")
         .accessToken("eyJhbG...")
         .pluginDirectory(Path.of("/var/app/plugins"))
-        .build()
-)
+        .build(),
+).use { marketplace ->
+    marketplace.catalog().listPlugins()
+}
+```
 
-val marketplace = plugin.marketplace()
+For long-lived references, store the marketplace and close it explicitly when the host shuts down:
+
+```kotlin
+val marketplace = plugin.connect(config)
+// ... use it across the app's lifetime
+marketplace.close()
 ```
 
 ### Multiple Servers
 
-A single plugin instance can manage connections to multiple Plugwerk servers simultaneously:
+The plugin is a stateless factory — every `connect()` call returns a fresh marketplace with its own HTTP client. The host owns composition (a property, a DI bean, a small map). Spring example:
 
 ```kotlin
-plugin.configure("production", PlugwerkConfig.Builder("https://prod.example.com", "acme")
-    .accessToken("prod-token")
-    .pluginDirectory(Path.of("/var/app/plugins"))
-    .build())
-plugin.configure("staging", PlugwerkConfig.Builder("https://staging.example.com", "acme")
-    .accessToken("staging-token")
-    .pluginDirectory(Path.of("/var/app/plugins"))
-    .build())
+@Configuration
+class PlugwerkBeans(private val plugin: PlugwerkPlugin) {
 
-val prodCatalog = plugin.marketplace("production").catalog()
-val stagingInstaller = plugin.marketplace("staging").installer()
+    @Bean(destroyMethod = "close")
+    fun productionMarketplace(): PlugwerkMarketplace = plugin.connect(
+        PlugwerkConfig.Builder("https://prod.example.com", "acme")
+            .accessToken("prod-token")
+            .pluginDirectory(Path.of("/var/app/plugins"))
+            .build(),
+    )
 
-// List all registered servers
-plugin.serverIds()  // ["production", "staging"]
-
-// Remove a server (closes its HTTP client)
-plugin.remove("staging")
+    @Bean(destroyMethod = "close")
+    fun stagingMarketplace(): PlugwerkMarketplace = plugin.connect(
+        PlugwerkConfig.Builder("https://staging.example.com", "acme")
+            .accessToken("staging-token")
+            .pluginDirectory(Path.of("/var/app/plugins"))
+            .build(),
+    )
+}
 ```
 
-The single-server `configure(config)` / `marketplace()` methods are convenience shortcuts
-that use `"default"` as the server ID.
+`destroyMethod = "close"` lets Spring drive shutdown; the PF4J plugin's `stop()` keeps a weak-ref list of handed-out marketplaces and closes any still alive as defense-in-depth, so hosts without DI also do not leak HTTP clients on plugin unload.
 
-Or load from a properties file:
+Or load the config from a properties file:
 
 ```properties
 plugwerk.serverUrl=https://plugwerk.example.com
@@ -98,7 +108,7 @@ plugwerk.pluginDirectory=/var/app/plugins
 
 ```kotlin
 val config = PlugwerkConfig.fromProperties(Path.of("plugwerk-client.properties"))
-plugin.configure(config)
+val marketplace = plugin.connect(config)
 ```
 
 > **Security:** Never pass access tokens as JVM system properties (`-Dplugwerk.accessToken=…`) —

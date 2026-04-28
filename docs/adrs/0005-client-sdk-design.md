@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted (the original `configure()` + `marketplace()` two-step flow on `PlugwerkPlugin` was later collapsed into a single JDBC-style `connect(config)` factory — see the [SPI shape update](#spi-shape-update-2026-04-28) section below).
 
 ## Context
 
@@ -145,3 +145,45 @@ contract: the OpenAPI specification.
   compatibility can write a thin adapter over `PlugwerkCatalog`.
 - **ZIP packaging:** The `assemble` task produces a ready-to-deploy PF4J plugin ZIP. Host apps
   drop it into their plugin directory — no manual dependency management required.
+
+## SPI shape update (2026-04-28)
+
+The original SPI exposed a two-step flow on `PlugwerkPlugin`:
+
+```kotlin
+plugin.configure(config)     // step 1
+val mp = plugin.marketplace() // step 2 — IllegalStateException if step 1 was skipped
+```
+
+…plus an internal `serverId → marketplace` registry (`configure(id, config)`,
+`marketplace(id)`, `serverIds()`, `remove(id)`, `removeAll()`) for the multi-server case.
+
+That shape was collapsed into a single JDBC-style factory method:
+
+```kotlin
+fun connect(config: PlugwerkConfig): PlugwerkMarketplace
+```
+
+`PlugwerkMarketplace` now extends `AutoCloseable`. Each `connect()` call returns
+a fresh marketplace with its own HTTP client; the caller owns lifecycle. PF4J's
+`stop()` keeps a weak-ref list of handed-out marketplaces and closes any still
+alive as defense-in-depth.
+
+**Why the change:**
+
+1. The old API allowed `marketplace()` to be called before `configure()` —
+   only a runtime `IllegalStateException` flagged the misuse. The new API
+   requires a config at the only entry point, so the misuse is structurally
+   impossible.
+2. The internal registry was redundant with whatever DI / composition the
+   host already had. Removing it fits the JDBC `DataSource → Connection`
+   shape and OkHttp's long-lived-client pattern — both well-understood
+   Java/Kotlin idioms.
+
+**Multi-server became host responsibility.** Hosts compose their own
+collection (typically Spring `@Bean(destroyMethod = "close")` per server, or
+a small explicit class implementing `AutoCloseable`). Section 5
+("Multi-Server Support") above is preserved for historical context but the
+canonical pattern is now host-driven, not plugin-driven.
+
+The change landed in plugwerk/plugwerk#365.

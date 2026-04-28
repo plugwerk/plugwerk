@@ -23,7 +23,8 @@ Because PF4J requires that `ExtensionPoint` interfaces are loaded by the **paren
 | `PlugwerkCatalog` | Browse and search the plugin catalog (read-only) |
 | `PlugwerkInstaller` | Download, install, uninstall plugins with SHA-256 verification |
 | `PlugwerkUpdateChecker` | Poll for available updates given currently installed versions |
-| `PlugwerkMarketplace` | Unified facade combining all three |
+| `PlugwerkMarketplace` | Unified facade combining all three; `AutoCloseable` — the host owns lifecycle |
+| `PlugwerkPlugin` | Host-facing factory: `connect(config): PlugwerkMarketplace` (JDBC-style) |
 
 ## Compatibility
 
