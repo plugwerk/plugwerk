@@ -4,7 +4,7 @@
     "config:recommended",
     "helpers:pinGitHubActionDigests"
   ],
-  "schedule": ["before 6am on monday"],
+  "schedule": ["before 6am every weekday"],
   "timezone": "Europe/Berlin",
   "automerge": false,
   "dependencyDashboard": true,
@@ -16,10 +16,10 @@
     {
       "description": "Spring Boot starters, BOM, and dependency management plugin",
       "matchManagers": ["gradle", "gradle-wrapper"],
-      "matchPackagePatterns": [
-        "^org\\.springframework\\.boot",
-        "^org\\.springframework\\.security",
-        "^io\\.spring\\.dependency-management"
+      "matchPackageNames": [
+        "/^org\\.springframework\\.boot/",
+        "/^org\\.springframework\\.security/",
+        "/^io\\.spring\\.dependency-management/"
       ],
       "groupName": "Spring Boot",
       "groupSlug": "spring-boot"
@@ -27,17 +27,17 @@
     {
       "description": "Kotlin stdlib, reflect, and compiler plugins",
       "matchManagers": ["gradle"],
-      "matchPackagePatterns": ["^org\\.jetbrains\\.kotlin"],
+      "matchPackageNames": ["/^org\\.jetbrains\\.kotlin/"],
       "groupName": "Kotlin",
       "groupSlug": "kotlin"
     },
     {
       "description": "JUnit 5, Mockito, and Testcontainers",
       "matchManagers": ["gradle"],
-      "matchPackagePatterns": [
-        "^org\\.junit",
-        "^org\\.mockito",
-        "^org\\.testcontainers"
+      "matchPackageNames": [
+        "/^org\\.junit/",
+        "/^org\\.mockito/",
+        "/^org\\.testcontainers/"
       ],
       "groupName": "Test dependencies",
       "groupSlug": "test-deps"
@@ -45,9 +45,9 @@
     {
       "description": "Jackson 3.x (tools.jackson) and legacy annotations (com.fasterxml)",
       "matchManagers": ["gradle"],
-      "matchPackagePatterns": [
-        "^tools\\.jackson",
-        "^com\\.fasterxml\\.jackson"
+      "matchPackageNames": [
+        "/^tools\\.jackson/",
+        "/^com\\.fasterxml\\.jackson/"
       ],
       "groupName": "Jackson",
       "groupSlug": "jackson"
@@ -55,7 +55,7 @@
     {
       "description": "OkHttp client and MockWebServer",
       "matchManagers": ["gradle"],
-      "matchPackagePatterns": ["^com\\.squareup\\.okhttp3"],
+      "matchPackageNames": ["/^com\\.squareup\\.okhttp3/"],
       "groupName": "OkHttp",
       "groupSlug": "okhttp"
     },
