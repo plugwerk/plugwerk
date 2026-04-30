@@ -116,6 +116,44 @@ jobs:
           total=$(jq '.components | length' "$BOM")
           echo "SBOM smoke test passed ($total components)"
 
+      # Human-readable summary printed BEFORE the gating steps so findings
+      # are visible in the job log even when CRITICAL fails the build.
+      # Renders to GitHub Step Summary too — same content, two surfaces.
+      - name: Trivy SBOM scan (table summary for log)
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: sbom
+          scan-ref: plugwerk-server/plugwerk-server-backend/build/reports/bom.json
+          format: table
+          output: trivy-backend-sbom-summary.txt
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: '0'
+          ignore-unfixed: false
+          scanners: vuln
+
+      - name: Surface findings to log and Step Summary
+        run: |
+          set -euo pipefail
+          SUMMARY=trivy-backend-sbom-summary.txt
+          echo "::group::Trivy SBOM scan findings (CRITICAL / HIGH / MEDIUM)"
+          if [ -s "$SUMMARY" ]; then
+            cat "$SUMMARY"
+          else
+            echo "No findings at CRITICAL/HIGH/MEDIUM severity."
+          fi
+          echo "::endgroup::"
+          {
+            echo "## Backend SBOM scan findings"
+            echo
+            if [ -s "$SUMMARY" ]; then
+              echo '```'
+              cat "$SUMMARY"
+              echo '```'
+            else
+              echo "_No findings at CRITICAL/HIGH/MEDIUM severity._"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
       # Hard gate: CRITICAL CVE in the runtime classpath fails the build.
       - name: Trivy SBOM scan (CRITICAL — fail on findings)
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
@@ -180,6 +218,7 @@ jobs:
           name: trivy-backend-sbom-report
           path: |
             plugwerk-server/plugwerk-server-backend/build/reports/bom.json
+            trivy-backend-sbom-summary.txt
             trivy-backend-sbom-critical.sarif
             trivy-backend-sbom-high.sarif
             trivy-backend-sbom-medium.json
