@@ -23,6 +23,7 @@ yasson = "3.0.4"
 bucket4j = "8.17.0"
 caffeine = "3.2.3"
 spotless = "7.0.4"
+cyclonedx = "3.2.4"
 
 [libraries]
 # Kotlin
@@ -104,3 +105,4 @@ spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
 openapi-generator = { id = "org.openapi.generator", version.ref = "openapi-generator" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+cyclonedx-bom = { id = "org.cyclonedx.bom", version.ref = "cyclonedx" }

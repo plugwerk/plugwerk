@@ -4,8 +4,23 @@ plugins {
     alias(libs.plugins.kotlin.jpa)
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
+    alias(libs.plugins.cyclonedx.bom)
     `maven-publish`
     signing
+}
+
+// CycloneDX SBOM generation for CI vulnerability scanning (issue #297, ADR-0030).
+// Restricted to runtimeClasspath: only deps that ship in the production artefact
+// are security-relevant. Test/compile-only deps would add false-positive noise.
+tasks.cyclonedxDirectBom {
+    projectType = org.cyclonedx.model.Component.Type.APPLICATION
+    includeConfigs = listOf("runtimeClasspath")
+    xmlOutput.unsetConvention()
+    jsonOutput =
+        layout.buildDirectory
+            .file("reports/bom.json")
+            .get()
+            .asFile
 }
 
 kotlin {
