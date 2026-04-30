@@ -56,7 +56,7 @@ services:
   # Both the admin password and the client secret are intentionally weak —
   # this stack must never be exposed beyond localhost.
   keycloak:
-    image: quay.io/keycloak/keycloak:26.0
+    image: quay.io/keycloak/keycloak:26.6
     profiles: ["keycloak"]
     command: ["start-dev", "--import-realm"]
     environment:
