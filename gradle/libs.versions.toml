@@ -22,7 +22,7 @@ semver4j = "6.0.0"
 yasson = "3.0.4"
 bucket4j = "8.17.0"
 caffeine = "3.2.3"
-spotless = "7.2.1"
+spotless = "8.4.0"
 cyclonedx = "3.2.4"
 
 [libraries]
