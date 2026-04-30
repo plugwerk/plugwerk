@@ -46,7 +46,7 @@ jobs:
 
       # Trivy filesystem scan
       - name: Run Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -122,7 +122,7 @@ jobs:
       # trivy-action's `severity` filter does NOT apply to SARIF output, so a
       # SARIF-driven gate would fire on any finding regardless of severity.
       - name: Trivy SBOM scan (JSON for gating logic)
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: sbom
           scan-ref: plugwerk-server/plugwerk-server-backend/build/reports/bom.json
@@ -136,7 +136,7 @@ jobs:
       # Human-readable table for the job log. Identical input as the JSON step
       # above; ensures findings are visible without digging into artefacts.
       - name: Trivy SBOM scan (table summary for log)
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: sbom
           scan-ref: plugwerk-server/plugwerk-server-backend/build/reports/bom.json
@@ -197,7 +197,7 @@ jobs:
       # output, so we just feed it the broadest band we want surfaced.
       - name: Trivy SBOM scan (SARIF for Security tab)
         if: always()
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: sbom
           scan-ref: plugwerk-server/plugwerk-server-backend/build/reports/bom.json
