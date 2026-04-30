@@ -75,10 +75,14 @@ export PLUGWERK_AUTH_ENCRYPTION_KEY="$(openssl rand -base64 32)"
 docker compose up -d
 ```
 
-On first start the server generates a random superadmin password and prints it once to the container log. Retrieve it and log in:
+On first start the server generates a random superadmin password and surfaces it on two channels that bypass SLF4J entirely (log aggregators like Datadog/ELK/CloudWatch do **not** capture the credential). Retrieve it from either:
 
 ```bash
-docker compose logs plugwerk-server | grep -A 6 "Initial Superadmin Password"
+# Container stderr (forwarded by `docker compose logs`):
+docker compose logs --no-log-prefix plugwerk-server | grep -A 6 "Initial Superadmin Password"
+
+# Or the 0600 file inside the container:
+docker compose exec plugwerk-server cat /tmp/plugwerk-admin-password.txt
 ```
 
 Open http://localhost:8080 and log in with `admin` / that value. You will be required to change the password on first login.
@@ -93,7 +97,7 @@ Open http://localhost:8080 and log in with `admin` / that value. You will be req
 | `PLUGWERK_DB_USERNAME` | no | `plugwerk` | DB user |
 | `PLUGWERK_DB_PASSWORD` | no | `plugwerk` | DB password |
 | `PLUGWERK_STORAGE_ROOT` | no | `/var/plugwerk/artifacts` | Artifact storage directory |
-| `PLUGWERK_AUTH_ADMIN_PASSWORD` | no | *(random, logged, `passwordChangeRequired`)* | Pin the initial superadmin password (CI/smoke-test only — **do not set in production**). Blank or whitespace-only values are treated the same as unset. |
+| `PLUGWERK_AUTH_ADMIN_PASSWORD` | no | *(random, written to stderr + `/tmp/plugwerk-admin-password.txt` (0600), `passwordChangeRequired`)* | Pin the initial superadmin password (CI/smoke-test only — **do not set in production**). Blank or whitespace-only values are treated the same as unset. |
 | `PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS` | no | *(empty = same-origin-only)* | Comma-separated origins allowed to make cross-origin requests (e.g. `https://frontend.example.com`). Default empty preserves the bundled-frontend same-origin deployment. Wildcards not supported with default credentials. |
 | `PLUGWERK_SERVER_CORS_ALLOWED_METHODS` | no | `GET,POST,PUT,PATCH,DELETE,OPTIONS` | Comma-separated HTTP methods for cross-origin requests |
 | `PLUGWERK_SERVER_CORS_ALLOWED_HEADERS` | no | `Authorization,Content-Type,X-Api-Key` | Comma-separated request headers for cross-origin requests |

@@ -26,13 +26,17 @@ See [`.env.example`](.env.example) for the full list of environment variables (C
 
 ### Initial admin credentials
 
-On first startup, Plugwerk generates a random superadmin password and prints it once to the log:
+On first startup, Plugwerk generates a random superadmin password and surfaces it on two channels that bypass SLF4J entirely (so log aggregators like Datadog/ELK/CloudWatch do **not** capture the credential):
 
 ```bash
-docker compose logs plugwerk-server | grep "Password :"
+# Channel 1 — container stderr (forwarded by `docker compose logs`):
+docker compose logs --no-log-prefix plugwerk-server | grep "Password :"
+
+# Channel 2 — 0600 file inside the container:
+docker compose exec plugwerk-server cat /tmp/plugwerk-admin-password.txt
 ```
 
-Username is always `admin`. You will be prompted to change the password on first login. For CI/CD or smoke-test environments, set `PLUGWERK_AUTH_ADMIN_PASSWORD` to a fixed value.
+Username is always `admin`. You will be prompted to change the password on first login. For CI/CD or smoke-test environments, set `PLUGWERK_AUTH_ADMIN_PASSWORD` to a fixed value — the credential is then never surfaced (you already know it).
 
 ## API
 

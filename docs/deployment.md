@@ -341,7 +341,7 @@ export PLUGWERK_SERVER_CORS_ALLOWED_ORIGINS=http://localhost:5173
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PLUGWERK_AUTH_ADMIN_PASSWORD` | *(random, logged on first start)* | Fixed superadmin password. If unset, a random password is generated and printed to the log on first startup. |
+| `PLUGWERK_AUTH_ADMIN_PASSWORD` | *(random, surfaced outside SLF4J on first start)* | Fixed superadmin password. If unset, a random password is generated and written to container stderr **and** to `/tmp/plugwerk-admin-password.txt` (0600). The credential never enters the SLF4J pipeline, so log aggregators do not capture it. |
 | `PLUGWERK_AUTH_RATE_LIMIT_MAX_ATTEMPTS` | `10` | Max login attempts per IP per window |
 | `PLUGWERK_AUTH_RATE_LIMIT_WINDOW_SECONDS` | `60` | Rate limit window duration |
 
