@@ -32,6 +32,7 @@ import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.security.HttpClientIpResolver
 import io.plugwerk.server.security.NamespaceAuthorizationService
+import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.security.currentAuthenticationOrNull
 import io.plugwerk.server.service.Pf4jCompatibilityService
 import io.plugwerk.server.service.PluginReleaseService
@@ -220,6 +221,9 @@ class CatalogController(
         if (!auth.isAuthenticated) return CatalogVisibility.PUBLIC
         // API key callers (name starts with "key:") are treated as PUBLIC visibility
         if (auth.name.startsWith("key:")) return CatalogVisibility.PUBLIC
+        // Public-catalog carve-out token (PublicNamespaceFilter) is anonymous-equivalent
+        // for visibility purposes — short-circuit before the namespace-role DB lookups.
+        if (PublicNamespaceFilter.isPublicCatalogPrincipal(auth.name)) return CatalogVisibility.PUBLIC
         // System superadmin sees everything
         if (namespaceAuthService.isSuperadmin(auth)) return CatalogVisibility.ADMIN
         // Check namespace-level role — ordered from most to least privileged.
