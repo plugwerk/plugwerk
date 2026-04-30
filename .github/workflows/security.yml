@@ -116,9 +116,25 @@ jobs:
           total=$(jq '.components | length' "$BOM")
           echo "SBOM smoke test passed ($total components)"
 
-      # Human-readable summary printed BEFORE the gating steps so findings
-      # are visible in the job log even when CRITICAL fails the build.
-      # Renders to GitHub Step Summary too — same content, two surfaces.
+      # Single Trivy invocation produces machine-readable JSON across CRITICAL,
+      # HIGH and MEDIUM. Gating logic (CRITICAL fail / HIGH warn / MEDIUM info)
+      # runs on this file via jq. Using JSON instead of SARIF here is deliberate:
+      # trivy-action's `severity` filter does NOT apply to SARIF output, so a
+      # SARIF-driven gate would fire on any finding regardless of severity.
+      - name: Trivy SBOM scan (JSON for gating logic)
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: sbom
+          scan-ref: plugwerk-server/plugwerk-server-backend/build/reports/bom.json
+          format: json
+          output: trivy-backend-sbom.json
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: '0'
+          ignore-unfixed: false
+          scanners: vuln
+
+      # Human-readable table for the job log. Identical input as the JSON step
+      # above; ensures findings are visible without digging into artefacts.
       - name: Trivy SBOM scan (table summary for log)
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
@@ -154,62 +170,52 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Hard gate: CRITICAL CVE in the runtime classpath fails the build.
-      - name: Trivy SBOM scan (CRITICAL — fail on findings)
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
-        with:
-          scan-type: sbom
-          scan-ref: plugwerk-server/plugwerk-server-backend/build/reports/bom.json
-          format: sarif
-          output: trivy-backend-sbom-critical.sarif
-          severity: CRITICAL
-          exit-code: '1'
-          ignore-unfixed: false
-          scanners: vuln
+      # Custom severity gate: count findings per severity bucket via jq, fail
+      # the build only on CRITICAL. HIGH/MEDIUM emit annotations but do not fail.
+      - name: Enforce severity gate (CRITICAL fail / HIGH warn)
+        run: |
+          set -euo pipefail
+          JSON=trivy-backend-sbom.json
+          crit=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' "$JSON")
+          high=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' "$JSON")
+          med=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' "$JSON")
+          echo "Severity buckets: CRITICAL=$crit HIGH=$high MEDIUM=$med"
+          {
+            echo
+            echo "**Severity buckets:** CRITICAL=$crit, HIGH=$high, MEDIUM=$med"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$crit" -gt 0 ]; then
+            echo "::error::Found $crit CRITICAL vulnerability/ies in runtime classpath — failing build"
+            exit 1
+          fi
+          if [ "$high" -gt 0 ]; then
+            echo "::warning::Found $high HIGH vulnerability/ies in runtime classpath (warn-only)"
+          fi
 
-      # Soft gate: HIGH findings warn but do not fail.
-      - name: Trivy SBOM scan (HIGH — warn only)
+      # Re-run for SARIF so the GitHub Security tab gets all findings tagged
+      # with their actual severity. trivy-action ignores `severity` for SARIF
+      # output, so we just feed it the broadest band we want surfaced.
+      - name: Trivy SBOM scan (SARIF for Security tab)
         if: always()
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           scan-type: sbom
           scan-ref: plugwerk-server/plugwerk-server-backend/build/reports/bom.json
           format: sarif
-          output: trivy-backend-sbom-high.sarif
-          severity: HIGH
+          output: trivy-backend-sbom.sarif
+          severity: CRITICAL,HIGH
           exit-code: '0'
           ignore-unfixed: false
           scanners: vuln
 
-      # MEDIUM kept in JSON-only artefact for offline review.
-      - name: Trivy SBOM scan (MEDIUM — artefact only)
-        if: always()
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
-        with:
-          scan-type: sbom
-          scan-ref: plugwerk-server/plugwerk-server-backend/build/reports/bom.json
-          format: json
-          output: trivy-backend-sbom-medium.json
-          severity: MEDIUM
-          exit-code: '0'
-          ignore-unfixed: false
-          scanners: vuln
-
-      # Upload CRITICAL+HIGH SARIF to the Security tab. Separate `category` from
-      # the `trivy` job above so GitHub does not de-dupe and overwrite either.
-      - name: Upload CRITICAL SARIF to GitHub Security
+      # Upload SARIF under a distinct category so it does not de-dupe with the
+      # existing `trivy` (frontend + secret) upload.
+      - name: Upload SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@ce64ddcb0d8d890d2df4a9d1c04ff297367dea2a # v3.35.2
         if: always()
         with:
-          sarif_file: trivy-backend-sbom-critical.sarif
-          category: trivy-backend-sbom-critical
-
-      - name: Upload HIGH SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@ce64ddcb0d8d890d2df4a9d1c04ff297367dea2a # v3.35.2
-        if: always()
-        with:
-          sarif_file: trivy-backend-sbom-high.sarif
-          category: trivy-backend-sbom-high
+          sarif_file: trivy-backend-sbom.sarif
+          category: trivy-backend-sbom
 
       - name: Upload backend SBOM scan artefacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -219,7 +225,6 @@ jobs:
           path: |
             plugwerk-server/plugwerk-server-backend/build/reports/bom.json
             trivy-backend-sbom-summary.txt
-            trivy-backend-sbom-critical.sarif
-            trivy-backend-sbom-high.sarif
-            trivy-backend-sbom-medium.json
+            trivy-backend-sbom.json
+            trivy-backend-sbom.sarif
           retention-days: 30

@@ -23,12 +23,18 @@ Concretely:
 1. **Plugin**: `org.cyclonedx.bom` v3.2.4 (Gradle Plugin Portal coordinate, declared in `gradle/libs.versions.toml` so Renovate's existing `gradle` manager keeps it current).
 2. **Scope**: Only `runtimeClasspath` — test and compile-only dependencies are not shipped in the production artefact and would only add false-positive noise.
 3. **Output**: JSON-only SBOM at `plugwerk-server/plugwerk-server-backend/build/reports/bom.json` (XML output disabled via `xmlOutput.unsetConvention()`).
-4. **CI job**: New `backend-sbom-scan` job in `.github/workflows/security.yml`, parallel to the existing `trivy` job. Three Trivy invocations:
-   - **CRITICAL → fail**: `exit-code: '1'`, SARIF uploaded to GitHub Security (`category: trivy-backend-sbom-critical`).
-   - **HIGH → warn**: `exit-code: '0'`, SARIF uploaded to GitHub Security (`category: trivy-backend-sbom-high`).
-   - **MEDIUM → artefact-only**: JSON file in the workflow artefact bundle, no SARIF, no Security-tab entry. Reviewed offline if needed.
-5. **Smoke test**: Before scanning, a bash step asserts that `tomcat-embed-core`, `jackson-databind`, `logback-classic`, and `spring-boot-starter-web` are present in the BOM. If a future change silently degrades the SBOM scope, the build fails loudly instead of producing an empty-but-passing scan.
-6. **Artefact retention**: 30 days, parity with the existing `trivy-sarif-report` artefact.
+4. **CI job**: New `backend-sbom-scan` job in `.github/workflows/security.yml`, parallel to the existing `trivy` job. Architecture:
+   - One Trivy invocation in `format: json` produces the canonical findings file (`trivy-backend-sbom.json`).
+   - One Trivy invocation in `format: table` produces the human-readable log/Step-Summary surface.
+   - One shell step (`jq`) reads the JSON, counts findings per severity, and applies the gate policy explicitly:
+     - **CRITICAL** → emit `::error::` annotation, exit 1, fail the build.
+     - **HIGH** → emit `::warning::` annotation, do not fail.
+     - **MEDIUM** → counted and reported in the Step Summary, no annotation, no failure.
+   - One Trivy invocation in `format: sarif` (CRITICAL+HIGH band) feeds the GitHub Code Scanning tab under category `trivy-backend-sbom`.
+5. **Why the gate is jq-based, not trivy-action `exit-code`**: `trivy-action` does not apply its `severity` filter to SARIF output (Code Scanning needs all severity levels for its own filtering UI). As a side effect, an `exit-code: '1'` paired with `severity: CRITICAL` fires on *any* finding in the SARIF, regardless of severity. Routing the gate through JSON + jq makes the policy deterministic and reviewable: severity buckets are explicit shell variables, not a property of the scanner's output mode.
+6. **Smoke test**: Before scanning, a bash step asserts that `tomcat-embed-core`, `jackson-databind`, `logback-classic`, and `spring-boot-starter-web` are present in the BOM. If a future change silently degrades the SBOM scope, the build fails loudly instead of producing an empty-but-passing scan.
+7. **Findings visibility**: Three surfaces — collapsible log group with the full Trivy table, GitHub Step Summary with the same table, and the Security tab. Operators do not need to download the artefact to triage.
+8. **Artefact retention**: 30 days, parity with the existing `trivy-sarif-report` artefact. Bundle includes the BOM, the table, the JSON gate input, and the SARIF.
 
 ## Considered Alternatives
 
