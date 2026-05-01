@@ -76,7 +76,30 @@ oidc_identity                  -- one row per (provider, sub), strictly 1:1 to u
 
 - `OidcIdentityService.createNewIdentityAndUser` raises `OidcEmailMissingException` which `OidcLoginSuccessHandler` translates to `response.sendError(400, …)`.
 - This is a setup-time misconfiguration, not a runtime user-fixable condition. The operator-facing browser whitelabel is acceptable.
-- **Email uniqueness** is partial: the unique index `uq_plugwerk_user_email_local` only constrains `WHERE source = 'LOCAL'`. OIDC accounts may share emails — both with each other and with local accounts — because the no-linking policy makes a duplicate-email check a foot-gun (would block legitimate logins).
+- **Email uniqueness** is partial: the unique index `uq_plugwerk_user_email_internal` only constrains `WHERE source = 'INTERNAL'`. EXTERNAL accounts may share emails — both with each other and with INTERNAL accounts — because the no-linking policy makes a duplicate-email check a foot-gun (would block legitimate logins).
+
+#### 5a. Email-policy for OAuth2-only providers (#357)
+
+After #357 added GitHub, Google, Facebook and a generic OAuth2 type, the email-resolution path is no longer "read `email` claim from the ID token" for all providers. The three OAuth2-shaped surfaces resolve email differently:
+
+| Provider | Source of `email` | Failure mode |
+|---|---|---|
+| Google | OIDC discovery + ID token (same as Keycloak/Authentik) | Operator forgot the `email` scope |
+| GitHub | `/user` user-info, **fallback** to `/user/emails` for private primaries | User has neither a public email nor granted the `user:email` scope |
+| Facebook | `/me?fields=email` | Facebook App Review has not approved the `email` permission for the operator's app |
+| Generic OAuth2 | operator-configured user-info attribute name (default `email`) | The configured attribute is absent from the user-info response |
+
+The product question Plugwerk answered (the issue's α/β/γ choice):
+
+- **Decision**: **Option α** — *reject the login with a provider-aware, actionable message.*
+- **Implemented in**: PR #406 (#357 phase 2). `OidcEmailMissingException.buildMessage` switches on `provider.providerType` and produces a hint that points at the specific failure mode for that provider — so a GitHub user sees *"Set a public primary email in your GitHub account settings (Settings → Emails → uncheck 'Keep my email addresses private') or sign in with a different provider"* rather than the generic OIDC message.
+
+Why option α and not β (onboarding page) or γ (synthetic placeholder):
+
+- **β (`/onboarding/email` page)** is the right long-term UX but requires email-verification infrastructure (verification token table, mailer, click-to-verify endpoint) we do not have yet. Tracked in the original #357 scope as *"would be a good place to land it"* but kept deferred — the cost was disproportionate for an edge case that mostly resolves itself once the user adds a public email upstream.
+- **γ (synthetic `<id>@github.no-email.local`)** silently violates the `email` semantics (downstream code assumes the column is a real address — notifications, audit, etc.). It would have unblocked the flow at the cost of poisoning the data; rejected because it spreads the workaround across the entire system instead of localising it at the failure boundary.
+
+The provider-aware message keeps the failure mode honest: the operator (or in GitHub's case, the user) sees exactly what to fix, and `plugwerk_user.email` retains its real-address invariant.
 
 ### 6. JWT `sub` = `plugwerk_user.id` (UUID), never the upstream subject
 
