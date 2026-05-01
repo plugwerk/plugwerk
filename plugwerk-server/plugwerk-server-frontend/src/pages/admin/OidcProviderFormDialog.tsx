@@ -107,6 +107,22 @@ export function OidcProviderFormDialog({
     useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Validation visibility: a field shows its error only after the user has
+  // interacted with it (onBlur) OR after a submit attempt. Without this guard,
+  // every field would be red the moment the dialog opens — a known anti-pattern
+  // that signals "broken" instead of "please fill in".
+  type FieldKey = "name" | "clientId" | "clientSecret" | "issuerUri" | "scope";
+  const [touched, setTouched] = useState<Record<FieldKey, boolean>>({
+    name: false,
+    clientId: false,
+    clientSecret: false,
+    issuerUri: false,
+    scope: false,
+  });
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const markTouched = (key: FieldKey) =>
+    setTouched((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+
   useEffect(() => {
     if (!open) return;
     if (isEdit && initialValues) {
@@ -125,6 +141,17 @@ export function OidcProviderFormDialog({
     // Secret is never pre-filled — empty IS the affordance ("leave blank to keep").
     setClientSecret("");
     setAcknowledgeClientIdChange(false);
+    // Reset interaction state so a freshly-opened dialog is clean. The next
+    // open of "Add Provider" should not inherit the touched/submit state of
+    // the previous one.
+    setTouched({
+      name: false,
+      clientId: false,
+      clientSecret: false,
+      issuerUri: false,
+      scope: false,
+    });
+    setSubmitAttempted(false);
   }, [open, isEdit, initialValues]);
 
   const issuerRequired = ISSUER_REQUIRED_TYPES.has(providerType);
@@ -181,6 +208,15 @@ export function OidcProviderFormDialog({
   const saveDisabled = hasErrors || blockedByClientIdAck;
 
   /**
+   * Visible-error gate — returns the error text only after the user has
+   * either interacted with the field (onBlur) or attempted a submit. Until
+   * then, fields render in their neutral state and show their default
+   * helperText, so a freshly-opened dialog is calm rather than red.
+   */
+  const visibleError = (key: FieldKey): string | null =>
+    touched[key] || submitAttempted ? errors[key] : null;
+
+  /**
    * Computes the diff between current form state and `initialValues` for an
    * edit submission. Only changed fields are emitted, and `clientSecret` is
    * included only when non-empty (empty == "keep existing"). For create,
@@ -218,6 +254,10 @@ export function OidcProviderFormDialog({
   }
 
   async function handleSubmit() {
+    // Promote interaction state so any latent errors become visible — a user
+    // who jumps straight to "Save" without focusing every field still gets
+    // every relevant red marker.
+    setSubmitAttempted(true);
     if (saveDisabled) return;
     setSubmitting(true);
     try {
@@ -247,19 +287,38 @@ export function OidcProviderFormDialog({
       actionLoading={submitting}
       maxWidth={620}
     >
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 3,
+          // Mute the MUI default required-asterisk colour. Default is
+          // `theme.palette.error.main`, which reads as "validation error" on a
+          // form that has not been touched yet — exactly the false alarm the
+          // touched/submitAttempted gate above is meant to avoid. A required
+          // asterisk in `text.secondary` still signals "required" without
+          // shouting "broken".
+          "& .MuiFormLabel-asterisk": { color: "text.secondary" },
+        }}
+      >
         {/* ── Section: Identity ── */}
         <FormSection title="Identity">
           <TextField
             label="Display Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            onBlur={() => markTouched("name")}
             required
             size="small"
-            error={errors.name !== null}
-            helperText={errors.name ?? "Shown on the login page."}
+            error={visibleError("name") !== null}
+            helperText={visibleError("name") ?? "Shown on the login page."}
             inputProps={{ maxLength: 255 }}
-            autoFocus={!isEdit}
+            // Deliberately no `autoFocus`. Combining `autoFocus` with MUI's
+            // Dialog focus-trap caused the input to fire `onBlur` immediately
+            // after mount (focus enters the input, then the trap relocates
+            // focus to the dialog container, which counts as a blur). The
+            // touched-gate above then flagged the field as user-interacted
+            // before the operator did anything, painting it red on open.
           />
 
           <ProviderTypeField
@@ -275,10 +334,11 @@ export function OidcProviderFormDialog({
             label="Client ID"
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
+            onBlur={() => markTouched("clientId")}
             required
             size="small"
-            error={errors.clientId !== null}
-            helperText={errors.clientId ?? undefined}
+            error={visibleError("clientId") !== null}
+            helperText={visibleError("clientId") ?? undefined}
             inputProps={{ maxLength: 255 }}
           />
 
@@ -308,11 +368,12 @@ export function OidcProviderFormDialog({
             type="password"
             value={clientSecret}
             onChange={(e) => setClientSecret(e.target.value)}
+            onBlur={() => markTouched("clientSecret")}
             required={!isEdit}
             size="small"
-            error={errors.clientSecret !== null}
+            error={visibleError("clientSecret") !== null}
             helperText={
-              errors.clientSecret ??
+              visibleError("clientSecret") ??
               (isEdit
                 ? "Leave blank to keep the current secret."
                 : "At least 8 characters.")
@@ -330,12 +391,13 @@ export function OidcProviderFormDialog({
               label="Issuer URI"
               value={issuerUri}
               onChange={(e) => setIssuerUri(e.target.value)}
+              onBlur={() => markTouched("issuerUri")}
               required
               size="small"
               placeholder="https://your-idp.example.com/realms/myrealm"
-              error={errors.issuerUri !== null}
+              error={visibleError("issuerUri") !== null}
               helperText={
-                errors.issuerUri ??
+                visibleError("issuerUri") ??
                 "Discovered via /.well-known/openid-configuration."
               }
             />
@@ -344,11 +406,12 @@ export function OidcProviderFormDialog({
             label="Scope"
             value={scope}
             onChange={(e) => setScope(e.target.value)}
+            onBlur={() => markTouched("scope")}
             required
             size="small"
-            error={errors.scope !== null}
+            error={visibleError("scope") !== null}
             helperText={
-              errors.scope ??
+              visibleError("scope") ??
               "Space-separated. OIDC providers must include 'openid'."
             }
           />
