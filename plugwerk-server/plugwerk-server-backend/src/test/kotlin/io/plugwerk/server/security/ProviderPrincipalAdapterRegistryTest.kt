@@ -34,8 +34,12 @@ class ProviderPrincipalAdapterRegistryTest {
     }
 
     @Test
-    fun `fails with actionable message for unconfigured provider type`() {
-        // After #357 phase 3, FACEBOOK is the remaining unconfigured type.
+    fun `fails with actionable message when no adapter is registered for a provider type`() {
+        // Build a registry with only the OIDC adapter — Facebook is therefore
+        // an unconfigured branch from this registry's point of view, even
+        // though a real FacebookPrincipalAdapter exists in the application
+        // context. The error must point at #357 so any future addition to
+        // OidcProviderType lands on a discoverable signal.
         val registry = ProviderPrincipalAdapterRegistry(listOf(OidcPrincipalAdapter()))
 
         assertThatThrownBy { registry.forProviderType(OidcProviderType.FACEBOOK) }
