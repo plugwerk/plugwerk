@@ -37,6 +37,8 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doNothing
 import org.mockito.kotlin.doThrow
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration
@@ -85,6 +87,9 @@ class AdminUserControllerTest {
     @MockitoBean
     private lateinit var namespaceMemberRepository: io.plugwerk.server.repository.NamespaceMemberRepository
 
+    @MockitoBean
+    private lateinit var oidcIdentityRepository: io.plugwerk.server.repository.OidcIdentityRepository
+
     @BeforeEach
     fun setUp() {
         // Simulate an authenticated superadmin — requireSuperadmin mock does nothing by default
@@ -107,6 +112,30 @@ class AdminUserControllerTest {
         enabled = enabled,
         passwordChangeRequired = false,
     )
+
+    private fun stubExternalUser(displayName: String = "Alice Schmidt"): UserEntity = UserEntity(
+        id = UUID.randomUUID(),
+        username = null,
+        displayName = displayName,
+        email = "${displayName.lowercase().replace(" ", ".")}@example.com",
+        source = io.plugwerk.server.domain.UserSource.EXTERNAL,
+        passwordHash = null,
+        enabled = true,
+        passwordChangeRequired = false,
+    )
+
+    /**
+     * Spring Data interface-projection stub. The real
+     * `OidcIdentityRepository.findProviderNamesForUsers` returns a list of
+     * `UserProviderProjection` — the controller calls `it.userId` /
+     * `it.providerName` on each row. We materialise the same shape with an
+     * anonymous object so the wiring is exercised end-to-end.
+     */
+    private fun providerProjection(userId: UUID, providerName: String) =
+        object : io.plugwerk.server.repository.UserProviderProjection {
+            override val userId: UUID = userId
+            override val providerName: String = providerName
+        }
 
     @Test
     fun `GET admin users returns list`() {
@@ -164,6 +193,84 @@ class AdminUserControllerTest {
         mockMvc.get("/api/v1/admin/users").andExpect {
             status { isOk() }
             jsonPath("$") { isArray() }
+        }
+    }
+
+    @Test
+    fun `GET admin users populates providerName for EXTERNAL users (issue #412)`() {
+        // EXTERNAL user gets a provider-name suffix in the admin list so the
+        // add-member dropdown can disambiguate two same-named accounts coming
+        // from different providers. The lookup is one batched call; this test
+        // pins the wiring end-to-end (controller → repository → DTO).
+        val external = stubExternalUser("Alice Schmidt")
+        whenever(userService.findAll()).thenReturn(listOf(external))
+        whenever(oidcIdentityRepository.findProviderNamesForUsers(listOf(external.id!!)))
+            .thenReturn(listOf(providerProjection(external.id!!, "Company Keycloak")))
+
+        mockMvc.get("/api/v1/admin/users").andExpect {
+            status { isOk() }
+            jsonPath("$[0].source") { value("EXTERNAL") }
+            jsonPath("$[0].providerName") { value("Company Keycloak") }
+        }
+    }
+
+    @Test
+    fun `GET admin users returns null providerName for INTERNAL users (issue #412)`() {
+        // INTERNAL users always return providerName = null. The controller
+        // must NOT include their ids in the batched lookup.
+        val internal = stubUser("alice")
+        whenever(userService.findAll()).thenReturn(listOf(internal))
+
+        mockMvc.get("/api/v1/admin/users").andExpect {
+            status { isOk() }
+            jsonPath("$[0].source") { value("INTERNAL") }
+            jsonPath("$[0].providerName") { doesNotExist() }
+        }
+        verify(oidcIdentityRepository, never()).findProviderNamesForUsers(any())
+    }
+
+    @Test
+    fun `GET admin users skips provider lookup when no EXTERNAL users exist (issue #412)`() {
+        // Performance regression guard — passing an empty `IN (…)` collection
+        // is a JDBC dialect minefield, and the round-trip is wasted anyway.
+        // The controller short-circuits; this test locks that behaviour.
+        whenever(userService.findAll()).thenReturn(
+            listOf(stubUser("alice"), stubUser("bob")),
+        )
+
+        mockMvc.get("/api/v1/admin/users").andExpect {
+            status { isOk() }
+            jsonPath("$.length()") { value(2) }
+        }
+        verify(oidcIdentityRepository, never()).findProviderNamesForUsers(any())
+    }
+
+    @Test
+    fun `GET admin users handles mixed INTERNAL plus EXTERNAL users with one batched lookup`() {
+        // The mixed-source case is the realistic production shape: a few
+        // INTERNAL admins and many EXTERNAL OIDC users on the same page. The
+        // EXTERNAL ids are batched into one call; INTERNAL ids stay out of it.
+        val internal = stubUser("admin")
+        val externalA = stubExternalUser("Alice Schmidt")
+        val externalB = stubExternalUser("Bob Jones")
+        whenever(userService.findAll()).thenReturn(listOf(internal, externalA, externalB))
+        whenever(
+            oidcIdentityRepository.findProviderNamesForUsers(
+                listOf(externalA.id!!, externalB.id!!),
+            ),
+        ).thenReturn(
+            listOf(
+                providerProjection(externalA.id!!, "Google"),
+                providerProjection(externalB.id!!, "GitHub"),
+            ),
+        )
+
+        mockMvc.get("/api/v1/admin/users").andExpect {
+            status { isOk() }
+            jsonPath("$.length()") { value(3) }
+            jsonPath("$[0].providerName") { doesNotExist() }
+            jsonPath("$[1].providerName") { value("Google") }
+            jsonPath("$[2].providerName") { value("GitHub") }
         }
     }
 
