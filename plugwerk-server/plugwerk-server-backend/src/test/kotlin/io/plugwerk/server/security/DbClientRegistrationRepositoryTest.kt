@@ -87,16 +87,36 @@ class DbClientRegistrationRepositoryTest {
     }
 
     @Test
-    fun `GitHub and Facebook provider types still skipped (tracked in #357 phase 3 and 4)`() {
+    fun `GitHub provider type now produces a registration via CommonOAuth2Provider (#357 phase 3)`() {
+        whenever(textEncryptor.decrypt("{cipher}gh-secret")).thenReturn("plain-gh-secret")
         val github = OidcProviderEntity(
             id = UUID.fromString("22222222-2222-2222-2222-222222222222"),
             name = "GitHub",
             providerType = OidcProviderType.GITHUB,
             enabled = true,
             clientId = "gh-client",
-            clientSecretEncrypted = "{cipher}ignored",
+            clientSecretEncrypted = "{cipher}gh-secret",
             issuerUri = null,
         )
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(github))
+
+        val repo = DbClientRegistrationRepository(oidcProviderRepository, textEncryptor)
+        val registration = repo.findByRegistrationId(github.id.toString())
+
+        assertThat(registration).isNotNull()
+        assertThat(registration!!.clientId).isEqualTo("gh-client")
+        assertThat(registration.clientSecret).isEqualTo("plain-gh-secret")
+        // Hardcoded GitHub scopes — operator-supplied OIDC scopes are intentionally
+        // ignored for this provider type because GitHub does not understand them.
+        assertThat(registration.scopes).containsExactlyInAnyOrder("read:user", "user:email")
+        // Spring's CommonOAuth2Provider.GITHUB template carries the right endpoints —
+        // pin one of them to confirm we're using it rather than a hand-rolled config.
+        assertThat(registration.providerDetails.tokenUri)
+            .isEqualTo("https://github.com/login/oauth/access_token")
+    }
+
+    @Test
+    fun `Facebook provider type still skipped (tracked in #357 phase 4)`() {
         val facebook = OidcProviderEntity(
             id = UUID.fromString("33333333-3333-3333-3333-333333333333"),
             name = "Facebook",
@@ -106,13 +126,12 @@ class DbClientRegistrationRepositoryTest {
             clientSecretEncrypted = "{cipher}ignored",
             issuerUri = null,
         )
-        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(github, facebook))
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(facebook))
 
         val repo = DbClientRegistrationRepository(oidcProviderRepository, textEncryptor)
 
-        // Both rows logged-and-skipped — registry is empty, lookups return null.
+        // Logged-and-skipped — registry is empty, lookup returns null.
         assertThat(repo.iterator().hasNext()).isFalse()
-        assertThat(repo.findByRegistrationId(github.id.toString())).isNull()
         assertThat(repo.findByRegistrationId(facebook.id.toString())).isNull()
     }
 
