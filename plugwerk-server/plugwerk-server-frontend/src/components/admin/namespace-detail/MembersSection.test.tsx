@@ -30,6 +30,7 @@ vi.mock("../../../api/config", () => ({
   },
   namespaceMembersApi: {
     listNamespaceMembers: vi.fn(),
+    addNamespaceMember: vi.fn(),
   },
 }));
 
@@ -49,11 +50,12 @@ function userDto(overrides: Partial<UserDto>): UserDto {
 }
 
 /**
- * Opens the "Add Member" dialog and waits for the user-options effect to
+ * Opens the "Add Members" dialog and waits for the user-options effect to
  * fire. Returns both the userEvent instance and the dialog element.
  */
 async function openAddMemberDialog() {
   const user = userEvent.setup();
+  // Match both legacy "Add Member" and current "Add Members" toolbar label.
   await user.click(screen.getByRole("button", { name: /add member/i }));
   const dialog = await screen.findByRole("dialog");
   return { user, dialog };
@@ -144,6 +146,74 @@ describe("MembersSection — add-member user picker (issue #412)", () => {
     expect(
       await screen.findByText("Charlie Admin (charlie)"),
     ).toBeInTheDocument();
+  });
+
+  it("multi-select: action button reflects the number of selected users and submits one request per user", async () => {
+    // The dialog accepts any number of users at once; the operator picks
+    // them all, sets one role, hits submit, and we issue N independent
+    // adds. The action label updates to advertise the count so the
+    // operator sees what is about to happen before clicking.
+    const alice = userDto({
+      displayName: "Alice Schmidt",
+      source: "EXTERNAL",
+      username: undefined,
+      providerName: "Google",
+    });
+    const bob = userDto({
+      displayName: "Bob Müller",
+      source: "INTERNAL",
+      username: "bob",
+    });
+    vi.mocked(apiConfig.adminUsersApi.listUsers).mockResolvedValue({
+      data: [alice, bob],
+    } as unknown as Awaited<
+      ReturnType<typeof apiConfig.adminUsersApi.listUsers>
+    >);
+    vi.mocked(
+      apiConfig.namespaceMembersApi.addNamespaceMember,
+    ).mockResolvedValue({
+      data: {
+        userId: alice.id,
+        displayName: alice.displayName,
+        username: null,
+        role: "MEMBER",
+        createdAt: new Date().toISOString(),
+      },
+    } as unknown as Awaited<
+      ReturnType<typeof apiConfig.namespaceMembersApi.addNamespaceMember>
+    >);
+
+    renderWithTheme(<MembersSection slug="ns-1" />);
+    const { user, dialog } = await openAddMemberDialog();
+
+    // Pick both users via the option list — the picker keeps the dropdown
+    // open after the first pick (`disableCloseOnSelect`) so the second
+    // selection is one click away.
+    const input = within(dialog).getByRole("combobox", { name: /user/i });
+    await user.click(input);
+    await user.click(await screen.findByText("Alice Schmidt (Google)"));
+    await user.click(await screen.findByText("Bob Müller (bob)"));
+
+    // Action button reflects the count, in plural.
+    const submit = within(dialog).getByRole("button", {
+      name: /add 2 members/i,
+    });
+    await user.click(submit);
+
+    // Two independent server calls — sequential per the implementation,
+    // both observed by the mock regardless of order.
+    await waitFor(() => {
+      expect(
+        apiConfig.namespaceMembersApi.addNamespaceMember,
+      ).toHaveBeenCalledTimes(2);
+    });
+    const calls = vi.mocked(apiConfig.namespaceMembersApi.addNamespaceMember)
+      .mock.calls;
+    const submittedUserIds = calls.map(
+      (c) => c[0].namespaceMemberCreateRequest.userId,
+    );
+    expect(submittedUserIds).toContain(alice.id);
+    expect(submittedUserIds).toContain(bob.id);
   });
 
   it("Autocomplete free-text search does NOT match the provider-name suffix", async () => {

@@ -109,7 +109,11 @@ export function MembersSection({ slug }: { slug: string }) {
   const [members, setMembers] = useState<NamespaceMemberDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
-  const [newUser, setNewUser] = useState<UserOption | null>(null);
+  // Multi-select: a single Add-Member dialog can grant the same role to any
+  // number of users at once. Most realistic case is "I just provisioned 5
+  // OIDC users via SSO and want all of them in this namespace as MEMBERs"
+  // — no value in clicking through five identical dialogs.
+  const [newUsers, setNewUsers] = useState<UserOption[]>([]);
   const [newRole, setNewRole] = useState<NamespaceRole>(
     NamespaceRoleEnum.Member,
   );
@@ -207,38 +211,74 @@ export function MembersSection({ slug }: { slug: string }) {
   }
 
   async function handleAdd() {
-    if (!newUser) return;
+    if (newUsers.length === 0) return;
     setAddSaving(true);
     setAddError(null);
-    try {
-      const res = await namespaceMembersApi.addNamespaceMember({
-        ns: slug,
-        namespaceMemberCreateRequest: {
-          userId: newUser.userId,
-          role: newRole,
-        },
-      });
+
+    // Sequential adds rather than `Promise.all` — the server's per-row
+    // 409 ("already a member") is friendlier to surface as the user sees
+    // it, and a hammered loop on a misconfigured server can amplify into
+    // dozens of identical 5xx responses. Sequential keeps the UI honest:
+    // one row, one outcome, one slot in the result aggregate.
+    type AddResult =
+      | { kind: "ok"; option: UserOption; member: NamespaceMemberDto }
+      | { kind: "fail"; option: UserOption; message: string };
+    const results: AddResult[] = [];
+    for (const option of newUsers) {
+      try {
+        const res = await namespaceMembersApi.addNamespaceMember({
+          ns: slug,
+          namespaceMemberCreateRequest: {
+            userId: option.userId,
+            role: newRole,
+          },
+        });
+        results.push({ kind: "ok", option, member: res.data });
+      } catch (error: unknown) {
+        const message =
+          isAxiosError(error) && error.response?.status === 409
+            ? "already a member of this namespace"
+            : "failed to add";
+        results.push({ kind: "fail", option, message });
+      }
+    }
+
+    const succeeded = results.flatMap((r) => (r.kind === "ok" ? [r] : []));
+    const failed = results.flatMap((r) => (r.kind === "fail" ? [r] : []));
+
+    if (succeeded.length > 0) {
       invalidateRoleCache();
-      setMembers((prev) => [...prev, res.data]);
+      setMembers((prev) => [...prev, ...succeeded.map((r) => r.member)]);
       addToast({
-        message: `Member "${newUser.label}" added.`,
+        message:
+          succeeded.length === 1
+            ? `Member "${succeeded[0].option.label}" added.`
+            : `${succeeded.length} members added.`,
         type: "success",
       });
-      setAddOpen(false);
-      setNewUser(null);
-      setNewRole(NamespaceRoleEnum.Member);
-    } catch (error: unknown) {
-      if (isAxiosError(error) && error.response?.status === 409) {
-        setAddError(
-          error.response.data?.message ??
-            `User "${newUser.label}" is already a member of this namespace.`,
-        );
-      } else {
-        setAddError("Failed to add member.");
-      }
-    } finally {
-      setAddSaving(false);
     }
+
+    if (failed.length === 0) {
+      // Full success → reset and close. Same "fresh dialog every time" UX
+      // we had with single-select.
+      setAddOpen(false);
+      setNewUsers([]);
+      setNewRole(NamespaceRoleEnum.Member);
+    } else {
+      // Partial failure → keep the dialog open, leave only the failed
+      // selections in the picker so the operator can see which rows still
+      // need attention without losing context. The error banner surfaces
+      // the per-row failure reason (typically "already a member").
+      setNewUsers(failed.map((r) => r.option));
+      setAddError(
+        failed.length === 1
+          ? `${failed[0].option.label}: ${failed[0].message}.`
+          : `${failed.length} of ${results.length} users could not be added — ` +
+              failed.map((r) => `${r.option.label} (${r.message})`).join("; "),
+      );
+    }
+
+    setAddSaving(false);
   }
 
   const memberColumns: DataColumn<NamespaceMemberDto>[] = [
@@ -320,7 +360,7 @@ export function MembersSection({ slug }: { slug: string }) {
           startIcon={<Plus size={14} />}
           onClick={() => setAddOpen(true)}
         >
-          Add Member
+          Add Members
         </Button>
       </Box>
 
@@ -346,25 +386,41 @@ export function MembersSection({ slug }: { slug: string }) {
         onClose={() => {
           setAddOpen(false);
           setAddError(null);
+          // Reset selection on close so a re-open starts fresh — leaving
+          // chips behind from a cancelled flow would be confusing.
+          setNewUsers([]);
         }}
-        title="Add Member"
-        description="Select an existing Plugwerk user to grant a role within this namespace."
-        actionLabel="Add Member"
+        title="Add Members"
+        description="Select one or more existing Plugwerk users to grant the same role within this namespace."
+        actionLabel={
+          newUsers.length > 1 ? `Add ${newUsers.length} Members` : "Add Member"
+        }
         onAction={handleAdd}
-        actionDisabled={!newUser}
+        actionDisabled={newUsers.length === 0}
         actionLoading={addSaving}
       >
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {addError && <Alert severity="error">{addError}</Alert>}
           <Autocomplete
+            multiple
             options={userOptions}
-            value={newUser}
-            onChange={(_, value) => setNewUser(value)}
+            value={newUsers}
+            onChange={(_, value) => setNewUsers(value)}
             getOptionLabel={(option) => option.label}
             isOptionEqualToValue={(a, b) => a.userId === b.userId}
             filterOptions={filterUserOptions}
+            // Keep the option list open after a selection so picking
+            // multiple users in a row stays a single fluid interaction.
+            disableCloseOnSelect
             renderInput={(params) => (
-              <TextField {...params} label="User" size="small" />
+              <TextField
+                {...params}
+                label={newUsers.length > 0 ? "Users" : "Add users"}
+                size="small"
+                placeholder={
+                  newUsers.length === 0 ? "Type to search…" : undefined
+                }
+              />
             )}
           />
           <FormControl size="small" fullWidth>
