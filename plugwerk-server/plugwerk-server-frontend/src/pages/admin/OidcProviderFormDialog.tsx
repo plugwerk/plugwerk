@@ -44,9 +44,6 @@ const PROVIDER_TYPE_LABELS: Record<OidcProviderType, string> = {
   GITHUB: "GitHub",
   GOOGLE: "Google",
   FACEBOOK: "Facebook",
-  // The OAUTH2_GENERIC form fields land in phase C; this label keeps the
-  // dropdown coherent so the existing flows compile against the new enum
-  // value without forcing a wholesale UI rewrite into the same PR.
   OAUTH2_GENERIC: "Generic OAuth2 (GitLab, Bitbucket, custom IdP, …)",
 };
 
@@ -89,6 +86,12 @@ const DEFAULT_SCOPE = "openid profile email";
  *     because existing access tokens carry the old `aud` claim and will
  *     start failing immediately on save.
  *   - In edit mode the submit payload is the diff (only changed fields).
+ *
+ * For OAUTH2_GENERIC the form additionally surfaces seven operator-supplied
+ * fields (authorize/token/user-info/JWK URIs + subject/email/displayName
+ * attribute names). They are conditionally rendered — invisible for the four
+ * vendor + OIDC types — because they would only confuse operators who are
+ * configuring a Google or GitHub login.
  */
 export function OidcProviderFormDialog({
   open,
@@ -107,6 +110,15 @@ export function OidcProviderFormDialog({
   const [clientSecret, setClientSecret] = useState("");
   const [issuerUri, setIssuerUri] = useState("");
   const [scope, setScope] = useState(DEFAULT_SCOPE);
+  // OAUTH2_GENERIC fields. Empty string means "not set"; the build-payload
+  // step turns empty into `undefined` so PATCH semantics survive.
+  const [authorizationUri, setAuthorizationUri] = useState("");
+  const [tokenUri, setTokenUri] = useState("");
+  const [userInfoUri, setUserInfoUri] = useState("");
+  const [jwkSetUri, setJwkSetUri] = useState("");
+  const [subjectAttribute, setSubjectAttribute] = useState("");
+  const [emailAttribute, setEmailAttribute] = useState("");
+  const [displayNameAttribute, setDisplayNameAttribute] = useState("");
   const [acknowledgeClientIdChange, setAcknowledgeClientIdChange] =
     useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -115,14 +127,29 @@ export function OidcProviderFormDialog({
   // interacted with it (onBlur) OR after a submit attempt. Without this guard,
   // every field would be red the moment the dialog opens — a known anti-pattern
   // that signals "broken" instead of "please fill in".
-  type FieldKey = "name" | "clientId" | "clientSecret" | "issuerUri" | "scope";
-  const [touched, setTouched] = useState<Record<FieldKey, boolean>>({
+  type FieldKey =
+    | "name"
+    | "clientId"
+    | "clientSecret"
+    | "issuerUri"
+    | "scope"
+    | "authorizationUri"
+    | "tokenUri"
+    | "userInfoUri"
+    | "jwkSetUri";
+  const initialTouched: Record<FieldKey, boolean> = {
     name: false,
     clientId: false,
     clientSecret: false,
     issuerUri: false,
     scope: false,
-  });
+    authorizationUri: false,
+    tokenUri: false,
+    userInfoUri: false,
+    jwkSetUri: false,
+  };
+  const [touched, setTouched] =
+    useState<Record<FieldKey, boolean>>(initialTouched);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const markTouched = (key: FieldKey) =>
     setTouched((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
@@ -135,12 +162,26 @@ export function OidcProviderFormDialog({
       setClientId(initialValues.clientId);
       setIssuerUri(initialValues.issuerUri ?? "");
       setScope(initialValues.scope ?? DEFAULT_SCOPE);
+      setAuthorizationUri(initialValues.authorizationUri ?? "");
+      setTokenUri(initialValues.tokenUri ?? "");
+      setUserInfoUri(initialValues.userInfoUri ?? "");
+      setJwkSetUri(initialValues.jwkSetUri ?? "");
+      setSubjectAttribute(initialValues.subjectAttribute ?? "");
+      setEmailAttribute(initialValues.emailAttribute ?? "");
+      setDisplayNameAttribute(initialValues.displayNameAttribute ?? "");
     } else {
       setName("");
       setProviderType("OIDC");
       setClientId("");
       setIssuerUri("");
       setScope(DEFAULT_SCOPE);
+      setAuthorizationUri("");
+      setTokenUri("");
+      setUserInfoUri("");
+      setJwkSetUri("");
+      setSubjectAttribute("");
+      setEmailAttribute("");
+      setDisplayNameAttribute("");
     }
     // Secret is never pre-filled — empty IS the affordance ("leave blank to keep").
     setClientSecret("");
@@ -148,17 +189,16 @@ export function OidcProviderFormDialog({
     // Reset interaction state so a freshly-opened dialog is clean. The next
     // open of "Add Provider" should not inherit the touched/submit state of
     // the previous one.
-    setTouched({
-      name: false,
-      clientId: false,
-      clientSecret: false,
-      issuerUri: false,
-      scope: false,
-    });
+    setTouched(initialTouched);
     setSubmitAttempted(false);
+    // initialTouched is a fresh object literal each render — including it in
+    // the dep list would re-run the effect on every render. Stable reset is
+    // the goal here, not reactive sync.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, isEdit, initialValues]);
 
   const issuerRequired = ISSUER_REQUIRED_TYPES.has(providerType);
+  const isGeneric = providerType === "OAUTH2_GENERIC";
 
   // Validation — applied per-field. Errors are surfaced as MUI helperText below
   // each field and as a disabled Save button until they're resolved.
@@ -167,6 +207,15 @@ export function OidcProviderFormDialog({
     const trimmedClientId = clientId.trim();
     const trimmedIssuer = issuerUri.trim();
     const trimmedScope = scope.trim();
+    const trimmedAuthUri = authorizationUri.trim();
+    const trimmedTokenUri = tokenUri.trim();
+    const trimmedUserInfoUri = userInfoUri.trim();
+    const trimmedJwkSetUri = jwkSetUri.trim();
+
+    const httpUriError = (value: string): string | null =>
+      value.length > 0 && !/^https?:\/\//.test(value)
+        ? "Must start with http:// or https://."
+        : null;
 
     return {
       name: trimmedName.length === 0 ? "Required." : null,
@@ -190,6 +239,22 @@ export function OidcProviderFormDialog({
               !trimmedScope.split(/\s+/).includes("openid")
             ? "Scope for OIDC providers must include 'openid'."
             : null,
+      authorizationUri: isGeneric
+        ? trimmedAuthUri.length === 0
+          ? "Required for Generic OAuth2."
+          : httpUriError(trimmedAuthUri)
+        : null,
+      tokenUri: isGeneric
+        ? trimmedTokenUri.length === 0
+          ? "Required for Generic OAuth2."
+          : httpUriError(trimmedTokenUri)
+        : null,
+      userInfoUri: isGeneric
+        ? trimmedUserInfoUri.length === 0
+          ? "Required for Generic OAuth2."
+          : httpUriError(trimmedUserInfoUri)
+        : null,
+      jwkSetUri: isGeneric ? httpUriError(trimmedJwkSetUri) : null,
     };
   }, [
     isEdit,
@@ -200,6 +265,11 @@ export function OidcProviderFormDialog({
     scope,
     providerType,
     issuerRequired,
+    isGeneric,
+    authorizationUri,
+    tokenUri,
+    userInfoUri,
+    jwkSetUri,
   ]);
 
   const clientIdChanged =
@@ -233,6 +303,13 @@ export function OidcProviderFormDialog({
     const trimmedClientId = clientId.trim();
     const trimmedIssuer = issuerUri.trim();
     const trimmedScope = scope.trim();
+    const trimmedAuthUri = authorizationUri.trim();
+    const trimmedTokenUri = tokenUri.trim();
+    const trimmedUserInfoUri = userInfoUri.trim();
+    const trimmedJwkSetUri = jwkSetUri.trim();
+    const trimmedSubjectAttr = subjectAttribute.trim();
+    const trimmedEmailAttr = emailAttribute.trim();
+    const trimmedDisplayNameAttr = displayNameAttribute.trim();
 
     if (!isEdit || !initialValues) {
       return {
@@ -242,6 +319,22 @@ export function OidcProviderFormDialog({
         clientSecret: clientSecret,
         issuerUri: trimmedIssuer.length > 0 ? trimmedIssuer : undefined,
         scope: trimmedScope.length > 0 ? trimmedScope : undefined,
+        // OAUTH2_GENERIC fields: send only when the user actually entered them.
+        // Server enforces required-when-OAUTH2_GENERIC for the three core URIs.
+        authorizationUri:
+          trimmedAuthUri.length > 0 ? trimmedAuthUri : undefined,
+        tokenUri: trimmedTokenUri.length > 0 ? trimmedTokenUri : undefined,
+        userInfoUri:
+          trimmedUserInfoUri.length > 0 ? trimmedUserInfoUri : undefined,
+        jwkSetUri: trimmedJwkSetUri.length > 0 ? trimmedJwkSetUri : undefined,
+        subjectAttribute:
+          trimmedSubjectAttr.length > 0 ? trimmedSubjectAttr : undefined,
+        emailAttribute:
+          trimmedEmailAttr.length > 0 ? trimmedEmailAttr : undefined,
+        displayNameAttribute:
+          trimmedDisplayNameAttr.length > 0
+            ? trimmedDisplayNameAttr
+            : undefined,
       };
     }
 
@@ -254,6 +347,52 @@ export function OidcProviderFormDialog({
       diff.issuerUri = trimmedIssuer;
     }
     if (trimmedScope !== (initialValues.scope ?? "")) diff.scope = trimmedScope;
+    // OAUTH2_GENERIC field diffing — non-empty current vs initial, emit when
+    // they differ. Service-layer rejects clearing the three core URIs back to
+    // null on a OAUTH2_GENERIC row, so we skip the empty-to-null transition
+    // here (the user intent for "remove" is delete-and-recreate).
+    if (
+      trimmedAuthUri.length > 0 &&
+      trimmedAuthUri !== (initialValues.authorizationUri ?? "")
+    ) {
+      diff.authorizationUri = trimmedAuthUri;
+    }
+    if (
+      trimmedTokenUri.length > 0 &&
+      trimmedTokenUri !== (initialValues.tokenUri ?? "")
+    ) {
+      diff.tokenUri = trimmedTokenUri;
+    }
+    if (
+      trimmedUserInfoUri.length > 0 &&
+      trimmedUserInfoUri !== (initialValues.userInfoUri ?? "")
+    ) {
+      diff.userInfoUri = trimmedUserInfoUri;
+    }
+    if (
+      trimmedJwkSetUri.length > 0 &&
+      trimmedJwkSetUri !== (initialValues.jwkSetUri ?? "")
+    ) {
+      diff.jwkSetUri = trimmedJwkSetUri;
+    }
+    if (
+      trimmedSubjectAttr.length > 0 &&
+      trimmedSubjectAttr !== (initialValues.subjectAttribute ?? "")
+    ) {
+      diff.subjectAttribute = trimmedSubjectAttr;
+    }
+    if (
+      trimmedEmailAttr.length > 0 &&
+      trimmedEmailAttr !== (initialValues.emailAttribute ?? "")
+    ) {
+      diff.emailAttribute = trimmedEmailAttr;
+    }
+    if (
+      trimmedDisplayNameAttr.length > 0 &&
+      trimmedDisplayNameAttr !== (initialValues.displayNameAttribute ?? "")
+    ) {
+      diff.displayNameAttribute = trimmedDisplayNameAttr;
+    }
     return diff;
   }
 
@@ -420,6 +559,106 @@ export function OidcProviderFormDialog({
             }
           />
         </FormSection>
+
+        {/* ── Section: Generic OAuth2 endpoints ── */}
+        {isGeneric && (
+          <FormSection title="Generic OAuth2 Endpoints">
+            <Alert severity="info" sx={{ mb: 1 }}>
+              Required for any OAuth2 source without a Plugwerk vendor branch
+              (GitLab, Bitbucket, custom IdPs, …). Paste the URLs from the
+              upstream provider's OAuth2 documentation.
+            </Alert>
+            <TextField
+              label="Authorization URI"
+              value={authorizationUri}
+              onChange={(e) => setAuthorizationUri(e.target.value)}
+              onBlur={() => markTouched("authorizationUri")}
+              required
+              size="small"
+              placeholder="https://idp.example/oauth/authorize"
+              error={visibleError("authorizationUri") !== null}
+              helperText={
+                visibleError("authorizationUri") ??
+                "Where the browser is redirected to start the login flow."
+              }
+            />
+            <TextField
+              label="Token URI"
+              value={tokenUri}
+              onChange={(e) => setTokenUri(e.target.value)}
+              onBlur={() => markTouched("tokenUri")}
+              required
+              size="small"
+              placeholder="https://idp.example/oauth/token"
+              error={visibleError("tokenUri") !== null}
+              helperText={
+                visibleError("tokenUri") ??
+                "Where the server exchanges the authorization code for an access token."
+              }
+            />
+            <TextField
+              label="User-Info URI"
+              value={userInfoUri}
+              onChange={(e) => setUserInfoUri(e.target.value)}
+              onBlur={() => markTouched("userInfoUri")}
+              required
+              size="small"
+              placeholder="https://idp.example/api/me"
+              error={visibleError("userInfoUri") !== null}
+              helperText={
+                visibleError("userInfoUri") ??
+                "Where the server reads subject / email / display-name attributes."
+              }
+            />
+            <TextField
+              label="JWK Set URI (optional)"
+              value={jwkSetUri}
+              onChange={(e) => setJwkSetUri(e.target.value)}
+              onBlur={() => markTouched("jwkSetUri")}
+              size="small"
+              placeholder="https://idp.example/.well-known/jwks.json"
+              error={visibleError("jwkSetUri") !== null}
+              helperText={
+                visibleError("jwkSetUri") ??
+                "Only needed if this provider issues JWT access tokens that Plugwerk validates."
+              }
+            />
+          </FormSection>
+        )}
+
+        {/* ── Section: Generic OAuth2 attribute mapping ── */}
+        {isGeneric && (
+          <FormSection title="User-Info Attribute Mapping">
+            <Alert severity="info" sx={{ mb: 1 }}>
+              Names of the JSON keys the user-info response uses. Defaults shown
+              in placeholders; leave blank to use them.
+            </Alert>
+            <TextField
+              label="Subject Attribute"
+              value={subjectAttribute}
+              onChange={(e) => setSubjectAttribute(e.target.value)}
+              size="small"
+              placeholder="sub"
+              helperText="Stable user identifier returned by the user-info endpoint."
+            />
+            <TextField
+              label="Email Attribute"
+              value={emailAttribute}
+              onChange={(e) => setEmailAttribute(e.target.value)}
+              size="small"
+              placeholder="email"
+              helperText="JSON key carrying the user's email address."
+            />
+            <TextField
+              label="Display Name Attribute"
+              value={displayNameAttribute}
+              onChange={(e) => setDisplayNameAttribute(e.target.value)}
+              size="small"
+              placeholder="name"
+              helperText="JSON key carrying a human-readable display name."
+            />
+          </FormSection>
+        )}
       </Box>
     </AppDialog>
   );

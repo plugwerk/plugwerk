@@ -62,6 +62,13 @@ class OidcProviderController(
             clientSecret = oidcProviderCreateRequest.clientSecret,
             issuerUri = oidcProviderCreateRequest.issuerUri,
             scope = oidcProviderCreateRequest.scope ?: "openid email profile",
+            authorizationUri = oidcProviderCreateRequest.authorizationUri,
+            tokenUri = oidcProviderCreateRequest.tokenUri,
+            userInfoUri = oidcProviderCreateRequest.userInfoUri,
+            jwkSetUri = oidcProviderCreateRequest.jwkSetUri,
+            subjectAttribute = oidcProviderCreateRequest.subjectAttribute,
+            emailAttribute = oidcProviderCreateRequest.emailAttribute,
+            displayNameAttribute = oidcProviderCreateRequest.displayNameAttribute,
         )
         return ResponseEntity.created(URI("/api/v1/admin/oidc-providers/${provider.id}")).body(provider.toDto())
     }
@@ -80,6 +87,13 @@ class OidcProviderController(
             clientSecretPlaintext = oidcProviderUpdateRequest.clientSecret,
             issuerUri = oidcProviderUpdateRequest.issuerUri?.toString(),
             scope = oidcProviderUpdateRequest.scope,
+            authorizationUri = oidcProviderUpdateRequest.authorizationUri?.toString(),
+            tokenUri = oidcProviderUpdateRequest.tokenUri?.toString(),
+            userInfoUri = oidcProviderUpdateRequest.userInfoUri?.toString(),
+            jwkSetUri = oidcProviderUpdateRequest.jwkSetUri?.toString(),
+            subjectAttribute = oidcProviderUpdateRequest.subjectAttribute,
+            emailAttribute = oidcProviderUpdateRequest.emailAttribute,
+            displayNameAttribute = oidcProviderUpdateRequest.displayNameAttribute,
         )
         val updated = oidcProviderService.update(providerId, patch)
         return ResponseEntity.ok(updated.toDto())
@@ -101,6 +115,13 @@ class OidcProviderController(
         clientId = clientId,
         issuerUri = issuerUri,
         scope = scope,
+        authorizationUri = authorizationUri,
+        tokenUri = tokenUri,
+        userInfoUri = userInfoUri,
+        jwkSetUri = jwkSetUri,
+        subjectAttribute = subjectAttribute,
+        emailAttribute = emailAttribute,
+        displayNameAttribute = displayNameAttribute,
         createdAt = createdAt,
         updatedAt = updatedAt,
     )

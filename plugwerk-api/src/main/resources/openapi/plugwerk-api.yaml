@@ -2762,6 +2762,43 @@ components:
           nullable: true
         scope:
           type: string
+        authorizationUri:
+          type: string
+          nullable: true
+          description: Authorization endpoint URL — meaningful only when providerType is OAUTH2_GENERIC.
+        tokenUri:
+          type: string
+          nullable: true
+          description: Token endpoint URL — meaningful only when providerType is OAUTH2_GENERIC.
+        userInfoUri:
+          type: string
+          nullable: true
+          description: User-info endpoint URL — meaningful only when providerType is OAUTH2_GENERIC.
+        jwkSetUri:
+          type: string
+          nullable: true
+          description: |
+            JWK set URL for resource-server JWT validation — meaningful only when providerType
+            is OAUTH2_GENERIC and the provider issues JWT access tokens. Leave null for opaque-
+            token providers.
+        subjectAttribute:
+          type: string
+          nullable: true
+          description: |
+            User-info JSON key for the stable user identifier — meaningful only when providerType
+            is OAUTH2_GENERIC. Null means application default (`sub`).
+        emailAttribute:
+          type: string
+          nullable: true
+          description: |
+            User-info JSON key for the user's email — meaningful only when providerType is
+            OAUTH2_GENERIC. Null means application default (`email`).
+        displayNameAttribute:
+          type: string
+          nullable: true
+          description: |
+            User-info JSON key for the user's display name — meaningful only when providerType
+            is OAUTH2_GENERIC. Null means application default (`name`).
         createdAt:
           type: string
           format: date-time
@@ -2796,6 +2833,48 @@ components:
         scope:
           type: string
           default: openid email profile
+        authorizationUri:
+          type: string
+          nullable: true
+          description: |
+            OAuth2 authorize-endpoint URL. Required when providerType is OAUTH2_GENERIC;
+            ignored otherwise. Validated for http(s) scheme by the server.
+        tokenUri:
+          type: string
+          nullable: true
+          description: |
+            OAuth2 token-endpoint URL. Required when providerType is OAUTH2_GENERIC;
+            ignored otherwise. Validated for http(s) scheme by the server.
+        userInfoUri:
+          type: string
+          nullable: true
+          description: |
+            OAuth2 user-info endpoint URL. Required when providerType is OAUTH2_GENERIC;
+            ignored otherwise. Validated for http(s) scheme by the server.
+        jwkSetUri:
+          type: string
+          nullable: true
+          description: |
+            JWK set URL for resource-server JWT validation. Optional; only meaningful when
+            providerType is OAUTH2_GENERIC. Leave null for opaque-token providers.
+        subjectAttribute:
+          type: string
+          nullable: true
+          description: |
+            User-info JSON key carrying the stable user identifier. Defaults to `sub` when
+            null. Meaningful only when providerType is OAUTH2_GENERIC.
+        emailAttribute:
+          type: string
+          nullable: true
+          description: |
+            User-info JSON key carrying the user's email. Defaults to `email` when null.
+            Meaningful only when providerType is OAUTH2_GENERIC.
+        displayNameAttribute:
+          type: string
+          nullable: true
+          description: |
+            User-info JSON key carrying the user's display name. Defaults to `name` when null.
+            Meaningful only when providerType is OAUTH2_GENERIC.
       required:
         - name
         - providerType
@@ -2854,6 +2933,52 @@ components:
           description: |
             Space-separated OAuth2 scopes. For type `OIDC` the scope set must include
             `openid`; otherwise the patch is rejected.
+        authorizationUri:
+          type: string
+          format: uri
+          nullable: true
+          description: |
+            OAuth2 authorize-endpoint URL. Meaningful only for OAUTH2_GENERIC providers.
+        tokenUri:
+          type: string
+          format: uri
+          nullable: true
+          description: |
+            OAuth2 token-endpoint URL. Meaningful only for OAUTH2_GENERIC providers.
+        userInfoUri:
+          type: string
+          format: uri
+          nullable: true
+          description: |
+            OAuth2 user-info endpoint URL. Meaningful only for OAUTH2_GENERIC providers.
+        jwkSetUri:
+          type: string
+          format: uri
+          nullable: true
+          description: |
+            JWK set URL. Meaningful only for OAUTH2_GENERIC providers that issue JWT access
+            tokens. Cannot be cleared via PATCH; to remove, delete and recreate the provider.
+        subjectAttribute:
+          type: string
+          minLength: 1
+          nullable: true
+          description: |
+            User-info JSON key carrying the stable subject identifier. Meaningful only for
+            OAUTH2_GENERIC providers. Default (`sub`) is used when null.
+        emailAttribute:
+          type: string
+          minLength: 1
+          nullable: true
+          description: |
+            User-info JSON key carrying the user's email. Meaningful only for OAUTH2_GENERIC
+            providers. Default (`email`) is used when null.
+        displayNameAttribute:
+          type: string
+          minLength: 1
+          nullable: true
+          description: |
+            User-info JSON key carrying the user's display name. Meaningful only for
+            OAUTH2_GENERIC providers. Default (`name`) is used when null.
 
     OidcProviderType:
       type: string
