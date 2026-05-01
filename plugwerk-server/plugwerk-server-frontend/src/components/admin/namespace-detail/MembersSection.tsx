@@ -285,18 +285,34 @@ export function MembersSection({ slug }: { slug: string }) {
     {
       key: "displayName",
       header: "User",
-      render: (member) => (
-        <Box>
-          <Typography variant="body2" fontWeight={500}>
-            {member.displayName}
-          </Typography>
-          {member.username && member.username !== member.displayName && (
-            <Typography variant="caption" color="text.secondary">
-              {member.username}
+      render: (member) => {
+        // Secondary line under the displayName, picked in priority order:
+        //   1. Provider name for EXTERNAL members (issue #412 — same
+        //      disambiguation as the add-member dropdown so two same-named
+        //      users from different providers stay distinguishable in the
+        //      table view too).
+        //   2. Username for INTERNAL members where it differs from the
+        //      displayName (existing fallback for local-account-only setups).
+        //   3. Nothing (one-line cell).
+        const secondary =
+          member.source === "EXTERNAL" && member.providerName
+            ? member.providerName
+            : member.username && member.username !== member.displayName
+              ? member.username
+              : null;
+        return (
+          <Box>
+            <Typography variant="body2" fontWeight={500}>
+              {member.displayName}
             </Typography>
-          )}
-        </Box>
-      ),
+            {secondary && (
+              <Typography variant="caption" color="text.secondary">
+                {secondary}
+              </Typography>
+            )}
+          </Box>
+        );
+      },
     },
     {
       key: "role",

@@ -254,3 +254,108 @@ describe("MembersSection — add-member user picker (issue #412)", () => {
     });
   });
 });
+
+describe("MembersSection — members table (issue #412)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // The picker is irrelevant for the table tests — we never open the
+    // dialog in this block. Stub a quiet listUsers so the picker effect,
+    // which fires only on dialog open, does not race anything.
+    vi.mocked(apiConfig.adminUsersApi.listUsers).mockResolvedValue({
+      data: [],
+    } as unknown as Awaited<
+      ReturnType<typeof apiConfig.adminUsersApi.listUsers>
+    >);
+  });
+
+  it("renders provider name as a secondary line under EXTERNAL members", async () => {
+    // Two same-named external users from different providers — without the
+    // provider hint they collapse into a confusing duplicate row pair.
+    vi.mocked(
+      apiConfig.namespaceMembersApi.listNamespaceMembers,
+    ).mockResolvedValue({
+      data: [
+        {
+          userId: crypto.randomUUID(),
+          displayName: "Alice Schmidt",
+          username: null,
+          source: "EXTERNAL",
+          providerName: "Company Keycloak",
+          role: "MEMBER",
+          createdAt: new Date().toISOString(),
+        },
+        {
+          userId: crypto.randomUUID(),
+          displayName: "Alice Schmidt",
+          username: null,
+          source: "EXTERNAL",
+          providerName: "Google",
+          role: "MEMBER",
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    } as unknown as Awaited<
+      ReturnType<typeof apiConfig.namespaceMembersApi.listNamespaceMembers>
+    >);
+
+    renderWithTheme(<MembersSection slug="ns-1" />);
+
+    // Both members are rendered; the secondary lines disambiguate them.
+    expect(await screen.findByText("Company Keycloak")).toBeInTheDocument();
+    expect(await screen.findByText("Google")).toBeInTheDocument();
+  });
+
+  it("does not render a secondary line for INTERNAL members whose username equals displayName", async () => {
+    // Local-account-only deployments where the operator never customised
+    // displayName — the existing "no duplicate username" rule survives.
+    vi.mocked(
+      apiConfig.namespaceMembersApi.listNamespaceMembers,
+    ).mockResolvedValue({
+      data: [
+        {
+          userId: crypto.randomUUID(),
+          displayName: "admin",
+          username: "admin",
+          source: "INTERNAL",
+          providerName: null,
+          role: "ADMIN",
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    } as unknown as Awaited<
+      ReturnType<typeof apiConfig.namespaceMembersApi.listNamespaceMembers>
+    >);
+
+    renderWithTheme(<MembersSection slug="ns-1" />);
+
+    expect(await screen.findByText("admin")).toBeInTheDocument();
+    // Only the displayName cell carries "admin" — no secondary
+    // username-line under it.
+    expect(screen.getAllByText("admin")).toHaveLength(1);
+  });
+
+  it("renders username as secondary line for INTERNAL members where it differs from displayName", async () => {
+    vi.mocked(
+      apiConfig.namespaceMembersApi.listNamespaceMembers,
+    ).mockResolvedValue({
+      data: [
+        {
+          userId: crypto.randomUUID(),
+          displayName: "Charlie Admin",
+          username: "charlie",
+          source: "INTERNAL",
+          providerName: null,
+          role: "MEMBER",
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    } as unknown as Awaited<
+      ReturnType<typeof apiConfig.namespaceMembersApi.listNamespaceMembers>
+    >);
+
+    renderWithTheme(<MembersSection slug="ns-1" />);
+
+    expect(await screen.findByText("Charlie Admin")).toBeInTheDocument();
+    expect(await screen.findByText("charlie")).toBeInTheDocument();
+  });
+});

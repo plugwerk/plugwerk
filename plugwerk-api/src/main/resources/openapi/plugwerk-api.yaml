@@ -2754,6 +2754,29 @@ components:
           type: string
           nullable: true
           description: Local-login username; null for OIDC users.
+        source:
+          type: string
+          enum: [INTERNAL, EXTERNAL]
+          description: |
+            Discriminator for the underlying account's authentication
+            mechanism (mirrors `UserDto.source`). `INTERNAL` accounts have
+            credentials on the Plugwerk server; `EXTERNAL` accounts are
+            sourced from an upstream identity provider (OIDC, OAuth2, …).
+            Used by the members table to render a provider-name secondary
+            label under EXTERNAL members.
+        providerName:
+          type: string
+          nullable: true
+          description: |
+            Operator-configured display name of the OIDC / OAuth2 provider —
+            same data as `UserDto.providerName`, surfaced here so the
+            namespace members table can render it without an extra lookup
+            against the admin user endpoint. Populated for EXTERNAL members;
+            `null` for INTERNAL members and (defensively) for any EXTERNAL
+            member whose `oidc_identity` row is missing.
+
+            For UI display only — disambiguates two same-named EXTERNAL
+            members coming from different providers. Do not parse.
         role:
           $ref: '#/components/schemas/NamespaceRole'
         createdAt:
@@ -2762,6 +2785,7 @@ components:
       required:
         - userId
         - displayName
+        - source
         - role
         - createdAt
 
