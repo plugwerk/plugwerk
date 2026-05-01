@@ -108,7 +108,7 @@ class OidcProviderService(
      * Probes [issuerUri] for OpenID Connect discovery support, without
      * persisting anything. The admin UI calls this to (a) validate an
      * `OIDC` issuer URI before saving and (b) detect when an operator
-     * reaching for `OAUTH2_GENERIC` actually has a discoverable provider
+     * reaching for `OAUTH2` actually has a discoverable provider
      * and could pick the simpler `OIDC` configuration path.
      *
      * Returns [OidcDiscoveryOutcome.success] = `false` on any failure
@@ -160,14 +160,14 @@ class OidcProviderService(
         emailAttribute: String? = null,
         displayNameAttribute: String? = null,
     ): OidcProviderEntity {
-        // OAUTH2_GENERIC requires the three core endpoint URIs at create time.
+        // OAUTH2 requires the three core endpoint URIs at create time.
         // The four URI columns are nullable in the schema (existing rows for
         // OIDC/GOOGLE/GITHUB/FACEBOOK don't need them) so service-layer
         // validation is the only line of defence — without it a half-configured
         // generic row reaches DbClientRegistrationRepository which would log+
         // skip it, leaving the operator wondering why their new provider does
         // not appear on the login page.
-        if (providerType == OidcProviderType.OAUTH2_GENERIC) {
+        if (providerType == OidcProviderType.OAUTH2) {
             requireValidHttpUri(authorizationUri, "authorizationUri", required = true)
             requireValidHttpUri(tokenUri, "tokenUri", required = true)
             requireValidHttpUri(userInfoUri, "userInfoUri", required = true)
@@ -203,7 +203,7 @@ class OidcProviderService(
     private fun requireValidHttpUri(value: String?, fieldName: String, required: Boolean) {
         val trimmed = value?.trim()
         if (trimmed.isNullOrEmpty()) {
-            require(!required) { "$fieldName is required for provider type OAUTH2_GENERIC" }
+            require(!required) { "$fieldName is required for provider type OAUTH2" }
             return
         }
         val parsed = try {
@@ -300,12 +300,12 @@ class OidcProviderService(
             provider.scope = trimmed
         }
 
-        // OAUTH2_GENERIC URI/attribute fields. Each is independently optional
+        // OAUTH2 URI/attribute fields. Each is independently optional
         // in the patch (PATCH semantics — null means leave unchanged) but the
         // three core endpoint URIs cannot be cleared back to null on a
-        // OAUTH2_GENERIC row: doing so would brick the row's browser-flow
+        // OAUTH2 row: doing so would brick the row's browser-flow
         // wiring with no recovery short of re-editing. To remove an
-        // OAUTH2_GENERIC provider, delete and recreate it.
+        // OAUTH2 provider, delete and recreate it.
         applyOAuth2GenericUriPatch(provider, patch.authorizationUri, "authorizationUri") {
             provider.authorizationUri = it
         }
@@ -349,11 +349,11 @@ class OidcProviderService(
         if (value == null) return
         val trimmed = value.trim()
         require(trimmed.isNotEmpty()) {
-            "$fieldName must not be blank — clearing the URI on a OAUTH2_GENERIC row " +
+            "$fieldName must not be blank — clearing the URI on a OAUTH2 row " +
                 "would break the browser-flow wiring; delete and recreate the provider instead"
         }
-        require(provider.providerType == OidcProviderType.OAUTH2_GENERIC) {
-            "$fieldName is only meaningful on OAUTH2_GENERIC providers (this is a ${provider.providerType})"
+        require(provider.providerType == OidcProviderType.OAUTH2) {
+            "$fieldName is only meaningful on OAUTH2 providers (this is a ${provider.providerType})"
         }
         requireValidHttpUri(trimmed, fieldName, required = true)
         setter(trimmed)

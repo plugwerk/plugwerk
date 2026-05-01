@@ -171,7 +171,7 @@ private fun buildMessage(provider: OidcProviderEntity): String {
                 "only developer/tester accounts can authenticate; promoting the app to Live and " +
                 "completing App Review is the operator's path forward."
 
-        OidcProviderType.OAUTH2_GENERIC ->
+        OidcProviderType.OAUTH2 ->
             "Provider '$name' returned no email — the configured user-info endpoint did not include " +
                 "the `${provider.emailAttribute ?: "email"}` attribute (or the operator-configured " +
                 "email-attribute name does not match the provider's user-info JSON). Either grant the " +

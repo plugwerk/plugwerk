@@ -46,7 +46,7 @@ const PROVIDER_TYPE_LABELS: Record<OidcProviderType, string> = {
   GITHUB: "GitHub",
   GOOGLE: "Google",
   FACEBOOK: "Facebook",
-  OAUTH2_GENERIC: "Generic OAuth2",
+  OAUTH2: "Generic OAuth2",
 };
 
 /** Pulls a server-supplied error message out of an Axios error if present. */

@@ -1569,7 +1569,7 @@ paths:
         returns the discovered authorization / token / user-info / JWK set
         endpoints when discovery succeeds. Used by the admin UI to (a) confirm
         that a candidate issuer URI works before saving an OIDC provider and
-        (b) steer operators away from `OAUTH2_GENERIC` when their provider
+        (b) steer operators away from `OAUTH2` when their provider
         supports OIDC discovery.
 
         Does NOT persist anything — this is a read-only probe. Requires
@@ -2804,40 +2804,40 @@ components:
         authorizationUri:
           type: string
           nullable: true
-          description: Authorization endpoint URL — meaningful only when providerType is OAUTH2_GENERIC.
+          description: Authorization endpoint URL — meaningful only when providerType is OAUTH2.
         tokenUri:
           type: string
           nullable: true
-          description: Token endpoint URL — meaningful only when providerType is OAUTH2_GENERIC.
+          description: Token endpoint URL — meaningful only when providerType is OAUTH2.
         userInfoUri:
           type: string
           nullable: true
-          description: User-info endpoint URL — meaningful only when providerType is OAUTH2_GENERIC.
+          description: User-info endpoint URL — meaningful only when providerType is OAUTH2.
         jwkSetUri:
           type: string
           nullable: true
           description: |
             JWK set URL for resource-server JWT validation — meaningful only when providerType
-            is OAUTH2_GENERIC and the provider issues JWT access tokens. Leave null for opaque-
+            is OAUTH2 and the provider issues JWT access tokens. Leave null for opaque-
             token providers.
         subjectAttribute:
           type: string
           nullable: true
           description: |
             User-info JSON key for the stable user identifier — meaningful only when providerType
-            is OAUTH2_GENERIC. Null means application default (`sub`).
+            is OAUTH2. Null means application default (`sub`).
         emailAttribute:
           type: string
           nullable: true
           description: |
             User-info JSON key for the user's email — meaningful only when providerType is
-            OAUTH2_GENERIC. Null means application default (`email`).
+            OAUTH2. Null means application default (`email`).
         displayNameAttribute:
           type: string
           nullable: true
           description: |
             User-info JSON key for the user's display name — meaningful only when providerType
-            is OAUTH2_GENERIC. Null means application default (`name`).
+            is OAUTH2. Null means application default (`name`).
         createdAt:
           type: string
           format: date-time
@@ -2876,44 +2876,44 @@ components:
           type: string
           nullable: true
           description: |
-            OAuth2 authorize-endpoint URL. Required when providerType is OAUTH2_GENERIC;
+            OAuth2 authorize-endpoint URL. Required when providerType is OAUTH2;
             ignored otherwise. Validated for http(s) scheme by the server.
         tokenUri:
           type: string
           nullable: true
           description: |
-            OAuth2 token-endpoint URL. Required when providerType is OAUTH2_GENERIC;
+            OAuth2 token-endpoint URL. Required when providerType is OAUTH2;
             ignored otherwise. Validated for http(s) scheme by the server.
         userInfoUri:
           type: string
           nullable: true
           description: |
-            OAuth2 user-info endpoint URL. Required when providerType is OAUTH2_GENERIC;
+            OAuth2 user-info endpoint URL. Required when providerType is OAUTH2;
             ignored otherwise. Validated for http(s) scheme by the server.
         jwkSetUri:
           type: string
           nullable: true
           description: |
             JWK set URL for resource-server JWT validation. Optional; only meaningful when
-            providerType is OAUTH2_GENERIC. Leave null for opaque-token providers.
+            providerType is OAUTH2. Leave null for opaque-token providers.
         subjectAttribute:
           type: string
           nullable: true
           description: |
             User-info JSON key carrying the stable user identifier. Defaults to `sub` when
-            null. Meaningful only when providerType is OAUTH2_GENERIC.
+            null. Meaningful only when providerType is OAUTH2.
         emailAttribute:
           type: string
           nullable: true
           description: |
             User-info JSON key carrying the user's email. Defaults to `email` when null.
-            Meaningful only when providerType is OAUTH2_GENERIC.
+            Meaningful only when providerType is OAUTH2.
         displayNameAttribute:
           type: string
           nullable: true
           description: |
             User-info JSON key carrying the user's display name. Defaults to `name` when null.
-            Meaningful only when providerType is OAUTH2_GENERIC.
+            Meaningful only when providerType is OAUTH2.
       required:
         - name
         - providerType
@@ -2977,25 +2977,25 @@ components:
           format: uri
           nullable: true
           description: |
-            OAuth2 authorize-endpoint URL. Meaningful only for OAUTH2_GENERIC providers.
+            OAuth2 authorize-endpoint URL. Meaningful only for OAUTH2 providers.
         tokenUri:
           type: string
           format: uri
           nullable: true
           description: |
-            OAuth2 token-endpoint URL. Meaningful only for OAUTH2_GENERIC providers.
+            OAuth2 token-endpoint URL. Meaningful only for OAUTH2 providers.
         userInfoUri:
           type: string
           format: uri
           nullable: true
           description: |
-            OAuth2 user-info endpoint URL. Meaningful only for OAUTH2_GENERIC providers.
+            OAuth2 user-info endpoint URL. Meaningful only for OAUTH2 providers.
         jwkSetUri:
           type: string
           format: uri
           nullable: true
           description: |
-            JWK set URL. Meaningful only for OAUTH2_GENERIC providers that issue JWT access
+            JWK set URL. Meaningful only for OAUTH2 providers that issue JWT access
             tokens. Cannot be cleared via PATCH; to remove, delete and recreate the provider.
         subjectAttribute:
           type: string
@@ -3003,13 +3003,13 @@ components:
           nullable: true
           description: |
             User-info JSON key carrying the stable subject identifier. Meaningful only for
-            OAUTH2_GENERIC providers. Default (`sub`) is used when null.
+            OAUTH2 providers. Default (`sub`) is used when null.
         emailAttribute:
           type: string
           minLength: 1
           nullable: true
           description: |
-            User-info JSON key carrying the user's email. Meaningful only for OAUTH2_GENERIC
+            User-info JSON key carrying the user's email. Meaningful only for OAUTH2
             providers. Default (`email`) is used when null.
         displayNameAttribute:
           type: string
@@ -3017,7 +3017,7 @@ components:
           nullable: true
           description: |
             User-info JSON key carrying the user's display name. Meaningful only for
-            OAUTH2_GENERIC providers. Default (`name`) is used when null.
+            OAUTH2 providers. Default (`name`) is used when null.
 
     OidcDiscoveryRequest:
       type: object
@@ -3066,13 +3066,13 @@ components:
         - GITHUB
         - GOOGLE
         - FACEBOOK
-        - OAUTH2_GENERIC
+        - OAUTH2
       description: |
         Provider type. Pre-configured providers (GITHUB, GOOGLE, FACEBOOK) have well-known
         endpoints embedded — only clientId and clientSecret are required. The `OIDC` type
         ("Generic OIDC" in the admin UI) requires an explicit issuerUri and works with any
         standards-compliant OIDC provider (Keycloak, Authentik, Auth0, Dex, …). The
-        OAUTH2_GENERIC type lets the operator configure authorizationUri, tokenUri,
+        OAUTH2 type lets the operator configure authorizationUri, tokenUri,
         userInfoUri (and optionally jwkSetUri) plus the JSON attribute names the user-info
         response uses for subject / email / display name — any OAuth2 source that does not
         map to one of the four hard-wired vendors (GitLab, Bitbucket, custom enterprise

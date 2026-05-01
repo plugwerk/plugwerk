@@ -1,18 +1,18 @@
-# Schema for the OAUTH2_GENERIC provider type — operator-configurable
+# Schema for the OAUTH2 provider type — operator-configurable
 # OAuth2 endpoints + attribute mappings for any OAuth2 source that does
 # not have a Plugwerk vendor branch (e.g. GitLab, Bitbucket, custom
 # enterprise IdPs).
 #
 # Rationale: rather than adding a new OidcProviderType + adapter every
-# time someone wants to log in via a new provider, OAUTH2_GENERIC lets
+# time someone wants to log in via a new provider, OAUTH2 lets
 # the operator paste authorization-uri + token-uri + user-info-uri into
 # the admin form. The attribute-name fields configure which keys to read
 # subject / email / displayName from the user-info JSON response.
 #
 # Why all columns are nullable: existing rows for OIDC / GOOGLE / GITHUB
 # / FACEBOOK provider types do not need any of these fields. The columns
-# are populated only when providerType = 'OAUTH2_GENERIC'. Service-layer
-# validation enforces required-when-OAUTH2_GENERIC; the schema does not.
+# are populated only when providerType = 'OAUTH2'. Service-layer
+# validation enforces required-when-OAUTH2; the schema does not.
 #
 # Defaults for the attribute-name columns are intentionally NOT set at the
 # DB level — the application supplies "sub" / "email" / "name" defaults

@@ -71,7 +71,7 @@ import java.util.concurrent.atomic.AtomicReference
  * skipped here and emits a single warning at refresh time so operators
  * know the row will not appear on the login page.
  *
- * [OidcProviderType.OAUTH2_GENERIC] is wired by hand: the operator supplies
+ * [OidcProviderType.OAUTH2] is wired by hand: the operator supplies
  * `authorizationUri`, `tokenUri`, and `userInfoUri` via the admin form, and
  * we plug those into a [ClientRegistration.Builder] together with
  * `subjectAttribute` (defaulting to `sub`) as the `userNameAttributeName`
@@ -174,7 +174,7 @@ class DbClientRegistrationRepository(
             // JSON response. Email + display-name attribute names are read later by
             // the GenericOAuth2PrincipalAdapter — they are not part of the
             // ClientRegistration shape Spring exposes.
-            OidcProviderType.OAUTH2_GENERIC -> {
+            OidcProviderType.OAUTH2 -> {
                 val authorizationUri = requireNotNull(provider.authorizationUri) {
                     "authorizationUri is required for provider type ${provider.providerType}"
                 }
@@ -233,7 +233,7 @@ class DbClientRegistrationRepository(
 
         /**
          * Default for `OidcProviderEntity.subjectAttribute` when the operator
-         * leaves the field blank. Matches the OIDC convention; OAUTH2_GENERIC
+         * leaves the field blank. Matches the OIDC convention; OAUTH2
          * providers that follow OIDC user-info conventions (most do) need no
          * configuration. Operators with non-standard providers override this
          * via the admin form.

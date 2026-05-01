@@ -136,12 +136,12 @@ class DbClientRegistrationRepositoryTest {
     }
 
     @Test
-    fun `OAUTH2_GENERIC builds a registration from operator-supplied URIs (no discovery)`() {
+    fun `OAUTH2 builds a registration from operator-supplied URIs (no discovery)`() {
         whenever(textEncryptor.decrypt("{cipher}gen-secret")).thenReturn("plain-secret")
         val generic = OidcProviderEntity(
             id = UUID.fromString("44444444-4444-4444-4444-444444444444"),
             name = "Custom IdP",
-            providerType = OidcProviderType.OAUTH2_GENERIC,
+            providerType = OidcProviderType.OAUTH2,
             enabled = true,
             clientId = "gen-client",
             clientSecretEncrypted = "{cipher}gen-secret",
@@ -174,12 +174,12 @@ class DbClientRegistrationRepositoryTest {
     }
 
     @Test
-    fun `OAUTH2_GENERIC defaults subject attribute to sub when operator left it blank`() {
+    fun `OAUTH2 defaults subject attribute to sub when operator left it blank`() {
         whenever(textEncryptor.decrypt("{cipher}s")).thenReturn("plain")
         val generic = OidcProviderEntity(
             id = UUID.fromString("55555555-5555-5555-5555-555555555555"),
             name = "Default-attrs IdP",
-            providerType = OidcProviderType.OAUTH2_GENERIC,
+            providerType = OidcProviderType.OAUTH2,
             enabled = true,
             clientId = "c",
             clientSecretEncrypted = "{cipher}s",
@@ -198,14 +198,14 @@ class DbClientRegistrationRepositoryTest {
     }
 
     @Test
-    fun `OAUTH2_GENERIC missing authorizationUri is logged-and-skipped, not propagated`() {
+    fun `OAUTH2 missing authorizationUri is logged-and-skipped, not propagated`() {
         // Service-layer validation is meant to prevent this — but if a row slips
         // through the repository must not break the entire bean container.
         // runCatching catches the requireNotNull and skips the entry.
         val broken = OidcProviderEntity(
             id = UUID.fromString("66666666-6666-6666-6666-666666666666"),
             name = "Half-configured",
-            providerType = OidcProviderType.OAUTH2_GENERIC,
+            providerType = OidcProviderType.OAUTH2,
             enabled = true,
             clientId = "c",
             clientSecretEncrypted = "{cipher}ignored",

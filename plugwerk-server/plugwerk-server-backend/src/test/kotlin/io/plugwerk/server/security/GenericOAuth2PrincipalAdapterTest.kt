@@ -50,7 +50,7 @@ class GenericOAuth2PrincipalAdapterTest {
     ) = OidcProviderEntity(
         id = providerId,
         name = name,
-        providerType = OidcProviderType.OAUTH2_GENERIC,
+        providerType = OidcProviderType.OAUTH2,
         enabled = true,
         clientId = "client",
         clientSecretEncrypted = "{cipher}ignored",
@@ -68,8 +68,8 @@ class GenericOAuth2PrincipalAdapterTest {
     }
 
     @Test
-    fun `claims only the OAUTH2_GENERIC provider type`() {
-        assertThat(adapter().providerTypes).containsExactly(OidcProviderType.OAUTH2_GENERIC)
+    fun `claims only the OAUTH2 provider type`() {
+        assertThat(adapter().providerTypes).containsExactly(OidcProviderType.OAUTH2)
     }
 
     @Test

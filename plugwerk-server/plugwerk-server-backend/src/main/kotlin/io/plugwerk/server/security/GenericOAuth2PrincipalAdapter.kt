@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component
 import java.util.UUID
 
 /**
- * Adapter for [OidcProviderType.OAUTH2_GENERIC] — the operator-configurable
+ * Adapter for [OidcProviderType.OAUTH2] — the operator-configurable
  * OAuth2 provider type that does not have a Plugwerk vendor branch (#357 +
  * the post-#357 generic-provider expansion).
  *
@@ -37,7 +37,7 @@ import java.util.UUID
  *   - `emailAttribute` (defaults to `email`)
  *   - `displayNameAttribute` (defaults to `name`)
  *
- * That reflects the contract: an OAUTH2_GENERIC provider is whatever the
+ * That reflects the contract: an OAUTH2 provider is whatever the
  * operator paste-configured. They know the JSON shape of the user-info
  * response — we don't.
  *
@@ -61,18 +61,18 @@ import java.util.UUID
 class GenericOAuth2PrincipalAdapter(private val oidcProviderRepository: OidcProviderRepository) :
     ProviderPrincipalAdapter {
 
-    override val providerTypes: Set<OidcProviderType> = setOf(OidcProviderType.OAUTH2_GENERIC)
+    override val providerTypes: Set<OidcProviderType> = setOf(OidcProviderType.OAUTH2)
 
     override fun resolve(authentication: OAuth2AuthenticationToken): ResolvedPrincipal {
         val registrationId = authentication.authorizedClientRegistrationId
         val providerId = runCatching { UUID.fromString(registrationId) }.getOrNull()
             ?: error(
-                "OAUTH2_GENERIC registrationId $registrationId is not a valid UUID — " +
+                "OAUTH2 registrationId $registrationId is not a valid UUID — " +
                     "DbClientRegistrationRepository wiring is broken.",
             )
         val provider = oidcProviderRepository.findById(providerId).orElseThrow {
             IllegalStateException(
-                "OAUTH2_GENERIC provider $providerId no longer exists — race with provider deletion.",
+                "OAUTH2 provider $providerId no longer exists — race with provider deletion.",
             )
         }
 
@@ -86,7 +86,7 @@ class GenericOAuth2PrincipalAdapter(private val oidcProviderRepository: OidcProv
         val subjectKey = provider.subjectAttribute ?: DEFAULT_SUBJECT_ATTRIBUTE
         val subject = attributes[subjectKey]?.toString()?.trim()?.takeIf { it.isNotBlank() }
             ?: error(
-                "OAUTH2_GENERIC provider '${provider.name}' returned a user-info response without " +
+                "OAUTH2 provider '${provider.name}' returned a user-info response without " +
                     "the configured subject attribute `$subjectKey` — adjust the subject-attribute " +
                     "name on the provider configuration to match what the user-info endpoint returns.",
             )

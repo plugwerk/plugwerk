@@ -65,7 +65,7 @@ enum class OidcProviderType {
      *   - Discord (also OIDC-discoverable, but workable here too)
      *   - Custom enterprise IdPs without `/.well-known/openid-configuration`
      */
-    OAUTH2_GENERIC,
+    OAUTH2,
 }
 
 /**
@@ -106,24 +106,24 @@ enum class OidcProviderType {
  *   ignored — the right scopes are hardcoded inside `DbClientRegistrationRepository`
  *   for those provider types.
  * @property authorizationUri OAuth2 authorize-endpoint URL. Required when
- *   [providerType] is [OidcProviderType.OAUTH2_GENERIC]; ignored otherwise.
+ *   [providerType] is [OidcProviderType.OAUTH2]; ignored otherwise.
  * @property tokenUri OAuth2 token-endpoint URL. Required when [providerType] is
- *   [OidcProviderType.OAUTH2_GENERIC]; ignored otherwise.
+ *   [OidcProviderType.OAUTH2]; ignored otherwise.
  * @property userInfoUri OAuth2 user-info endpoint URL — Plugwerk fetches the
  *   subject / email / displayName from here after token exchange. Required
- *   when [providerType] is [OidcProviderType.OAUTH2_GENERIC]; ignored otherwise.
+ *   when [providerType] is [OidcProviderType.OAUTH2]; ignored otherwise.
  * @property jwkSetUri Optional JWK Set URL for providers that issue JWT access
  *   tokens (so the resource-server side can validate them). Only meaningful for
- *   [OidcProviderType.OAUTH2_GENERIC]. Leave `null` for opaque-token providers.
+ *   [OidcProviderType.OAUTH2]. Leave `null` for opaque-token providers.
  * @property subjectAttribute Name of the user-info JSON key that carries the
  *   stable user identifier. `null` means the application default (`sub`). Only
- *   read when [providerType] is [OidcProviderType.OAUTH2_GENERIC].
+ *   read when [providerType] is [OidcProviderType.OAUTH2].
  * @property emailAttribute Name of the user-info JSON key that carries the user's
  *   email address. `null` means the application default (`email`). Only read when
- *   [providerType] is [OidcProviderType.OAUTH2_GENERIC].
+ *   [providerType] is [OidcProviderType.OAUTH2].
  * @property displayNameAttribute Name of the user-info JSON key that carries the
  *   display name. `null` means the application default (`name`). Only read when
- *   [providerType] is [OidcProviderType.OAUTH2_GENERIC].
+ *   [providerType] is [OidcProviderType.OAUTH2].
  * @property createdAt Creation timestamp (immutable).
  * @property updatedAt Last modification timestamp.
  */

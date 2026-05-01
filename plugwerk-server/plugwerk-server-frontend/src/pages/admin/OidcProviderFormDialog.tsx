@@ -50,7 +50,7 @@ const PROVIDER_TYPE_LABELS: Record<OidcProviderType, string> = {
   GITHUB: "GitHub",
   GOOGLE: "Google",
   FACEBOOK: "Facebook",
-  OAUTH2_GENERIC: "Generic OAuth2 (GitLab, Bitbucket, custom IdP, …)",
+  OAUTH2: "Generic OAuth2 (GitLab, Bitbucket, custom IdP, …)",
 };
 
 const ISSUER_REQUIRED_TYPES: ReadonlySet<OidcProviderType> = new Set(["OIDC"]);
@@ -103,7 +103,7 @@ const DEFAULT_DISPLAY_NAME_ATTRIBUTE = "name";
  *     start failing immediately on save.
  *   - In edit mode the submit payload is the diff (only changed fields).
  *
- * For OAUTH2_GENERIC the form additionally surfaces seven operator-supplied
+ * For OAUTH2 the form additionally surfaces seven operator-supplied
  * fields (authorize/token/user-info/JWK URIs + subject/email/displayName
  * attribute names). They are conditionally rendered — invisible for the four
  * vendor + OIDC types — because they would only confuse operators who are
@@ -126,7 +126,7 @@ export function OidcProviderFormDialog({
   const [clientSecret, setClientSecret] = useState("");
   const [issuerUri, setIssuerUri] = useState("");
   const [scope, setScope] = useState(DEFAULT_SCOPE);
-  // OAUTH2_GENERIC fields. Empty string means "not set"; the build-payload
+  // OAUTH2 fields. Empty string means "not set"; the build-payload
   // step turns empty into `undefined` so PATCH semantics survive.
   const [authorizationUri, setAuthorizationUri] = useState("");
   const [tokenUri, setTokenUri] = useState("");
@@ -141,7 +141,7 @@ export function OidcProviderFormDialog({
 
   // Discovery-probe state. The "Test discovery" button next to the Issuer URI
   // (when providerType === OIDC) and the "Try OIDC instead" steering button
-  // (when providerType === OAUTH2_GENERIC) both feed into this. Result is a
+  // (when providerType === OAUTH2) both feed into this. Result is a
   // small inline status block so the operator can confirm a working issuer
   // before saving.
   type DiscoveryStatus =
@@ -239,7 +239,7 @@ export function OidcProviderFormDialog({
   }, [open, isEdit, initialValues]);
 
   const issuerRequired = ISSUER_REQUIRED_TYPES.has(providerType);
-  const isGeneric = providerType === "OAUTH2_GENERIC";
+  const isGeneric = providerType === "OAUTH2";
 
   // Validation — applied per-field. Errors are surfaced as MUI helperText below
   // each field and as a disabled Save button until they're resolved.
@@ -360,8 +360,8 @@ export function OidcProviderFormDialog({
         clientSecret: clientSecret,
         issuerUri: trimmedIssuer.length > 0 ? trimmedIssuer : undefined,
         scope: trimmedScope.length > 0 ? trimmedScope : undefined,
-        // OAUTH2_GENERIC fields: send only when the user actually entered them.
-        // Server enforces required-when-OAUTH2_GENERIC for the three core URIs.
+        // OAUTH2 fields: send only when the user actually entered them.
+        // Server enforces required-when-OAUTH2 for the three core URIs.
         authorizationUri:
           trimmedAuthUri.length > 0 ? trimmedAuthUri : undefined,
         tokenUri: trimmedTokenUri.length > 0 ? trimmedTokenUri : undefined,
@@ -388,9 +388,9 @@ export function OidcProviderFormDialog({
       diff.issuerUri = trimmedIssuer;
     }
     if (trimmedScope !== (initialValues.scope ?? "")) diff.scope = trimmedScope;
-    // OAUTH2_GENERIC field diffing — non-empty current vs initial, emit when
+    // OAUTH2 field diffing — non-empty current vs initial, emit when
     // they differ. Service-layer rejects clearing the three core URIs back to
-    // null on a OAUTH2_GENERIC row, so we skip the empty-to-null transition
+    // null on a OAUTH2 row, so we skip the empty-to-null transition
     // here (the user intent for "remove" is delete-and-recreate).
     if (
       trimmedAuthUri.length > 0 &&
@@ -442,7 +442,7 @@ export function OidcProviderFormDialog({
    * points share this:
    *   1. "Test discovery" button while OIDC is selected — confirms a candidate
    *      issuer URI before saving.
-   *   2. "Try OIDC instead" button on the OAUTH2_GENERIC steering banner —
+   *   2. "Try OIDC instead" button on the OAUTH2 steering banner —
    *      switches the form to OIDC and probes whatever the operator already
    *      pasted into the Authorization URI field (best-guess starting point).
    *
