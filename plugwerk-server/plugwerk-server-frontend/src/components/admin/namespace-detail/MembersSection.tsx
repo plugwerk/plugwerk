@@ -286,14 +286,19 @@ export function MembersSection({ slug }: { slug: string }) {
       key: "displayName",
       header: "User",
       render: (member) => {
-        // Secondary line under the displayName, picked in priority order:
+        // Secondary annotation for the row, picked in priority order:
         //   1. Provider name for EXTERNAL members (issue #412 — same
         //      disambiguation as the add-member dropdown so two same-named
         //      users from different providers stay distinguishable in the
         //      table view too).
         //   2. Username for INTERNAL members where it differs from the
         //      displayName (existing fallback for local-account-only setups).
-        //   3. Nothing (one-line cell).
+        //   3. Nothing — the cell renders the displayName only.
+        //
+        // Rendered inline (single line) rather than as a stacked caption so
+        // every row has a consistent height regardless of whether the
+        // secondary is present. The mid-dot separator and the muted caption
+        // colour keep the secondary clearly subordinate to the displayName.
         const secondary =
           member.source === "EXTERNAL" && member.providerName
             ? member.providerName
@@ -301,14 +306,50 @@ export function MembersSection({ slug }: { slug: string }) {
               ? member.username
               : null;
         return (
-          <Box>
-            <Typography variant="body2" fontWeight={500}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "baseline",
+              gap: 0.75,
+              minWidth: 0,
+            }}
+          >
+            <Typography
+              variant="body2"
+              fontWeight={500}
+              sx={{
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
               {member.displayName}
             </Typography>
             {secondary && (
-              <Typography variant="caption" color="text.secondary">
-                {secondary}
-              </Typography>
+              <>
+                <Box
+                  component="span"
+                  aria-hidden
+                  sx={{
+                    color: "text.disabled",
+                    fontSize: "0.75rem",
+                    lineHeight: 1,
+                    flexShrink: 0,
+                  }}
+                >
+                  ·
+                </Box>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{
+                    flexShrink: 0,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {secondary}
+                </Typography>
+              </>
             )}
           </Box>
         );
