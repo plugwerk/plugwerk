@@ -106,4 +106,23 @@ class UserServiceTest {
             .isInstanceOf(ConflictException::class.java)
             .hasMessageContaining("frank")
     }
+
+    @Test
+    fun `bumpLastLogin persists the supplied timestamp and returns the refreshed entity (#367)`() {
+        val created = service.create("greta", "greta@example.com", "password-123")
+        assertThat(created.lastLoginAt).isNull() // never logged in yet
+
+        val at = java.time.OffsetDateTime.parse("2026-04-15T08:30:00Z")
+        val returned = service.bumpLastLogin(requireNotNull(created.id), at)
+
+        assertThat(returned.lastLoginAt).isEqualTo(at)
+        val reloaded = userRepository.findById(requireNotNull(created.id)).orElseThrow()
+        assertThat(reloaded.lastLoginAt).isEqualTo(at)
+    }
+
+    @Test
+    fun `bumpLastLogin throws EntityNotFoundException for unknown user id`() {
+        assertThatThrownBy { service.bumpLastLogin(java.util.UUID.randomUUID()) }
+            .isInstanceOf(EntityNotFoundException::class.java)
+    }
 }

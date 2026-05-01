@@ -126,6 +126,37 @@ class AuthControllerRefreshIT {
     }
 
     @Test
+    fun `login bumps lastLoginAt but refresh does NOT (#367)`() {
+        // Pre-login the column is null — the user was created via repository.save in
+        // setUp, never authenticated.
+        val before = userRepository.findByUsernameAndSource(username, io.plugwerk.server.domain.UserSource.LOCAL)
+            .orElseThrow()
+        assertThat(before.lastLoginAt).isNull()
+
+        val loginCookie = loginAndExtractCookie()
+        val afterLogin = userRepository.findByUsernameAndSource(username, io.plugwerk.server.domain.UserSource.LOCAL)
+            .orElseThrow()
+        // Login is a fresh credential check → bumps the column.
+        assertThat(afterLogin.lastLoginAt).isNotNull()
+        val loginStamp = afterLogin.lastLoginAt
+
+        // Sleep 10ms so any accidental bump is timestamp-distinguishable from
+        // the login bump.
+        Thread.sleep(10)
+
+        mockMvc.post("/api/v1/auth/refresh") {
+            cookie(loginCookie)
+            with(csrf())
+        }.andExpect { status { isOk() } }
+
+        val afterRefresh = userRepository.findByUsernameAndSource(username, io.plugwerk.server.domain.UserSource.LOCAL)
+            .orElseThrow()
+        // Refresh is silent session renewal, NOT a fresh credential check —
+        // the column must remain at its login-time value.
+        assertThat(afterRefresh.lastLoginAt).isEqualTo(loginStamp)
+    }
+
+    @Test
     fun `refresh without cookie returns 401`() {
         mockMvc.post("/api/v1/auth/refresh") {
             with(csrf())

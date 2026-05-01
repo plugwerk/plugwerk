@@ -92,6 +92,7 @@ class AdminUserController(
         passwordChangeRequired = passwordChangeRequired,
         isSuperadmin = isSuperadmin,
         createdAt = createdAt,
+        lastLoginAt = lastLoginAt,
         namespaceMembershipCount = namespaceMemberRepository.countByUserId(id!!).toInt(),
     )
 }

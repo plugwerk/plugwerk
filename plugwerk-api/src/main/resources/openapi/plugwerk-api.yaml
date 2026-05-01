@@ -2602,6 +2602,17 @@ components:
         createdAt:
           type: string
           format: date-time
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Timestamp of the most recent fresh, credential-validated login —
+            either a successful `POST /auth/login` (LOCAL) or a successful OIDC
+            callback. NOT bumped on `/auth/refresh`, on resource-server bearer
+            traffic, or on `X-Api-Key` requests. `null` for accounts that have
+            never logged in (e.g. provisioned via `POST /admin/users` and never
+            used yet).
         namespaceMembershipCount:
           type: integer
           format: int32

@@ -46,6 +46,7 @@ import java.time.ZoneOffset
 class OidcIdentityService(
     private val oidcIdentityRepository: OidcIdentityRepository,
     private val userRepository: UserRepository,
+    private val userService: UserService,
 ) {
 
     private val log = LoggerFactory.getLogger(OidcIdentityService::class.java)
@@ -70,18 +71,24 @@ class OidcIdentityService(
         val providerId = requireNotNull(provider.id) {
             "OidcProviderEntity must be persisted before upsertOnLogin"
         }
+        val now = OffsetDateTime.now(ZoneOffset.UTC)
         val existing = oidcIdentityRepository.findByOidcProviderIdAndSubject(providerId, subject).orElse(null)
         if (existing != null) {
-            existing.lastLoginAt = OffsetDateTime.now(ZoneOffset.UTC)
-            return existing.user
+            // Two distinct timestamps end up equal in the happy path but track different
+            // things conceptually: the binding-level last_login_at on oidc_identity (used
+            // later for stale-binding cleanup) and the user-level last_login_at on
+            // plugwerk_user (issue #367, surfaced in UserDto).
+            existing.lastLoginAt = now
+            return userService.bumpLastLogin(existing.user.id!!, now)
         }
-        return createNewIdentityAndUser(provider, subject, claims)
+        return createNewIdentityAndUser(provider, subject, claims, now)
     }
 
     private fun createNewIdentityAndUser(
         provider: OidcProviderEntity,
         subject: String,
         claims: Map<String, Any>,
+        loginAt: OffsetDateTime,
     ): UserEntity {
         val email = (claims["email"] as? String)?.trim()?.takeIf { it.isNotBlank() }
             ?: throw OidcEmailMissingException(provider.name)
@@ -92,6 +99,9 @@ class OidcIdentityService(
         val displayName = (claims["name"] as? String)?.trim()?.takeIf { it.isNotBlank() }
             ?: (claims["preferred_username"] as? String)?.trim()?.takeIf { it.isNotBlank() }
             ?: subject
+        // First OIDC login is still a login (issue #367) — set lastLoginAt at
+        // creation so the user surfaces as "active" immediately rather than as
+        // "never logged in" until the second callback.
         val user = userRepository.save(
             UserEntity(
                 displayName = displayName,
@@ -102,6 +112,7 @@ class OidcIdentityService(
                 enabled = true,
                 passwordChangeRequired = false,
                 isSuperadmin = false,
+                lastLoginAt = loginAt,
             ),
         )
         oidcIdentityRepository.save(
