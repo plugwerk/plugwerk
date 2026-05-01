@@ -46,7 +46,7 @@ import type {
 } from "../../api/generated/model";
 
 const PROVIDER_TYPE_LABELS: Record<OidcProviderType, string> = {
-  OIDC: "OIDC (Keycloak, Authentik, Auth0, …)",
+  OIDC: "Generic OIDC (Keycloak, Authentik, Auth0, …)",
   GITHUB: "GitHub",
   GOOGLE: "Google",
   FACEBOOK: "Facebook",
@@ -269,7 +269,7 @@ export function OidcProviderFormDialog({
           : null,
       issuerUri:
         issuerRequired && trimmedIssuer.length === 0
-          ? "Required for OIDC providers."
+          ? "Required for Generic OIDC providers."
           : trimmedIssuer.length > 0 && !/^https?:\/\//.test(trimmedIssuer)
             ? "Must start with http:// or https://."
             : null,
@@ -278,7 +278,7 @@ export function OidcProviderFormDialog({
           ? "Required."
           : providerType === "OIDC" &&
               !trimmedScope.split(/\s+/).includes("openid")
-            ? "Scope for OIDC providers must include 'openid'."
+            ? "Scope for Generic OIDC providers must include 'openid'."
             : null,
       authorizationUri: isGeneric
         ? trimmedAuthUri.length === 0
@@ -687,10 +687,12 @@ export function OidcProviderFormDialog({
         {isGeneric && (
           <FormSection title="Generic OAuth2 Endpoints">
             <Alert severity="info" sx={{ mb: 1 }}>
-              <AlertTitle>Try OIDC first</AlertTitle>
+              <AlertTitle>Try Generic OIDC first</AlertTitle>
               Most modern providers (Keycloak, Authentik, Auth0, Google, GitLab,
-              …) publish a discovery URL — picking <strong>OIDC</strong> instead
-              lets you configure them with one field instead of four.{" "}
+              …) publish a discovery URL — picking <strong>
+                Generic OIDC
+              </strong>{" "}
+              instead lets you configure them with one field instead of four.{" "}
               <Link
                 component="button"
                 type="button"
@@ -713,7 +715,7 @@ export function OidcProviderFormDialog({
                   }
                 }}
               >
-                Switch to OIDC
+                Switch to Generic OIDC
               </Link>
               . Continue here only if your provider does not have OIDC discovery
               (Bitbucket, some custom enterprise IdPs).

@@ -2868,7 +2868,7 @@ components:
         issuerUri:
           type: string
           nullable: true
-          description: Required for the OIDC provider type
+          description: Required for the Generic OIDC provider type
         scope:
           type: string
           default: openid email profile
@@ -2960,18 +2960,18 @@ components:
           format: uri
           nullable: true
           description: |
-            OIDC issuer URI for type `OIDC`. Reachability is verified lazily by the
-            registration refresh after the patch is saved — a temporarily unreachable
-            issuer does NOT roll back the patch (operators may legitimately patch the
-            URI before the upstream is reachable, e.g. during a realm cutover). Cannot
-            be cleared via PATCH; to remove, delete and recreate the provider.
+            OIDC issuer URI for type `OIDC` (Generic OIDC). Reachability is verified
+            lazily by the registration refresh after the patch is saved — a temporarily
+            unreachable issuer does NOT roll back the patch (operators may legitimately
+            patch the URI before the upstream is reachable, e.g. during a realm cutover).
+            Cannot be cleared via PATCH; to remove, delete and recreate the provider.
         scope:
           type: string
           minLength: 1
           nullable: true
           description: |
-            Space-separated OAuth2 scopes. For type `OIDC` the scope set must include
-            `openid`; otherwise the patch is rejected.
+            Space-separated OAuth2 scopes. For type `OIDC` (Generic OIDC) the scope set
+            must include `openid`; otherwise the patch is rejected.
         authorizationUri:
           type: string
           format: uri
@@ -3069,14 +3069,14 @@ components:
         - OAUTH2_GENERIC
       description: |
         Provider type. Pre-configured providers (GITHUB, GOOGLE, FACEBOOK) have well-known
-        endpoints embedded — only clientId and clientSecret are required. The generic OIDC
-        type requires an explicit issuerUri and works with any standards-compliant provider
-        (Keycloak, Authentik, Auth0, Dex, …). The OAUTH2_GENERIC type lets the operator
-        configure authorizationUri, tokenUri, userInfoUri (and optionally jwkSetUri) plus
-        the JSON attribute names the user-info response uses for subject / email / display
-        name — any OAuth2 source that does not map to one of the four hard-wired vendors
-        (GitLab, Bitbucket, custom enterprise IdPs etc.) can be wired in this way without
-        a code change.
+        endpoints embedded — only clientId and clientSecret are required. The `OIDC` type
+        ("Generic OIDC" in the admin UI) requires an explicit issuerUri and works with any
+        standards-compliant OIDC provider (Keycloak, Authentik, Auth0, Dex, …). The
+        OAUTH2_GENERIC type lets the operator configure authorizationUri, tokenUri,
+        userInfoUri (and optionally jwkSetUri) plus the JSON attribute names the user-info
+        response uses for subject / email / display name — any OAuth2 source that does not
+        map to one of the four hard-wired vendors (GitLab, Bitbucket, custom enterprise
+        IdPs etc.) can be wired in this way without a code change.
 
     ServerConfigResponse:
       type: object

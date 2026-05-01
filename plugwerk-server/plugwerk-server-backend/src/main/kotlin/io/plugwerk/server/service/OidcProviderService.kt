@@ -294,7 +294,7 @@ class OidcProviderService(
             if (provider.providerType == OidcProviderType.OIDC) {
                 val tokens = trimmed.split(' ').filter { token -> token.isNotEmpty() }
                 require("openid" in tokens) {
-                    "scope for OIDC providers must include 'openid'"
+                    "scope for Generic OIDC providers must include 'openid'"
                 }
             }
             provider.scope = trimmed

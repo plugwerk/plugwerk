@@ -42,11 +42,10 @@ import type {
 import { OidcProviderFormDialog } from "./OidcProviderFormDialog";
 
 const PROVIDER_TYPE_LABELS: Record<OidcProviderType, string> = {
-  OIDC: "OIDC (Keycloak, Authentik, Auth0, …)",
+  OIDC: "Generic OIDC",
   GITHUB: "GitHub",
   GOOGLE: "Google",
   FACEBOOK: "Facebook",
-  // OAUTH2_GENERIC list-cell label (form-field UI lands in phase C).
   OAUTH2_GENERIC: "Generic OAuth2",
 };
 
