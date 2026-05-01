@@ -72,6 +72,36 @@ API keys grant **READ_ONLY** access to their namespace:
 This is intentional: API keys are designed for **SDK polling and plugin discovery**,
 not for management operations. Write operations require a JWT Bearer token.
 
+## Anonymous Reads on Public Namespaces
+
+A namespace flagged `publicCatalog = true` accepts **unauthenticated** GETs against the read-only catalog surface. The carve-out lets a CLI or pf4j-update client browse and download published releases without provisioning credentials at all — the most reduced privilege level in the model. The flag is set per namespace by an ADMIN; absence of the flag (default) keeps the namespace fully private.
+
+**Pinned scope (server-side, `PublicNamespaceFilter`):** anonymous GETs are recognised only on:
+
+```
+/api/v1/namespaces/{ns}/plugins
+/api/v1/namespaces/{ns}/plugins/{id}
+/api/v1/namespaces/{ns}/plugins/{id}/releases
+/api/v1/namespaces/{ns}/plugins/{id}/releases/{ver}
+/api/v1/namespaces/{ns}/plugins/{id}/releases/{ver}/download
+/api/v1/namespaces/{ns}/updates/check
+```
+
+Anything else under `/api/v1/namespaces/{ns}/...` (members, access keys, settings, audit) returns `401` for unauthenticated callers irrespective of the flag.
+
+**Token shape (implementation contract, fixed by issue #374):** the carve-out is implemented by installing a `UsernamePasswordAuthenticationToken` whose principal is `"public:<ns>"` and whose only granted authority is `ROLE_PUBLIC_CATALOG`. An `AnonymousAuthenticationToken` is **not** used because Spring's `AuthenticatedAuthorizationManager.authenticated()` rejects every anonymous token via `AuthenticationTrustResolver.isAnonymous` regardless of `isAuthenticated()` — the symptom of #374. The `public:` prefix is a stable identifier downstream filters and services use to distinguish the carve-out token from real users (UUID-based) and access-key tokens (`key:` prefix); see `PublicNamespaceFilter.isPublicCatalogPrincipal`.
+
+**Behaviour matrix on a public namespace:**
+
+| Caller | `GET /plugins` | `GET /members` | `POST /plugins` |
+|---|:---:|:---:|:---:|
+| Unauthenticated | ✅ 200 (carve-out) | ❌ 401 | ❌ 401 |
+| API key (READ_ONLY) | ✅ 200 | ❌ 403 | ❌ 403 |
+| JWT MEMBER | ✅ 200 | ✅ 200 | ✅ 200 |
+| JWT ADMIN | ✅ 200 | ✅ 200 | ✅ 200 |
+
+When both an `X-Api-Key` and a public-namespace path are present, the API-key principal takes precedence over the carve-out token, so the request is attributed to a named, audited identity.
+
 ## Consequences
 
 ### Positive

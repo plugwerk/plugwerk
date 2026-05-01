@@ -223,9 +223,10 @@ class CatalogEndpointAuthzTest : AbstractAuthorizationTest() {
 
         @JvmStatic
         fun pluginVisibilityNs1(): Stream<PluginVisibilityCase> = Stream.of(
-            // ANONYMOUS: PublicNamespaceFilter sets AnonymousAuth, but Spring Security 6
-            // anyRequest().authenticated() rejects anonymous tokens → 401
-            PluginVisibilityCase(Actor.ANONYMOUS, NS1, emptySet(), expectedStatus = 401),
+            // ANONYMOUS on public NS1: PublicNamespaceFilter installs a non-anonymous
+            // public-catalog token (issue #374) → catalog list returns PUBLIC visibility
+            // (only PUBLISHED plugins).
+            PluginVisibilityCase(Actor.ANONYMOUS, NS1, NS1_PUBLIC_PLUGINS),
             PluginVisibilityCase(Actor.SUPERADMIN, NS1, NS1_ADMIN_PLUGINS, hasDraftOnlyVisible = true),
             PluginVisibilityCase(Actor.NS1_ADMIN, NS1, NS1_ADMIN_PLUGINS, hasDraftOnlyVisible = true),
             PluginVisibilityCase(Actor.NS1_READ_ONLY, NS1, NS1_AUTHENTICATED_PLUGINS, hasDraftOnlyVisible = true),
@@ -279,12 +280,16 @@ class CatalogEndpointAuthzTest : AbstractAuthorizationTest() {
 
         @JvmStatic
         fun singlePluginCases(): Stream<SinglePluginCase> = Stream.of(
-            // ANONYMOUS gets 401 (Spring Security 6 rejects anonymous tokens)
-            SinglePluginCase(Actor.ANONYMOUS, NS1, "ns1-pl1-active", 401),
+            // ANONYMOUS on public NS1 catalog: PublicNamespaceFilter installs a
+            // non-anonymous public-catalog token (issue #374) → 200.
+            SinglePluginCase(Actor.ANONYMOUS, NS1, "ns1-pl1-active", 200),
             SinglePluginCase(Actor.SUPERADMIN, NS1, "ns1-pl1-active", 200),
             SinglePluginCase(Actor.API_KEY_NS1, NS1, "ns1-pl1-active", 200),
-            // SUSPENDED plugin in NS1 — getPlugin has no visibility check → 200 for all authenticated users
-            SinglePluginCase(Actor.ANONYMOUS, NS1, "ns1-pl2-suspended", 401),
+            // SUSPENDED plugin in NS1 — getPlugin has no visibility check → 200 for all
+            // authenticated callers including the anonymous public-catalog token.
+            // (Suspended-plugin visibility for anonymous callers is a separate concern;
+            // see service-layer issue if a stricter filter is desired.)
+            SinglePluginCase(Actor.ANONYMOUS, NS1, "ns1-pl2-suspended", 200),
             SinglePluginCase(Actor.NS1_READ_ONLY, NS1, "ns1-pl2-suspended", 200),
             SinglePluginCase(Actor.NS1_ADMIN, NS1, "ns1-pl2-suspended", 200),
             SinglePluginCase(Actor.SUPERADMIN, NS1, "ns1-pl2-suspended", 200),
@@ -305,8 +310,11 @@ class CatalogEndpointAuthzTest : AbstractAuthorizationTest() {
         @JvmStatic
         fun releaseVisibilityCases(): Stream<ReleaseVisibilityCase> = Stream.of(
             // NS1 PL1 (ACTIVE) — release visibility by actor
-            // ANONYMOUS on NS1: Spring Security 6 authenticated() rejects anonymous → 401
-            ReleaseVisibilityCase(Actor.ANONYMOUS, NS1, "ns1-pl1-active", emptySet(), expectedStatus = 401),
+            // ANONYMOUS on public NS1: PublicNamespaceFilter installs a non-anonymous
+            // public-catalog token (issue #374). listReleases has no per-status
+            // visibility filter, so anonymous sees all release versions of the plugin
+            // (same behaviour as API keys here — see comment below).
+            ReleaseVisibilityCase(Actor.ANONYMOUS, NS1, "ns1-pl1-active", ALL_VERSIONS),
             ReleaseVisibilityCase(Actor.SUPERADMIN, NS1, "ns1-pl1-active", ALL_VERSIONS),
             ReleaseVisibilityCase(Actor.NS1_ADMIN, NS1, "ns1-pl1-active", ALL_VERSIONS),
             ReleaseVisibilityCase(Actor.NS1_READ_ONLY, NS1, "ns1-pl1-active", ALL_VERSIONS),

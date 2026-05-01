@@ -80,6 +80,9 @@ class ChangePasswordRateLimitFilter(private val rateLimitService: ChangePassword
         if (!auth.isAuthenticated) return null
         val name = auth.name
         if (name.isNullOrBlank()) return null
+        // Public-catalog carve-out tokens (PublicNamespaceFilter) are not real subjects;
+        // they should not consume a per-user rate-limit bucket.
+        if (PublicNamespaceFilter.isPublicCatalogPrincipal(name)) return null
         return name
     }
 

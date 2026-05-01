@@ -74,9 +74,17 @@ class NamespaceAccessKeyAuthFilter(
     ) {
         val apiKey = request.getHeader(HEADER_NAME)
         val existingAuth = SecurityContextHolder.getContext().authentication
+        // A public-catalog token (issued by PublicNamespaceFilter for anonymous reads on
+        // publicCatalog=true namespaces) must yield to a presented X-Api-Key — otherwise
+        // a caller who happens to hit a public-namespace catalog path would never get
+        // their named, audited identity attached to the request.
         val shouldAuthenticate = apiKey != null &&
             apiKey.length >= MIN_KEY_LENGTH &&
-            (existingAuth == null || existingAuth is AnonymousAuthenticationToken)
+            (
+                existingAuth == null ||
+                    existingAuth is AnonymousAuthenticationToken ||
+                    PublicNamespaceFilter.isPublicCatalogPrincipal(existingAuth.name)
+                )
 
         if (shouldAuthenticate && apiKey != null) {
             authenticateConstantTime(apiKey)
