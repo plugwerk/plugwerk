@@ -28,7 +28,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.security.core.Authentication
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken
-import org.springframework.security.oauth2.core.oidc.user.OidcUser
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -62,6 +61,7 @@ class OidcLoginSuccessHandler(
     private val refreshTokenCookieFactory: RefreshTokenCookieFactory,
     private val oidcIdentityService: OidcIdentityService,
     private val oidcProviderRepository: OidcProviderRepository,
+    private val adapterRegistry: ProviderPrincipalAdapterRegistry,
 ) : AuthenticationSuccessHandler {
 
     private val log = LoggerFactory.getLogger(OidcLoginSuccessHandler::class.java)
@@ -78,14 +78,6 @@ class OidcLoginSuccessHandler(
                     "${authentication.javaClass.name}. Spring Security wiring is broken.",
             )
         val registrationId = oauthToken.authorizedClientRegistrationId
-        val principal = requireNotNull(oauthToken.principal) {
-            "OAuth2AuthenticationToken for $registrationId has no principal"
-        }
-        val sub = principal.attributes["sub"] as? String
-            ?: error(
-                "OIDC provider $registrationId returned a token without a `sub` claim — " +
-                    "cannot map to a Plugwerk user.",
-            )
 
         // The registrationId is the OIDC provider's UUID (see OidcRegistrationIds.of).
         // It must exist in the DB or the OAuth2 client filter could not have built a
@@ -97,10 +89,21 @@ class OidcLoginSuccessHandler(
             IllegalStateException("OIDC provider $providerId no longer exists in the database")
         }
 
+        // Per-provider extraction of subject / email / displayName / upstreamIdToken.
+        // The handler stays provider-agnostic — every provider-specific quirk
+        // (GitHub's no-id_token, Facebook's `id`-as-subject, OIDC's claims map)
+        // lives behind this boundary (#357 Phase 0).
+        val resolved = adapterRegistry.forProviderType(provider.providerType).resolve(oauthToken)
+
         val user = try {
-            oidcIdentityService.upsertOnLogin(provider, sub, principal.attributes)
+            oidcIdentityService.upsertOnLogin(provider, resolved)
         } catch (e: OidcEmailMissingException) {
-            log.warn("Rejecting OIDC login for provider={} sub={}: {}", provider.name, sub, e.message)
+            log.warn(
+                "Rejecting OIDC login for provider={} sub={}: {}",
+                provider.name,
+                resolved.subject,
+                e.message,
+            )
             // 400 + plain-text body — operator-actionable misconfiguration, not a
             // user-fixable condition. The browser shows it as a Spring whitelabel
             // page, which is acceptable for a setup-time error.
@@ -108,15 +111,16 @@ class OidcLoginSuccessHandler(
             return
         }
 
-        // Capture the upstream ID token so logout can perform RP-Initiated Logout
-        // against the IdP later (#352). Pure-OAuth2 (non-OIDC) flows have no ID
-        // token and pass null — RP-Initiated Logout falls back gracefully.
-        val idTokenValue = (principal as? OidcUser)?.idToken?.tokenValue
         val userId = requireNotNull(user.id) { "Newly upserted UserEntity has no id" }
-        val refresh = refreshTokenService.issue(userId, idTokenValue)
+        val refresh = refreshTokenService.issue(userId, resolved.upstreamIdToken)
         val cookie = refreshTokenCookieFactory.build(refresh.plaintext, refresh.maxAge)
 
-        log.info("OIDC login success — provider={} sub={} user_id={}", provider.name, sub, userId)
+        log.info(
+            "OIDC login success — provider={} sub={} user_id={}",
+            provider.name,
+            resolved.subject,
+            userId,
+        )
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString())
         // Always redirect to the SPA root; the frontend's hydrate() will run
