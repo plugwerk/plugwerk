@@ -27,6 +27,7 @@ import org.springframework.security.crypto.encrypt.TextEncryptor
 import org.springframework.security.oauth2.client.registration.ClientRegistration
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
 import org.springframework.security.oauth2.client.registration.ClientRegistrations
+import org.springframework.security.oauth2.core.AuthorizationGrantType
 import org.springframework.stereotype.Component
 import java.util.concurrent.atomic.AtomicReference
 
@@ -72,6 +73,15 @@ import java.util.concurrent.atomic.AtomicReference
  *     `email public_profile`; the userinfo response carries `email`
  *     directly when Facebook App Review has approved the `email`
  *     permission (#357 Phase 4).
+ *
+ * [OidcProviderType.OAUTH2] is wired by hand: the operator supplies
+ * `authorizationUri`, `tokenUri`, and `userInfoUri` via the admin form, and
+ * we plug those into a [ClientRegistration.Builder] together with
+ * `subjectAttribute` (defaulting to `sub`) as the `userNameAttributeName`
+ * Spring uses to identify the principal in the user-info JSON response.
+ * `jwkSetUri` is only consulted by [OidcProviderRegistry] for resource-
+ * server token validation; it is irrelevant to the browser flow this
+ * repository drives.
  *
  * ## Failure isolation
  *
@@ -164,6 +174,33 @@ class DbClientRegistrationRepository(
             OidcProviderType.FACEBOOK -> {
                 CommonOAuth2Provider.FACEBOOK.getBuilder(registrationId)
             }
+
+            // Operator-configured generic OAuth2: no discovery, no vendor template.
+            // We plug authorization-uri, token-uri, user-info-uri straight into the
+            // builder along with the operator-chosen subject-attribute name (default
+            // `sub`) which Spring needs to identify the principal in the user-info
+            // JSON response. Email + display-name attribute names are read later by
+            // the GenericOAuth2PrincipalAdapter — they are not part of the
+            // ClientRegistration shape Spring exposes.
+            OidcProviderType.OAUTH2 -> {
+                val authorizationUri = requireNotNull(provider.authorizationUri) {
+                    "authorizationUri is required for provider type ${provider.providerType}"
+                }
+                val tokenUri = requireNotNull(provider.tokenUri) {
+                    "tokenUri is required for provider type ${provider.providerType}"
+                }
+                val userInfoUri = requireNotNull(provider.userInfoUri) {
+                    "userInfoUri is required for provider type ${provider.providerType}"
+                }
+                ClientRegistration.withRegistrationId(registrationId)
+                    .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                    .redirectUri(DEFAULT_REDIRECT_URI_TEMPLATE)
+                    .authorizationUri(authorizationUri)
+                    .tokenUri(tokenUri)
+                    .userInfoUri(userInfoUri)
+                    .userNameAttributeName(provider.subjectAttribute ?: DEFAULT_SUBJECT_ATTRIBUTE)
+                    .clientName(provider.name)
+            }
         }
         return builder
             .registrationId(registrationId)
@@ -211,5 +248,22 @@ class DbClientRegistrationRepository(
          * `/.well-known/openid-configuration` lives at `${this}/.well-known/...`.
          */
         const val GOOGLE_ISSUER_URI = "https://accounts.google.com"
+
+        /**
+         * Default for `OidcProviderEntity.subjectAttribute` when the operator
+         * leaves the field blank. Matches the OIDC convention; OAUTH2
+         * providers that follow OIDC user-info conventions (most do) need no
+         * configuration. Operators with non-standard providers override this
+         * via the admin form.
+         */
+        const val DEFAULT_SUBJECT_ATTRIBUTE = "sub"
+
+        /**
+         * Spring placeholder template for the OAuth2 redirect URI. `{baseUrl}`
+         * resolves to the request scheme/host/port at runtime and `{registrationId}`
+         * to the entity UUID. The result is `https://host/login/oauth2/code/<UUID>`,
+         * which the operator must register at the upstream provider.
+         */
+        const val DEFAULT_REDIRECT_URI_TEMPLATE = "{baseUrl}/login/oauth2/code/{registrationId}"
     }
 }

@@ -130,13 +130,13 @@ class AuthControllerTest {
             username = "alice",
             displayName = "Alice",
             email = "alice@example.test",
-            source = io.plugwerk.server.domain.UserSource.LOCAL,
+            source = io.plugwerk.server.domain.UserSource.INTERNAL,
             passwordHash = "\$2a\$12\$hash",
         )
         whenever(credentialValidator.validate("alice", "secret")).thenReturn(true)
         whenever(jwtTokenService.generateToken(userId.toString())).thenReturn("tok.abc.xyz")
         whenever(jwtTokenService.tokenValiditySeconds()).thenReturn(28800L)
-        whenever(userRepository.findByUsernameAndSource("alice", io.plugwerk.server.domain.UserSource.LOCAL))
+        whenever(userRepository.findByUsernameAndSource("alice", io.plugwerk.server.domain.UserSource.INTERNAL))
             .thenReturn(Optional.of(user))
         whenever(userService.bumpLastLogin(eq(userId), org.mockito.kotlin.any())).thenReturn(user)
 
@@ -163,14 +163,14 @@ class AuthControllerTest {
             username = "alice",
             displayName = "Alice",
             email = "alice@example.test",
-            source = io.plugwerk.server.domain.UserSource.LOCAL,
+            source = io.plugwerk.server.domain.UserSource.INTERNAL,
             passwordHash = "\$2a\$12\$hash",
             passwordChangeRequired = true,
         )
         whenever(credentialValidator.validate("alice", "secret")).thenReturn(true)
         whenever(jwtTokenService.generateToken(userId.toString())).thenReturn("tok.abc.xyz")
         whenever(jwtTokenService.tokenValiditySeconds()).thenReturn(28800L)
-        whenever(userRepository.findByUsernameAndSource("alice", io.plugwerk.server.domain.UserSource.LOCAL))
+        whenever(userRepository.findByUsernameAndSource("alice", io.plugwerk.server.domain.UserSource.INTERNAL))
             .thenReturn(Optional.of(user))
         whenever(userService.bumpLastLogin(eq(userId), org.mockito.kotlin.any())).thenReturn(user)
 

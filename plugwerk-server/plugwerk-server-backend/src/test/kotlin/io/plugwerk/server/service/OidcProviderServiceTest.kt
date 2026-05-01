@@ -250,6 +250,27 @@ class OidcProviderServiceTest {
         }.isInstanceOf(IllegalArgumentException::class.java)
             .hasMessageContaining("blank")
     }
+
+    @Test
+    fun `discoverEndpoints returns failure outcome with error message for unreachable issuer`() {
+        // Port 1 is closed by convention — Spring's ClientRegistrations.fromIssuerLocation
+        // will fail with a connection / network error, which the service must surface as
+        // success=false rather than rethrowing. The UI uses this branch to render an
+        // operator-actionable hint.
+        val outcome = service.discoverEndpoints("http://localhost:1/realms/never")
+
+        assertThat(outcome.success).isFalse()
+        assertThat(outcome.error).isNotBlank()
+        assertThat(outcome.authorizationUri).isNull()
+    }
+
+    @Test
+    fun `discoverEndpoints rejects blank issuer URI without attempting network IO`() {
+        val outcome = service.discoverEndpoints("   ")
+
+        assertThat(outcome.success).isFalse()
+        assertThat(outcome.error).contains("issuerUri")
+    }
 }
 
 /**

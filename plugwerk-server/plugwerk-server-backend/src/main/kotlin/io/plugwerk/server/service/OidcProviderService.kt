@@ -27,11 +27,28 @@ import io.plugwerk.server.security.DbClientRegistrationRepository
 import io.plugwerk.server.security.OidcProviderRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.security.crypto.encrypt.TextEncryptor
+import org.springframework.security.oauth2.client.registration.ClientRegistrations
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.net.URI
 import java.net.URISyntaxException
 import java.util.UUID
+
+/**
+ * Outcome of [OidcProviderService.discoverEndpoints]. The [success] flag
+ * cleanly separates "discovery worked, here are the endpoints" from "the
+ * issuer URI is not OIDC-discoverable" — callers (controller + UI) need
+ * both shapes and we want to avoid throwing for the failure case (it's a
+ * normal user-action result, not an exception).
+ */
+data class OidcDiscoveryOutcome(
+    val success: Boolean,
+    val authorizationUri: String? = null,
+    val tokenUri: String? = null,
+    val userInfoUri: String? = null,
+    val jwkSetUri: String? = null,
+    val error: String? = null,
+)
 
 /**
  * Patch payload for [OidcProviderService.update]. Each non-null field is
@@ -48,6 +65,13 @@ data class OidcProviderPatch(
     val clientSecretPlaintext: String? = null,
     val issuerUri: String? = null,
     val scope: String? = null,
+    val authorizationUri: String? = null,
+    val tokenUri: String? = null,
+    val userInfoUri: String? = null,
+    val jwkSetUri: String? = null,
+    val subjectAttribute: String? = null,
+    val emailAttribute: String? = null,
+    val displayNameAttribute: String? = null,
 )
 
 @Service
@@ -80,6 +104,43 @@ class OidcProviderService(
     @Transactional(readOnly = true)
     fun findAll(): List<OidcProviderEntity> = oidcProviderRepository.findAll()
 
+    /**
+     * Probes [issuerUri] for OpenID Connect discovery support, without
+     * persisting anything. The admin UI calls this to (a) validate an
+     * `OIDC` issuer URI before saving and (b) detect when an operator
+     * reaching for `OAUTH2` actually has a discoverable provider
+     * and could pick the simpler `OIDC` configuration path.
+     *
+     * Returns [OidcDiscoveryOutcome.success] = `false` on any failure
+     * (network, HTTP error, malformed metadata, scheme mismatch, …) with
+     * the underlying message bubbled up — operators get an actionable
+     * hint without the controller having to translate exceptions.
+     */
+    @Transactional(readOnly = true)
+    fun discoverEndpoints(issuerUri: String): OidcDiscoveryOutcome {
+        val trimmed = issuerUri.trim()
+        if (trimmed.isEmpty()) {
+            return OidcDiscoveryOutcome(success = false, error = "issuerUri must not be blank")
+        }
+        return try {
+            val registration = ClientRegistrations.fromIssuerLocation(trimmed).build()
+            val details = registration.providerDetails
+            OidcDiscoveryOutcome(
+                success = true,
+                authorizationUri = details.authorizationUri,
+                tokenUri = details.tokenUri,
+                userInfoUri = details.userInfoEndpoint?.uri,
+                jwkSetUri = details.jwkSetUri,
+            )
+        } catch (e: Exception) {
+            log.debug("OIDC discovery failed for issuerUri={}: {}", trimmed, e.message)
+            OidcDiscoveryOutcome(
+                success = false,
+                error = e.message ?: "discovery failed without a message",
+            )
+        }
+    }
+
     @Transactional(readOnly = true)
     fun findById(id: UUID): OidcProviderEntity =
         oidcProviderRepository.findById(id).orElseThrow { EntityNotFoundException("OidcProvider", id.toString()) }
@@ -91,7 +152,27 @@ class OidcProviderService(
         clientSecret: String,
         issuerUri: String?,
         scope: String,
+        authorizationUri: String? = null,
+        tokenUri: String? = null,
+        userInfoUri: String? = null,
+        jwkSetUri: String? = null,
+        subjectAttribute: String? = null,
+        emailAttribute: String? = null,
+        displayNameAttribute: String? = null,
     ): OidcProviderEntity {
+        // OAUTH2 requires the three core endpoint URIs at create time.
+        // The four URI columns are nullable in the schema (existing rows for
+        // OIDC/GOOGLE/GITHUB/FACEBOOK don't need them) so service-layer
+        // validation is the only line of defence — without it a half-configured
+        // generic row reaches DbClientRegistrationRepository which would log+
+        // skip it, leaving the operator wondering why their new provider does
+        // not appear on the login page.
+        if (providerType == OidcProviderType.OAUTH2) {
+            requireValidHttpUri(authorizationUri, "authorizationUri", required = true)
+            requireValidHttpUri(tokenUri, "tokenUri", required = true)
+            requireValidHttpUri(userInfoUri, "userInfoUri", required = true)
+            requireValidHttpUri(jwkSetUri, "jwkSetUri", required = false)
+        }
         val provider = oidcProviderRepository.save(
             OidcProviderEntity(
                 name = name,
@@ -101,9 +182,38 @@ class OidcProviderService(
                 issuerUri = issuerUri,
                 scope = scope,
                 enabled = false,
+                authorizationUri = authorizationUri?.trim()?.takeIf { it.isNotEmpty() },
+                tokenUri = tokenUri?.trim()?.takeIf { it.isNotEmpty() },
+                userInfoUri = userInfoUri?.trim()?.takeIf { it.isNotEmpty() },
+                jwkSetUri = jwkSetUri?.trim()?.takeIf { it.isNotEmpty() },
+                subjectAttribute = subjectAttribute?.trim()?.takeIf { it.isNotEmpty() },
+                emailAttribute = emailAttribute?.trim()?.takeIf { it.isNotEmpty() },
+                displayNameAttribute = displayNameAttribute?.trim()?.takeIf { it.isNotEmpty() },
             ),
         )
         return provider
+    }
+
+    /**
+     * Validates that [value] (when present, or always when [required]) parses as
+     * an http(s) URI. Mirrors the issuerUri rule used elsewhere — every URI
+     * field on an OIDC/OAuth2 provider must be a real URL the server can later
+     * hand to a browser or HTTP client without surprises.
+     */
+    private fun requireValidHttpUri(value: String?, fieldName: String, required: Boolean) {
+        val trimmed = value?.trim()
+        if (trimmed.isNullOrEmpty()) {
+            require(!required) { "$fieldName is required for provider type OAUTH2" }
+            return
+        }
+        val parsed = try {
+            URI(trimmed)
+        } catch (e: URISyntaxException) {
+            throw IllegalArgumentException("$fieldName is not a valid URI: ${e.message}")
+        }
+        require(parsed.scheme in setOf("http", "https")) {
+            "$fieldName must use http or https scheme"
+        }
     }
 
     /**
@@ -184,15 +294,76 @@ class OidcProviderService(
             if (provider.providerType == OidcProviderType.OIDC) {
                 val tokens = trimmed.split(' ').filter { token -> token.isNotEmpty() }
                 require("openid" in tokens) {
-                    "scope for OIDC providers must include 'openid'"
+                    "scope for Generic OIDC providers must include 'openid'"
                 }
             }
             provider.scope = trimmed
         }
 
+        // OAUTH2 URI/attribute fields. Each is independently optional
+        // in the patch (PATCH semantics — null means leave unchanged) but the
+        // three core endpoint URIs cannot be cleared back to null on a
+        // OAUTH2 row: doing so would brick the row's browser-flow
+        // wiring with no recovery short of re-editing. To remove an
+        // OAUTH2 provider, delete and recreate it.
+        applyOAuth2GenericUriPatch(provider, patch.authorizationUri, "authorizationUri") {
+            provider.authorizationUri = it
+        }
+        applyOAuth2GenericUriPatch(provider, patch.tokenUri, "tokenUri") {
+            provider.tokenUri = it
+        }
+        applyOAuth2GenericUriPatch(provider, patch.userInfoUri, "userInfoUri") {
+            provider.userInfoUri = it
+        }
+        // jwkSetUri is opt-in (resource-server validation) — clearing it back
+        // is allowed because the operator is signalling "this provider issues
+        // opaque tokens, skip resource-server validation".
+        patch.jwkSetUri?.let {
+            val trimmed = it.trim()
+            require(trimmed.isNotEmpty()) { "jwkSetUri must not be blank — to disable, omit the field" }
+            requireValidHttpUri(trimmed, "jwkSetUri", required = false)
+            provider.jwkSetUri = trimmed
+        }
+
+        applyAttributeNamePatch(patch.subjectAttribute, "subjectAttribute") {
+            provider.subjectAttribute = it
+        }
+        applyAttributeNamePatch(patch.emailAttribute, "emailAttribute") {
+            provider.emailAttribute = it
+        }
+        applyAttributeNamePatch(patch.displayNameAttribute, "displayNameAttribute") {
+            provider.displayNameAttribute = it
+        }
+
         val saved = oidcProviderRepository.save(provider)
         refreshAllRegistries()
         return saved
+    }
+
+    private fun applyOAuth2GenericUriPatch(
+        provider: OidcProviderEntity,
+        value: String?,
+        fieldName: String,
+        setter: (String) -> Unit,
+    ) {
+        if (value == null) return
+        val trimmed = value.trim()
+        require(trimmed.isNotEmpty()) {
+            "$fieldName must not be blank — clearing the URI on a OAUTH2 row " +
+                "would break the browser-flow wiring; delete and recreate the provider instead"
+        }
+        require(provider.providerType == OidcProviderType.OAUTH2) {
+            "$fieldName is only meaningful on OAUTH2 providers (this is a ${provider.providerType})"
+        }
+        requireValidHttpUri(trimmed, fieldName, required = true)
+        setter(trimmed)
+    }
+
+    private fun applyAttributeNamePatch(value: String?, fieldName: String, setter: (String) -> Unit) {
+        if (value == null) return
+        val trimmed = value.trim()
+        require(trimmed.isNotEmpty()) { "$fieldName must not be blank" }
+        setter(trimmed)
     }
 
     /**

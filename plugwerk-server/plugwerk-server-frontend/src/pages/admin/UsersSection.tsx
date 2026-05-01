@@ -181,7 +181,7 @@ export function UsersSection() {
           label={user.source}
           size="small"
           variant="outlined"
-          color={user.source === "OIDC" ? "info" : "default"}
+          color={user.source === "EXTERNAL" ? "info" : "default"}
         />
       ),
     },

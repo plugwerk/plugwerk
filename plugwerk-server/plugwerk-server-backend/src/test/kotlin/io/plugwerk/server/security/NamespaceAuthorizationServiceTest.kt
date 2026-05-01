@@ -76,7 +76,7 @@ class NamespaceAuthorizationServiceTest {
         username = "u-$id",
         displayName = "User $id",
         email = "$id@example.test",
-        source = UserSource.LOCAL,
+        source = UserSource.INTERNAL,
         passwordHash = "\$2a\$12\$hash",
         isSuperadmin = isSuperadmin,
     )

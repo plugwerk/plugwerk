@@ -41,3 +41,7 @@ databaseChangeLog:
       file: db/changelog/migrations/0020_user_last_login_at.yaml
   - include:
       file: db/changelog/migrations/0021_drop_oidc_identity_last_login_at.yaml
+  - include:
+      file: db/changelog/migrations/0022_oidc_provider_oauth2_generic_columns.yaml
+  - include:
+      file: db/changelog/migrations/0023_user_source_internal_external.yaml

@@ -51,6 +51,21 @@ enum class OidcProviderType {
 
     /** Facebook Login. Uses well-known OAuth2 endpoints. */
     FACEBOOK,
+
+    /**
+     * Generic OAuth2 provider — operator supplies authorization-uri,
+     * token-uri, user-info-uri, and (optionally) JWK-set-uri plus the
+     * attribute names to read subject / email / displayName from. Use this
+     * when the target provider is OAuth2-conformant but neither OIDC-
+     * discoverable nor one of the four hard-wired vendors.
+     *
+     * Example operator scenarios:
+     *   - GitLab (cloud or self-hosted)
+     *   - Bitbucket
+     *   - Discord (also OIDC-discoverable, but workable here too)
+     *   - Custom enterprise IdPs without `/.well-known/openid-configuration`
+     */
+    OAUTH2,
 }
 
 /**
@@ -87,6 +102,28 @@ enum class OidcProviderType {
  *   which use hardcoded canonical issuers — see
  *   [io.plugwerk.server.security.OidcJwtValidators].
  * @property scope Space-separated OAuth2 scopes requested during token validation.
+ *   For [OidcProviderType.GITHUB] and [OidcProviderType.FACEBOOK] this value is
+ *   ignored — the right scopes are hardcoded inside `DbClientRegistrationRepository`
+ *   for those provider types.
+ * @property authorizationUri OAuth2 authorize-endpoint URL. Required when
+ *   [providerType] is [OidcProviderType.OAUTH2]; ignored otherwise.
+ * @property tokenUri OAuth2 token-endpoint URL. Required when [providerType] is
+ *   [OidcProviderType.OAUTH2]; ignored otherwise.
+ * @property userInfoUri OAuth2 user-info endpoint URL — Plugwerk fetches the
+ *   subject / email / displayName from here after token exchange. Required
+ *   when [providerType] is [OidcProviderType.OAUTH2]; ignored otherwise.
+ * @property jwkSetUri Optional JWK Set URL for providers that issue JWT access
+ *   tokens (so the resource-server side can validate them). Only meaningful for
+ *   [OidcProviderType.OAUTH2]. Leave `null` for opaque-token providers.
+ * @property subjectAttribute Name of the user-info JSON key that carries the
+ *   stable user identifier. `null` means the application default (`sub`). Only
+ *   read when [providerType] is [OidcProviderType.OAUTH2].
+ * @property emailAttribute Name of the user-info JSON key that carries the user's
+ *   email address. `null` means the application default (`email`). Only read when
+ *   [providerType] is [OidcProviderType.OAUTH2].
+ * @property displayNameAttribute Name of the user-info JSON key that carries the
+ *   display name. `null` means the application default (`name`). Only read when
+ *   [providerType] is [OidcProviderType.OAUTH2].
  * @property createdAt Creation timestamp (immutable).
  * @property updatedAt Last modification timestamp.
  */
@@ -119,6 +156,27 @@ class OidcProviderEntity(
 
     @Column(name = "scope", nullable = false, length = 255)
     var scope: String = "openid email profile",
+
+    @Column(name = "authorization_uri", columnDefinition = "text")
+    var authorizationUri: String? = null,
+
+    @Column(name = "token_uri", columnDefinition = "text")
+    var tokenUri: String? = null,
+
+    @Column(name = "user_info_uri", columnDefinition = "text")
+    var userInfoUri: String? = null,
+
+    @Column(name = "jwk_set_uri", columnDefinition = "text")
+    var jwkSetUri: String? = null,
+
+    @Column(name = "subject_attribute", columnDefinition = "text")
+    var subjectAttribute: String? = null,
+
+    @Column(name = "email_attribute", columnDefinition = "text")
+    var emailAttribute: String? = null,
+
+    @Column(name = "display_name_attribute", columnDefinition = "text")
+    var displayNameAttribute: String? = null,
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

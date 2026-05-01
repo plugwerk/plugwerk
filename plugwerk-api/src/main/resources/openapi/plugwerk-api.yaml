@@ -194,8 +194,8 @@ tags:
 
       Each user can store preferences such as preferred language, theme, and default namespace.
       Settings are created lazily on first write and keyed by `plugwerk_user.id` (a UUID FK).
-      Both LOCAL and OIDC users are supported uniformly because the identity hub assigns the
-      same id type to both.
+      Both INTERNAL and EXTERNAL users are supported uniformly because the identity hub assigns
+      the same id type to both.
   - name: ServerConfig
     description: |
       Public, unauthenticated endpoint exposing non-sensitive server configuration.
@@ -1559,6 +1559,45 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  /admin/oidc-providers/discover:
+    post:
+      tags:
+        - OidcProviders
+      summary: Probe an issuer URI for OIDC discovery support
+      description: |
+        Attempts to resolve `${issuerUri}/.well-known/openid-configuration` and
+        returns the discovered authorization / token / user-info / JWK set
+        endpoints when discovery succeeds. Used by the admin UI to (a) confirm
+        that a candidate issuer URI works before saving an OIDC provider and
+        (b) steer operators away from `OAUTH2` when their provider
+        supports OIDC discovery.
+
+        Does NOT persist anything — this is a read-only probe. Requires
+        superadmin privileges.
+      operationId: discoverOidcEndpoints
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OidcDiscoveryRequest'
+      responses:
+        '200':
+          description: |
+            Discovery completed (may have failed — check `success` in body).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcDiscoveryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
   /admin/oidc-providers/{providerId}:
     patch:
       tags:
@@ -1875,14 +1914,16 @@ components:
           type: string
           description: |
             User's email address. Mandatory after #351; populated for both
-            LOCAL and OIDC-sourced accounts.
+            INTERNAL and EXTERNAL accounts.
         source:
           type: string
-          enum: [LOCAL, OIDC]
+          enum: [INTERNAL, EXTERNAL]
           description: |
             Discriminator for the account's authentication mechanism (#351).
-            Used by the frontend to decide whether to surface password-change
-            UI (LOCAL only).
+            `INTERNAL` accounts have credentials on the Plugwerk server
+            (username + password). `EXTERNAL` accounts are sourced from an
+            upstream identity provider (OIDC, OAuth2, …). Used by the frontend
+            to decide whether to surface password-change UI (INTERNAL only).
         passwordChangeRequired:
           type: boolean
           description: |
@@ -2560,8 +2601,9 @@ components:
       type: object
       description: |
         Plugwerk user account. After the identity-hub split (#351), Plugwerk has
-        two flavours of accounts discriminated by `source` — local password-based
-        accounts and accounts sourced from an OIDC provider.
+        two flavours of accounts discriminated by `source` — INTERNAL password-
+        based accounts and EXTERNAL accounts sourced from an upstream identity
+        provider (OIDC, OAuth2, …).
       properties:
         id:
           type: string
@@ -2574,24 +2616,24 @@ components:
             ID-token claim at first login.
         source:
           type: string
-          enum: [LOCAL, OIDC]
+          enum: [INTERNAL, EXTERNAL]
           description: |
             Discriminator for the account's authentication mechanism (#351).
-            `LOCAL` accounts have `username` and a Plugwerk-side password.
-            `OIDC` accounts authenticate against an upstream provider — `username`
-            is `null`, `passwordChangeRequired` is always `false`.
+            `INTERNAL` accounts have `username` and a Plugwerk-side password.
+            `EXTERNAL` accounts authenticate against an upstream provider —
+            `username` is `null`, `passwordChangeRequired` is always `false`.
         username:
           type: string
           nullable: true
           description: |
-            Local-login username. Always present and unique for `source = LOCAL`,
-            always `null` for `source = OIDC`.
+            Local-login username. Always present and unique for `source = INTERNAL`,
+            always `null` for `source = EXTERNAL`.
         email:
           type: string
           description: |
             Email address. Mandatory after #351. Case-insensitively unique
-            within `source = LOCAL` accounts only — OIDC accounts may share
-            emails (Plugwerk does not perform identity linking).
+            within `source = INTERNAL` accounts only — EXTERNAL accounts may
+            share emails (Plugwerk does not perform identity linking).
         enabled:
           type: boolean
         passwordChangeRequired:
@@ -2608,11 +2650,11 @@ components:
           nullable: true
           description: |
             Timestamp of the most recent fresh, credential-validated login —
-            either a successful `POST /auth/login` (LOCAL) or a successful OIDC
-            callback. NOT bumped on `/auth/refresh`, on resource-server bearer
-            traffic, or on `X-Api-Key` requests. `null` for accounts that have
-            never logged in (e.g. provisioned via `POST /admin/users` and never
-            used yet).
+            either a successful `POST /auth/login` (INTERNAL) or a successful
+            external (OIDC / OAuth2) callback. NOT bumped on `/auth/refresh`,
+            on resource-server bearer traffic, or on `X-Api-Key` requests.
+            `null` for accounts that have never logged in (e.g. provisioned
+            via `POST /admin/users` and never used yet).
         namespaceMembershipCount:
           type: integer
           format: int32
@@ -2630,9 +2672,9 @@ components:
     UserCreateRequest:
       type: object
       description: |
-        Admin-driven creation of a local Plugwerk user (`source = LOCAL`). OIDC
-        users are never created via this endpoint — they materialise on first
-        OIDC callback via `OidcIdentityService.upsertOnLogin`.
+        Admin-driven creation of an internal Plugwerk user (`source = INTERNAL`).
+        EXTERNAL users are never created via this endpoint — they materialise on
+        first OIDC / OAuth2 callback via `OidcIdentityService.upsertOnLogin`.
       properties:
         username:
           type: string
@@ -2642,7 +2684,7 @@ components:
           type: string
           format: email
           description: |
-            Mandatory after #351. Case-insensitively unique among LOCAL users.
+            Mandatory after #351. Case-insensitively unique among INTERNAL users.
         displayName:
           type: string
           maxLength: 255
@@ -2762,6 +2804,43 @@ components:
           nullable: true
         scope:
           type: string
+        authorizationUri:
+          type: string
+          nullable: true
+          description: Authorization endpoint URL — meaningful only when providerType is OAUTH2.
+        tokenUri:
+          type: string
+          nullable: true
+          description: Token endpoint URL — meaningful only when providerType is OAUTH2.
+        userInfoUri:
+          type: string
+          nullable: true
+          description: User-info endpoint URL — meaningful only when providerType is OAUTH2.
+        jwkSetUri:
+          type: string
+          nullable: true
+          description: |
+            JWK set URL for resource-server JWT validation — meaningful only when providerType
+            is OAUTH2 and the provider issues JWT access tokens. Leave null for opaque-
+            token providers.
+        subjectAttribute:
+          type: string
+          nullable: true
+          description: |
+            User-info JSON key for the stable user identifier — meaningful only when providerType
+            is OAUTH2. Null means application default (`sub`).
+        emailAttribute:
+          type: string
+          nullable: true
+          description: |
+            User-info JSON key for the user's email — meaningful only when providerType is
+            OAUTH2. Null means application default (`email`).
+        displayNameAttribute:
+          type: string
+          nullable: true
+          description: |
+            User-info JSON key for the user's display name — meaningful only when providerType
+            is OAUTH2. Null means application default (`name`).
         createdAt:
           type: string
           format: date-time
@@ -2792,10 +2871,52 @@ components:
         issuerUri:
           type: string
           nullable: true
-          description: Required for the OIDC provider type
+          description: Required for the Generic OIDC provider type
         scope:
           type: string
           default: openid email profile
+        authorizationUri:
+          type: string
+          nullable: true
+          description: |
+            OAuth2 authorize-endpoint URL. Required when providerType is OAUTH2;
+            ignored otherwise. Validated for http(s) scheme by the server.
+        tokenUri:
+          type: string
+          nullable: true
+          description: |
+            OAuth2 token-endpoint URL. Required when providerType is OAUTH2;
+            ignored otherwise. Validated for http(s) scheme by the server.
+        userInfoUri:
+          type: string
+          nullable: true
+          description: |
+            OAuth2 user-info endpoint URL. Required when providerType is OAUTH2;
+            ignored otherwise. Validated for http(s) scheme by the server.
+        jwkSetUri:
+          type: string
+          nullable: true
+          description: |
+            JWK set URL for resource-server JWT validation. Optional; only meaningful when
+            providerType is OAUTH2. Leave null for opaque-token providers.
+        subjectAttribute:
+          type: string
+          nullable: true
+          description: |
+            User-info JSON key carrying the stable user identifier. Defaults to `sub` when
+            null. Meaningful only when providerType is OAUTH2.
+        emailAttribute:
+          type: string
+          nullable: true
+          description: |
+            User-info JSON key carrying the user's email. Defaults to `email` when null.
+            Meaningful only when providerType is OAUTH2.
+        displayNameAttribute:
+          type: string
+          nullable: true
+          description: |
+            User-info JSON key carrying the user's display name. Defaults to `name` when null.
+            Meaningful only when providerType is OAUTH2.
       required:
         - name
         - providerType
@@ -2842,18 +2963,104 @@ components:
           format: uri
           nullable: true
           description: |
-            OIDC issuer URI for type `OIDC`. Reachability is verified lazily by the
-            registration refresh after the patch is saved — a temporarily unreachable
-            issuer does NOT roll back the patch (operators may legitimately patch the
-            URI before the upstream is reachable, e.g. during a realm cutover). Cannot
-            be cleared via PATCH; to remove, delete and recreate the provider.
+            OIDC issuer URI for type `OIDC` (Generic OIDC). Reachability is verified
+            lazily by the registration refresh after the patch is saved — a temporarily
+            unreachable issuer does NOT roll back the patch (operators may legitimately
+            patch the URI before the upstream is reachable, e.g. during a realm cutover).
+            Cannot be cleared via PATCH; to remove, delete and recreate the provider.
         scope:
           type: string
           minLength: 1
           nullable: true
           description: |
-            Space-separated OAuth2 scopes. For type `OIDC` the scope set must include
-            `openid`; otherwise the patch is rejected.
+            Space-separated OAuth2 scopes. For type `OIDC` (Generic OIDC) the scope set
+            must include `openid`; otherwise the patch is rejected.
+        authorizationUri:
+          type: string
+          format: uri
+          nullable: true
+          description: |
+            OAuth2 authorize-endpoint URL. Meaningful only for OAUTH2 providers.
+        tokenUri:
+          type: string
+          format: uri
+          nullable: true
+          description: |
+            OAuth2 token-endpoint URL. Meaningful only for OAUTH2 providers.
+        userInfoUri:
+          type: string
+          format: uri
+          nullable: true
+          description: |
+            OAuth2 user-info endpoint URL. Meaningful only for OAUTH2 providers.
+        jwkSetUri:
+          type: string
+          format: uri
+          nullable: true
+          description: |
+            JWK set URL. Meaningful only for OAUTH2 providers that issue JWT access
+            tokens. Cannot be cleared via PATCH; to remove, delete and recreate the provider.
+        subjectAttribute:
+          type: string
+          minLength: 1
+          nullable: true
+          description: |
+            User-info JSON key carrying the stable subject identifier. Meaningful only for
+            OAUTH2 providers. Default (`sub`) is used when null.
+        emailAttribute:
+          type: string
+          minLength: 1
+          nullable: true
+          description: |
+            User-info JSON key carrying the user's email. Meaningful only for OAUTH2
+            providers. Default (`email`) is used when null.
+        displayNameAttribute:
+          type: string
+          minLength: 1
+          nullable: true
+          description: |
+            User-info JSON key carrying the user's display name. Meaningful only for
+            OAUTH2 providers. Default (`name`) is used when null.
+
+    OidcDiscoveryRequest:
+      type: object
+      properties:
+        issuerUri:
+          type: string
+          minLength: 1
+          description: |
+            Candidate OIDC issuer URI. The server appends `/.well-known/openid-configuration`
+            (per RFC 8414 / OpenID Connect Discovery 1.0) and tries to fetch it.
+      required:
+        - issuerUri
+
+    OidcDiscoveryResponse:
+      type: object
+      description: |
+        Result of a discovery probe. `success = true` means the configuration document
+        was fetched and parsed; the four endpoint fields are populated from it.
+        `success = false` means the probe failed — `error` carries the operator-actionable
+        reason (DNS failure, 404, malformed JSON, missing required keys, …).
+      properties:
+        success:
+          type: boolean
+        authorizationUri:
+          type: string
+          nullable: true
+        tokenUri:
+          type: string
+          nullable: true
+        userInfoUri:
+          type: string
+          nullable: true
+        jwkSetUri:
+          type: string
+          nullable: true
+        error:
+          type: string
+          nullable: true
+      required:
+        - success
 
     OidcProviderType:
       type: string
@@ -2862,11 +3069,17 @@ components:
         - GITHUB
         - GOOGLE
         - FACEBOOK
+        - OAUTH2
       description: |
         Provider type. Pre-configured providers (GITHUB, GOOGLE, FACEBOOK) have well-known
-        endpoints embedded — only clientId and clientSecret are required. The generic OIDC
-        type requires an explicit issuerUri and works with any standards-compliant provider
-        (Keycloak, Authentik, Auth0, Dex, …).
+        endpoints embedded — only clientId and clientSecret are required. The `OIDC` type
+        ("Generic OIDC" in the admin UI) requires an explicit issuerUri and works with any
+        standards-compliant OIDC provider (Keycloak, Authentik, Auth0, Dex, …). The
+        OAUTH2 type lets the operator configure authorizationUri, tokenUri,
+        userInfoUri (and optionally jwkSetUri) plus the JSON attribute names the user-info
+        response uses for subject / email / display name — any OAuth2 source that does not
+        map to one of the four hard-wired vendors (GitLab, Bitbucket, custom enterprise
+        IdPs etc.) can be wired in this way without a code change.
 
     ServerConfigResponse:
       type: object

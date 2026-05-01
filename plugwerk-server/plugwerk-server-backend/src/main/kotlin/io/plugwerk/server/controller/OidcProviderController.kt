@@ -19,6 +19,8 @@
 package io.plugwerk.server.controller
 
 import io.plugwerk.api.OidcProvidersApi
+import io.plugwerk.api.model.OidcDiscoveryRequest
+import io.plugwerk.api.model.OidcDiscoveryResponse
 import io.plugwerk.api.model.OidcProviderCreateRequest
 import io.plugwerk.api.model.OidcProviderDto
 import io.plugwerk.api.model.OidcProviderType
@@ -62,6 +64,13 @@ class OidcProviderController(
             clientSecret = oidcProviderCreateRequest.clientSecret,
             issuerUri = oidcProviderCreateRequest.issuerUri,
             scope = oidcProviderCreateRequest.scope ?: "openid email profile",
+            authorizationUri = oidcProviderCreateRequest.authorizationUri,
+            tokenUri = oidcProviderCreateRequest.tokenUri,
+            userInfoUri = oidcProviderCreateRequest.userInfoUri,
+            jwkSetUri = oidcProviderCreateRequest.jwkSetUri,
+            subjectAttribute = oidcProviderCreateRequest.subjectAttribute,
+            emailAttribute = oidcProviderCreateRequest.emailAttribute,
+            displayNameAttribute = oidcProviderCreateRequest.displayNameAttribute,
         )
         return ResponseEntity.created(URI("/api/v1/admin/oidc-providers/${provider.id}")).body(provider.toDto())
     }
@@ -80,6 +89,13 @@ class OidcProviderController(
             clientSecretPlaintext = oidcProviderUpdateRequest.clientSecret,
             issuerUri = oidcProviderUpdateRequest.issuerUri?.toString(),
             scope = oidcProviderUpdateRequest.scope,
+            authorizationUri = oidcProviderUpdateRequest.authorizationUri?.toString(),
+            tokenUri = oidcProviderUpdateRequest.tokenUri?.toString(),
+            userInfoUri = oidcProviderUpdateRequest.userInfoUri?.toString(),
+            jwkSetUri = oidcProviderUpdateRequest.jwkSetUri?.toString(),
+            subjectAttribute = oidcProviderUpdateRequest.subjectAttribute,
+            emailAttribute = oidcProviderUpdateRequest.emailAttribute,
+            displayNameAttribute = oidcProviderUpdateRequest.displayNameAttribute,
         )
         val updated = oidcProviderService.update(providerId, patch)
         return ResponseEntity.ok(updated.toDto())
@@ -93,6 +109,25 @@ class OidcProviderController(
         return ResponseEntity.noContent().build()
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
+    override fun discoverOidcEndpoints(
+        oidcDiscoveryRequest: OidcDiscoveryRequest,
+    ): ResponseEntity<OidcDiscoveryResponse> {
+        val auth = currentAuthentication()
+        namespaceAuthorizationService.requireSuperadmin(auth)
+        val outcome = oidcProviderService.discoverEndpoints(oidcDiscoveryRequest.issuerUri)
+        return ResponseEntity.ok(
+            OidcDiscoveryResponse(
+                success = outcome.success,
+                authorizationUri = outcome.authorizationUri,
+                tokenUri = outcome.tokenUri,
+                userInfoUri = outcome.userInfoUri,
+                jwkSetUri = outcome.jwkSetUri,
+                error = outcome.error,
+            ),
+        )
+    }
+
     private fun OidcProviderEntity.toDto() = OidcProviderDto(
         id = id!!,
         name = name,
@@ -101,6 +136,13 @@ class OidcProviderController(
         clientId = clientId,
         issuerUri = issuerUri,
         scope = scope,
+        authorizationUri = authorizationUri,
+        tokenUri = tokenUri,
+        userInfoUri = userInfoUri,
+        jwkSetUri = jwkSetUri,
+        subjectAttribute = subjectAttribute,
+        emailAttribute = emailAttribute,
+        displayNameAttribute = displayNameAttribute,
         createdAt = createdAt,
         updatedAt = updatedAt,
     )
@@ -110,6 +152,7 @@ class OidcProviderController(
         DomainType.GITHUB -> OidcProviderType.GITHUB
         DomainType.GOOGLE -> OidcProviderType.GOOGLE
         DomainType.FACEBOOK -> OidcProviderType.FACEBOOK
+        DomainType.OAUTH2 -> OidcProviderType.OAUTH2
     }
 
     private fun OidcProviderType.toDomain(): DomainType = when (this) {
@@ -117,5 +160,6 @@ class OidcProviderController(
         OidcProviderType.GITHUB -> DomainType.GITHUB
         OidcProviderType.GOOGLE -> DomainType.GOOGLE
         OidcProviderType.FACEBOOK -> DomainType.FACEBOOK
+        OidcProviderType.OAUTH2 -> DomainType.OAUTH2
     }
 }

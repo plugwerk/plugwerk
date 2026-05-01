@@ -69,7 +69,7 @@ class CsrfScopeIT {
                 username = "csrf-scope-user",
                 displayName = "CSRF Scope",
                 email = "csrf-scope@it.test",
-                source = io.plugwerk.server.domain.UserSource.LOCAL,
+                source = io.plugwerk.server.domain.UserSource.INTERNAL,
                 passwordHash = passwordEncoder.encode("irrelevant")!!,
                 enabled = true,
                 passwordChangeRequired = false,

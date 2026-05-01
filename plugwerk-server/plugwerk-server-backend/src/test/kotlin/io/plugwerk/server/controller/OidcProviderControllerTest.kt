@@ -134,7 +134,23 @@ class OidcProviderControllerTest {
     @Test
     fun `POST oidc-providers creates provider and returns 201`() {
         val provider = stubProvider("GitHub SSO")
-        whenever(oidcProviderService.create(any(), any(), any(), any(), anyOrNull(), any())).thenReturn(provider)
+        whenever(
+            oidcProviderService.create(
+                any(),
+                any(),
+                any(),
+                any(),
+                anyOrNull(),
+                any(),
+                anyOrNull(),
+                anyOrNull(),
+                anyOrNull(),
+                anyOrNull(),
+                anyOrNull(),
+                anyOrNull(),
+                anyOrNull(),
+            ),
+        ).thenReturn(provider)
 
         mockMvc.post("/api/v1/admin/oidc-providers") {
             contentType = MediaType.APPLICATION_JSON

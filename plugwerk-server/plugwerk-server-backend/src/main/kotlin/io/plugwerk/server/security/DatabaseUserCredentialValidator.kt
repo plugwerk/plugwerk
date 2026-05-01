@@ -46,7 +46,7 @@ class DatabaseUserCredentialValidator(
 ) : UserCredentialValidator {
 
     override fun validate(username: String, password: String): Boolean {
-        val user = userRepository.findByUsernameAndSource(username, UserSource.LOCAL).orElse(null) ?: return false
+        val user = userRepository.findByUsernameAndSource(username, UserSource.INTERNAL).orElse(null) ?: return false
         if (!user.enabled) return false
         val hash = user.passwordHash ?: return false
         return passwordEncoder.matches(password, hash)

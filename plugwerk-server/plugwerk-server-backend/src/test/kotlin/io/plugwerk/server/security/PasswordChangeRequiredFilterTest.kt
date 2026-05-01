@@ -75,7 +75,7 @@ class PasswordChangeRequiredFilterTest {
         username = "u-$id",
         displayName = "User $id",
         email = "$id@example.test",
-        source = UserSource.LOCAL,
+        source = UserSource.INTERNAL,
         passwordHash = "hash",
         passwordChangeRequired = passwordChangeRequired,
     )

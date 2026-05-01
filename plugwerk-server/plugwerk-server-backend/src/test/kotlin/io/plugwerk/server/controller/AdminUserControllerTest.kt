@@ -102,7 +102,7 @@ class AdminUserControllerTest {
         username = username,
         displayName = username,
         email = "$username@example.com",
-        source = io.plugwerk.server.domain.UserSource.LOCAL,
+        source = io.plugwerk.server.domain.UserSource.INTERNAL,
         passwordHash = "\$2a\$12\$hash",
         enabled = enabled,
         passwordChangeRequired = false,

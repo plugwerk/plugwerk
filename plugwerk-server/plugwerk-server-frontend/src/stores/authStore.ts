@@ -38,21 +38,21 @@ interface AuthState {
    * off this. UI display goes through [displayName].
    */
   userId: string | null;
-  /** Human-readable label shown in the UI. Defaults to username for LOCAL users. */
+  /** Human-readable label shown in the UI. Defaults to username for INTERNAL users. */
   displayName: string | null;
   /**
-   * Local-login username. `null` for OIDC-sourced sessions — those identities live
-   * with the upstream provider and Plugwerk has no local username for them. The
-   * profile page falls back to [displayName] when this is `null`.
+   * Local-login username. `null` for EXTERNAL sessions — those identities live with
+   * the upstream provider and Plugwerk has no local username for them. The profile
+   * page falls back to [displayName] when this is `null`.
    */
   username: string | null;
   email: string | null;
   /**
-   * `LOCAL` for password-based accounts, `OIDC` for accounts sourced from an
-   * upstream identity provider. Used by the UI to disable password-change
-   * affordances for OIDC users.
+   * `INTERNAL` for password-based accounts on this server, `EXTERNAL` for accounts
+   * sourced from an upstream identity provider (OIDC, OAuth2, …). Used by the UI
+   * to disable password-change affordances for EXTERNAL users.
    */
-  source: "LOCAL" | "OIDC" | null;
+  source: "INTERNAL" | "EXTERNAL" | null;
   namespace: string | null | undefined;
   isAuthenticated: boolean;
   passwordChangeRequired: boolean;
@@ -69,7 +69,7 @@ interface AuthState {
     displayName: string;
     username?: string | null;
     email: string;
-    source: "LOCAL" | "OIDC";
+    source: "INTERNAL" | "EXTERNAL";
     passwordChangeRequired: boolean;
     isSuperadmin: boolean;
   }) => void;
@@ -188,7 +188,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       displayName: data.displayName,
       username: typeof data.username === "string" ? data.username : username,
       email: data.email,
-      source: data.source === "OIDC" ? "OIDC" : "LOCAL",
+      source: data.source === "EXTERNAL" ? "EXTERNAL" : "INTERNAL",
       passwordChangeRequired: data.passwordChangeRequired === true,
       isSuperadmin: data.isSuperadmin === true,
     });
@@ -204,9 +204,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           credentials: "include",
           headers: { Authorization: `Bearer ${token}` },
         });
-        // OIDC sessions get a 200 + LogoutResponse body; local-login sessions get
-        // 204. Anything else (a network blip, server error) we silently ignore —
-        // the local cleanup below still runs.
+        // EXTERNAL sessions get a 200 + LogoutResponse body; INTERNAL (local-
+        // login) sessions get 204. Anything else (a network blip, server error)
+        // we silently ignore — the local cleanup below still runs.
         if (response.ok && response.status === 200) {
           try {
             const body = await response.json();

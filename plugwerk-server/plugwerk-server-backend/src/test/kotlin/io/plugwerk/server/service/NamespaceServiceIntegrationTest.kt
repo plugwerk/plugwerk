@@ -186,7 +186,7 @@ class NamespaceServiceIntegrationTest {
                 username = "alice-cascade",
                 displayName = "Alice (Cascade)",
                 email = "alice-cascade@cascade.test",
-                source = io.plugwerk.server.domain.UserSource.LOCAL,
+                source = io.plugwerk.server.domain.UserSource.INTERNAL,
                 passwordHash = "\$2a\$12\$hash",
             ),
         )

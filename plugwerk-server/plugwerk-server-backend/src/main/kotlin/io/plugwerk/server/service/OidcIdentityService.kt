@@ -101,7 +101,7 @@ class OidcIdentityService(
             UserEntity(
                 displayName = displayName,
                 email = email,
-                source = UserSource.OIDC,
+                source = UserSource.EXTERNAL,
                 username = null,
                 passwordHash = null,
                 enabled = true,
@@ -170,5 +170,12 @@ private fun buildMessage(provider: OidcProviderEntity): String {
                 "approved for the `email` permission via Facebook App Review. In Development mode " +
                 "only developer/tester accounts can authenticate; promoting the app to Live and " +
                 "completing App Review is the operator's path forward."
+
+        OidcProviderType.OAUTH2 ->
+            "Provider '$name' returned no email — the configured user-info endpoint did not include " +
+                "the `${provider.emailAttribute ?: "email"}` attribute (or the operator-configured " +
+                "email-attribute name does not match the provider's user-info JSON). Either grant the " +
+                "scope that exposes email at the provider, or adjust the email-attribute name on the " +
+                "provider configuration to match what the user-info endpoint returns."
     }
 }

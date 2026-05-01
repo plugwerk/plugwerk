@@ -74,7 +74,7 @@ class RefreshTokenServiceTest {
                 username = username,
                 displayName = username,
                 email = "$username@refresh.test",
-                source = io.plugwerk.server.domain.UserSource.LOCAL,
+                source = io.plugwerk.server.domain.UserSource.INTERNAL,
                 passwordHash = passwordEncoder.encode("irrelevant")!!,
                 enabled = true,
                 passwordChangeRequired = false,

@@ -83,8 +83,8 @@ class AdminUserController(
         id = id!!,
         displayName = displayName,
         source = when (source) {
-            UserSource.LOCAL -> UserDto.Source.LOCAL
-            UserSource.OIDC -> UserDto.Source.OIDC
+            UserSource.INTERNAL -> UserDto.Source.INTERNAL
+            UserSource.EXTERNAL -> UserDto.Source.EXTERNAL
         },
         username = username,
         email = email,
