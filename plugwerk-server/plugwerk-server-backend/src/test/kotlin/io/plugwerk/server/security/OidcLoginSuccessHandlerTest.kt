@@ -64,6 +64,11 @@ class OidcLoginSuccessHandlerTest {
 
     @Mock lateinit var oidcProviderRepository: OidcProviderRepository
 
+    // Real adapter (no Spring), wrapped in a real registry. Real `OidcPrincipalAdapter`
+    // covers OIDC + GOOGLE — both test-relevant principal shapes here. GitHub/Facebook
+    // adapters get their own dedicated unit tests (#357 Phase 3 / 4).
+    private val adapterRegistry = ProviderPrincipalAdapterRegistry(listOf(OidcPrincipalAdapter()))
+
     private val cookieFactory = RefreshTokenCookieFactory(
         PlugwerkProperties(
             auth = PlugwerkProperties.AuthProperties(
@@ -103,14 +108,23 @@ class OidcLoginSuccessHandlerTest {
             idTokenValue = tokenValue,
         )
         whenever(oidcProviderRepository.findById(providerId)).thenReturn(Optional.of(provider))
-        whenever(oidcIdentityService.upsertOnLogin(eq(provider), eq("alice-sub"), any())).thenReturn(resolvedUser)
+        whenever(oidcIdentityService.upsertOnLogin(eq(provider), any<ResolvedPrincipal>())).thenReturn(resolvedUser)
         whenever(refreshTokenService.issue(eq(resolvedUser.id!!), anyOrNull())).thenReturn(stubIssuedToken())
 
         val handler =
-            OidcLoginSuccessHandler(refreshTokenService, cookieFactory, oidcIdentityService, oidcProviderRepository)
+            OidcLoginSuccessHandler(
+                refreshTokenService,
+                cookieFactory,
+                oidcIdentityService,
+                oidcProviderRepository,
+                adapterRegistry,
+            )
         handler.onAuthenticationSuccess(MockHttpServletRequest(), MockHttpServletResponse(), token)
 
-        verify(oidcIdentityService).upsertOnLogin(eq(provider), eq("alice-sub"), any())
+        verify(oidcIdentityService).upsertOnLogin(
+            eq(provider),
+            org.mockito.kotlin.argThat { p -> p.subject == "alice-sub" },
+        )
         verify(refreshTokenService).issue(eq(resolvedUser.id!!), eq(tokenValue))
     }
 
@@ -122,11 +136,17 @@ class OidcLoginSuccessHandlerTest {
             idTokenValue = "eyJ.x.y",
         )
         whenever(oidcProviderRepository.findById(providerId)).thenReturn(Optional.of(provider))
-        whenever(oidcIdentityService.upsertOnLogin(any(), any(), any())).thenReturn(resolvedUser)
+        whenever(oidcIdentityService.upsertOnLogin(any(), any<ResolvedPrincipal>())).thenReturn(resolvedUser)
         whenever(refreshTokenService.issue(any<UUID>(), anyOrNull())).thenReturn(stubIssuedToken())
 
         val handler =
-            OidcLoginSuccessHandler(refreshTokenService, cookieFactory, oidcIdentityService, oidcProviderRepository)
+            OidcLoginSuccessHandler(
+                refreshTokenService,
+                cookieFactory,
+                oidcIdentityService,
+                oidcProviderRepository,
+                adapterRegistry,
+            )
         val response = MockHttpServletResponse()
 
         handler.onAuthenticationSuccess(MockHttpServletRequest(), response, token)
@@ -147,11 +167,17 @@ class OidcLoginSuccessHandlerTest {
             idTokenValue = "eyJ.x.y",
         )
         whenever(oidcProviderRepository.findById(providerId)).thenReturn(Optional.of(provider))
-        whenever(oidcIdentityService.upsertOnLogin(any(), any(), any()))
+        whenever(oidcIdentityService.upsertOnLogin(any(), any<ResolvedPrincipal>()))
             .thenThrow(OidcEmailMissingException(provider.name))
 
         val handler =
-            OidcLoginSuccessHandler(refreshTokenService, cookieFactory, oidcIdentityService, oidcProviderRepository)
+            OidcLoginSuccessHandler(
+                refreshTokenService,
+                cookieFactory,
+                oidcIdentityService,
+                oidcProviderRepository,
+                adapterRegistry,
+            )
         val response = MockHttpServletResponse()
 
         handler.onAuthenticationSuccess(MockHttpServletRequest(), response, token)
@@ -163,11 +189,17 @@ class OidcLoginSuccessHandlerTest {
     fun `passes null id_token for non-OIDC OAuth2 principals (graceful degradation, #352)`() {
         val token = oauth2AuthenticationTokenFor(registrationId = providerId.toString(), sub = "alice-sub")
         whenever(oidcProviderRepository.findById(providerId)).thenReturn(Optional.of(provider))
-        whenever(oidcIdentityService.upsertOnLogin(any(), any(), any())).thenReturn(resolvedUser)
+        whenever(oidcIdentityService.upsertOnLogin(any(), any<ResolvedPrincipal>())).thenReturn(resolvedUser)
         whenever(refreshTokenService.issue(any<UUID>(), anyOrNull())).thenReturn(stubIssuedToken())
 
         val handler =
-            OidcLoginSuccessHandler(refreshTokenService, cookieFactory, oidcIdentityService, oidcProviderRepository)
+            OidcLoginSuccessHandler(
+                refreshTokenService,
+                cookieFactory,
+                oidcIdentityService,
+                oidcProviderRepository,
+                adapterRegistry,
+            )
         handler.onAuthenticationSuccess(MockHttpServletRequest(), MockHttpServletResponse(), token)
 
         verify(refreshTokenService).issue(eq(resolvedUser.id!!), eq(null))
@@ -176,7 +208,13 @@ class OidcLoginSuccessHandlerTest {
     @Test
     fun `non-OAuth2 authentication is treated as a wiring bug and fails loudly`() {
         val handler =
-            OidcLoginSuccessHandler(refreshTokenService, cookieFactory, oidcIdentityService, oidcProviderRepository)
+            OidcLoginSuccessHandler(
+                refreshTokenService,
+                cookieFactory,
+                oidcIdentityService,
+                oidcProviderRepository,
+                adapterRegistry,
+            )
         val plainAuth = TestingAuthenticationToken("alice", "irrelevant")
 
         assertThatThrownBy {

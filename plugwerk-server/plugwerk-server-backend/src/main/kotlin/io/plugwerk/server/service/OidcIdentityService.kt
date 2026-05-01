@@ -24,6 +24,7 @@ import io.plugwerk.server.domain.UserEntity
 import io.plugwerk.server.domain.UserSource
 import io.plugwerk.server.repository.OidcIdentityRepository
 import io.plugwerk.server.repository.UserRepository
+import io.plugwerk.server.security.ResolvedPrincipal
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -52,8 +53,8 @@ class OidcIdentityService(
     private val log = LoggerFactory.getLogger(OidcIdentityService::class.java)
 
     /**
-     * Resolves or creates the [UserEntity] for an OIDC callback. Returns the
-     * resolved user — never null. Side effects:
+     * Resolves or creates the [UserEntity] for an OIDC / OAuth2 callback.
+     * Returns the resolved user — never null. Side effects:
      *
      *   - **Existing identity** → bumps `plugwerk_user.last_login_at` via
      *     [UserService.bumpLastLogin] (#367), returns the linked user.
@@ -62,39 +63,36 @@ class OidcIdentityService(
      *
      * @param provider Source OIDC provider — the row is required to have a
      *   non-null `id` (already persisted at the time of the call).
-     * @param subject Upstream `sub` claim — provider-local identifier.
-     * @param claims Decoded ID-token claims. `email` must be present and
-     *   non-blank — Plugwerk requires an email for every account (see
-     *   [OidcEmailMissingException] callers and the `email NOT NULL`
-     *   constraint introduced in migration 0017).
+     * @param principal Provider-agnostic snapshot produced by a
+     *   [io.plugwerk.server.security.ProviderPrincipalAdapter] (#357 Phase 0).
+     *   `principal.email == null` triggers [OidcEmailMissingException] —
+     *   `plugwerk_user.email` is `NOT NULL` (migration 0017, ADR-0029 §5).
      */
-    fun upsertOnLogin(provider: OidcProviderEntity, subject: String, claims: Map<String, Any>): UserEntity {
+    fun upsertOnLogin(provider: OidcProviderEntity, principal: ResolvedPrincipal): UserEntity {
         val providerId = requireNotNull(provider.id) {
             "OidcProviderEntity must be persisted before upsertOnLogin"
         }
         val now = OffsetDateTime.now(ZoneOffset.UTC)
-        val existing = oidcIdentityRepository.findByOidcProviderIdAndSubject(providerId, subject).orElse(null)
+        val existing = oidcIdentityRepository
+            .findByOidcProviderIdAndSubject(providerId, principal.subject)
+            .orElse(null)
         if (existing != null) {
             return userService.bumpLastLogin(existing.user.id!!, now)
         }
-        return createNewIdentityAndUser(provider, subject, claims, now)
+        return createNewIdentityAndUser(provider, principal, now)
     }
 
     private fun createNewIdentityAndUser(
         provider: OidcProviderEntity,
-        subject: String,
-        claims: Map<String, Any>,
+        principal: ResolvedPrincipal,
         loginAt: OffsetDateTime,
     ): UserEntity {
-        val email = (claims["email"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+        val email = principal.email?.trim()?.takeIf { it.isNotBlank() }
             ?: throw OidcEmailMissingException(provider.name)
-        // displayName precedence:
-        //   1. `name` claim (full name, what most IdPs render in their own UIs)
-        //   2. `preferred_username` claim (handle / login alias)
-        //   3. `subject` itself, as a last-resort visible identifier
-        val displayName = (claims["name"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-            ?: (claims["preferred_username"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-            ?: subject
+        // displayName falls back to subject as a last-resort visible identifier when
+        // the adapter could not produce one (e.g. a provider that returns no name claim).
+        val displayName = principal.displayName?.trim()?.takeIf { it.isNotBlank() }
+            ?: principal.subject
         // First OIDC login is still a login (issue #367) — set lastLoginAt at
         // creation so the user surfaces as "active" immediately rather than as
         // "never logged in" until the second callback.
@@ -114,14 +112,14 @@ class OidcIdentityService(
         oidcIdentityRepository.save(
             OidcIdentityEntity(
                 oidcProvider = provider,
-                subject = subject,
+                subject = principal.subject,
                 user = user,
             ),
         )
         log.info(
             "Provisioned new OIDC identity: provider={} sub={} user_id={}",
             provider.name,
-            subject,
+            principal.subject,
             user.id,
         )
         return user

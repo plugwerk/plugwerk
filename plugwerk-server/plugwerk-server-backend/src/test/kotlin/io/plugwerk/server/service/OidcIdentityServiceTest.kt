@@ -80,8 +80,12 @@ class OidcIdentityServiceTest {
 
         val user = service.upsertOnLogin(
             provider,
-            subject = "alice-sub",
-            claims = mapOf("email" to "alice@example.com", "name" to "Alice"),
+            io.plugwerk.server.security.ResolvedPrincipal(
+                subject = "alice-sub",
+                email = "alice@example.com",
+                displayName = "Alice",
+                upstreamIdToken = null,
+            ),
         )
 
         assertThat(user.lastLoginAt)
@@ -104,8 +108,12 @@ class OidcIdentityServiceTest {
         // First call provisions the identity.
         val initial = service.upsertOnLogin(
             provider,
-            subject = "bob-sub",
-            claims = mapOf("email" to "bob@example.com", "name" to "Bob"),
+            io.plugwerk.server.security.ResolvedPrincipal(
+                subject = "bob-sub",
+                email = "bob@example.com",
+                displayName = "Bob",
+                upstreamIdToken = null,
+            ),
         )
         val initialUserStamp = requireNotNull(initial.lastLoginAt)
 
@@ -115,8 +123,12 @@ class OidcIdentityServiceTest {
         // Second call must bump both timestamps.
         val refreshed = service.upsertOnLogin(
             provider,
-            subject = "bob-sub",
-            claims = mapOf("email" to "bob@example.com", "name" to "Bob"),
+            io.plugwerk.server.security.ResolvedPrincipal(
+                subject = "bob-sub",
+                email = "bob@example.com",
+                displayName = "Bob",
+                upstreamIdToken = null,
+            ),
         )
 
         assertThat(refreshed.lastLoginAt)
