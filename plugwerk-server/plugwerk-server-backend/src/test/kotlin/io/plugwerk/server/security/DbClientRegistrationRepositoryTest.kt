@@ -61,6 +61,69 @@ class DbClientRegistrationRepositoryTest {
     }
 
     @Test
+    fun `Google provider type no longer hits the not-yet-implemented branch (#357 phase 1)`() {
+        // Pre-#357 GOOGLE was rejected with `error("Browser login flow not yet implemented...")`
+        // — a programmer-error throw that runCatching dutifully caught and skipped, but
+        // semantically wrong (the provider IS supported now). This test pins that the
+        // GOOGLE branch goes through `ClientRegistrations.fromIssuerLocation(GOOGLE_ISSUER_URI)`
+        // instead. We do NOT assert successful discovery — Google.com reachability in CI
+        // is environment-dependent — only that no IllegalStateException with the
+        // not-implemented marker is produced anymore.
+        val google = OidcProviderEntity(
+            id = UUID.fromString("11111111-1111-1111-1111-111111111111"),
+            name = "Google",
+            providerType = OidcProviderType.GOOGLE,
+            enabled = true,
+            clientId = "google-client-id",
+            clientSecretEncrypted = "{cipher}ignored",
+            issuerUri = null, // operator no longer needs to configure this
+        )
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(google))
+
+        // Construction must not throw (the runCatching wrapper catches network failures
+        // — that's the offline-CI case — but the not-yet-implemented IllegalStateException
+        // path is gone for GOOGLE).
+        DbClientRegistrationRepository(oidcProviderRepository, textEncryptor)
+    }
+
+    @Test
+    fun `GitHub and Facebook provider types still skipped (tracked in #357 phase 3 and 4)`() {
+        val github = OidcProviderEntity(
+            id = UUID.fromString("22222222-2222-2222-2222-222222222222"),
+            name = "GitHub",
+            providerType = OidcProviderType.GITHUB,
+            enabled = true,
+            clientId = "gh-client",
+            clientSecretEncrypted = "{cipher}ignored",
+            issuerUri = null,
+        )
+        val facebook = OidcProviderEntity(
+            id = UUID.fromString("33333333-3333-3333-3333-333333333333"),
+            name = "Facebook",
+            providerType = OidcProviderType.FACEBOOK,
+            enabled = true,
+            clientId = "fb-client",
+            clientSecretEncrypted = "{cipher}ignored",
+            issuerUri = null,
+        )
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(github, facebook))
+
+        val repo = DbClientRegistrationRepository(oidcProviderRepository, textEncryptor)
+
+        // Both rows logged-and-skipped — registry is empty, lookups return null.
+        assertThat(repo.iterator().hasNext()).isFalse()
+        assertThat(repo.findByRegistrationId(github.id.toString())).isNull()
+        assertThat(repo.findByRegistrationId(facebook.id.toString())).isNull()
+    }
+
+    @Test
+    fun `Google issuer URI constant points at the documented Google identity platform`() {
+        // Pinning the constant — a regression here would silently route Google logins
+        // to the wrong issuer and the discovery would fail with a confusing error.
+        assertThat(DbClientRegistrationRepository.GOOGLE_ISSUER_URI).isEqualTo("https://accounts.google.com")
+    }
+
+    @Test
     fun `unreachable issuer is skipped, other providers continue to load (failure isolation)`() {
         // Build a single provider whose issuerUri is a syntactically-valid URL
         // pointing at a port nothing is listening on — Spring's
