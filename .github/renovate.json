@@ -96,11 +96,9 @@
       "groupSlug": "npm-deps"
     },
     {
-      "description": "npm major updates (separate PRs for deliberate review)",
+      "description": "npm major updates — one PR per package (no grouping). Bundling unrelated majors caused PR #394 to ship a broken lockfile because typescript-eslint v8 still pinned eslint <10 while the group already advanced eslint to 10. Per-package PRs let each major be reviewed and merged independently of incompatible peers.",
       "matchManagers": ["npm"],
-      "matchUpdateTypes": ["major"],
-      "groupName": "npm major updates",
-      "groupSlug": "npm-major"
+      "matchUpdateTypes": ["major"]
     }
   ]
 }
