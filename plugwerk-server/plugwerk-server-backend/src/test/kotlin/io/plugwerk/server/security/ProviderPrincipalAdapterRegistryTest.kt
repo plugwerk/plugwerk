@@ -35,11 +35,12 @@ class ProviderPrincipalAdapterRegistryTest {
 
     @Test
     fun `fails with actionable message for unconfigured provider type`() {
+        // After #357 phase 3, FACEBOOK is the remaining unconfigured type.
         val registry = ProviderPrincipalAdapterRegistry(listOf(OidcPrincipalAdapter()))
 
-        assertThatThrownBy { registry.forProviderType(OidcProviderType.GITHUB) }
+        assertThatThrownBy { registry.forProviderType(OidcProviderType.FACEBOOK) }
             .isInstanceOf(IllegalStateException::class.java)
-            .hasMessageContaining("GITHUB")
+            .hasMessageContaining("FACEBOOK")
             .hasMessageContaining("#357")
     }
 

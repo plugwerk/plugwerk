@@ -22,6 +22,7 @@ import io.plugwerk.server.domain.OidcProviderEntity
 import io.plugwerk.server.domain.OidcProviderType
 import io.plugwerk.server.repository.OidcProviderRepository
 import org.slf4j.LoggerFactory
+import org.springframework.security.config.oauth2.client.CommonOAuth2Provider
 import org.springframework.security.crypto.encrypt.TextEncryptor
 import org.springframework.security.oauth2.client.registration.ClientRegistration
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
@@ -56,16 +57,18 @@ import java.util.concurrent.atomic.AtomicReference
  * ## Provider type support
  *
  * Browser login is wired for [OidcProviderType.OIDC] (relies on RFC-8414 /
- * OIDC discovery via `issuerUri`) and for [OidcProviderType.GOOGLE] (same
+ * OIDC discovery via `issuerUri`), [OidcProviderType.GOOGLE] (same
  * machinery, hardcoded issuer URI — operators only configure clientId +
- * clientSecret, see #357 Phase 1). The remaining vendor providers
- * ([OidcProviderType.GITHUB], [OidcProviderType.FACEBOOK]) have sufficient
- * metadata in [OidcProviderRegistry] to validate incoming bearer tokens,
- * but the browser-flow client metadata (authorization endpoint with the
- * right vendor quirks, OAuth2-not-OIDC principal handling) is tracked in
- * #357 Phase 3 / 4. They are silently skipped here and emit a single
- * warning at refresh time so operators know the row will not appear on the
- * login page.
+ * clientSecret, see #357 Phase 1), and [OidcProviderType.GITHUB] (pure
+ * OAuth2 via Spring's `CommonOAuth2Provider.GITHUB` template, with the
+ * `read:user` and `user:email` scopes hardcoded for this provider type
+ * because the operator-supplied scope string from the admin UI defaults to
+ * the OIDC vocabulary which GitHub does not understand, see #357 Phase 3).
+ * The remaining vendor provider [OidcProviderType.FACEBOOK] has sufficient
+ * metadata in [OidcProviderRegistry] to validate incoming bearer tokens
+ * but the browser-flow wiring is tracked in #357 Phase 4. It is silently
+ * skipped here and emits a single warning at refresh time so operators
+ * know the row will not appear on the login page.
  *
  * ## Failure isolation
  *
@@ -139,19 +142,48 @@ class DbClientRegistrationRepository(
                 ClientRegistrations.fromIssuerLocation(GOOGLE_ISSUER_URI)
             }
 
-            OidcProviderType.GITHUB,
-            OidcProviderType.FACEBOOK,
-            -> error(
+            // GitHub is pure OAuth2 (no OpenID Connect) — there is no
+            // /.well-known/openid-configuration and no ID token. Spring ships a
+            // pre-baked client-registration template at CommonOAuth2Provider.GITHUB
+            // that knows the right authorization / token / user-info endpoints.
+            // We use that as the starting point and let the post-when-block
+            // .clientId / .clientSecret / .scope chain finish it. Issue #357 Phase 3.
+            OidcProviderType.GITHUB -> {
+                CommonOAuth2Provider.GITHUB.getBuilder(registrationId)
+            }
+
+            OidcProviderType.FACEBOOK -> error(
                 "Browser login flow not yet implemented for provider type ${provider.providerType} " +
-                    "(see #357). The provider remains usable as a resource-server token issuer.",
+                    "(see #357 phase 4). The provider remains usable as a resource-server token issuer.",
             )
         }
         return builder
             .registrationId(registrationId)
             .clientId(provider.clientId)
             .clientSecret(textEncryptor.decrypt(provider.clientSecretEncrypted))
-            .scope(provider.scope.split(" ").filter { it.isNotBlank() }.toSet())
+            .scope(effectiveScopes(provider))
             .build()
+    }
+
+    /**
+     * Resolves the effective OAuth2 scope set for a provider.
+     *
+     * For OIDC and Google the operator's `provider.scope` value is honoured
+     * verbatim — both providers share the OIDC vocabulary the admin form
+     * defaults to (`openid profile email`).
+     *
+     * For GitHub the OIDC default is meaningless (GitHub ignores `openid` and
+     * `profile`), so we ALWAYS hardcode `read:user user:email`. `read:user`
+     * is what powers the `/user` response Spring's user-info call relies on;
+     * `user:email` is what makes `/user/emails` fetchable for the
+     * private-primary-email recovery path in [GitHubPrincipalAdapter]. If a
+     * future operator needs custom GitHub scopes (e.g. `repo` for an app),
+     * the override path is to remove this hardcoded branch and accept that
+     * the admin UI scope hint must then be GitHub-specific.
+     */
+    private fun effectiveScopes(provider: OidcProviderEntity): Set<String> = when (provider.providerType) {
+        OidcProviderType.GITHUB -> setOf("read:user", "user:email")
+        else -> provider.scope.split(" ").filter { it.isNotBlank() }.toSet()
     }
 
     companion object {
