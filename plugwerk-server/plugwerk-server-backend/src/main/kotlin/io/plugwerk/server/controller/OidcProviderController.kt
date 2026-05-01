@@ -110,6 +110,7 @@ class OidcProviderController(
         DomainType.GITHUB -> OidcProviderType.GITHUB
         DomainType.GOOGLE -> OidcProviderType.GOOGLE
         DomainType.FACEBOOK -> OidcProviderType.FACEBOOK
+        DomainType.OAUTH2_GENERIC -> OidcProviderType.OAUTH2_GENERIC
     }
 
     private fun OidcProviderType.toDomain(): DomainType = when (this) {
@@ -117,5 +118,6 @@ class OidcProviderController(
         OidcProviderType.GITHUB -> DomainType.GITHUB
         OidcProviderType.GOOGLE -> DomainType.GOOGLE
         OidcProviderType.FACEBOOK -> DomainType.FACEBOOK
+        OidcProviderType.OAUTH2_GENERIC -> DomainType.OAUTH2_GENERIC
     }
 }

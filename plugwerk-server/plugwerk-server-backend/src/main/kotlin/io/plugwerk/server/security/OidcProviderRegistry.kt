@@ -88,6 +88,20 @@ class OidcProviderRegistry(private val oidcProviderRepository: OidcProviderRepos
                         NimbusJwtDecoder.withJwkSetUri(
                             "https://www.facebook.com/.well-known/oauth/openid/jwks/",
                         ).build()
+
+                    // OAUTH2_GENERIC providers usually issue opaque access
+                    // tokens (no JWT to validate). Resource-server validation
+                    // is opt-in: operator sets `jwkSetUri`. When it is null
+                    // we skip the provider — there is no JWT to validate.
+                    OidcProviderType.OAUTH2_GENERIC -> {
+                        val jwkSetUri = requireNotNull(provider.jwkSetUri) {
+                            "jwkSetUri is null on OAUTH2_GENERIC provider '${provider.name}' — " +
+                                "resource-server validation is opt-in. Leave the provider disabled " +
+                                "for resource-server use (browser-flow login still works) or set " +
+                                "jwkSetUri to enable JWT validation."
+                        }
+                        NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build()
+                    }
                 }
                 // Replace Spring's default validator chain with our unified
                 // timestamp + issuer + audience chain. This closes audit findings

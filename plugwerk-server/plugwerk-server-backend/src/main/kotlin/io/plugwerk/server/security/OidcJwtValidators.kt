@@ -100,6 +100,22 @@ object OidcJwtValidators {
             OidcProviderType.GITHUB -> GITHUB_ISSUER
 
             OidcProviderType.FACEBOOK -> FACEBOOK_ISSUER
+
+            // OAUTH2_GENERIC providers normally issue opaque tokens (no JWT,
+            // hence no resource-server JWT validation path). When an operator
+            // configures a `jwkSetUri`, the issuer for `iss`-claim validation
+            // is the user-info-host or operator-configured value; without an
+            // explicit issuer we fall back to the issuerUri field which can
+            // hold a free-form value here (it is otherwise unused for
+            // OAUTH2_GENERIC). Strict validation rejects empty issuer.
+            OidcProviderType.OAUTH2_GENERIC -> {
+                require(!issuerUri.isNullOrBlank()) {
+                    "issuerUri (used as the expected `iss` value) must be set on an OAUTH2_GENERIC " +
+                        "provider before resource-server JWT validation can be enabled. Leave " +
+                        "jwkSetUri null to skip resource-server validation entirely."
+                }
+                issuerUri
+            }
         }
         return DelegatingOAuth2TokenValidator(
             JwtTimestampValidator(),

@@ -1,0 +1,82 @@
+# Schema for the OAUTH2_GENERIC provider type — operator-configurable
+# OAuth2 endpoints + attribute mappings for any OAuth2 source that does
+# not have a Plugwerk vendor branch (e.g. GitLab, Bitbucket, custom
+# enterprise IdPs).
+#
+# Rationale: rather than adding a new OidcProviderType + adapter every
+# time someone wants to log in via a new provider, OAUTH2_GENERIC lets
+# the operator paste authorization-uri + token-uri + user-info-uri into
+# the admin form. The attribute-name fields configure which keys to read
+# subject / email / displayName from the user-info JSON response.
+#
+# Why all columns are nullable: existing rows for OIDC / GOOGLE / GITHUB
+# / FACEBOOK provider types do not need any of these fields. The columns
+# are populated only when providerType = 'OAUTH2_GENERIC'. Service-layer
+# validation enforces required-when-OAUTH2_GENERIC; the schema does not.
+#
+# Defaults for the attribute-name columns are intentionally NOT set at the
+# DB level — the application supplies "sub" / "email" / "name" defaults
+# in code so that a NULL value in DB means "operator left it blank → use
+# default". A DB default would lie about operator intent on read-back.
+
+databaseChangeLog:
+  - changeSet:
+      id: 0022-oauth2-generic-columns
+      author: plugwerk
+      changes:
+        - addColumn:
+            tableName: oidc_provider
+            columns:
+              - column:
+                  name: authorization_uri
+                  type: text
+                  constraints:
+                    nullable: true
+              - column:
+                  name: token_uri
+                  type: text
+                  constraints:
+                    nullable: true
+              - column:
+                  name: user_info_uri
+                  type: text
+                  constraints:
+                    nullable: true
+              - column:
+                  name: jwk_set_uri
+                  type: text
+                  constraints:
+                    nullable: true
+              - column:
+                  name: subject_attribute
+                  type: text
+                  constraints:
+                    nullable: true
+              - column:
+                  name: email_attribute
+                  type: text
+                  constraints:
+                    nullable: true
+              - column:
+                  name: display_name_attribute
+                  type: text
+                  constraints:
+                    nullable: true
+      rollback:
+        - dropColumn:
+            tableName: oidc_provider
+            columns:
+              - column:
+                  name: authorization_uri
+              - column:
+                  name: token_uri
+              - column:
+                  name: user_info_uri
+              - column:
+                  name: jwk_set_uri
+              - column:
+                  name: subject_attribute
+              - column:
+                  name: email_attribute
+              - column:
+                  name: display_name_attribute

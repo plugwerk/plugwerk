@@ -2862,11 +2862,17 @@ components:
         - GITHUB
         - GOOGLE
         - FACEBOOK
+        - OAUTH2_GENERIC
       description: |
         Provider type. Pre-configured providers (GITHUB, GOOGLE, FACEBOOK) have well-known
         endpoints embedded — only clientId and clientSecret are required. The generic OIDC
         type requires an explicit issuerUri and works with any standards-compliant provider
-        (Keycloak, Authentik, Auth0, Dex, …).
+        (Keycloak, Authentik, Auth0, Dex, …). The OAUTH2_GENERIC type lets the operator
+        configure authorizationUri, tokenUri, userInfoUri (and optionally jwkSetUri) plus
+        the JSON attribute names the user-info response uses for subject / email / display
+        name — any OAuth2 source that does not map to one of the four hard-wired vendors
+        (GitLab, Bitbucket, custom enterprise IdPs etc.) can be wired in this way without
+        a code change.
 
     ServerConfigResponse:
       type: object

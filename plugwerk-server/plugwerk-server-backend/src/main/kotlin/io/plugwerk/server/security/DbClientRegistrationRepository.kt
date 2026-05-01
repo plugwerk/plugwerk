@@ -156,6 +156,15 @@ class DbClientRegistrationRepository(
                 "Browser login flow not yet implemented for provider type ${provider.providerType} " +
                     "(see #357 phase 4). The provider remains usable as a resource-server token issuer.",
             )
+
+            // Stub. Phase A of the OAUTH2_GENERIC rollout adds the schema (entity
+            // fields + migration 0022) but not yet the registration build path.
+            // The actual ClientRegistration construction from operator-supplied
+            // URIs lands in Phase B.
+            OidcProviderType.OAUTH2_GENERIC -> error(
+                "Browser login flow for OAUTH2_GENERIC is not yet wired — schema exists, " +
+                    "registration construction lands in the next PR.",
+            )
         }
         return builder
             .registrationId(registrationId)
