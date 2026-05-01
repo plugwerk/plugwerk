@@ -86,11 +86,14 @@ class OidcIdentityServiceTest {
 
         assertThat(user.lastLoginAt)
             .isNotNull()
-            .isAfterOrEqualTo(before)
+            .isAfterOrEqualTo(before.truncatedTo(java.time.temporal.ChronoUnit.MICROS))
         // Reload to confirm the value was persisted, not just set on the
-        // returned managed entity.
+        // returned managed entity. H2 TIMESTAMPTZ truncates to microseconds,
+        // OffsetDateTime.now() carries nanos — compare with millisecond fuzz
+        // rather than strict equality.
         val reloaded = userRepository.findById(requireNotNull(user.id)).orElseThrow()
-        assertThat(reloaded.lastLoginAt).isEqualTo(user.lastLoginAt)
+        assertThat(reloaded.lastLoginAt)
+            .isCloseTo(user.lastLoginAt, org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.MILLIS))
     }
 
     @Test
@@ -117,8 +120,10 @@ class OidcIdentityServiceTest {
             .isNotNull()
             .isAfter(initialUserStamp)
 
+        // Reload roundtrip: H2 truncates nanos → use millisecond fuzz.
         val reloadedUser = userRepository.findById(requireNotNull(refreshed.id)).orElseThrow()
-        assertThat(reloadedUser.lastLoginAt).isEqualTo(refreshed.lastLoginAt)
+        assertThat(reloadedUser.lastLoginAt)
+            .isCloseTo(refreshed.lastLoginAt, org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.MILLIS))
 
         val identityRow = oidcIdentityRepository
             .findByOidcProviderIdAndSubject(requireNotNull(provider.id), "bob-sub")
