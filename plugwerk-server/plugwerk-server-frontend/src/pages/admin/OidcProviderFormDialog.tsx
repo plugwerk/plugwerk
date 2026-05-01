@@ -35,9 +35,10 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { CheckCircle2, Info, XCircle } from "lucide-react";
+import { CheckCircle2, Info, PartyPopper, XCircle } from "lucide-react";
 import { AppDialog } from "../../components/common/AppDialog";
 import { oidcProvidersApi } from "../../api/config";
+import { ProviderCallbackInstructions } from "./ProviderCallbackInstructions";
 import type {
   OidcProviderCreateRequest,
   OidcProviderDto,
@@ -68,10 +69,17 @@ interface OidcProviderFormDialogProps {
    * Submit handler. In create mode receives a full {@link OidcProviderCreateRequest};
    * in edit mode receives an {@link OidcProviderUpdateRequest} containing only the
    * fields that changed (so unchanged secret stays untransmitted).
+   *
+   * Create mode: must resolve with the persisted {@link OidcProviderDto} so the
+   * dialog can render the post-create success step (callback URL + setup
+   * instructions). Returning `void` from create skips the success step — the
+   * dialog stays on the form.
+   *
+   * Edit mode: return value is ignored.
    */
   onSubmit: (
     payload: OidcProviderCreateRequest | OidcProviderUpdateRequest,
-  ) => Promise<void>;
+  ) => Promise<OidcProviderDto | void>;
 }
 
 /** Default scope string used when the operator opens a fresh create dialog. */
@@ -138,6 +146,12 @@ export function OidcProviderFormDialog({
   const [acknowledgeClientIdChange, setAcknowledgeClientIdChange] =
     useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Post-create success step. Set when `onSubmit` resolves with a DTO in
+  // create mode — flips the dialog from "form" to "register the callback URL
+  // at your provider" instructions. Stays null in edit mode (callback
+  // instructions render inline as part of the form there).
+  const [createdProvider, setCreatedProvider] =
+    useState<OidcProviderDto | null>(null);
 
   // Discovery-probe state. The "Test discovery" button next to the Issuer URI
   // (when providerType === OIDC) and the "Try OIDC instead" steering button
@@ -232,6 +246,7 @@ export function OidcProviderFormDialog({
     setTouched(initialTouched);
     setSubmitAttempted(false);
     setDiscoveryStatus({ kind: "idle" });
+    setCreatedProvider(null);
     // initialTouched is a fresh object literal each render — including it in
     // the dep list would re-run the effect on every render. Stable reset is
     // the goal here, not reactive sync.
@@ -501,317 +516,444 @@ export function OidcProviderFormDialog({
     if (saveDisabled) return;
     setSubmitting(true);
     try {
-      await onSubmit(buildPayload());
+      const result = await onSubmit(buildPayload());
+      // In create mode, the parent returns the persisted provider so we can
+      // render the callback-URL success step instead of closing immediately.
+      // The operator's job is not done after Save — they still have to
+      // register that URL at the upstream IdP — and the dialog is the only
+      // place we have their attention for that information.
+      if (!isEdit && result) {
+        setCreatedProvider(result);
+      }
     } finally {
       setSubmitting(false);
     }
   }
+
+  // Three rendering modes layered on the same dialog shell:
+  //   - edit         → the existing form, with a callback-URL reference card.
+  //   - create-form  → the existing form, no callback URL yet (no UUID).
+  //   - create-success → the form is replaced by a "you're nearly done"
+  //                      success step that surfaces the callback URL the
+  //                      operator now needs to paste at their IdP.
+  const isSuccessStep = !isEdit && createdProvider !== null;
 
   return (
     <AppDialog
       open={open}
       onClose={onClose}
       title={
-        isEdit
-          ? `Edit OIDC Provider${initialValues ? `: ${initialValues.name}` : ""}`
-          : "Add OIDC Provider"
+        isSuccessStep
+          ? "Provider created — one step left"
+          : isEdit
+            ? `Edit OIDC Provider${initialValues ? `: ${initialValues.name}` : ""}`
+            : "Add OIDC Provider"
       }
       description={
-        isEdit
-          ? "Patch any subset of fields. Provider type is locked — to switch types, delete and recreate. Leave the client secret blank to keep the current value."
-          : "Configure an external identity provider for single sign-on. The provider is disabled by default after creation."
+        isSuccessStep
+          ? `"${createdProvider!.name}" is configured in Plugwerk. To finish setup, register the callback URL below at your identity provider.`
+          : isEdit
+            ? "Patch any subset of fields. Provider type is locked — to switch types, delete and recreate. Leave the client secret blank to keep the current value."
+            : "Configure an external identity provider for single sign-on. The provider is disabled by default after creation."
       }
-      actionLabel={isEdit ? "Save Changes" : "Create Provider"}
-      onAction={handleSubmit}
-      actionDisabled={saveDisabled}
-      actionLoading={submitting}
-      maxWidth={620}
+      actionLabel={
+        isSuccessStep ? "Done" : isEdit ? "Save Changes" : "Create Provider"
+      }
+      onAction={isSuccessStep ? onClose : handleSubmit}
+      actionDisabled={isSuccessStep ? false : saveDisabled}
+      actionLoading={isSuccessStep ? false : submitting}
+      cancelLabel={isSuccessStep ? "Close" : "Cancel"}
+      maxWidth={isSuccessStep ? 560 : 620}
     >
+      {isSuccessStep ? (
+        <CreateSuccessStep provider={createdProvider!} />
+      ) : (
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 3,
+            // Mute the MUI default required-asterisk colour. Default is
+            // `theme.palette.error.main`, which reads as "validation error" on a
+            // form that has not been touched yet — exactly the false alarm the
+            // touched/submitAttempted gate above is meant to avoid. A required
+            // asterisk in `text.secondary` still signals "required" without
+            // shouting "broken".
+            "& .MuiFormLabel-asterisk": { color: "text.secondary" },
+          }}
+        >
+          {/* ── Section: Identity ── */}
+          <FormSection title="Identity">
+            <TextField
+              label="Display Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={() => markTouched("name")}
+              required
+              size="small"
+              error={visibleError("name") !== null}
+              helperText={visibleError("name") ?? "Shown on the login page."}
+              inputProps={{ maxLength: 255 }}
+              // Deliberately no `autoFocus`. Combining `autoFocus` with MUI's
+              // Dialog focus-trap caused the input to fire `onBlur` immediately
+              // after mount (focus enters the input, then the trap relocates
+              // focus to the dialog container, which counts as a blur). The
+              // touched-gate above then flagged the field as user-interacted
+              // before the operator did anything, painting it red on open.
+            />
+
+            <ProviderTypeField
+              value={providerType}
+              onChange={setProviderType}
+              disabled={isEdit}
+            />
+          </FormSection>
+
+          {/* ── Section: Credentials ── */}
+          <FormSection title="Credentials">
+            <TextField
+              label="Client ID"
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              onBlur={() => markTouched("clientId")}
+              required
+              size="small"
+              error={visibleError("clientId") !== null}
+              helperText={visibleError("clientId") ?? undefined}
+              inputProps={{ maxLength: 255 }}
+            />
+
+            {clientIdChanged && (
+              <Alert severity="warning" sx={{ mt: -1 }}>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  Changing the Client ID invalidates every access token issued
+                  by this provider — users on this provider will need to
+                  re-login.
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={acknowledgeClientIdChange}
+                      onChange={(e) =>
+                        setAcknowledgeClientIdChange(e.target.checked)
+                      }
+                      size="small"
+                    />
+                  }
+                  label="I understand this will end active sessions for users on this provider."
+                />
+              </Alert>
+            )}
+
+            <TextField
+              label="Client Secret"
+              type="password"
+              value={clientSecret}
+              onChange={(e) => setClientSecret(e.target.value)}
+              onBlur={() => markTouched("clientSecret")}
+              required={!isEdit}
+              size="small"
+              error={visibleError("clientSecret") !== null}
+              helperText={
+                visibleError("clientSecret") ??
+                (isEdit
+                  ? "Leave blank to keep the current secret."
+                  : "At least 8 characters.")
+              }
+              placeholder={
+                isEdit ? "Leave blank to keep current secret" : undefined
+              }
+            />
+          </FormSection>
+
+          {/* ── Section: Protocol ── */}
+          <FormSection title="Protocol">
+            {issuerRequired && (
+              <Stack direction="row" spacing={1} alignItems="flex-start">
+                <TextField
+                  label="Issuer URI"
+                  value={issuerUri}
+                  onChange={(e) => {
+                    setIssuerUri(e.target.value);
+                    // Issuer changes invalidate any prior probe result — clear
+                    // the banner so the operator does not act on stale info.
+                    if (discoveryStatus.kind !== "idle") {
+                      setDiscoveryStatus({ kind: "idle" });
+                    }
+                  }}
+                  onBlur={() => markTouched("issuerUri")}
+                  required
+                  size="small"
+                  fullWidth
+                  placeholder="https://your-idp.example.com/realms/myrealm"
+                  error={visibleError("issuerUri") !== null}
+                  helperText={
+                    visibleError("issuerUri") ??
+                    "Discovered via /.well-known/openid-configuration."
+                  }
+                />
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => probeDiscovery(issuerUri)}
+                  disabled={
+                    discoveryStatus.kind === "probing" ||
+                    issuerUri.trim().length === 0
+                  }
+                  sx={{ mt: 0.25, whiteSpace: "nowrap" }}
+                >
+                  {discoveryStatus.kind === "probing" ? (
+                    <CircularProgress size={16} sx={{ mr: 1 }} />
+                  ) : null}
+                  Test discovery
+                </Button>
+              </Stack>
+            )}
+            {issuerRequired && (
+              <DiscoveryStatusBanner status={discoveryStatus} />
+            )}
+            <TextField
+              label="Scope"
+              value={scope}
+              onChange={(e) => setScope(e.target.value)}
+              onBlur={() => markTouched("scope")}
+              required
+              size="small"
+              error={visibleError("scope") !== null}
+              helperText={
+                visibleError("scope") ??
+                "Space-separated. OIDC providers must include 'openid'."
+              }
+            />
+          </FormSection>
+
+          {/* ── Section: Generic OAuth2 endpoints ── */}
+          {isGeneric && (
+            <FormSection title="Generic OAuth2 Endpoints">
+              <Alert severity="info" sx={{ mb: 1 }}>
+                <AlertTitle>Try Generic OIDC first</AlertTitle>
+                Most modern providers (Keycloak, Authentik, Auth0, Google,
+                GitLab, …) publish a discovery URL — picking{" "}
+                <strong>Generic OIDC</strong> instead lets you configure them
+                with one field instead of four.{" "}
+                <Link
+                  component="button"
+                  type="button"
+                  onClick={() => {
+                    setProviderType("OIDC");
+                    // Pre-seed the issuer URI from authorize/userInfo URI host
+                    // when the operator has already typed something in those
+                    // fields — common case is "I copied the authorize URL".
+                    // The probe will tell them whether discovery actually works.
+                    if (issuerUri.trim().length === 0) {
+                      const seed = authorizationUri || userInfoUri || tokenUri;
+                      try {
+                        if (seed) {
+                          const parsed = new URL(seed);
+                          setIssuerUri(`${parsed.protocol}//${parsed.host}`);
+                        }
+                      } catch {
+                        // Malformed URL → leave issuer blank, operator will type it.
+                      }
+                    }
+                  }}
+                >
+                  Switch to Generic OIDC
+                </Link>
+                . Continue here only if your provider does not have OIDC
+                discovery (Bitbucket, some custom enterprise IdPs).
+              </Alert>
+              <TextField
+                label="Authorization URI"
+                value={authorizationUri}
+                onChange={(e) => setAuthorizationUri(e.target.value)}
+                onBlur={() => markTouched("authorizationUri")}
+                required
+                size="small"
+                placeholder="https://idp.example/oauth/authorize"
+                error={visibleError("authorizationUri") !== null}
+                helperText={
+                  visibleError("authorizationUri") ??
+                  "Where the browser is redirected to start the login flow."
+                }
+              />
+              <TextField
+                label="Token URI"
+                value={tokenUri}
+                onChange={(e) => setTokenUri(e.target.value)}
+                onBlur={() => markTouched("tokenUri")}
+                required
+                size="small"
+                placeholder="https://idp.example/oauth/token"
+                error={visibleError("tokenUri") !== null}
+                helperText={
+                  visibleError("tokenUri") ??
+                  "Where the server exchanges the authorization code for an access token."
+                }
+              />
+              <TextField
+                label="User-Info URI"
+                value={userInfoUri}
+                onChange={(e) => setUserInfoUri(e.target.value)}
+                onBlur={() => markTouched("userInfoUri")}
+                required
+                size="small"
+                placeholder="https://idp.example/api/me"
+                error={visibleError("userInfoUri") !== null}
+                helperText={
+                  visibleError("userInfoUri") ??
+                  "Where the server reads subject / email / display-name attributes."
+                }
+              />
+              <TextField
+                label="JWK Set URI (optional)"
+                value={jwkSetUri}
+                onChange={(e) => setJwkSetUri(e.target.value)}
+                onBlur={() => markTouched("jwkSetUri")}
+                size="small"
+                placeholder="https://idp.example/.well-known/jwks.json"
+                error={visibleError("jwkSetUri") !== null}
+                helperText={
+                  visibleError("jwkSetUri") ??
+                  "Only needed if this provider issues JWT access tokens that Plugwerk validates."
+                }
+              />
+            </FormSection>
+          )}
+
+          {/* ── Section: Generic OAuth2 attribute mapping ── */}
+          {isGeneric && (
+            <FormSection title="User-Info Attribute Mapping">
+              <Alert severity="info" sx={{ mb: 1 }}>
+                Names of the JSON keys the user-info response uses. Pre-filled
+                with the OIDC convention — override if your provider uses
+                different keys (GitLab uses <code>username</code> for the
+                handle, for example).
+              </Alert>
+              <TextField
+                label="Subject Attribute"
+                value={subjectAttribute}
+                onChange={(e) => setSubjectAttribute(e.target.value)}
+                size="small"
+                helperText="Stable user identifier returned by the user-info endpoint."
+              />
+              <TextField
+                label="Email Attribute"
+                value={emailAttribute}
+                onChange={(e) => setEmailAttribute(e.target.value)}
+                size="small"
+                helperText="JSON key carrying the user's email address."
+              />
+              <TextField
+                label="Display Name Attribute"
+                value={displayNameAttribute}
+                onChange={(e) => setDisplayNameAttribute(e.target.value)}
+                size="small"
+                helperText="JSON key carrying a human-readable display name."
+              />
+            </FormSection>
+          )}
+
+          {/* ── Section: Provider Setup (edit mode reference) ── */}
+          {/*
+           * Permanent callback-URL reference card for already-existing providers.
+           * Operators come back to this dialog months after creating a provider
+           * with no recollection of which URL they registered upstream — having
+           * the URL one click away here saves a round-trip through the entity
+           * UUID and the redirect-URI template.
+           */}
+          {isEdit && initialValues && (
+            <FormSection title="Provider Setup">
+              <ProviderCallbackInstructions
+                providerId={initialValues.id}
+                providerType={initialValues.providerType}
+                variant="inline"
+              />
+            </FormSection>
+          )}
+        </Box>
+      )}
+    </AppDialog>
+  );
+}
+
+interface CreateSuccessStepProps {
+  provider: OidcProviderDto;
+}
+
+/**
+ * Post-create success step — replaces the form once the provider row has been
+ * persisted. The composition is intentional: the callback URL panel is the
+ * hero of the dialog at this moment because that URL is the one piece of
+ * information the operator needs to act on next, and missing it is the
+ * single most common cause of a broken first login.
+ */
+function CreateSuccessStep({ provider }: CreateSuccessStepProps) {
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
       <Box
         sx={{
           display: "flex",
-          flexDirection: "column",
-          gap: 3,
-          // Mute the MUI default required-asterisk colour. Default is
-          // `theme.palette.error.main`, which reads as "validation error" on a
-          // form that has not been touched yet — exactly the false alarm the
-          // touched/submitAttempted gate above is meant to avoid. A required
-          // asterisk in `text.secondary` still signals "required" without
-          // shouting "broken".
-          "& .MuiFormLabel-asterisk": { color: "text.secondary" },
+          alignItems: "center",
+          gap: 1.5,
+          color: "success.main",
         }}
       >
-        {/* ── Section: Identity ── */}
-        <FormSection title="Identity">
-          <TextField
-            label="Display Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={() => markTouched("name")}
-            required
-            size="small"
-            error={visibleError("name") !== null}
-            helperText={visibleError("name") ?? "Shown on the login page."}
-            inputProps={{ maxLength: 255 }}
-            // Deliberately no `autoFocus`. Combining `autoFocus` with MUI's
-            // Dialog focus-trap caused the input to fire `onBlur` immediately
-            // after mount (focus enters the input, then the trap relocates
-            // focus to the dialog container, which counts as a blur). The
-            // touched-gate above then flagged the field as user-interacted
-            // before the operator did anything, painting it red on open.
-          />
-
-          <ProviderTypeField
-            value={providerType}
-            onChange={setProviderType}
-            disabled={isEdit}
-          />
-        </FormSection>
-
-        {/* ── Section: Credentials ── */}
-        <FormSection title="Credentials">
-          <TextField
-            label="Client ID"
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            onBlur={() => markTouched("clientId")}
-            required
-            size="small"
-            error={visibleError("clientId") !== null}
-            helperText={visibleError("clientId") ?? undefined}
-            inputProps={{ maxLength: 255 }}
-          />
-
-          {clientIdChanged && (
-            <Alert severity="warning" sx={{ mt: -1 }}>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                Changing the Client ID invalidates every access token issued by
-                this provider — users on this provider will need to re-login.
-              </Typography>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={acknowledgeClientIdChange}
-                    onChange={(e) =>
-                      setAcknowledgeClientIdChange(e.target.checked)
-                    }
-                    size="small"
-                  />
-                }
-                label="I understand this will end active sessions for users on this provider."
-              />
-            </Alert>
-          )}
-
-          <TextField
-            label="Client Secret"
-            type="password"
-            value={clientSecret}
-            onChange={(e) => setClientSecret(e.target.value)}
-            onBlur={() => markTouched("clientSecret")}
-            required={!isEdit}
-            size="small"
-            error={visibleError("clientSecret") !== null}
-            helperText={
-              visibleError("clientSecret") ??
-              (isEdit
-                ? "Leave blank to keep the current secret."
-                : "At least 8 characters.")
-            }
-            placeholder={
-              isEdit ? "Leave blank to keep current secret" : undefined
-            }
-          />
-        </FormSection>
-
-        {/* ── Section: Protocol ── */}
-        <FormSection title="Protocol">
-          {issuerRequired && (
-            <Stack direction="row" spacing={1} alignItems="flex-start">
-              <TextField
-                label="Issuer URI"
-                value={issuerUri}
-                onChange={(e) => {
-                  setIssuerUri(e.target.value);
-                  // Issuer changes invalidate any prior probe result — clear
-                  // the banner so the operator does not act on stale info.
-                  if (discoveryStatus.kind !== "idle") {
-                    setDiscoveryStatus({ kind: "idle" });
-                  }
-                }}
-                onBlur={() => markTouched("issuerUri")}
-                required
-                size="small"
-                fullWidth
-                placeholder="https://your-idp.example.com/realms/myrealm"
-                error={visibleError("issuerUri") !== null}
-                helperText={
-                  visibleError("issuerUri") ??
-                  "Discovered via /.well-known/openid-configuration."
-                }
-              />
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={() => probeDiscovery(issuerUri)}
-                disabled={
-                  discoveryStatus.kind === "probing" ||
-                  issuerUri.trim().length === 0
-                }
-                sx={{ mt: 0.25, whiteSpace: "nowrap" }}
-              >
-                {discoveryStatus.kind === "probing" ? (
-                  <CircularProgress size={16} sx={{ mr: 1 }} />
-                ) : null}
-                Test discovery
-              </Button>
-            </Stack>
-          )}
-          {issuerRequired && <DiscoveryStatusBanner status={discoveryStatus} />}
-          <TextField
-            label="Scope"
-            value={scope}
-            onChange={(e) => setScope(e.target.value)}
-            onBlur={() => markTouched("scope")}
-            required
-            size="small"
-            error={visibleError("scope") !== null}
-            helperText={
-              visibleError("scope") ??
-              "Space-separated. OIDC providers must include 'openid'."
-            }
-          />
-        </FormSection>
-
-        {/* ── Section: Generic OAuth2 endpoints ── */}
-        {isGeneric && (
-          <FormSection title="Generic OAuth2 Endpoints">
-            <Alert severity="info" sx={{ mb: 1 }}>
-              <AlertTitle>Try Generic OIDC first</AlertTitle>
-              Most modern providers (Keycloak, Authentik, Auth0, Google, GitLab,
-              …) publish a discovery URL — picking <strong>
-                Generic OIDC
-              </strong>{" "}
-              instead lets you configure them with one field instead of four.{" "}
-              <Link
-                component="button"
-                type="button"
-                onClick={() => {
-                  setProviderType("OIDC");
-                  // Pre-seed the issuer URI from authorize/userInfo URI host
-                  // when the operator has already typed something in those
-                  // fields — common case is "I copied the authorize URL".
-                  // The probe will tell them whether discovery actually works.
-                  if (issuerUri.trim().length === 0) {
-                    const seed = authorizationUri || userInfoUri || tokenUri;
-                    try {
-                      if (seed) {
-                        const parsed = new URL(seed);
-                        setIssuerUri(`${parsed.protocol}//${parsed.host}`);
-                      }
-                    } catch {
-                      // Malformed URL → leave issuer blank, operator will type it.
-                    }
-                  }
-                }}
-              >
-                Switch to Generic OIDC
-              </Link>
-              . Continue here only if your provider does not have OIDC discovery
-              (Bitbucket, some custom enterprise IdPs).
-            </Alert>
-            <TextField
-              label="Authorization URI"
-              value={authorizationUri}
-              onChange={(e) => setAuthorizationUri(e.target.value)}
-              onBlur={() => markTouched("authorizationUri")}
-              required
-              size="small"
-              placeholder="https://idp.example/oauth/authorize"
-              error={visibleError("authorizationUri") !== null}
-              helperText={
-                visibleError("authorizationUri") ??
-                "Where the browser is redirected to start the login flow."
-              }
-            />
-            <TextField
-              label="Token URI"
-              value={tokenUri}
-              onChange={(e) => setTokenUri(e.target.value)}
-              onBlur={() => markTouched("tokenUri")}
-              required
-              size="small"
-              placeholder="https://idp.example/oauth/token"
-              error={visibleError("tokenUri") !== null}
-              helperText={
-                visibleError("tokenUri") ??
-                "Where the server exchanges the authorization code for an access token."
-              }
-            />
-            <TextField
-              label="User-Info URI"
-              value={userInfoUri}
-              onChange={(e) => setUserInfoUri(e.target.value)}
-              onBlur={() => markTouched("userInfoUri")}
-              required
-              size="small"
-              placeholder="https://idp.example/api/me"
-              error={visibleError("userInfoUri") !== null}
-              helperText={
-                visibleError("userInfoUri") ??
-                "Where the server reads subject / email / display-name attributes."
-              }
-            />
-            <TextField
-              label="JWK Set URI (optional)"
-              value={jwkSetUri}
-              onChange={(e) => setJwkSetUri(e.target.value)}
-              onBlur={() => markTouched("jwkSetUri")}
-              size="small"
-              placeholder="https://idp.example/.well-known/jwks.json"
-              error={visibleError("jwkSetUri") !== null}
-              helperText={
-                visibleError("jwkSetUri") ??
-                "Only needed if this provider issues JWT access tokens that Plugwerk validates."
-              }
-            />
-          </FormSection>
-        )}
-
-        {/* ── Section: Generic OAuth2 attribute mapping ── */}
-        {isGeneric && (
-          <FormSection title="User-Info Attribute Mapping">
-            <Alert severity="info" sx={{ mb: 1 }}>
-              Names of the JSON keys the user-info response uses. Pre-filled
-              with the OIDC convention — override if your provider uses
-              different keys (GitLab uses <code>username</code> for the handle,
-              for example).
-            </Alert>
-            <TextField
-              label="Subject Attribute"
-              value={subjectAttribute}
-              onChange={(e) => setSubjectAttribute(e.target.value)}
-              size="small"
-              helperText="Stable user identifier returned by the user-info endpoint."
-            />
-            <TextField
-              label="Email Attribute"
-              value={emailAttribute}
-              onChange={(e) => setEmailAttribute(e.target.value)}
-              size="small"
-              helperText="JSON key carrying the user's email address."
-            />
-            <TextField
-              label="Display Name Attribute"
-              value={displayNameAttribute}
-              onChange={(e) => setDisplayNameAttribute(e.target.value)}
-              size="small"
-              helperText="JSON key carrying a human-readable display name."
-            />
-          </FormSection>
-        )}
+        <PartyPopper size={22} />
+        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+          Plugwerk side: complete
+        </Typography>
       </Box>
-    </AppDialog>
+      <Typography variant="body2" color="text.secondary">
+        Your provider is registered and disabled. Once the upstream callback URL
+        is set up, enable the provider from the providers list to start
+        accepting logins.
+      </Typography>
+      <ProviderCallbackInstructions
+        providerId={provider.id}
+        providerType={provider.providerType}
+        variant="success"
+      />
+      <Box
+        sx={{
+          mt: 0.5,
+          p: 1.75,
+          borderRadius: 1.25,
+          border: 1,
+          borderColor: "divider",
+          bgcolor: "background.paper",
+        }}
+      >
+        <Typography
+          variant="overline"
+          sx={{
+            display: "block",
+            color: "text.secondary",
+            fontWeight: 600,
+            letterSpacing: 0.6,
+            mb: 0.5,
+          }}
+        >
+          Next steps
+        </Typography>
+        <Box component="ol" sx={{ pl: 2.5, m: 0, "& li": { mb: 0.5 } }}>
+          <Typography component="li" variant="body2">
+            Copy the callback URL above and add it to your provider's authorized
+            redirect URIs.
+          </Typography>
+          <Typography component="li" variant="body2">
+            Come back to the providers list and enable{" "}
+            <Box component="strong" sx={{ fontWeight: 600 }}>
+              {provider.name}
+            </Box>{" "}
+            with the toggle.
+          </Typography>
+          <Typography component="li" variant="body2">
+            Sign out and try the new provider button on the login page.
+          </Typography>
+        </Box>
+      </Box>
+    </Box>
   );
 }
 

@@ -130,26 +130,32 @@ export function OidcProvidersSection() {
   }
 
   /**
-   * Create flow — appends new row on success. No optimistic update because the
-   * server assigns the UUID, so we'd have nothing to merge until the response
-   * comes back anyway.
+   * Create flow — appends new row on success and returns the persisted DTO so
+   * the form dialog can render its callback-URL success step. No optimistic
+   * update because the server assigns the UUID, and the dialog needs that
+   * UUID to build the redirect URI it shows the operator.
+   *
+   * Returning `undefined` on failure keeps the dialog on the form (with the
+   * error toast surfaced) so the operator can fix and resubmit.
    */
-  async function handleCreate(payload: OidcProviderCreateRequest) {
+  async function handleCreate(
+    payload: OidcProviderCreateRequest,
+  ): Promise<OidcProviderDto | undefined> {
     try {
       const res = await oidcProvidersApi.createOidcProvider({
         oidcProviderCreateRequest: payload,
       });
       setProviders((prev) => [...prev, res.data]);
-      addToast({
-        message: `Provider "${res.data.name}" created.`,
-        type: "success",
-      });
-      setCreateOpen(false);
+      // No success toast here: the dialog now shows a dedicated success step
+      // with the callback-URL instructions, which is the more useful
+      // confirmation than a transient toast that disappears in 4s.
+      return res.data;
     } catch (err) {
       addToast({
         message: extractServerMessage(err, "Failed to create OIDC provider."),
         type: "error",
       });
+      return undefined;
     }
   }
 
