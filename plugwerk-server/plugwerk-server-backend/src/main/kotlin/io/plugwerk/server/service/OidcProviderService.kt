@@ -27,11 +27,28 @@ import io.plugwerk.server.security.DbClientRegistrationRepository
 import io.plugwerk.server.security.OidcProviderRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.security.crypto.encrypt.TextEncryptor
+import org.springframework.security.oauth2.client.registration.ClientRegistrations
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.net.URI
 import java.net.URISyntaxException
 import java.util.UUID
+
+/**
+ * Outcome of [OidcProviderService.discoverEndpoints]. The [success] flag
+ * cleanly separates "discovery worked, here are the endpoints" from "the
+ * issuer URI is not OIDC-discoverable" — callers (controller + UI) need
+ * both shapes and we want to avoid throwing for the failure case (it's a
+ * normal user-action result, not an exception).
+ */
+data class OidcDiscoveryOutcome(
+    val success: Boolean,
+    val authorizationUri: String? = null,
+    val tokenUri: String? = null,
+    val userInfoUri: String? = null,
+    val jwkSetUri: String? = null,
+    val error: String? = null,
+)
 
 /**
  * Patch payload for [OidcProviderService.update]. Each non-null field is
@@ -86,6 +103,43 @@ class OidcProviderService(
 
     @Transactional(readOnly = true)
     fun findAll(): List<OidcProviderEntity> = oidcProviderRepository.findAll()
+
+    /**
+     * Probes [issuerUri] for OpenID Connect discovery support, without
+     * persisting anything. The admin UI calls this to (a) validate an
+     * `OIDC` issuer URI before saving and (b) detect when an operator
+     * reaching for `OAUTH2_GENERIC` actually has a discoverable provider
+     * and could pick the simpler `OIDC` configuration path.
+     *
+     * Returns [OidcDiscoveryOutcome.success] = `false` on any failure
+     * (network, HTTP error, malformed metadata, scheme mismatch, …) with
+     * the underlying message bubbled up — operators get an actionable
+     * hint without the controller having to translate exceptions.
+     */
+    @Transactional(readOnly = true)
+    fun discoverEndpoints(issuerUri: String): OidcDiscoveryOutcome {
+        val trimmed = issuerUri.trim()
+        if (trimmed.isEmpty()) {
+            return OidcDiscoveryOutcome(success = false, error = "issuerUri must not be blank")
+        }
+        return try {
+            val registration = ClientRegistrations.fromIssuerLocation(trimmed).build()
+            val details = registration.providerDetails
+            OidcDiscoveryOutcome(
+                success = true,
+                authorizationUri = details.authorizationUri,
+                tokenUri = details.tokenUri,
+                userInfoUri = details.userInfoEndpoint?.uri,
+                jwkSetUri = details.jwkSetUri,
+            )
+        } catch (e: Exception) {
+            log.debug("OIDC discovery failed for issuerUri={}: {}", trimmed, e.message)
+            OidcDiscoveryOutcome(
+                success = false,
+                error = e.message ?: "discovery failed without a message",
+            )
+        }
+    }
 
     @Transactional(readOnly = true)
     fun findById(id: UUID): OidcProviderEntity =

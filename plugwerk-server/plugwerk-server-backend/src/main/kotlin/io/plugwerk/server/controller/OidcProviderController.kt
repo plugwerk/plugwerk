@@ -19,6 +19,8 @@
 package io.plugwerk.server.controller
 
 import io.plugwerk.api.OidcProvidersApi
+import io.plugwerk.api.model.OidcDiscoveryRequest
+import io.plugwerk.api.model.OidcDiscoveryResponse
 import io.plugwerk.api.model.OidcProviderCreateRequest
 import io.plugwerk.api.model.OidcProviderDto
 import io.plugwerk.api.model.OidcProviderType
@@ -105,6 +107,25 @@ class OidcProviderController(
         namespaceAuthorizationService.requireSuperadmin(auth)
         oidcProviderService.delete(providerId)
         return ResponseEntity.noContent().build()
+    }
+
+    @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
+    override fun discoverOidcEndpoints(
+        oidcDiscoveryRequest: OidcDiscoveryRequest,
+    ): ResponseEntity<OidcDiscoveryResponse> {
+        val auth = currentAuthentication()
+        namespaceAuthorizationService.requireSuperadmin(auth)
+        val outcome = oidcProviderService.discoverEndpoints(oidcDiscoveryRequest.issuerUri)
+        return ResponseEntity.ok(
+            OidcDiscoveryResponse(
+                success = outcome.success,
+                authorizationUri = outcome.authorizationUri,
+                tokenUri = outcome.tokenUri,
+                userInfoUri = outcome.userInfoUri,
+                jwkSetUri = outcome.jwkSetUri,
+                error = outcome.error,
+            ),
+        )
     }
 
     private fun OidcProviderEntity.toDto() = OidcProviderDto(

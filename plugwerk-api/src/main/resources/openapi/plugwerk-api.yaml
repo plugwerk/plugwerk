@@ -1559,6 +1559,45 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  /admin/oidc-providers/discover:
+    post:
+      tags:
+        - OidcProviders
+      summary: Probe an issuer URI for OIDC discovery support
+      description: |
+        Attempts to resolve `${issuerUri}/.well-known/openid-configuration` and
+        returns the discovered authorization / token / user-info / JWK set
+        endpoints when discovery succeeds. Used by the admin UI to (a) confirm
+        that a candidate issuer URI works before saving an OIDC provider and
+        (b) steer operators away from `OAUTH2_GENERIC` when their provider
+        supports OIDC discovery.
+
+        Does NOT persist anything — this is a read-only probe. Requires
+        superadmin privileges.
+      operationId: discoverOidcEndpoints
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OidcDiscoveryRequest'
+      responses:
+        '200':
+          description: |
+            Discovery completed (may have failed — check `success` in body).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcDiscoveryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
   /admin/oidc-providers/{providerId}:
     patch:
       tags:
@@ -2979,6 +3018,46 @@ components:
           description: |
             User-info JSON key carrying the user's display name. Meaningful only for
             OAUTH2_GENERIC providers. Default (`name`) is used when null.
+
+    OidcDiscoveryRequest:
+      type: object
+      properties:
+        issuerUri:
+          type: string
+          minLength: 1
+          description: |
+            Candidate OIDC issuer URI. The server appends `/.well-known/openid-configuration`
+            (per RFC 8414 / OpenID Connect Discovery 1.0) and tries to fetch it.
+      required:
+        - issuerUri
+
+    OidcDiscoveryResponse:
+      type: object
+      description: |
+        Result of a discovery probe. `success = true` means the configuration document
+        was fetched and parsed; the four endpoint fields are populated from it.
+        `success = false` means the probe failed — `error` carries the operator-actionable
+        reason (DNS failure, 404, malformed JSON, missing required keys, …).
+      properties:
+        success:
+          type: boolean
+        authorizationUri:
+          type: string
+          nullable: true
+        tokenUri:
+          type: string
+          nullable: true
+        userInfoUri:
+          type: string
+          nullable: true
+        jwkSetUri:
+          type: string
+          nullable: true
+        error:
+          type: string
+          nullable: true
+      required:
+        - success
 
     OidcProviderType:
       type: string

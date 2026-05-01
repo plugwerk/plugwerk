@@ -19,19 +19,25 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  AlertTitle,
   Box,
+  Button,
   Checkbox,
+  CircularProgress,
   FormControl,
   FormControlLabel,
   InputLabel,
+  Link,
   MenuItem,
   Select,
+  Stack,
   TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
-import { Info } from "lucide-react";
+import { CheckCircle2, Info, XCircle } from "lucide-react";
 import { AppDialog } from "../../components/common/AppDialog";
+import { oidcProvidersApi } from "../../api/config";
 import type {
   OidcProviderCreateRequest,
   OidcProviderDto,
@@ -123,6 +129,26 @@ export function OidcProviderFormDialog({
     useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Discovery-probe state. The "Test discovery" button next to the Issuer URI
+  // (when providerType === OIDC) and the "Try OIDC instead" steering button
+  // (when providerType === OAUTH2_GENERIC) both feed into this. Result is a
+  // small inline status block so the operator can confirm a working issuer
+  // before saving.
+  type DiscoveryStatus =
+    | { kind: "idle" }
+    | { kind: "probing" }
+    | {
+        kind: "success";
+        authorizationUri?: string | null;
+        tokenUri?: string | null;
+        userInfoUri?: string | null;
+        jwkSetUri?: string | null;
+      }
+    | { kind: "failure"; error: string };
+  const [discoveryStatus, setDiscoveryStatus] = useState<DiscoveryStatus>({
+    kind: "idle",
+  });
+
   // Validation visibility: a field shows its error only after the user has
   // interacted with it (onBlur) OR after a submit attempt. Without this guard,
   // every field would be red the moment the dialog opens — a known anti-pattern
@@ -191,6 +217,7 @@ export function OidcProviderFormDialog({
     // the previous one.
     setTouched(initialTouched);
     setSubmitAttempted(false);
+    setDiscoveryStatus({ kind: "idle" });
     // initialTouched is a fresh object literal each render — including it in
     // the dep list would re-run the effect on every render. Stable reset is
     // the goal here, not reactive sync.
@@ -396,6 +423,62 @@ export function OidcProviderFormDialog({
     return diff;
   }
 
+  /**
+   * Runs the OIDC discovery probe against the current Issuer URI. Two entry
+   * points share this:
+   *   1. "Test discovery" button while OIDC is selected — confirms a candidate
+   *      issuer URI before saving.
+   *   2. "Try OIDC instead" button on the OAUTH2_GENERIC steering banner —
+   *      switches the form to OIDC and probes whatever the operator already
+   *      pasted into the Authorization URI field (best-guess starting point).
+   *
+   * Auto-fills `authorizationUri` / `tokenUri` / `userInfoUri` / `jwkSetUri`
+   * on success so a follow-up "switch back to GENERIC" preserves the work.
+   */
+  async function probeDiscovery(candidateIssuerUri: string) {
+    const trimmed = candidateIssuerUri.trim();
+    if (trimmed.length === 0) {
+      setDiscoveryStatus({
+        kind: "failure",
+        error: "Enter an issuer URI first.",
+      });
+      return;
+    }
+    setDiscoveryStatus({ kind: "probing" });
+    try {
+      const response = await oidcProvidersApi.discoverOidcEndpoints({
+        oidcDiscoveryRequest: { issuerUri: trimmed },
+      });
+      const data = response.data;
+      if (data.success) {
+        setDiscoveryStatus({
+          kind: "success",
+          authorizationUri: data.authorizationUri,
+          tokenUri: data.tokenUri,
+          userInfoUri: data.userInfoUri,
+          jwkSetUri: data.jwkSetUri,
+        });
+        // Pre-fill the GENERIC fields too. Even if the operator stays on OIDC
+        // the values are inert (those fields only render for GENERIC), but if
+        // they switch they get a head-start.
+        if (data.authorizationUri) setAuthorizationUri(data.authorizationUri);
+        if (data.tokenUri) setTokenUri(data.tokenUri);
+        if (data.userInfoUri) setUserInfoUri(data.userInfoUri);
+        if (data.jwkSetUri) setJwkSetUri(data.jwkSetUri);
+      } else {
+        setDiscoveryStatus({
+          kind: "failure",
+          error: data.error ?? "Discovery failed without a message.",
+        });
+      }
+    } catch (err) {
+      setDiscoveryStatus({
+        kind: "failure",
+        error: err instanceof Error ? err.message : "Network error.",
+      });
+    }
+  }
+
   async function handleSubmit() {
     // Promote interaction state so any latent errors become visible — a user
     // who jumps straight to "Save" without focusing every field still gets
@@ -530,21 +613,47 @@ export function OidcProviderFormDialog({
         {/* ── Section: Protocol ── */}
         <FormSection title="Protocol">
           {issuerRequired && (
-            <TextField
-              label="Issuer URI"
-              value={issuerUri}
-              onChange={(e) => setIssuerUri(e.target.value)}
-              onBlur={() => markTouched("issuerUri")}
-              required
-              size="small"
-              placeholder="https://your-idp.example.com/realms/myrealm"
-              error={visibleError("issuerUri") !== null}
-              helperText={
-                visibleError("issuerUri") ??
-                "Discovered via /.well-known/openid-configuration."
-              }
-            />
+            <Stack direction="row" spacing={1} alignItems="flex-start">
+              <TextField
+                label="Issuer URI"
+                value={issuerUri}
+                onChange={(e) => {
+                  setIssuerUri(e.target.value);
+                  // Issuer changes invalidate any prior probe result — clear
+                  // the banner so the operator does not act on stale info.
+                  if (discoveryStatus.kind !== "idle") {
+                    setDiscoveryStatus({ kind: "idle" });
+                  }
+                }}
+                onBlur={() => markTouched("issuerUri")}
+                required
+                size="small"
+                fullWidth
+                placeholder="https://your-idp.example.com/realms/myrealm"
+                error={visibleError("issuerUri") !== null}
+                helperText={
+                  visibleError("issuerUri") ??
+                  "Discovered via /.well-known/openid-configuration."
+                }
+              />
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => probeDiscovery(issuerUri)}
+                disabled={
+                  discoveryStatus.kind === "probing" ||
+                  issuerUri.trim().length === 0
+                }
+                sx={{ mt: 0.25, whiteSpace: "nowrap" }}
+              >
+                {discoveryStatus.kind === "probing" ? (
+                  <CircularProgress size={16} sx={{ mr: 1 }} />
+                ) : null}
+                Test discovery
+              </Button>
+            </Stack>
           )}
+          {issuerRequired && <DiscoveryStatusBanner status={discoveryStatus} />}
           <TextField
             label="Scope"
             value={scope}
@@ -564,9 +673,36 @@ export function OidcProviderFormDialog({
         {isGeneric && (
           <FormSection title="Generic OAuth2 Endpoints">
             <Alert severity="info" sx={{ mb: 1 }}>
-              Required for any OAuth2 source without a Plugwerk vendor branch
-              (GitLab, Bitbucket, custom IdPs, …). Paste the URLs from the
-              upstream provider's OAuth2 documentation.
+              <AlertTitle>Try OIDC first</AlertTitle>
+              Most modern providers (Keycloak, Authentik, Auth0, Google, GitLab,
+              …) publish a discovery URL — picking <strong>OIDC</strong> instead
+              lets you configure them with one field instead of four.{" "}
+              <Link
+                component="button"
+                type="button"
+                onClick={() => {
+                  setProviderType("OIDC");
+                  // Pre-seed the issuer URI from authorize/userInfo URI host
+                  // when the operator has already typed something in those
+                  // fields — common case is "I copied the authorize URL".
+                  // The probe will tell them whether discovery actually works.
+                  if (issuerUri.trim().length === 0) {
+                    const seed = authorizationUri || userInfoUri || tokenUri;
+                    try {
+                      if (seed) {
+                        const parsed = new URL(seed);
+                        setIssuerUri(`${parsed.protocol}//${parsed.host}`);
+                      }
+                    } catch {
+                      // Malformed URL → leave issuer blank, operator will type it.
+                    }
+                  }
+                }}
+              >
+                Switch to OIDC
+              </Link>
+              . Continue here only if your provider does not have OIDC discovery
+              (Bitbucket, some custom enterprise IdPs).
             </Alert>
             <TextField
               label="Authorization URI"
@@ -661,6 +797,95 @@ export function OidcProviderFormDialog({
         )}
       </Box>
     </AppDialog>
+  );
+}
+
+interface DiscoveryStatusBannerProps {
+  status:
+    | { kind: "idle" }
+    | { kind: "probing" }
+    | {
+        kind: "success";
+        authorizationUri?: string | null;
+        tokenUri?: string | null;
+        userInfoUri?: string | null;
+        jwkSetUri?: string | null;
+      }
+    | { kind: "failure"; error: string };
+}
+
+/**
+ * Inline result block for the "Test discovery" button. Idle and probing render
+ * nothing visible (the spinner sits inside the button); success / failure
+ * surface as a small Alert. Operators get the four discovered endpoints on
+ * success so they can sanity-check that the issuer points at the right realm.
+ */
+function DiscoveryStatusBanner({ status }: DiscoveryStatusBannerProps) {
+  if (status.kind === "idle" || status.kind === "probing") return null;
+  if (status.kind === "failure") {
+    return (
+      <Alert
+        severity="error"
+        icon={<XCircle size={20} />}
+        sx={{ mt: 1, alignItems: "flex-start" }}
+      >
+        <AlertTitle>Discovery failed</AlertTitle>
+        <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
+          {status.error}
+        </Typography>
+      </Alert>
+    );
+  }
+  return (
+    <Alert
+      severity="success"
+      icon={<CheckCircle2 size={20} />}
+      sx={{ mt: 1, alignItems: "flex-start" }}
+    >
+      <AlertTitle>Discovery succeeded</AlertTitle>
+      <Box
+        component="dl"
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "max-content 1fr",
+          columnGap: 1.5,
+          rowGap: 0.25,
+          m: 0,
+          fontSize: "0.85rem",
+        }}
+      >
+        <DiscoveryEndpoint label="authorize" value={status.authorizationUri} />
+        <DiscoveryEndpoint label="token" value={status.tokenUri} />
+        <DiscoveryEndpoint label="user-info" value={status.userInfoUri} />
+        <DiscoveryEndpoint label="JWK set" value={status.jwkSetUri} />
+      </Box>
+    </Alert>
+  );
+}
+
+function DiscoveryEndpoint({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | null | undefined;
+}) {
+  return (
+    <>
+      <Box component="dt" sx={{ color: "text.secondary", fontWeight: 500 }}>
+        {label}
+      </Box>
+      <Box
+        component="dd"
+        sx={{
+          m: 0,
+          fontFamily: "monospace",
+          wordBreak: "break-all",
+        }}
+      >
+        {value ?? <em style={{ opacity: 0.6 }}>not provided</em>}
+      </Box>
+    </>
   );
 }
 
