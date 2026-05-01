@@ -136,6 +136,92 @@ class DbClientRegistrationRepositoryTest {
     }
 
     @Test
+    fun `OAUTH2_GENERIC builds a registration from operator-supplied URIs (no discovery)`() {
+        whenever(textEncryptor.decrypt("{cipher}gen-secret")).thenReturn("plain-secret")
+        val generic = OidcProviderEntity(
+            id = UUID.fromString("44444444-4444-4444-4444-444444444444"),
+            name = "Custom IdP",
+            providerType = OidcProviderType.OAUTH2_GENERIC,
+            enabled = true,
+            clientId = "gen-client",
+            clientSecretEncrypted = "{cipher}gen-secret",
+            scope = "openid profile email",
+            authorizationUri = "https://idp.example/oauth/authorize",
+            tokenUri = "https://idp.example/oauth/token",
+            userInfoUri = "https://idp.example/api/me",
+            subjectAttribute = "user_id",
+        )
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(generic))
+
+        val repo = DbClientRegistrationRepository(oidcProviderRepository, textEncryptor)
+        val registration = repo.findByRegistrationId(generic.id.toString())
+
+        assertThat(registration).isNotNull()
+        assertThat(registration!!.clientId).isEqualTo("gen-client")
+        assertThat(registration.clientSecret).isEqualTo("plain-secret")
+        assertThat(registration.providerDetails.authorizationUri)
+            .isEqualTo("https://idp.example/oauth/authorize")
+        assertThat(registration.providerDetails.tokenUri)
+            .isEqualTo("https://idp.example/oauth/token")
+        assertThat(registration.providerDetails.userInfoEndpoint.uri)
+            .isEqualTo("https://idp.example/api/me")
+        assertThat(registration.providerDetails.userInfoEndpoint.userNameAttributeName)
+            .isEqualTo("user_id")
+        // Operator-supplied scope honoured verbatim.
+        assertThat(registration.scopes).containsExactlyInAnyOrder("openid", "profile", "email")
+        // Display name flows through for admin UI / debugging surfaces.
+        assertThat(registration.clientName).isEqualTo("Custom IdP")
+    }
+
+    @Test
+    fun `OAUTH2_GENERIC defaults subject attribute to sub when operator left it blank`() {
+        whenever(textEncryptor.decrypt("{cipher}s")).thenReturn("plain")
+        val generic = OidcProviderEntity(
+            id = UUID.fromString("55555555-5555-5555-5555-555555555555"),
+            name = "Default-attrs IdP",
+            providerType = OidcProviderType.OAUTH2_GENERIC,
+            enabled = true,
+            clientId = "c",
+            clientSecretEncrypted = "{cipher}s",
+            authorizationUri = "https://idp.example/authorize",
+            tokenUri = "https://idp.example/token",
+            userInfoUri = "https://idp.example/userinfo",
+            subjectAttribute = null, // operator left blank → default to "sub"
+        )
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(generic))
+
+        val repo = DbClientRegistrationRepository(oidcProviderRepository, textEncryptor)
+        val registration = repo.findByRegistrationId(generic.id.toString())
+
+        assertThat(registration!!.providerDetails.userInfoEndpoint.userNameAttributeName)
+            .isEqualTo("sub")
+    }
+
+    @Test
+    fun `OAUTH2_GENERIC missing authorizationUri is logged-and-skipped, not propagated`() {
+        // Service-layer validation is meant to prevent this — but if a row slips
+        // through the repository must not break the entire bean container.
+        // runCatching catches the requireNotNull and skips the entry.
+        val broken = OidcProviderEntity(
+            id = UUID.fromString("66666666-6666-6666-6666-666666666666"),
+            name = "Half-configured",
+            providerType = OidcProviderType.OAUTH2_GENERIC,
+            enabled = true,
+            clientId = "c",
+            clientSecretEncrypted = "{cipher}ignored",
+            authorizationUri = null, // missing — required field
+            tokenUri = "https://idp.example/token",
+            userInfoUri = "https://idp.example/userinfo",
+        )
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(broken))
+
+        val repo = DbClientRegistrationRepository(oidcProviderRepository, textEncryptor)
+
+        assertThat(repo.iterator().hasNext()).isFalse()
+        assertThat(repo.findByRegistrationId(broken.id.toString())).isNull()
+    }
+
+    @Test
     fun `Google issuer URI constant points at the documented Google identity platform`() {
         // Pinning the constant — a regression here would silently route Google logins
         // to the wrong issuer and the discovery would fail with a confusing error.

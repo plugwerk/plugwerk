@@ -44,6 +44,10 @@ const PROVIDER_TYPE_LABELS: Record<OidcProviderType, string> = {
   GITHUB: "GitHub",
   GOOGLE: "Google",
   FACEBOOK: "Facebook",
+  // The OAUTH2_GENERIC form fields land in phase C; this label keeps the
+  // dropdown coherent so the existing flows compile against the new enum
+  // value without forcing a wholesale UI rewrite into the same PR.
+  OAUTH2_GENERIC: "Generic OAuth2 (GitLab, Bitbucket, custom IdP, …)",
 };
 
 const ISSUER_REQUIRED_TYPES: ReadonlySet<OidcProviderType> = new Set(["OIDC"]);
