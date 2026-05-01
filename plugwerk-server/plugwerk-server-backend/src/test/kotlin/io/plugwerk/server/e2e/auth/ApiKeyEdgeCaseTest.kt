@@ -83,14 +83,16 @@ class ApiKeyEdgeCaseTest : AbstractAuthorizationTest() {
             ),
         )
 
-        // Revoked key on public NS1 → falls through as anonymous → 401 (Spring Security 6 rejects anonymous)
+        // Revoked key on public NS1 → API-key auth fails, public-catalog token from
+        // PublicNamespaceFilter remains in place (issue #374) → 200.
         mockMvc.perform(
             get("/api/v1/namespaces/$NS1/plugins")
                 .header("X-Api-Key", plainKey),
         )
-            .andExpect(status().isUnauthorized)
+            .andExpect(status().isOk)
 
-        // Revoked key on private NS2 → anonymous → 401 (no PublicNamespaceFilter for private)
+        // Revoked key on private NS2 → API-key auth fails, no public-catalog carve-out
+        // applies to a private namespace → 401.
         mockMvc.perform(
             get("/api/v1/namespaces/$NS2/plugins")
                 .header("X-Api-Key", plainKey),
@@ -114,14 +116,15 @@ class ApiKeyEdgeCaseTest : AbstractAuthorizationTest() {
             ),
         )
 
-        // Expired key on public NS1 → anonymous → 401 (Spring Security 6 rejects anonymous)
+        // Expired key on public NS1 → API-key auth fails, public-catalog token from
+        // PublicNamespaceFilter remains in place (issue #374) → 200.
         mockMvc.perform(
             get("/api/v1/namespaces/$NS1/plugins")
                 .header("X-Api-Key", plainKey),
         )
-            .andExpect(status().isUnauthorized)
+            .andExpect(status().isOk)
 
-        // Expired key on private NS2 → anonymous → 401
+        // Expired key on private NS2 → no public-catalog carve-out → 401.
         mockMvc.perform(
             get("/api/v1/namespaces/$NS2/plugins")
                 .header("X-Api-Key", plainKey),
@@ -131,17 +134,20 @@ class ApiKeyEdgeCaseTest : AbstractAuthorizationTest() {
 
     @Test
     fun `unknown API key is treated as anonymous`() {
+        // Unknown key on public NS1 → API-key lookup misses, public-catalog token
+        // from PublicNamespaceFilter remains in place (issue #374) → 200.
         mockMvc.perform(
             get("/api/v1/namespaces/$NS1/plugins")
                 .header("X-Api-Key", "pwk_unknownkeyvaluethatdoesnotexistindb12345678"),
         )
-            .andExpect(status().isUnauthorized) // Unknown key → anonymous → 401 (Spring Security 6)
+            .andExpect(status().isOk)
 
+        // Unknown key on private NS2 → no public-catalog carve-out → 401.
         mockMvc.perform(
             get("/api/v1/namespaces/$NS2/plugins")
                 .header("X-Api-Key", "pwk_unknownkeyvaluethatdoesnotexistindb12345678"),
         )
-            .andExpect(status().isUnauthorized) // Private NS2 → no anonymous access
+            .andExpect(status().isUnauthorized)
     }
 
     @Test
