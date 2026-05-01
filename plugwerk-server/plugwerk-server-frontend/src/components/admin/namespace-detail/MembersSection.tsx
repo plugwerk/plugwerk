@@ -29,6 +29,7 @@ import {
   InputLabel,
   Autocomplete,
   TextField,
+  createFilterOptions,
 } from "@mui/material";
 import { Plus, Trash2 } from "lucide-react";
 import { AppDialog } from "../../common/AppDialog";
@@ -43,6 +44,7 @@ import { isAxiosError } from "axios";
 import type {
   NamespaceMemberDto,
   NamespaceRole,
+  UserDto,
 } from "../../../api/generated/model";
 import { NamespaceRole as NamespaceRoleEnum } from "../../../api/generated/model";
 import { useUiStore } from "../../../stores/uiStore";
@@ -58,7 +60,48 @@ interface UserOption {
   userId: string;
   /** Visible label for the picker. */
   label: string;
+  /**
+   * Free-text search target — `displayName` plus `username`. Decoupled from
+   * the visible label so the EXTERNAL provider hint (in parentheses) does
+   * not become a filter target. Issue #412 explicitly asks for the hint to
+   * be decorative; typing "Google" should not surface every Google user.
+   */
+  searchKey: string;
 }
+
+/**
+ * Visible label for a user in the add-member picker. Three branches, in
+ * decreasing priority:
+ *
+ *   - EXTERNAL with a known provider name → "Display Name (Provider)"
+ *     (issue #412 — disambiguates two same-named users from different
+ *     providers, e.g. a Google "Alice" and a Keycloak "Alice").
+ *   - INTERNAL with a username distinct from displayName → existing
+ *     "Display Name (username)" fallback for local-account-only deployments.
+ *   - Otherwise → bare displayName.
+ *
+ * Defensive null-checks: an EXTERNAL user without `providerName` (which
+ * shouldn't happen given the schema, but the API leaves it nullable) falls
+ * through to the bare displayName branch rather than rendering "(null)".
+ */
+function buildUserOptionLabel(user: UserDto): string {
+  if (user.source === "EXTERNAL" && user.providerName) {
+    return `${user.displayName} (${user.providerName})`;
+  }
+  if (user.username && user.username !== user.displayName) {
+    return `${user.displayName} (${user.username})`;
+  }
+  return user.displayName;
+}
+
+/**
+ * Autocomplete filter that matches the user's typed query against
+ * `displayName` + `username` only — never the visible label, which carries
+ * the decorative provider-name suffix for EXTERNAL users (issue #412).
+ */
+const filterUserOptions = createFilterOptions<UserOption>({
+  stringify: (option) => option.searchKey,
+});
 
 export function MembersSection({ slug }: { slug: string }) {
   const addToast = useUiStore((s) => s.addToast);
@@ -101,12 +144,8 @@ export function MembersSection({ slug }: { slug: string }) {
             .filter((u) => !u.isSuperadmin && !existing.has(u.id))
             .map((u) => ({
               userId: u.id,
-              // Prefer displayName for the picker; fall back to username for
-              // local-account-only deployments where displayName === username.
-              label:
-                u.username && u.username !== u.displayName
-                  ? `${u.displayName} (${u.username})`
-                  : u.displayName,
+              label: buildUserOptionLabel(u),
+              searchKey: `${u.displayName} ${u.username ?? ""}`.trim(),
             })),
         );
       } catch {
@@ -323,6 +362,7 @@ export function MembersSection({ slug }: { slug: string }) {
             onChange={(_, value) => setNewUser(value)}
             getOptionLabel={(option) => option.label}
             isOptionEqualToValue={(a, b) => a.userId === b.userId}
+            filterOptions={filterUserOptions}
             renderInput={(params) => (
               <TextField {...params} label="User" size="small" />
             )}

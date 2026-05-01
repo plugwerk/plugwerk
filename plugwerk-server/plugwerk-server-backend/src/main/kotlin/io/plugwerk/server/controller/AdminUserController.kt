@@ -22,7 +22,9 @@ import io.plugwerk.api.AdminUsersApi
 import io.plugwerk.api.model.UserCreateRequest
 import io.plugwerk.api.model.UserDto
 import io.plugwerk.api.model.UserUpdateRequest
+import io.plugwerk.server.domain.UserEntity
 import io.plugwerk.server.domain.UserSource
+import io.plugwerk.server.repository.OidcIdentityRepository
 import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.security.currentAuthentication
 import io.plugwerk.server.service.UserService
@@ -39,13 +41,29 @@ class AdminUserController(
     private val userService: UserService,
     private val namespaceAuthorizationService: NamespaceAuthorizationService,
     private val namespaceMemberRepository: io.plugwerk.server.repository.NamespaceMemberRepository,
+    private val oidcIdentityRepository: OidcIdentityRepository,
 ) : AdminUsersApi {
 
     override fun listUsers(enabled: Boolean?): ResponseEntity<List<UserDto>> {
         val auth = currentAuthentication()
         namespaceAuthorizationService.requireSuperadmin(auth)
         val users = if (enabled != null) userService.findAllByEnabled(enabled) else userService.findAll()
-        return ResponseEntity.ok(users.map { it.toDto() })
+        // Single batched lookup for the EXTERNAL subset's provider names so
+        // the response payload (issue #412) stays one extra SQL query — never
+        // N+1 — regardless of how many EXTERNAL users land on the page.
+        // Empty subset short-circuits because some JDBC drivers reject an
+        // empty `IN (…)` clause.
+        val externalUserIds = users.asSequence()
+            .filter { it.source == UserSource.EXTERNAL }
+            .mapNotNull { it.id }
+            .toList()
+        val providerNames: Map<UUID, String> = if (externalUserIds.isEmpty()) {
+            emptyMap()
+        } else {
+            oidcIdentityRepository.findProviderNamesForUsers(externalUserIds)
+                .associate { it.userId to it.providerName }
+        }
+        return ResponseEntity.ok(users.map { it.toDto(providerNames) })
     }
 
     @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
@@ -79,7 +97,23 @@ class AdminUserController(
         return ResponseEntity.noContent().build()
     }
 
-    private fun io.plugwerk.server.domain.UserEntity.toDto() = UserDto(
+    /**
+     * Single-row mapper used by create/update/delete responses where the
+     * caller already knows the provider name is irrelevant or absent —
+     * INTERNAL-only paths. EXTERNAL identities never come back through these
+     * endpoints (admin-driven creation produces INTERNAL accounts only;
+     * `setEnabled` / `resetPassword` likewise apply to INTERNAL flow), so
+     * `providerName = null` is correct.
+     */
+    private fun UserEntity.toDto() = toDto(emptyMap())
+
+    /**
+     * List-mapper variant — receives the precomputed
+     * `userId → providerName` map produced by the batched
+     * [OidcIdentityRepository.findProviderNamesForUsers] call so the
+     * per-row mapping costs zero extra database round-trips.
+     */
+    private fun UserEntity.toDto(providerNames: Map<UUID, String>) = UserDto(
         id = id!!,
         displayName = displayName,
         source = when (source) {
@@ -93,6 +127,7 @@ class AdminUserController(
         isSuperadmin = isSuperadmin,
         createdAt = createdAt,
         lastLoginAt = lastLoginAt,
+        providerName = if (source == UserSource.EXTERNAL) providerNames[id] else null,
         namespaceMembershipCount = namespaceMemberRepository.countByUserId(id!!).toInt(),
     )
 }

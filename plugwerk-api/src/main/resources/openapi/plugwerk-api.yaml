@@ -2655,6 +2655,23 @@ components:
             on resource-server bearer traffic, or on `X-Api-Key` requests.
             `null` for accounts that have never logged in (e.g. provisioned
             via `POST /admin/users` and never used yet).
+        providerName:
+          type: string
+          nullable: true
+          description: |
+            Operator-configured display name of the OIDC / OAuth2 provider that
+            authenticates this user — `OidcProviderEntity.name`, the same string
+            shown on the login page. Populated for `source = EXTERNAL` rows by
+            joining `oidc_identity → oidc_provider`. `null` for INTERNAL users
+            and (defensively) for any EXTERNAL user whose `oidc_identity` row
+            is missing — this should not occur given the schema's foreign-key
+            and `UNIQUE(user_id)` constraints, but the field is nullable so
+            the API does not 500 on inconsistent rows.
+
+            For UI display only — disambiguates two EXTERNAL users with the
+            same `displayName` coming from different providers (e.g. one
+            Google account and one Keycloak account both labelled "Alice").
+            Do not parse.
         namespaceMembershipCount:
           type: integer
           format: int32
