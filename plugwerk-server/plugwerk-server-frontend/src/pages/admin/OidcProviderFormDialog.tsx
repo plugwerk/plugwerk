@@ -77,6 +77,16 @@ interface OidcProviderFormDialogProps {
 /** Default scope string used when the operator opens a fresh create dialog. */
 const DEFAULT_SCOPE = "openid profile email";
 
+// User-info attribute defaults — kept in sync with
+// GenericOAuth2PrincipalAdapter.DEFAULT_*_ATTRIBUTE on the server. The form
+// pre-fills these in create mode so the operator sees the effective value
+// rather than guessing from a placeholder; the server-side defaults remain
+// in place as defence-in-depth (e.g. a row written via direct SQL or a
+// future API path that bypasses this form).
+const DEFAULT_SUBJECT_ATTRIBUTE = "sub";
+const DEFAULT_EMAIL_ATTRIBUTE = "email";
+const DEFAULT_DISPLAY_NAME_ATTRIBUTE = "name";
+
 /**
  * Creating + editing OIDC providers share enough form fields that one component
  * owns both modes — duplicating would let the two surfaces drift apart over time
@@ -205,9 +215,13 @@ export function OidcProviderFormDialog({
       setTokenUri("");
       setUserInfoUri("");
       setJwkSetUri("");
-      setSubjectAttribute("");
-      setEmailAttribute("");
-      setDisplayNameAttribute("");
+      // Attribute names: pre-fill with the OIDC convention so the operator
+      // sees what the server will actually use, instead of guessing from a
+      // placeholder. Custom providers (GitLab, Bitbucket) override; standard
+      // providers leave them and the values get persisted explicitly.
+      setSubjectAttribute(DEFAULT_SUBJECT_ATTRIBUTE);
+      setEmailAttribute(DEFAULT_EMAIL_ATTRIBUTE);
+      setDisplayNameAttribute(DEFAULT_DISPLAY_NAME_ATTRIBUTE);
     }
     // Secret is never pre-filled — empty IS the affordance ("leave blank to keep").
     setClientSecret("");
@@ -766,15 +780,16 @@ export function OidcProviderFormDialog({
         {isGeneric && (
           <FormSection title="User-Info Attribute Mapping">
             <Alert severity="info" sx={{ mb: 1 }}>
-              Names of the JSON keys the user-info response uses. Defaults shown
-              in placeholders; leave blank to use them.
+              Names of the JSON keys the user-info response uses. Pre-filled
+              with the OIDC convention — override if your provider uses
+              different keys (GitLab uses <code>username</code> for the handle,
+              for example).
             </Alert>
             <TextField
               label="Subject Attribute"
               value={subjectAttribute}
               onChange={(e) => setSubjectAttribute(e.target.value)}
               size="small"
-              placeholder="sub"
               helperText="Stable user identifier returned by the user-info endpoint."
             />
             <TextField
@@ -782,7 +797,6 @@ export function OidcProviderFormDialog({
               value={emailAttribute}
               onChange={(e) => setEmailAttribute(e.target.value)}
               size="small"
-              placeholder="email"
               helperText="JSON key carrying the user's email address."
             />
             <TextField
@@ -790,7 +804,6 @@ export function OidcProviderFormDialog({
               value={displayNameAttribute}
               onChange={(e) => setDisplayNameAttribute(e.target.value)}
               size="small"
-              placeholder="name"
               helperText="JSON key carrying a human-readable display name."
             />
           </FormSection>
