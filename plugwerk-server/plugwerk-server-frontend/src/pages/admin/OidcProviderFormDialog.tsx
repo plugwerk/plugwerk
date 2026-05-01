@@ -313,7 +313,12 @@ export function OidcProviderFormDialog({
             error={visibleError("name") !== null}
             helperText={visibleError("name") ?? "Shown on the login page."}
             inputProps={{ maxLength: 255 }}
-            autoFocus={!isEdit}
+            // Deliberately no `autoFocus`. Combining `autoFocus` with MUI's
+            // Dialog focus-trap caused the input to fire `onBlur` immediately
+            // after mount (focus enters the input, then the trap relocates
+            // focus to the dialog container, which counts as a blur). The
+            // touched-gate above then flagged the field as user-interacted
+            // before the operator did anything, painting it red on open.
           />
 
           <ProviderTypeField
