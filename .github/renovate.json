@@ -89,6 +89,12 @@
       "groupSlug": "docker-base-images"
     },
     {
+      "description": "Pin eclipse-temurin to Java 21.x. Plugwerk targets Java 21 (gradle/libs.versions.toml jvmToolchain(21), CI setup-java java-version: 21). Patch and minor bumps inside 21.x flow through; major bumps to 22/23/24/25 are ignored entirely. Remove this rule when the project intentionally moves to a new LTS.",
+      "matchManagers": ["dockerfile"],
+      "matchPackageNames": ["eclipse-temurin"],
+      "allowedVersions": "/^21\\./"
+    },
+    {
       "description": "npm minor and patch updates (grouped)",
       "matchManagers": ["npm"],
       "matchUpdateTypes": ["minor", "patch"],
