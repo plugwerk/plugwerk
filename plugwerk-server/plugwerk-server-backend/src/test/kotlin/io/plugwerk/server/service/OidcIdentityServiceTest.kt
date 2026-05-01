@@ -93,7 +93,10 @@ class OidcIdentityServiceTest {
         // rather than strict equality.
         val reloaded = userRepository.findById(requireNotNull(user.id)).orElseThrow()
         assertThat(reloaded.lastLoginAt)
-            .isCloseTo(user.lastLoginAt, org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.MILLIS))
+            .isCloseTo(
+                user.lastLoginAt,
+                org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.MILLIS),
+            )
     }
 
     @Test
@@ -123,7 +126,10 @@ class OidcIdentityServiceTest {
         // Reload roundtrip: H2 truncates nanos → use millisecond fuzz.
         val reloadedUser = userRepository.findById(requireNotNull(refreshed.id)).orElseThrow()
         assertThat(reloadedUser.lastLoginAt)
-            .isCloseTo(refreshed.lastLoginAt, org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.MILLIS))
+            .isCloseTo(
+                refreshed.lastLoginAt,
+                org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.MILLIS),
+            )
 
         val identityRow = oidcIdentityRepository
             .findByOidcProviderIdAndSubject(requireNotNull(provider.id), "bob-sub")
