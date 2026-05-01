@@ -1,0 +1,43 @@
+# Drop the now-redundant oidc_identity.last_login_at (issue #367 follow-up).
+#
+# History:
+#   - Added by 0017 (identity-hub split, #351). Tracked the binding-level
+#     "when did this OIDC identity last activate" timestamp.
+#   - Migration 0020 (#367) added plugwerk_user.last_login_at as the
+#     uniform user-level "last activity" signal across LOCAL and OIDC.
+#
+# Why drop now:
+#   - Plugwerk does not perform identity linking — every OIDC callback
+#     produces a 1:1 oidc_identity ↔ plugwerk_user row pair (see
+#     OidcIdentityService Javadoc: "Same human across multiple providers
+#     ⇒ multiple unrelated UserEntity rows"). The two timestamps therefore
+#     always carried the same value.
+#   - There is no current consumer: no repository query, no service method,
+#     no DTO, no UI surface ever read oidc_identity.last_login_at.
+#   - The "useful later for stale-binding tooling" justification on the
+#     original column was YAGNI under the 1:1 model. If identity linking
+#     ever lands, the column can be re-added by a forward migration that
+#     also fills it from plugwerk_user.last_login_at.
+#
+# Rollback restores the column nullable (the original was NOT NULL with
+# default now() — a rollback to that exact shape would require a default
+# now() backfill that does not match historic state. Nullable is the
+# accurate restore: rows created post-drop genuinely have no value.)
+
+databaseChangeLog:
+  - changeSet:
+      id: 0021-drop-oidc-identity-last-login-at
+      author: plugwerk
+      changes:
+        - dropColumn:
+            tableName: oidc_identity
+            columnName: last_login_at
+      rollback:
+        - addColumn:
+            tableName: oidc_identity
+            columns:
+              - column:
+                  name: last_login_at
+                  type: timestamptz
+                  constraints:
+                    nullable: true

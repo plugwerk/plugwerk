@@ -204,17 +204,20 @@ class OidcWebLoginIT {
 
         val firstUser = userBySubject(sub)
         val firstUserId = requireNotNull(firstUser.id)
-        val firstLoginAt = oidcIdentityRepository.findByUserId(firstUserId).orElseThrow().lastLoginAt
+        // last_login_at moved from oidc_identity to plugwerk_user (issue #367 cleanup,
+        // migration 0021). The user-level column is now the canonical signal.
+        val firstLoginAt = requireNotNull(firstUser.lastLoginAt)
 
         Thread.sleep(50)
         enqueueIdToken(sub = sub, email = email, name = "Alice Anderson")
         performAuthorizeRoundtrip()
 
-        val identityAfter = oidcIdentityRepository.findByOidcProviderIdAndSubject(providerId, sub).orElseThrow()
-        assertThat(identityAfter.lastLoginAt).`as`("lastLoginAt should advance on re-login").isAfter(firstLoginAt)
         // Same plugwerk_user; no second row provisioned.
         val secondUser = userBySubject(sub)
         assertThat(secondUser.id).`as`("same user, no fresh provisioning").isEqualTo(firstUserId)
+        assertThat(secondUser.lastLoginAt)
+            .`as`("plugwerk_user.last_login_at should advance on re-login")
+            .isAfter(firstLoginAt)
 
         val refreshTokens = refreshTokenRepository.findAll().filter { it.userId == firstUserId }
         assertThat(refreshTokens).hasSize(2)

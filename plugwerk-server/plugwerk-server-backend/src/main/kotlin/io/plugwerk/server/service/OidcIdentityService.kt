@@ -32,9 +32,9 @@ import java.time.ZoneOffset
 
 /**
  * OIDC-side counterpart of [UserService]. Materialises Plugwerk identities for
- * OIDC subjects on the first successful callback and refreshes `lastLoginAt`
- * on every subsequent one (issue #351, replaces PR #350's JIT-`plugwerk_user`
- * hack).
+ * OIDC subjects on the first successful callback and bumps
+ * `plugwerk_user.last_login_at` (#367) on every subsequent one (issue #351,
+ * replaces PR #350's JIT-`plugwerk_user` hack).
  *
  * **No identity linking by policy.** A given `(provider, subject)` pair always
  * maps to exactly one [UserEntity]; the schema enforces this with
@@ -55,7 +55,8 @@ class OidcIdentityService(
      * Resolves or creates the [UserEntity] for an OIDC callback. Returns the
      * resolved user — never null. Side effects:
      *
-     *   - **Existing identity** → bumps `lastLoginAt`, returns the linked user.
+     *   - **Existing identity** → bumps `plugwerk_user.last_login_at` via
+     *     [UserService.bumpLastLogin] (#367), returns the linked user.
      *   - **New identity** → creates a fresh [UserEntity] with `source = OIDC`
      *     plus the matching [OidcIdentityEntity] row, returns the new user.
      *
@@ -74,11 +75,6 @@ class OidcIdentityService(
         val now = OffsetDateTime.now(ZoneOffset.UTC)
         val existing = oidcIdentityRepository.findByOidcProviderIdAndSubject(providerId, subject).orElse(null)
         if (existing != null) {
-            // Two distinct timestamps end up equal in the happy path but track different
-            // things conceptually: the binding-level last_login_at on oidc_identity (used
-            // later for stale-binding cleanup) and the user-level last_login_at on
-            // plugwerk_user (issue #367, surfaced in UserDto).
-            existing.lastLoginAt = now
             return userService.bumpLastLogin(existing.user.id!!, now)
         }
         return createNewIdentityAndUser(provider, subject, claims, now)

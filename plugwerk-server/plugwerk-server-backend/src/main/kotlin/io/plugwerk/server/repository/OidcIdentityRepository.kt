@@ -28,8 +28,8 @@ interface OidcIdentityRepository : JpaRepository<OidcIdentityEntity, UUID> {
     /**
      * Lookup by `(provider, sub)` — the upstream identifier pair. Used by
      * `OidcIdentityService.upsertOnLogin` on every OIDC callback to decide
-     * whether to issue a fresh `plugwerk_user` row or refresh `lastLoginAt`
-     * on an existing one.
+     * whether to issue a fresh `plugwerk_user` row or bump
+     * `plugwerk_user.last_login_at` on an existing one.
      */
     fun findByOidcProviderIdAndSubject(oidcProviderId: UUID, subject: String): Optional<OidcIdentityEntity>
 
