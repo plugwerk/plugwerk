@@ -26,6 +26,8 @@ import io.plugwerk.server.repository.UserRepository
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import java.util.UUID
 
 @Service
@@ -84,6 +86,24 @@ class UserService(
     fun setEnabled(id: UUID, enabled: Boolean): UserEntity {
         val user = findById(id)
         user.enabled = enabled
+        return userRepository.save(user)
+    }
+
+    /**
+     * Records a fresh, credential-validated login (issue #367). Sole writer for
+     * `plugwerk_user.last_login_at`. Callers:
+     *   - [io.plugwerk.server.controller.AuthController.login] (LOCAL credential validation succeeds).
+     *   - [io.plugwerk.server.service.OidcIdentityService.upsertOnLogin] (OIDC callback succeeds, both first-login and existing-binding paths).
+     *
+     * Explicitly NOT called from `/auth/refresh`, the resource-server bearer-token
+     * filter, or the namespace API-key filter — those would inflate the value
+     * into uselessness. Negative-test guarded.
+     *
+     * @param at injectable for tests; defaults to `OffsetDateTime.now(ZoneOffset.UTC)`.
+     */
+    fun bumpLastLogin(id: UUID, at: OffsetDateTime = OffsetDateTime.now(ZoneOffset.UTC)): UserEntity {
+        val user = findById(id)
+        user.lastLoginAt = at
         return userRepository.save(user)
     }
 

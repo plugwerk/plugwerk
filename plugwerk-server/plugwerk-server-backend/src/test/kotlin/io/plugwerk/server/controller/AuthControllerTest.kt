@@ -138,6 +138,7 @@ class AuthControllerTest {
         whenever(jwtTokenService.tokenValiditySeconds()).thenReturn(28800L)
         whenever(userRepository.findByUsernameAndSource("alice", io.plugwerk.server.domain.UserSource.LOCAL))
             .thenReturn(Optional.of(user))
+        whenever(userService.bumpLastLogin(eq(userId), org.mockito.kotlin.any())).thenReturn(user)
 
         mockMvc.post("/api/v1/auth/login") {
             contentType = MediaType.APPLICATION_JSON
@@ -150,6 +151,8 @@ class AuthControllerTest {
             jsonPath("$.userId") { value(userId.toString()) }
             jsonPath("$.displayName") { value("Alice") }
         }
+        // The credential-validated login MUST bump lastLoginAt (#367).
+        org.mockito.Mockito.verify(userService).bumpLastLogin(eq(userId), org.mockito.kotlin.any())
     }
 
     @Test
@@ -169,6 +172,7 @@ class AuthControllerTest {
         whenever(jwtTokenService.tokenValiditySeconds()).thenReturn(28800L)
         whenever(userRepository.findByUsernameAndSource("alice", io.plugwerk.server.domain.UserSource.LOCAL))
             .thenReturn(Optional.of(user))
+        whenever(userService.bumpLastLogin(eq(userId), org.mockito.kotlin.any())).thenReturn(user)
 
         mockMvc.post("/api/v1/auth/login") {
             contentType = MediaType.APPLICATION_JSON

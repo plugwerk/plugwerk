@@ -215,6 +215,15 @@ export function UsersSection() {
       ),
     },
     {
+      key: "lastLogin",
+      header: "Last login",
+      render: (user) => (
+        <Typography variant="caption" color="text.disabled">
+          <Timestamp date={user.lastLoginAt} variant="relative" />
+        </Typography>
+      ),
+    },
+    {
       key: "enabled",
       header: "Enabled",
       render: (user) => (

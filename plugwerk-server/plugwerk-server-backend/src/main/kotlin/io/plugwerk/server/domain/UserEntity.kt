@@ -115,6 +115,19 @@ class UserEntity(
     @Column(name = "password_invalidated_before")
     var passwordInvalidatedBefore: OffsetDateTime? = null,
 
+    /**
+     * Most recent fresh, credential-validated login (issue #367). Bumped by
+     * [io.plugwerk.server.service.UserService.bumpLastLogin] from
+     * [io.plugwerk.server.controller.AuthController.login] (LOCAL) and from
+     * [io.plugwerk.server.service.OidcIdentityService.upsertOnLogin] (OIDC).
+     * Explicitly NOT bumped on `/auth/refresh`, bearer-token reuse, or
+     * `X-Api-Key` traffic — those would inflate the value into uselessness.
+     * `null` for accounts that have never logged in (e.g. provisioned via
+     * `POST /admin/users` and never used yet).
+     */
+    @Column(name = "last_login_at")
+    var lastLoginAt: OffsetDateTime? = null,
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     var createdAt: OffsetDateTime = OffsetDateTime.now(),

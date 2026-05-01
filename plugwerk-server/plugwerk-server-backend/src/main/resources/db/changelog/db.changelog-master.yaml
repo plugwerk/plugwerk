@@ -37,3 +37,5 @@ databaseChangeLog:
       file: db/changelog/migrations/0018_oidc_provider_type_consolidation.yaml
   - include:
       file: db/changelog/migrations/0019_user_setting_user_id_fk.yaml
+  - include:
+      file: db/changelog/migrations/0020_user_last_login_at.yaml

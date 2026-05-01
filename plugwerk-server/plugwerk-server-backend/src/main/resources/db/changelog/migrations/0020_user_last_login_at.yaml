@@ -1,0 +1,34 @@
+# Add nullable plugwerk_user.last_login_at for the audit-trail sliver of #135
+# (issue #367). Bumped on every fresh credential-validated login (LOCAL via
+# AuthController.login, OIDC via OidcIdentityService.upsertOnLogin), surfaced
+# via UserDto.lastLoginAt for the admin user list.
+#
+# Why nullable, no default, no backfill:
+#   Accuracy over convenience. A user created via POST /admin/users who has
+#   never logged in legitimately has no value. Backfilling to created_at or
+#   now() would make the column lie about historic state and inflate "last
+#   active" reports for accounts that never authenticated.
+#
+# Why not reuse oidc_identity.last_login_at:
+#   That column tracks the binding ("when did this OIDC identity last activate"
+#   — useful for stale-binding cleanup later). plugwerk_user.last_login_at
+#   tracks the user-level "last activity" signal independent of auth source.
+#   The two are usually equal in the OIDC happy path; conceptually distinct.
+
+databaseChangeLog:
+  - changeSet:
+      id: 0020-add-user-last-login-at
+      author: plugwerk
+      changes:
+        - addColumn:
+            tableName: plugwerk_user
+            columns:
+              - column:
+                  name: last_login_at
+                  type: timestamptz
+                  constraints:
+                    nullable: true
+      rollback:
+        - dropColumn:
+            tableName: plugwerk_user
+            columnName: last_login_at

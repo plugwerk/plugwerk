@@ -72,7 +72,12 @@ class AuthController(
         // the JWT subject + refresh-token row).
         val user = userRepository.findByUsernameAndSource(loginRequest.username, UserSource.LOCAL).orElse(null)
             ?: return ResponseEntity.status(401).build()
-        return issueLoginResponse(user)
+        // Record the fresh, credential-validated login (issue #367). The bump is
+        // intentionally here and not in /auth/refresh, the bearer-token filter, or
+        // the X-Api-Key filter — those would turn the value into "any-activity"
+        // which is a different signal entirely.
+        val refreshed = userService.bumpLastLogin(user.id!!)
+        return issueLoginResponse(refreshed)
     }
 
     /**
