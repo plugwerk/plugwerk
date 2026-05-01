@@ -287,7 +287,20 @@ export function OidcProviderFormDialog({
       actionLoading={submitting}
       maxWidth={620}
     >
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 3,
+          // Mute the MUI default required-asterisk colour. Default is
+          // `theme.palette.error.main`, which reads as "validation error" on a
+          // form that has not been touched yet — exactly the false alarm the
+          // touched/submitAttempted gate above is meant to avoid. A required
+          // asterisk in `text.secondary` still signals "required" without
+          // shouting "broken".
+          "& .MuiFormLabel-asterisk": { color: "text.secondary" },
+        }}
+      >
         {/* ── Section: Identity ── */}
         <FormSection title="Identity">
           <TextField
