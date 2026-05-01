@@ -57,7 +57,7 @@ class NamespaceMemberRepositoryTest : AbstractRepositoryTest() {
         username = name,
         displayName = name,
         email = "$name@example.test",
-        source = UserSource.LOCAL,
+        source = UserSource.INTERNAL,
         passwordHash = "\$2a\$12\$hash",
     )
 

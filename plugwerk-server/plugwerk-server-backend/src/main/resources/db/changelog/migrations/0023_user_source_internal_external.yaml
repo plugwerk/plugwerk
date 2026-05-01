@@ -1,0 +1,118 @@
+# Renames the `plugwerk_user.source` discriminator values:
+#
+#   LOCAL → INTERNAL    (credentials live on this server)
+#   OIDC  → EXTERNAL    (credentials live with an upstream provider — OIDC,
+#                        OAuth2, future SAML / LDAP, …)
+#
+# The previous names mixed two axes: LOCAL is positional ("lives here") while
+# OIDC is one specific external-identity protocol. After issue #357 added
+# pure-OAuth2 (GitHub, GitLab, …) and the upcoming SAML/LDAP work, "OIDC"
+# stopped being an accurate label for the external bucket. The new pair is
+# protocol-agnostic and consistent with the underlying invariant.
+#
+# Order of operations matters — the source column is referenced by:
+#   - chk_plugwerk_user_source              (CHECK in ('LOCAL', 'OIDC'))
+#   - chk_plugwerk_user_credentials         (per-source NULL invariants)
+#   - uq_plugwerk_user_email_local          (partial unique WHERE source='LOCAL')
+#   - uq_plugwerk_user_username_local       (partial unique WHERE source='LOCAL')
+#
+# We drop both checks and both partial indexes first, then UPDATE the data,
+# then rebuild everything against the new value set. Because the partial
+# indexes are filtered by the old value, leaving them in place during the
+# UPDATE would silently leave them populated against rows that no longer
+# match — the recreate step is mandatory, not cosmetic.
+
+databaseChangeLog:
+  - changeSet:
+      id: 0023-drop-source-checks-and-indexes
+      author: plugwerk
+      comment: >
+        Tear down the constraints/indexes pinned to the old enum values so
+        the data UPDATE in the next changeset can run without violations.
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE plugwerk_user DROP CONSTRAINT chk_plugwerk_user_credentials;
+              ALTER TABLE plugwerk_user DROP CONSTRAINT chk_plugwerk_user_source;
+              DROP INDEX uq_plugwerk_user_email_local;
+              DROP INDEX uq_plugwerk_user_username_local;
+      rollback:
+        - sql:
+            sql: |
+              CREATE UNIQUE INDEX uq_plugwerk_user_username_local
+                ON plugwerk_user (username) WHERE source = 'LOCAL';
+              CREATE UNIQUE INDEX uq_plugwerk_user_email_local
+                ON plugwerk_user (LOWER(email)) WHERE source = 'LOCAL';
+              ALTER TABLE plugwerk_user
+                ADD CONSTRAINT chk_plugwerk_user_source
+                CHECK (source IN ('LOCAL', 'OIDC'));
+              ALTER TABLE plugwerk_user
+                ADD CONSTRAINT chk_plugwerk_user_credentials
+                CHECK (
+                  (source = 'LOCAL' AND username IS NOT NULL AND password_hash IS NOT NULL)
+                  OR
+                  (source = 'OIDC' AND username IS NULL AND password_hash IS NULL)
+                );
+
+  - changeSet:
+      id: 0023-rename-source-values
+      author: plugwerk
+      comment: >
+        In-place data migration. Two value updates, no row movement, no
+        downtime concern — `source` is non-nullable and small.
+      changes:
+        - sql:
+            sql: |
+              UPDATE plugwerk_user SET source = 'INTERNAL' WHERE source = 'LOCAL';
+              UPDATE plugwerk_user SET source = 'EXTERNAL' WHERE source = 'OIDC';
+      rollback:
+        - sql:
+            sql: |
+              UPDATE plugwerk_user SET source = 'OIDC' WHERE source = 'EXTERNAL';
+              UPDATE plugwerk_user SET source = 'LOCAL' WHERE source = 'INTERNAL';
+
+  - changeSet:
+      id: 0023-recreate-source-checks
+      author: plugwerk
+      comment: >
+        Re-add the domain CHECK and the per-source credential CHECK against
+        the new value set.
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE plugwerk_user
+                ADD CONSTRAINT chk_plugwerk_user_source
+                CHECK (source IN ('INTERNAL', 'EXTERNAL'));
+              ALTER TABLE plugwerk_user
+                ADD CONSTRAINT chk_plugwerk_user_credentials
+                CHECK (
+                  (source = 'INTERNAL' AND username IS NOT NULL AND password_hash IS NOT NULL)
+                  OR
+                  (source = 'EXTERNAL' AND username IS NULL AND password_hash IS NULL)
+                );
+      rollback:
+        - sql:
+            sql: |
+              ALTER TABLE plugwerk_user DROP CONSTRAINT chk_plugwerk_user_credentials;
+              ALTER TABLE plugwerk_user DROP CONSTRAINT chk_plugwerk_user_source;
+
+  - changeSet:
+      id: 0023-recreate-source-partial-indexes
+      author: plugwerk
+      comment: >
+        Re-create the partial unique indexes on email + username, now scoped
+        to source = 'INTERNAL'. The new index names follow the new value so
+        a `psql \d` is self-explanatory; the old names referenced 'local' in
+        the index name itself which is now a confusing crumb.
+      changes:
+        - sql:
+            sql: |
+              CREATE UNIQUE INDEX uq_plugwerk_user_email_internal
+                ON plugwerk_user (LOWER(email)) WHERE source = 'INTERNAL';
+              CREATE UNIQUE INDEX uq_plugwerk_user_username_internal
+                ON plugwerk_user (username) WHERE source = 'INTERNAL';
+      rollback:
+        - sql:
+            sql: |
+              DROP INDEX uq_plugwerk_user_username_internal;
+              DROP INDEX uq_plugwerk_user_email_internal;

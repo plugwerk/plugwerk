@@ -98,7 +98,7 @@ function InfoRow({ label, value, copyable = false }: InfoRowProps) {
 export function ProfileSettingsPage() {
   const { displayName, username, email, source, namespace, setNamespace } =
     useAuthStore();
-  const isLocal = source === "LOCAL";
+  const isInternal = source === "INTERNAL";
   const { data: namespaces = [] } = useNamespaces();
   const { addToast } = useUiStore();
   const {
@@ -163,7 +163,11 @@ export function ProfileSettingsPage() {
             <InfoRow label="Email" value={email ?? "—"} copyable />
             <InfoRow
               label="Source"
-              value={source === "OIDC" ? "OIDC provider" : "Local account"}
+              value={
+                source === "EXTERNAL"
+                  ? "External identity provider"
+                  : "Internal account"
+              }
             />
           </Section>
 
@@ -172,17 +176,17 @@ export function ProfileSettingsPage() {
             icon={<Lock size={18} />}
             title="Security"
             description={
-              isLocal
+              isInternal
                 ? "Manage your password"
                 : "Your password is managed by your identity provider"
             }
           >
             <Button
-              component={isLocal ? Link : "button"}
-              to={isLocal ? "/change-password" : undefined}
+              component={isInternal ? Link : "button"}
+              to={isInternal ? "/change-password" : undefined}
               variant="outlined"
               size="small"
-              disabled={!isLocal}
+              disabled={!isInternal}
               sx={{ borderRadius: tokens.radius.btn }}
             >
               Change Password

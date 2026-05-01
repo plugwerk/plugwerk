@@ -48,7 +48,7 @@ type AuthStoreAccessor = {
     displayName: string;
     username?: string | null;
     email: string;
-    source: "LOCAL" | "OIDC";
+    source: "INTERNAL" | "EXTERNAL";
     passwordChangeRequired: boolean;
     isSuperadmin: boolean;
   }) => void;

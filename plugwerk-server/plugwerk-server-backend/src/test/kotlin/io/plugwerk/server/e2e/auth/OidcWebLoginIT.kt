@@ -136,7 +136,7 @@ class OidcWebLoginIT {
         refreshTokenRepository.deleteAll()
         oidcIdentityRepository.deleteAll()
         userRepository.findAllByEnabled(true)
-            .filter { it.source == UserSource.OIDC }
+            .filter { it.source == UserSource.EXTERNAL }
             .forEach { userRepository.delete(it) }
         oidcProviderRepository.deleteAll()
 
@@ -178,7 +178,7 @@ class OidcWebLoginIT {
         assertThat(setCookieHeaders.first { it.startsWith("plugwerk_refresh=") }).contains("HttpOnly")
 
         val user = userBySubject(sub)
-        assertThat(user.source).isEqualTo(UserSource.OIDC)
+        assertThat(user.source).isEqualTo(UserSource.EXTERNAL)
         assertThat(user.username).isNull()
         assertThat(user.passwordHash).isNull()
         assertThat(user.email).isEqualTo(email)

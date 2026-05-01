@@ -194,8 +194,8 @@ tags:
 
       Each user can store preferences such as preferred language, theme, and default namespace.
       Settings are created lazily on first write and keyed by `plugwerk_user.id` (a UUID FK).
-      Both LOCAL and OIDC users are supported uniformly because the identity hub assigns the
-      same id type to both.
+      Both INTERNAL and EXTERNAL users are supported uniformly because the identity hub assigns
+      the same id type to both.
   - name: ServerConfig
     description: |
       Public, unauthenticated endpoint exposing non-sensitive server configuration.
@@ -1914,14 +1914,16 @@ components:
           type: string
           description: |
             User's email address. Mandatory after #351; populated for both
-            LOCAL and OIDC-sourced accounts.
+            INTERNAL and EXTERNAL accounts.
         source:
           type: string
-          enum: [LOCAL, OIDC]
+          enum: [INTERNAL, EXTERNAL]
           description: |
             Discriminator for the account's authentication mechanism (#351).
-            Used by the frontend to decide whether to surface password-change
-            UI (LOCAL only).
+            `INTERNAL` accounts have credentials on the Plugwerk server
+            (username + password). `EXTERNAL` accounts are sourced from an
+            upstream identity provider (OIDC, OAuth2, …). Used by the frontend
+            to decide whether to surface password-change UI (INTERNAL only).
         passwordChangeRequired:
           type: boolean
           description: |
@@ -2599,8 +2601,9 @@ components:
       type: object
       description: |
         Plugwerk user account. After the identity-hub split (#351), Plugwerk has
-        two flavours of accounts discriminated by `source` — local password-based
-        accounts and accounts sourced from an OIDC provider.
+        two flavours of accounts discriminated by `source` — INTERNAL password-
+        based accounts and EXTERNAL accounts sourced from an upstream identity
+        provider (OIDC, OAuth2, …).
       properties:
         id:
           type: string
@@ -2613,24 +2616,24 @@ components:
             ID-token claim at first login.
         source:
           type: string
-          enum: [LOCAL, OIDC]
+          enum: [INTERNAL, EXTERNAL]
           description: |
             Discriminator for the account's authentication mechanism (#351).
-            `LOCAL` accounts have `username` and a Plugwerk-side password.
-            `OIDC` accounts authenticate against an upstream provider — `username`
-            is `null`, `passwordChangeRequired` is always `false`.
+            `INTERNAL` accounts have `username` and a Plugwerk-side password.
+            `EXTERNAL` accounts authenticate against an upstream provider —
+            `username` is `null`, `passwordChangeRequired` is always `false`.
         username:
           type: string
           nullable: true
           description: |
-            Local-login username. Always present and unique for `source = LOCAL`,
-            always `null` for `source = OIDC`.
+            Local-login username. Always present and unique for `source = INTERNAL`,
+            always `null` for `source = EXTERNAL`.
         email:
           type: string
           description: |
             Email address. Mandatory after #351. Case-insensitively unique
-            within `source = LOCAL` accounts only — OIDC accounts may share
-            emails (Plugwerk does not perform identity linking).
+            within `source = INTERNAL` accounts only — EXTERNAL accounts may
+            share emails (Plugwerk does not perform identity linking).
         enabled:
           type: boolean
         passwordChangeRequired:
@@ -2647,11 +2650,11 @@ components:
           nullable: true
           description: |
             Timestamp of the most recent fresh, credential-validated login —
-            either a successful `POST /auth/login` (LOCAL) or a successful OIDC
-            callback. NOT bumped on `/auth/refresh`, on resource-server bearer
-            traffic, or on `X-Api-Key` requests. `null` for accounts that have
-            never logged in (e.g. provisioned via `POST /admin/users` and never
-            used yet).
+            either a successful `POST /auth/login` (INTERNAL) or a successful
+            external (OIDC / OAuth2) callback. NOT bumped on `/auth/refresh`,
+            on resource-server bearer traffic, or on `X-Api-Key` requests.
+            `null` for accounts that have never logged in (e.g. provisioned
+            via `POST /admin/users` and never used yet).
         namespaceMembershipCount:
           type: integer
           format: int32
@@ -2669,9 +2672,9 @@ components:
     UserCreateRequest:
       type: object
       description: |
-        Admin-driven creation of a local Plugwerk user (`source = LOCAL`). OIDC
-        users are never created via this endpoint — they materialise on first
-        OIDC callback via `OidcIdentityService.upsertOnLogin`.
+        Admin-driven creation of an internal Plugwerk user (`source = INTERNAL`).
+        EXTERNAL users are never created via this endpoint — they materialise on
+        first OIDC / OAuth2 callback via `OidcIdentityService.upsertOnLogin`.
       properties:
         username:
           type: string
@@ -2681,7 +2684,7 @@ components:
           type: string
           format: email
           description: |
-            Mandatory after #351. Case-insensitively unique among LOCAL users.
+            Mandatory after #351. Case-insensitively unique among INTERNAL users.
         displayName:
           type: string
           maxLength: 255

@@ -113,7 +113,7 @@ class UserSettingUserIdFkMigrationIT {
             INSERT INTO plugwerk_user
               (id, username, email, password_hash, source, display_name,
                enabled, password_change_required, is_superadmin, created_at, updated_at)
-            VALUES (?, 'alice', 'alice@example.test', 'hash', 'LOCAL', 'Alice',
+            VALUES (?, 'alice', 'alice@example.test', 'hash', 'INTERNAL', 'Alice',
               true, false, false, now(), now())
             """.trimIndent(),
         ).use { stmt ->
@@ -125,7 +125,7 @@ class UserSettingUserIdFkMigrationIT {
             INSERT INTO plugwerk_user
               (id, username, email, password_hash, source, display_name,
                enabled, password_change_required, is_superadmin, created_at, updated_at)
-            VALUES (?, 'bob', 'bob@example.test', 'hash', 'LOCAL', 'Bob',
+            VALUES (?, 'bob', 'bob@example.test', 'hash', 'INTERNAL', 'Bob',
               true, false, false, now(), now())
             """.trimIndent(),
         ).use { stmt ->

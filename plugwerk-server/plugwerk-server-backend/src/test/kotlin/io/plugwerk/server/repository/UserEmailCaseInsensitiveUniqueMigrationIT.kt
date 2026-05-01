@@ -99,21 +99,24 @@ class UserEmailCaseInsensitiveUniqueMigrationIT {
     }
 
     @Test
-    fun `0017 replaced uq_user_email_lower with uq_plugwerk_user_email_local (LOCAL-scoped)`() {
+    fun `0017 replaced uq_user_email_lower with uq_plugwerk_user_email_internal (INTERNAL-scoped)`() {
         // The 0013 partial functional index (lower(email) WHERE email IS NOT NULL)
-        // was replaced by migration 0017 with a LOCAL-scoped variant
-        // (lower(email) WHERE source = 'LOCAL') because OIDC accounts are
-        // intentionally allowed to share emails (#351 — no identity linking).
+        // was replaced by migration 0017 with a source-scoped variant. Migration
+        // 0023 later renamed the index from `*_email_local` to `*_email_internal`
+        // and changed the WHERE clause from `source = 'LOCAL'` to `source =
+        // 'INTERNAL'`. EXTERNAL accounts are intentionally allowed to share
+        // emails (#351 — no identity linking).
         assertThat(indexDefinition("plugwerk_user", "uq_user_email_lower")).isNull()
+        assertThat(indexDefinition("plugwerk_user", "uq_plugwerk_user_email_local")).isNull()
 
-        val indexDef = indexDefinition("plugwerk_user", "uq_plugwerk_user_email_local")
+        val indexDef = indexDefinition("plugwerk_user", "uq_plugwerk_user_email_internal")
         assertThat(indexDef).isNotNull()
         assertThat(indexDef!!).contains("UNIQUE")
         assertThat(indexDef.lowercase()).contains("lower(")
         assertThat(indexDef.lowercase()).contains("email")
         assertThat(indexDef).contains("WHERE")
         assertThat(indexDef.lowercase()).contains("source")
-        assertThat(indexDef).contains("LOCAL")
+        assertThat(indexDef).contains("INTERNAL")
     }
 
     @Test
@@ -189,7 +192,7 @@ class UserEmailCaseInsensitiveUniqueMigrationIT {
             INSERT INTO plugwerk_user
               (id, username, display_name, email, source, password_hash,
                enabled, password_change_required, is_superadmin)
-            VALUES (?, ?, ?, ?, 'LOCAL', ?, true, false, false)
+            VALUES (?, ?, ?, ?, 'INTERNAL', ?, true, false, false)
             """.trimIndent(),
         ).use { stmt ->
             stmt.setObject(1, UUID.randomUUID())
@@ -207,7 +210,7 @@ class UserEmailCaseInsensitiveUniqueMigrationIT {
             INSERT INTO plugwerk_user
               (id, username, display_name, email, source, password_hash,
                enabled, password_change_required, is_superadmin)
-            VALUES (?, NULL, ?, ?, 'OIDC', NULL, true, false, false)
+            VALUES (?, NULL, ?, ?, 'EXTERNAL', NULL, true, false, false)
             """.trimIndent(),
         ).use { stmt ->
             stmt.setObject(1, UUID.randomUUID())

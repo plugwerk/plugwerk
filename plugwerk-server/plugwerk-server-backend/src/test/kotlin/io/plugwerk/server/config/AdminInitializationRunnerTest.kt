@@ -77,7 +77,7 @@ class AdminInitializationRunnerTest {
     @Test
     fun `null admin password generates random credential and requires change on first login`() {
         whenever(
-            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.LOCAL),
+            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.INTERNAL),
         ).thenReturn(false)
         whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] }
 
@@ -91,7 +91,7 @@ class AdminInitializationRunnerTest {
     @Test
     fun `blank admin password is treated as unset - random credential, change required`() {
         whenever(
-            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.LOCAL),
+            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.INTERNAL),
         ).thenReturn(false)
         whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] }
 
@@ -105,7 +105,7 @@ class AdminInitializationRunnerTest {
     @Test
     fun `whitespace-only admin password is treated as unset - random credential, change required`() {
         whenever(
-            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.LOCAL),
+            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.INTERNAL),
         ).thenReturn(false)
         whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] }
 
@@ -119,7 +119,7 @@ class AdminInitializationRunnerTest {
     @Test
     fun `non-blank admin password is used verbatim without forcing change`() {
         whenever(
-            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.LOCAL),
+            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.INTERNAL),
         ).thenReturn(false)
         whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] }
 
@@ -133,12 +133,12 @@ class AdminInitializationRunnerTest {
     @Test
     fun `existing admin user short-circuits the runner`() {
         whenever(
-            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.LOCAL),
+            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.INTERNAL),
         ).thenReturn(true)
 
         runnerWith("anything").run(DefaultApplicationArguments())
 
-        verify(userRepository).existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.LOCAL)
+        verify(userRepository).existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.INTERNAL)
         verifyNoMoreInteractions(userRepository)
     }
 
@@ -147,7 +147,7 @@ class AdminInitializationRunnerTest {
     @Test
     fun `auto-generated password is written to stderr and to a 0600 file (#150 #286)`(@TempDir tempDir: Path) {
         whenever(
-            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.LOCAL),
+            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.INTERNAL),
         ).thenReturn(false)
         whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] }
 
@@ -197,7 +197,7 @@ class AdminInitializationRunnerTest {
     @Test
     fun `fixed password (CI mode) writes nothing to stderr and creates no password file`(@TempDir tempDir: Path) {
         whenever(
-            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.LOCAL),
+            userRepository.existsByUsernameAndSource("admin", io.plugwerk.server.domain.UserSource.INTERNAL),
         ).thenReturn(false)
         whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] }
 

@@ -228,7 +228,7 @@ abstract class AbstractAuthorizationTest {
                 username = username,
                 displayName = username,
                 email = "$username@e2e.test",
-                source = io.plugwerk.server.domain.UserSource.LOCAL,
+                source = io.plugwerk.server.domain.UserSource.INTERNAL,
                 passwordHash = requireNotNull(passwordEncoder.encode(TEST_PASSWORD)),
                 passwordChangeRequired = false,
             ),
@@ -333,7 +333,7 @@ abstract class AbstractAuthorizationTest {
         // The built-in admin user (created by Liquibase + plugwerk.auth.admin-password)
         val admin = userRepository.findByUsernameAndSource(
             "admin",
-            io.plugwerk.server.domain.UserSource.LOCAL,
+            io.plugwerk.server.domain.UserSource.INTERNAL,
         ).orElseThrow {
             IllegalStateException("Bootstrap admin user not found — check application-integration.yml")
         }
@@ -362,7 +362,7 @@ abstract class AbstractAuthorizationTest {
         for ((username, isSuperadmin) in userSpecs) {
             if (userRepository.findByUsernameAndSource(
                     username,
-                    io.plugwerk.server.domain.UserSource.LOCAL,
+                    io.plugwerk.server.domain.UserSource.INTERNAL,
                 ).isPresent
             ) {
                 continue
@@ -372,7 +372,7 @@ abstract class AbstractAuthorizationTest {
                     username = username,
                     displayName = username,
                     email = "$username@e2e.test",
-                    source = io.plugwerk.server.domain.UserSource.LOCAL,
+                    source = io.plugwerk.server.domain.UserSource.INTERNAL,
                     passwordHash = requireNotNull(passwordEncoder.encode(TEST_PASSWORD)),
                     passwordChangeRequired = false,
                     isSuperadmin = isSuperadmin,
@@ -421,7 +421,7 @@ abstract class AbstractAuthorizationTest {
         )
 
         for ((subject, namespace, role) in memberships) {
-            val user = userRepository.findByUsernameAndSource(subject, io.plugwerk.server.domain.UserSource.LOCAL)
+            val user = userRepository.findByUsernameAndSource(subject, io.plugwerk.server.domain.UserSource.INTERNAL)
                 .orElseThrow { IllegalStateException("seed user '$subject' missing — check createTestUsers ordering") }
             val exists = namespaceMemberRepository.findByNamespaceIdAndUserId(namespace.id!!, user.id!!).isPresent
             if (!exists) {

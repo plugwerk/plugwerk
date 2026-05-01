@@ -95,7 +95,7 @@ class OidcLoginSuccessHandlerTest {
         username = null,
         displayName = "Alice",
         email = "alice@example.test",
-        source = UserSource.OIDC,
+        source = UserSource.EXTERNAL,
         passwordHash = null,
     )
 

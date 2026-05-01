@@ -99,7 +99,7 @@ class AdminInitializationRunner(
     }
 
     override fun run(args: ApplicationArguments) {
-        if (userRepository.existsByUsernameAndSource(ADMIN_USERNAME, UserSource.LOCAL)) return
+        if (userRepository.existsByUsernameAndSource(ADMIN_USERNAME, UserSource.INTERNAL)) return
 
         // takeUnless treats blank / whitespace-only values the same as unset.
         // SEC-044: the bundled docker-compose.yml previously pre-declared the env var as
@@ -114,7 +114,7 @@ class AdminInitializationRunner(
                 username = ADMIN_USERNAME,
                 displayName = "Administrator",
                 email = ADMIN_DEFAULT_EMAIL,
-                source = UserSource.LOCAL,
+                source = UserSource.INTERNAL,
                 passwordHash = passwordEncoder.encode(initialPassword)!!,
                 passwordChangeRequired = passwordChangeRequired,
                 isSuperadmin = true,

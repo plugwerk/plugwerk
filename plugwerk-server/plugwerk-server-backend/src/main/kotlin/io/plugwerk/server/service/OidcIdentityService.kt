@@ -101,7 +101,7 @@ class OidcIdentityService(
             UserEntity(
                 displayName = displayName,
                 email = email,
-                source = UserSource.OIDC,
+                source = UserSource.EXTERNAL,
                 username = null,
                 passwordHash = null,
                 enabled = true,

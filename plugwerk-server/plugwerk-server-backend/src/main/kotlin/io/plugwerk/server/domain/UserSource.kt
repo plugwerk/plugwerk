@@ -19,23 +19,30 @@
 package io.plugwerk.server.domain
 
 /**
- * How a [UserEntity] is authenticated. Discriminates between local
- * password-based accounts and accounts sourced from an external OIDC
- * provider (issue #351).
+ * How a [UserEntity] is authenticated. Discriminates between accounts whose
+ * credentials live on the Plugwerk server (`INTERNAL`) and accounts whose
+ * credentials live with an upstream identity provider (`EXTERNAL`).
  *
  * The DB enforces this with `chk_plugwerk_user_source` and a per-source
  * credential CHECK constraint:
  *
- * - [LOCAL] rows MUST have `username` and `password_hash` populated.
- *   Email uniqueness is scoped to LOCAL rows only.
+ * - [INTERNAL] rows MUST have `username` and `password_hash` populated.
+ *   Email uniqueness is scoped to INTERNAL rows only.
  *
- * - [OIDC] rows MUST have NULL `username` and NULL `password_hash`. The
+ * - [EXTERNAL] rows MUST have NULL `username` and NULL `password_hash`. The
  *   authenticating identity lives in `oidc_identity` (1:1 link via
- *   `user_id`). Two OIDC rows may legitimately share an email — Plugwerk
- *   does not perform identity linking; each OIDC subject is a distinct
+ *   `user_id`). Two EXTERNAL rows may legitimately share an email — Plugwerk
+ *   does not perform identity linking; each external subject is a distinct
  *   account by policy.
+ *
+ * The previous `LOCAL` / `OIDC` names mixed an implementation detail (OIDC
+ * is one specific external-identity protocol) with a positional one
+ * (LOCAL = "lives here"). The current names are protocol-agnostic on the
+ * external side (covers OIDC, OAuth2, future SAML / LDAP) and consistent
+ * with the system's invariant: external = credentials elsewhere, internal
+ * = credentials on us.
  */
 enum class UserSource {
-    LOCAL,
-    OIDC,
+    INTERNAL,
+    EXTERNAL,
 }

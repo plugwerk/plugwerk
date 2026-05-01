@@ -47,7 +47,7 @@ class DatabaseUserCredentialValidatorTest {
         username = "alice",
         displayName = "Alice",
         email = "alice@example.test",
-        source = UserSource.LOCAL,
+        source = UserSource.INTERNAL,
         passwordHash = hash,
         enabled = enabled,
     )
@@ -55,7 +55,7 @@ class DatabaseUserCredentialValidatorTest {
     @Test
     fun `returns true for valid credentials of an enabled LOCAL user`() {
         val user = localUserWith(enabled = true, hash = "\$2a\$12\$correcthash")
-        whenever(userRepository.findByUsernameAndSource("alice", UserSource.LOCAL)).thenReturn(Optional.of(user))
+        whenever(userRepository.findByUsernameAndSource("alice", UserSource.INTERNAL)).thenReturn(Optional.of(user))
         whenever(passwordEncoder.matches("secret", user.passwordHash)).thenReturn(true)
 
         assertThat(validator.validate("alice", "secret")).isTrue()
@@ -63,7 +63,7 @@ class DatabaseUserCredentialValidatorTest {
 
     @Test
     fun `returns false when no LOCAL row matches the username`() {
-        whenever(userRepository.findByUsernameAndSource("nobody", UserSource.LOCAL)).thenReturn(Optional.empty())
+        whenever(userRepository.findByUsernameAndSource("nobody", UserSource.INTERNAL)).thenReturn(Optional.empty())
 
         assertThat(validator.validate("nobody", "any")).isFalse()
     }
@@ -71,7 +71,7 @@ class DatabaseUserCredentialValidatorTest {
     @Test
     fun `returns false when LOCAL account is disabled`() {
         val user = localUserWith(enabled = false)
-        whenever(userRepository.findByUsernameAndSource("alice", UserSource.LOCAL)).thenReturn(Optional.of(user))
+        whenever(userRepository.findByUsernameAndSource("alice", UserSource.INTERNAL)).thenReturn(Optional.of(user))
 
         assertThat(validator.validate("alice", "secret")).isFalse()
     }
@@ -79,7 +79,7 @@ class DatabaseUserCredentialValidatorTest {
     @Test
     fun `returns false when password does not match`() {
         val user = localUserWith(enabled = true)
-        whenever(userRepository.findByUsernameAndSource("alice", UserSource.LOCAL)).thenReturn(Optional.of(user))
+        whenever(userRepository.findByUsernameAndSource("alice", UserSource.INTERNAL)).thenReturn(Optional.of(user))
         whenever(passwordEncoder.matches("wrong", user.passwordHash)).thenReturn(false)
 
         assertThat(validator.validate("alice", "wrong")).isFalse()

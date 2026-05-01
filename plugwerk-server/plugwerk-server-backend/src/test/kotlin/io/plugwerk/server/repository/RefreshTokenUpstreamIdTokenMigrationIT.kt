@@ -140,7 +140,7 @@ class RefreshTokenUpstreamIdTokenMigrationIT {
             INSERT INTO plugwerk_user
               (id, username, display_name, email, source, password_hash,
                enabled, password_change_required, is_superadmin)
-            VALUES (?, ?, ?, ?, 'LOCAL', ?, true, false, false)
+            VALUES (?, ?, ?, ?, 'INTERNAL', ?, true, false, false)
             """.trimIndent(),
         ).use { stmt ->
             stmt.setObject(1, userId)

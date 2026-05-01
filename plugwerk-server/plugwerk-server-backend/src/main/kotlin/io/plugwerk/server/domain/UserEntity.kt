@@ -38,15 +38,16 @@ import java.util.UUID
  * [id]. Two flavours of authentication are supported, discriminated by
  * [source]:
  *
- * - [UserSource.LOCAL] — username + BCrypt password hash live on this row.
- *   Created via the admin UI ([io.plugwerk.server.service.UserService.create]).
- * - [UserSource.OIDC] — credentials live with the upstream provider; the
- *   binding to a specific provider/subject pair is held in [OidcIdentityEntity]
- *   (1:1 via `oidc_identity.user_id`, enforced by `UNIQUE(user_id)` so
- *   identity linking is intentionally impossible).
+ * - [UserSource.INTERNAL] — username + BCrypt password hash live on this
+ *   row. Created via the admin UI ([io.plugwerk.server.service.UserService.create]).
+ * - [UserSource.EXTERNAL] — credentials live with an upstream identity
+ *   provider (OIDC, OAuth2, …); the binding to a specific provider/subject
+ *   pair is held in [OidcIdentityEntity] (1:1 via `oidc_identity.user_id`,
+ *   enforced by `UNIQUE(user_id)` so identity linking is intentionally
+ *   impossible).
  *
  * The DB CHECK constraint `chk_plugwerk_user_credentials` enforces that
- * LOCAL rows have `username` + `password_hash`, OIDC rows have neither.
+ * INTERNAL rows have `username` + `password_hash`, EXTERNAL rows have neither.
  *
  * **Data model:** Maps to the `plugwerk_user` table. (`user` is a reserved
  * word in PostgreSQL.)
@@ -54,21 +55,21 @@ import java.util.UUID
  * @property id Primary key, UUIDv7. Used as JWT `sub`, as the FK target on
  *   `refresh_token.user_id`, `namespace_member.user_id`, and `oidc_identity.user_id`.
  * @property displayName Human-readable label shown in profile and member-list
- *   UI. For OIDC users, populated from the `name` / `preferred_username`
+ *   UI. For EXTERNAL users, populated from the `name` / `preferred_username`
  *   ID-token claim at first login. NOT NULL since #351.
  * @property email Email address. NOT NULL since #351 — operators are required
  *   to configure their IdPs to return `email` in the OIDC scope, and a
  *   migration-time placeholder fills any pre-existing NULL rows. Case-insensitive
- *   uniqueness applies to LOCAL rows only via `uq_plugwerk_user_email_local`.
+ *   uniqueness applies to INTERNAL rows only via `uq_plugwerk_user_email_internal`.
  * @property source Discriminator — see [UserSource].
- * @property username Login name for LOCAL users; NULL for OIDC. UNIQUE within
- *   LOCAL rows via partial index `uq_plugwerk_user_username_local`.
- * @property passwordHash BCrypt hash for LOCAL users; NULL for OIDC.
- * @property enabled Whether the account is active. OIDC users are auto-disabled
- *   by `OidcProviderService.delete` when their provider goes away — see
- *   issue #351 Provider-Delete-Politik C.
+ * @property username Login name for INTERNAL users; NULL for EXTERNAL. UNIQUE
+ *   within INTERNAL rows via partial index `uq_plugwerk_user_username_internal`.
+ * @property passwordHash BCrypt hash for INTERNAL users; NULL for EXTERNAL.
+ * @property enabled Whether the account is active. EXTERNAL users are auto-
+ *   disabled by `OidcProviderService.delete` when their provider goes away —
+ *   see issue #351 Provider-Delete-Politik C.
  * @property passwordChangeRequired When `true`, the user must change their
- *   password on next login. Always `false` for OIDC users (they have no
+ *   password on next login. Always `false` for EXTERNAL users (they have no
  *   password to change).
  * @property createdAt Creation timestamp.
  * @property updatedAt Last modification timestamp.
@@ -85,7 +86,7 @@ class UserEntity(
     var displayName: String,
 
     // Uniqueness is enforced at the DB level by the partial functional index
-    // `uq_plugwerk_user_email_local` on `LOWER(email) WHERE source='LOCAL'`.
+    // `uq_plugwerk_user_email_internal` on `LOWER(email) WHERE source='INTERNAL'`.
     // Setting `unique = true` here would cause Hibernate to generate a
     // redundant case-sensitive constraint that contradicts production semantics.
     @Column(name = "email", nullable = false, length = 255)
@@ -95,8 +96,8 @@ class UserEntity(
     @Column(name = "source", nullable = false, length = 10)
     var source: UserSource,
 
-    // Same uniqueness story as email — partial index `uq_plugwerk_user_username_local`
-    // enforces it for LOCAL rows only.
+    // Same uniqueness story as email — partial index `uq_plugwerk_user_username_internal`
+    // enforces it for INTERNAL rows only.
     @Column(name = "username", length = 255)
     var username: String? = null,
 
@@ -118,8 +119,8 @@ class UserEntity(
     /**
      * Most recent fresh, credential-validated login (issue #367). Bumped by
      * [io.plugwerk.server.service.UserService.bumpLastLogin] from
-     * [io.plugwerk.server.controller.AuthController.login] (LOCAL) and from
-     * [io.plugwerk.server.service.OidcIdentityService.upsertOnLogin] (OIDC).
+     * [io.plugwerk.server.controller.AuthController.login] (INTERNAL) and from
+     * [io.plugwerk.server.service.OidcIdentityService.upsertOnLogin] (EXTERNAL).
      * Explicitly NOT bumped on `/auth/refresh`, bearer-token reuse, or
      * `X-Api-Key` traffic — those would inflate the value into uselessness.
      * `null` for accounts that have never logged in (e.g. provisioned via
@@ -136,6 +137,6 @@ class UserEntity(
     @Column(name = "updated_at", nullable = false)
     var updatedAt: OffsetDateTime = OffsetDateTime.now(),
 ) {
-    fun isLocal(): Boolean = source == UserSource.LOCAL
-    fun isOidc(): Boolean = source == UserSource.OIDC
+    fun isInternal(): Boolean = source == UserSource.INTERNAL
+    fun isExternal(): Boolean = source == UserSource.EXTERNAL
 }

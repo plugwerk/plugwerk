@@ -135,7 +135,7 @@ class IdentityHubSplitMigrationIT {
     private fun seedPreMigrationData(conn: Connection) {
         // OIDC provider row (referenced by the synthetic username). 'KEYCLOAK'
         // is the historical enum value that existed before migration 0018 folded
-        // it into 'OIDC'; the seed runs after 0018 has already executed (against
+        // it into 'EXTERNAL'; the seed runs after 0018 has already executed (against
         // an empty table), so the value survives untouched and exercises 0017's
         // logic exactly as it would have run pre-consolidation.
         conn.prepareStatement(
@@ -246,7 +246,7 @@ class IdentityHubSplitMigrationIT {
                     check(rs.next())
                     assertThat(rs.getString("username")).isEqualTo("alice")
                     assertThat(rs.getString("password_hash")).isNotBlank()
-                    assertThat(rs.getString("source")).isEqualTo("LOCAL")
+                    assertThat(rs.getString("source")).isEqualTo("INTERNAL")
                     assertThat(rs.getString("display_name")).isEqualTo("alice")
                     assertThat(rs.getString("email")).isEqualTo("Alice@Example.com")
                 }
@@ -264,7 +264,7 @@ class IdentityHubSplitMigrationIT {
                     check(rs.next())
                     assertThat(rs.getString("username")).isNull()
                     assertThat(rs.getString("password_hash")).isNull()
-                    assertThat(rs.getString("source")).isEqualTo("OIDC")
+                    assertThat(rs.getString("source")).isEqualTo("EXTERNAL")
                     assertThat(rs.getString("display_name")).isEqualTo(oidcSub)
                     assertThat(rs.getString("email")).startsWith("migrated-")
                     assertThat(rs.getString("email")).endsWith("@plugwerk-migration.local")
@@ -338,7 +338,7 @@ class IdentityHubSplitMigrationIT {
                 INSERT INTO plugwerk_user
                   (id, username, email, password_hash, source, display_name,
                    enabled, password_change_required, is_superadmin, created_at, updated_at)
-                VALUES (?, NULL, 'x@y.test', '${'$'}2a${'$'}12${'$'}h', 'LOCAL', 'x',
+                VALUES (?, NULL, 'x@y.test', '${'$'}2a${'$'}12${'$'}h', 'INTERNAL', 'x',
                    true, false, false, now(), now())
                 """.trimIndent(),
             ).use { stmt ->
@@ -356,7 +356,7 @@ class IdentityHubSplitMigrationIT {
                 INSERT INTO plugwerk_user
                   (id, username, email, password_hash, source, display_name,
                    enabled, password_change_required, is_superadmin, created_at, updated_at)
-                VALUES (?, 'shouldnotbeset', 'x@y.test', NULL, 'OIDC', 'x',
+                VALUES (?, 'shouldnotbeset', 'x@y.test', NULL, 'EXTERNAL', 'x',
                    true, false, false, now(), now())
                 """.trimIndent(),
             ).use { stmt ->
@@ -393,7 +393,7 @@ class IdentityHubSplitMigrationIT {
             INSERT INTO plugwerk_user
               (id, username, email, password_hash, source, display_name,
                enabled, password_change_required, is_superadmin, created_at, updated_at)
-            VALUES (?, 'bob1', 'bob@example.com', 'h', 'LOCAL', 'Bob 1',
+            VALUES (?, 'bob1', 'bob@example.com', 'h', 'INTERNAL', 'Bob 1',
                true, false, false, now(), now())
             """.trimIndent(),
         ).use { stmt ->
@@ -407,7 +407,7 @@ class IdentityHubSplitMigrationIT {
                 INSERT INTO plugwerk_user
                   (id, username, email, password_hash, source, display_name,
                    enabled, password_change_required, is_superadmin, created_at, updated_at)
-                VALUES (?, 'bob2', 'BOB@example.COM', 'h', 'LOCAL', 'Bob 2',
+                VALUES (?, 'bob2', 'BOB@example.COM', 'h', 'INTERNAL', 'Bob 2',
                    true, false, false, now(), now())
                 """.trimIndent(),
             ).use { stmt ->
@@ -424,7 +424,7 @@ class IdentityHubSplitMigrationIT {
             INSERT INTO plugwerk_user
               (id, username, email, password_hash, source, display_name,
                enabled, password_change_required, is_superadmin, created_at, updated_at)
-            VALUES (?, NULL, 'bob@example.com', NULL, 'OIDC', 'Bob via Keycloak',
+            VALUES (?, NULL, 'bob@example.com', NULL, 'EXTERNAL', 'Bob via Keycloak',
                true, false, false, now(), now())
             """.trimIndent(),
         ).use { stmt ->
@@ -437,7 +437,7 @@ class IdentityHubSplitMigrationIT {
             INSERT INTO plugwerk_user
               (id, username, email, password_hash, source, display_name,
                enabled, password_change_required, is_superadmin, created_at, updated_at)
-            VALUES (?, NULL, 'bob@example.com', NULL, 'OIDC', 'Bob via GitHub',
+            VALUES (?, NULL, 'bob@example.com', NULL, 'EXTERNAL', 'Bob via GitHub',
                true, false, false, now(), now())
             """.trimIndent(),
         ).use { stmt ->
@@ -454,7 +454,7 @@ class IdentityHubSplitMigrationIT {
             INSERT INTO plugwerk_user
               (id, username, email, password_hash, source, display_name,
                enabled, password_change_required, is_superadmin, created_at, updated_at)
-            VALUES (?, NULL, 'multi@y.test', NULL, 'OIDC', 'Multi',
+            VALUES (?, NULL, 'multi@y.test', NULL, 'EXTERNAL', 'Multi',
                true, false, false, now(), now())
             """.trimIndent(),
         ).use { stmt ->

@@ -70,7 +70,7 @@ class AuthController(
         // The validator's contract guarantees a LOCAL row matches; load it for the
         // post-validation lookup (passwordChangeRequired / isSuperadmin / userId for
         // the JWT subject + refresh-token row).
-        val user = userRepository.findByUsernameAndSource(loginRequest.username, UserSource.LOCAL).orElse(null)
+        val user = userRepository.findByUsernameAndSource(loginRequest.username, UserSource.INTERNAL).orElse(null)
             ?: return ResponseEntity.status(401).build()
         // Record the fresh, credential-validated login (issue #367). The bump is
         // intentionally here and not in /auth/refresh, the bearer-token filter, or
@@ -187,8 +187,8 @@ class AuthController(
         displayName = user.displayName,
         email = user.email,
         source = when (user.source) {
-            UserSource.LOCAL -> LoginResponse.Source.LOCAL
-            UserSource.OIDC -> LoginResponse.Source.OIDC
+            UserSource.INTERNAL -> LoginResponse.Source.INTERNAL
+            UserSource.EXTERNAL -> LoginResponse.Source.EXTERNAL
         },
         passwordChangeRequired = user.passwordChangeRequired,
         isSuperadmin = user.isSuperadmin,

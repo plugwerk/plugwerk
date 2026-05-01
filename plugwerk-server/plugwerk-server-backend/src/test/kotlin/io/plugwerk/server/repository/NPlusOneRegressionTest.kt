@@ -190,7 +190,7 @@ class NPlusOneRegressionTest : AbstractRepositoryTest() {
         val user = UserEntity(
             displayName = "Test $usernameSuffix",
             email = "$usernameSuffix@plugwerk.test",
-            source = UserSource.LOCAL,
+            source = UserSource.INTERNAL,
             username = usernameSuffix,
             passwordHash = "\$2a\$12\$dummyhash",
         )

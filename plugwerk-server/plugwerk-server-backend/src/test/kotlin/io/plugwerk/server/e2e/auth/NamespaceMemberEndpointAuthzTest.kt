@@ -118,7 +118,7 @@ class NamespaceMemberEndpointAuthzTest : AbstractAuthorizationTest() {
         @MethodSource("io.plugwerk.server.e2e.auth.NamespaceMemberEndpointAuthzTest#updateMemberDeniedMatrix")
         fun `update member denied for unauthorized actors`(case: NsActorExpectation) {
             val targetUserId = userRepository
-                .findByUsernameAndSource("ns1-readonly", io.plugwerk.server.domain.UserSource.LOCAL)
+                .findByUsernameAndSource("ns1-readonly", io.plugwerk.server.domain.UserSource.INTERNAL)
                 .orElseThrow().id!!
             mockMvc.perform(
                 put("/api/v1/namespaces/${case.namespace}/members/$targetUserId")
@@ -132,7 +132,7 @@ class NamespaceMemberEndpointAuthzTest : AbstractAuthorizationTest() {
         @Test
         fun `NS1 admin can update member role`() {
             val targetUserId = userRepository
-                .findByUsernameAndSource("ns1-readonly", io.plugwerk.server.domain.UserSource.LOCAL)
+                .findByUsernameAndSource("ns1-readonly", io.plugwerk.server.domain.UserSource.INTERNAL)
                 .orElseThrow().id!!
             mockMvc.perform(
                 put("/api/v1/namespaces/$NS1/members/$targetUserId")
@@ -155,7 +155,7 @@ class NamespaceMemberEndpointAuthzTest : AbstractAuthorizationTest() {
         @MethodSource("io.plugwerk.server.e2e.auth.NamespaceMemberEndpointAuthzTest#removeMemberDeniedMatrix")
         fun `remove member denied for unauthorized actors`(case: NsActorExpectation) {
             val targetUserId = userRepository
-                .findByUsernameAndSource("ns1-readonly", io.plugwerk.server.domain.UserSource.LOCAL)
+                .findByUsernameAndSource("ns1-readonly", io.plugwerk.server.domain.UserSource.INTERNAL)
                 .orElseThrow().id!!
             mockMvc.perform(
                 delete("/api/v1/namespaces/${case.namespace}/members/$targetUserId")

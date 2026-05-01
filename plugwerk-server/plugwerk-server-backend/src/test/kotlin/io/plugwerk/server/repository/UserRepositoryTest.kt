@@ -34,7 +34,7 @@ class UserRepositoryTest : AbstractRepositoryTest() {
         username = username,
         displayName = username,
         email = email,
-        source = UserSource.LOCAL,
+        source = UserSource.INTERNAL,
         passwordHash = "\$2a\$12\$hash",
     )
 
@@ -42,7 +42,7 @@ class UserRepositoryTest : AbstractRepositoryTest() {
     fun `findByUsernameAndSource returns user when LOCAL row exists`() {
         userRepository.save(localUser("alice"))
 
-        val found = userRepository.findByUsernameAndSource("alice", UserSource.LOCAL)
+        val found = userRepository.findByUsernameAndSource("alice", UserSource.INTERNAL)
 
         assertThat(found).isPresent
         assertThat(found.get().username).isEqualTo("alice")
@@ -50,7 +50,7 @@ class UserRepositoryTest : AbstractRepositoryTest() {
 
     @Test
     fun `findByUsernameAndSource returns empty when no LOCAL row exists`() {
-        val found = userRepository.findByUsernameAndSource("nobody", UserSource.LOCAL)
+        val found = userRepository.findByUsernameAndSource("nobody", UserSource.INTERNAL)
 
         assertThat(found).isEmpty
     }
@@ -59,16 +59,16 @@ class UserRepositoryTest : AbstractRepositoryTest() {
     fun `findByUsernameAndSource is case-sensitive`() {
         userRepository.save(localUser("alice"))
 
-        assertThat(userRepository.findByUsernameAndSource("Alice", UserSource.LOCAL)).isEmpty
-        assertThat(userRepository.findByUsernameAndSource("ALICE", UserSource.LOCAL)).isEmpty
+        assertThat(userRepository.findByUsernameAndSource("Alice", UserSource.INTERNAL)).isEmpty
+        assertThat(userRepository.findByUsernameAndSource("ALICE", UserSource.INTERNAL)).isEmpty
     }
 
     @Test
     fun `existsByUsernameAndSource returns true for existing LOCAL row`() {
         userRepository.save(localUser("bob"))
 
-        assertThat(userRepository.existsByUsernameAndSource("bob", UserSource.LOCAL)).isTrue()
-        assertThat(userRepository.existsByUsernameAndSource("notbob", UserSource.LOCAL)).isFalse()
+        assertThat(userRepository.existsByUsernameAndSource("bob", UserSource.INTERNAL)).isTrue()
+        assertThat(userRepository.existsByUsernameAndSource("notbob", UserSource.INTERNAL)).isFalse()
     }
 
     // Username-uniqueness for LOCAL rows is enforced via the partial unique

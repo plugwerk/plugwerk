@@ -58,7 +58,7 @@ class UserService(
      * indexes for LOCAL rows.
      */
     fun create(username: String, email: String, password: String, displayName: String? = null): UserEntity {
-        if (userRepository.existsByUsernameAndSource(username, UserSource.LOCAL)) {
+        if (userRepository.existsByUsernameAndSource(username, UserSource.INTERNAL)) {
             throw ConflictException("Username '$username' is already taken")
         }
         return userRepository.save(
@@ -66,7 +66,7 @@ class UserService(
                 username = username,
                 email = normalizeEmail(email),
                 displayName = displayName ?: username,
-                source = UserSource.LOCAL,
+                source = UserSource.INTERNAL,
                 passwordHash = hashPassword(password),
                 passwordChangeRequired = true,
             ),
@@ -109,7 +109,7 @@ class UserService(
 
     fun resetPassword(id: UUID, newPassword: String): UserEntity {
         val user = findById(id)
-        require(user.isLocal()) {
+        require(user.isInternal()) {
             "Cannot reset password on OIDC-sourced user — credentials live with the upstream provider"
         }
         user.passwordHash = hashPassword(newPassword)
@@ -133,7 +133,7 @@ class UserService(
 
     fun changePassword(userId: UUID, currentPassword: String, newPassword: String): UserEntity {
         val user = findById(userId)
-        require(user.isLocal()) {
+        require(user.isInternal()) {
             "Cannot change password on OIDC-sourced user — credentials live with the upstream provider"
         }
         val currentHash = user.passwordHash

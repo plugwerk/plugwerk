@@ -99,7 +99,7 @@ class AuthControllerRefreshIT {
                 username = username,
                 displayName = username,
                 email = "$username@refresh.test",
-                source = io.plugwerk.server.domain.UserSource.LOCAL,
+                source = io.plugwerk.server.domain.UserSource.INTERNAL,
                 passwordHash = passwordEncoder.encode(password)!!,
                 enabled = true,
                 passwordChangeRequired = false,
@@ -129,12 +129,12 @@ class AuthControllerRefreshIT {
     fun `login bumps lastLoginAt but refresh does NOT (#367)`() {
         // Pre-login the column is null — the user was created via repository.save in
         // setUp, never authenticated.
-        val before = userRepository.findByUsernameAndSource(username, io.plugwerk.server.domain.UserSource.LOCAL)
+        val before = userRepository.findByUsernameAndSource(username, io.plugwerk.server.domain.UserSource.INTERNAL)
             .orElseThrow()
         assertThat(before.lastLoginAt).isNull()
 
         val loginCookie = loginAndExtractCookie()
-        val afterLogin = userRepository.findByUsernameAndSource(username, io.plugwerk.server.domain.UserSource.LOCAL)
+        val afterLogin = userRepository.findByUsernameAndSource(username, io.plugwerk.server.domain.UserSource.INTERNAL)
             .orElseThrow()
         // Login is a fresh credential check → bumps the column.
         assertThat(afterLogin.lastLoginAt).isNotNull()
@@ -149,7 +149,10 @@ class AuthControllerRefreshIT {
             with(csrf())
         }.andExpect { status { isOk() } }
 
-        val afterRefresh = userRepository.findByUsernameAndSource(username, io.plugwerk.server.domain.UserSource.LOCAL)
+        val afterRefresh = userRepository.findByUsernameAndSource(
+            username,
+            io.plugwerk.server.domain.UserSource.INTERNAL,
+        )
             .orElseThrow()
         // Refresh is silent session renewal, NOT a fresh credential check —
         // the column must remain at its login-time value.
@@ -342,7 +345,7 @@ class AuthControllerRefreshIT {
                 username = null,
                 displayName = "Alice (Keycloak)",
                 email = "alice-${UUID.randomUUID()}@oidc.test",
-                source = io.plugwerk.server.domain.UserSource.OIDC,
+                source = io.plugwerk.server.domain.UserSource.EXTERNAL,
                 passwordHash = null,
                 enabled = true,
                 passwordChangeRequired = false,
