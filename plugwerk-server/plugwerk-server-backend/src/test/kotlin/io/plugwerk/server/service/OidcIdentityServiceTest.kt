@@ -32,10 +32,10 @@ import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.TestPropertySource
 
 /**
- * Pins the contract that [OidcIdentityService.upsertOnLogin] bumps both
- * `oidc_identity.last_login_at` (binding-level) AND `plugwerk_user.last_login_at`
- * (user-level, issue #367) — for the existing-identity branch and the
- * first-login `createNewIdentityAndUser` branch.
+ * Pins the contract that [OidcIdentityService.upsertOnLogin] bumps
+ * `plugwerk_user.last_login_at` on every successful callback (issue #367) —
+ * for the existing-identity branch and the first-login
+ * `createNewIdentityAndUser` branch.
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -100,7 +100,7 @@ class OidcIdentityServiceTest {
     }
 
     @Test
-    fun `existing-identity bumps both oidc_identity and plugwerk_user lastLoginAt (#367)`() {
+    fun `existing-identity bumps plugwerk_user lastLoginAt (#367)`() {
         // First call provisions the identity.
         val initial = service.upsertOnLogin(
             provider,
@@ -130,11 +130,5 @@ class OidcIdentityServiceTest {
                 refreshed.lastLoginAt,
                 org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.MILLIS),
             )
-
-        val identityRow = oidcIdentityRepository
-            .findByOidcProviderIdAndSubject(requireNotNull(provider.id), "bob-sub")
-            .orElseThrow()
-        // Binding-level timestamp also bumped — both surfaces stay aligned.
-        assertThat(identityRow.lastLoginAt).isAfter(initialUserStamp)
     }
 }

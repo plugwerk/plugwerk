@@ -56,10 +56,10 @@ import java.util.UUID
  * @property subject The provider's `sub` claim — provider-local identifier.
  * @property user The Plugwerk identity hub row this OIDC subject maps to.
  *   Stored as `user_id` UUID column with UNIQUE constraint.
- * @property createdAt First-login timestamp.
- * @property lastLoginAt Updated by `OidcIdentityService.upsertOnLogin` on
- *   every subsequent successful OIDC callback. Useful for stale-account
- *   reporting later.
+ * @property createdAt First-login timestamp. The user-level "last login"
+ *   signal lives on [UserEntity.lastLoginAt] and is bumped by
+ *   [io.plugwerk.server.service.OidcIdentityService.upsertOnLogin]
+ *   on every successful OIDC callback (issue #367).
  */
 @Entity
 @Table(
@@ -97,7 +97,4 @@ class OidcIdentityEntity(
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     var createdAt: OffsetDateTime = OffsetDateTime.now(),
-
-    @Column(name = "last_login_at", nullable = false)
-    var lastLoginAt: OffsetDateTime = OffsetDateTime.now(),
 )
