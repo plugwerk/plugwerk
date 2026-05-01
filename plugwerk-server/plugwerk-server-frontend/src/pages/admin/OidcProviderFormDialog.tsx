@@ -103,11 +103,17 @@ const DEFAULT_DISPLAY_NAME_ATTRIBUTE = "name";
 // what these providers expect. Showing the field as editable would lie about
 // what Plugwerk actually does.
 //
-// Why GitHub: GitHub's OAuth2 implementation does not understand `openid` /
-// `profile` / `email`. We hardcode `read:user` (powers `/user`) and
-// `user:email` (lets us recover a private primary email).
+// Why each is locked:
+//   - GitHub: GitHub's OAuth2 implementation does not understand `openid` /
+//     `profile` / `email`. We hardcode `read:user` (powers `/user`) and
+//     `user:email` (recovers a private primary email).
+//   - Facebook: Facebook expects its own permission set, not OIDC scopes.
+//     `public_profile` is granted implicitly on every Facebook OAuth flow
+//     and powers `/me`'s `name`; `email` is what Facebook App Review
+//     approves and populates `/me`'s `email`.
 const LOCKED_SCOPES: Partial<Record<OidcProviderType, string>> = {
   GITHUB: "read:user user:email",
+  FACEBOOK: "email public_profile",
 };
 
 /**
@@ -115,6 +121,9 @@ const LOCKED_SCOPES: Partial<Record<OidcProviderType, string>> = {
  * operator *why* the field is locked rather than just disabling it silently.
  */
 const LOCKED_SCOPE_REASONS: Partial<Record<OidcProviderType, string>> = {
+  FACEBOOK:
+    "Fixed by Facebook — Plugwerk uses these scopes regardless of input " +
+    "because Facebook expects its own permission set, not OIDC scopes.",
   GITHUB:
     "Fixed by GitHub — Plugwerk uses these scopes regardless of input " +
     "because GitHub does not understand the OIDC scope vocabulary.",
