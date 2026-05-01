@@ -20,27 +20,59 @@ import { Box, Typography } from "@mui/material";
 import { Settings, Users, Shield, FileCheck, Globe } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { tokens } from "../../theme/tokens";
+import { useAuthStore } from "../../stores/authStore";
 
 interface AdminSection {
   path: string;
   label: string;
   icon: React.ReactNode;
+  /**
+   * When `true`, this entry is rendered only for global superadmins. The
+   * server already gates the corresponding endpoints with `@PreAuthorize`
+   * — this flag exists purely to stop namespace admins from seeing menu
+   * entries that would 403 on click and to avoid leaking instance-level
+   * topology (presence of providers, full user list, …) into a role that
+   * has no business with it (issue #411).
+   *
+   * Adding a new operator-level section in the future? Set this flag.
+   * The visibility filter below picks it up automatically — no second
+   * "superadmin-only sections" list to keep in sync.
+   */
+  requiresSuperadmin?: boolean;
 }
 
 const ADMIN_SECTIONS: AdminSection[] = [
-  { path: "global-settings", label: "General", icon: <Settings size={16} /> },
+  {
+    path: "global-settings",
+    label: "General",
+    icon: <Settings size={16} />,
+    requiresSuperadmin: true,
+  },
   { path: "namespaces", label: "Namespaces", icon: <Globe size={16} /> },
-  { path: "users", label: "Users", icon: <Users size={16} /> },
+  {
+    path: "users",
+    label: "Users",
+    icon: <Users size={16} />,
+    requiresSuperadmin: true,
+  },
   {
     path: "oidc-providers",
     label: "OIDC Providers",
     icon: <Shield size={16} />,
+    requiresSuperadmin: true,
   },
   { path: "reviews", label: "Pending Reviews", icon: <FileCheck size={16} /> },
 ];
 
 export function AdminSidebar() {
   const location = useLocation();
+  // Selector form (not destructured) so this component does not re-render
+  // when other auth fields change — matches the pattern already used in
+  // AdminRoute / TopBar.
+  const isSuperadmin = useAuthStore((s) => s.isSuperadmin);
+  const visibleSections = ADMIN_SECTIONS.filter(
+    (section) => isSuperadmin || !section.requiresSuperadmin,
+  );
 
   return (
     <Box
@@ -75,7 +107,7 @@ export function AdminSidebar() {
         Settings
       </Typography>
 
-      {ADMIN_SECTIONS.map((section) => {
+      {visibleSections.map((section) => {
         const isActive =
           location.pathname === `/admin/${section.path}` ||
           location.pathname.startsWith(`/admin/${section.path}/`);
