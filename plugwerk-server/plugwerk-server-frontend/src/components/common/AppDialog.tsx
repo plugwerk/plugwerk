@@ -117,7 +117,19 @@ export function AppDialog({
       </DialogTitle>
 
       {/* ── Content ── */}
-      <DialogContent>
+      <DialogContent
+        sx={{
+          // Mute the MUI default required-asterisk colour for every form
+          // hosted in an AppDialog. The default is `theme.palette.error.main`,
+          // which paints required fields' asterisks bright red on mount —
+          // before the operator has touched anything — and reads as a
+          // validation error rather than a "field is required" hint. See
+          // PR #404 / issue #405 for the original report and full rationale.
+          // Centralising the rule here keeps every existing and future
+          // dialog calm on first open without per-call-site `sx` repetition.
+          "& .MuiFormLabel-asterisk": { color: "text.secondary" },
+        }}
+      >
         {description && (
           <Typography
             variant="body2"
