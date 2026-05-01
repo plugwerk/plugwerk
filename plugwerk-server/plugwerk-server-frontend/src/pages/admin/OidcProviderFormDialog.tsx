@@ -26,6 +26,7 @@ import {
   CircularProgress,
   FormControl,
   FormControlLabel,
+  InputAdornment,
   InputLabel,
   Link,
   MenuItem,
@@ -35,7 +36,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { CheckCircle2, Info, PartyPopper, XCircle } from "lucide-react";
+import { CheckCircle2, Info, Lock, PartyPopper, XCircle } from "lucide-react";
 import { AppDialog } from "../../components/common/AppDialog";
 import { oidcProvidersApi } from "../../api/config";
 import { ProviderCallbackInstructions } from "./ProviderCallbackInstructions";
@@ -94,6 +95,30 @@ const DEFAULT_SCOPE = "openid profile email";
 const DEFAULT_SUBJECT_ATTRIBUTE = "sub";
 const DEFAULT_EMAIL_ATTRIBUTE = "email";
 const DEFAULT_DISPLAY_NAME_ATTRIBUTE = "name";
+
+// Provider types whose `scope` is hardcoded on the server. Mirrors
+// `DbClientRegistrationRepository.effectiveScopes` — whatever the operator
+// types into the scope field is overwritten with the value below at runtime
+// because the OIDC scope vocabulary (openid / profile / email) does not match
+// what these providers expect. Showing the field as editable would lie about
+// what Plugwerk actually does.
+//
+// Why GitHub: GitHub's OAuth2 implementation does not understand `openid` /
+// `profile` / `email`. We hardcode `read:user` (powers `/user`) and
+// `user:email` (lets us recover a private primary email).
+const LOCKED_SCOPES: Partial<Record<OidcProviderType, string>> = {
+  GITHUB: "read:user user:email",
+};
+
+/**
+ * Per-locked-provider explanation surfaced in the helper text. Tells the
+ * operator *why* the field is locked rather than just disabling it silently.
+ */
+const LOCKED_SCOPE_REASONS: Partial<Record<OidcProviderType, string>> = {
+  GITHUB:
+    "Fixed by GitHub — Plugwerk uses these scopes regardless of input " +
+    "because GitHub does not understand the OIDC scope vocabulary.",
+};
 
 /**
  * Creating + editing OIDC providers share enough form fields that one component
@@ -255,6 +280,13 @@ export function OidcProviderFormDialog({
 
   const issuerRequired = ISSUER_REQUIRED_TYPES.has(providerType);
   const isGeneric = providerType === "OAUTH2";
+  const lockedScope = LOCKED_SCOPES[providerType];
+  const isScopeLocked = lockedScope !== undefined;
+  // The actual value rendered + submitted: the locked value when one is
+  // defined, otherwise the operator's free-form input. A user editing a
+  // GitHub provider that was created with a stale scope still sees the
+  // locked value here — the form does not lie about what the server uses.
+  const effectiveScope = lockedScope ?? scope;
 
   // Validation — applied per-field. Errors are surfaced as MUI helperText below
   // each field and as a disabled Save button until they're resolved.
@@ -262,7 +294,7 @@ export function OidcProviderFormDialog({
     const trimmedName = name.trim();
     const trimmedClientId = clientId.trim();
     const trimmedIssuer = issuerUri.trim();
-    const trimmedScope = scope.trim();
+    const trimmedScope = effectiveScope.trim();
     const trimmedAuthUri = authorizationUri.trim();
     const trimmedTokenUri = tokenUri.trim();
     const trimmedUserInfoUri = userInfoUri.trim();
@@ -288,8 +320,9 @@ export function OidcProviderFormDialog({
           : trimmedIssuer.length > 0 && !/^https?:\/\//.test(trimmedIssuer)
             ? "Must start with http:// or https://."
             : null,
-      scope:
-        trimmedScope.length === 0
+      scope: isScopeLocked
+        ? null
+        : trimmedScope.length === 0
           ? "Required."
           : providerType === "OIDC" &&
               !trimmedScope.split(/\s+/).includes("openid")
@@ -318,10 +351,11 @@ export function OidcProviderFormDialog({
     name,
     clientId,
     issuerUri,
-    scope,
+    effectiveScope,
     providerType,
     issuerRequired,
     isGeneric,
+    isScopeLocked,
     authorizationUri,
     tokenUri,
     userInfoUri,
@@ -358,7 +392,7 @@ export function OidcProviderFormDialog({
     const trimmedName = name.trim();
     const trimmedClientId = clientId.trim();
     const trimmedIssuer = issuerUri.trim();
-    const trimmedScope = scope.trim();
+    const trimmedScope = effectiveScope.trim();
     const trimmedAuthUri = authorizationUri.trim();
     const trimmedTokenUri = tokenUri.trim();
     const trimmedUserInfoUri = userInfoUri.trim();
@@ -714,16 +748,63 @@ export function OidcProviderFormDialog({
             )}
             <TextField
               label="Scope"
-              value={scope}
-              onChange={(e) => setScope(e.target.value)}
+              value={effectiveScope}
+              onChange={(e) => {
+                if (isScopeLocked) return;
+                setScope(e.target.value);
+              }}
               onBlur={() => markTouched("scope")}
-              required
+              required={!isScopeLocked}
               size="small"
+              disabled={isScopeLocked}
               error={visibleError("scope") !== null}
               helperText={
                 visibleError("scope") ??
-                "Space-separated. OIDC providers must include 'openid'."
+                (isScopeLocked
+                  ? LOCKED_SCOPE_REASONS[providerType]
+                  : "Space-separated. OIDC providers must include 'openid'.")
               }
+              slotProps={{
+                input: {
+                  endAdornment: isScopeLocked ? (
+                    <InputAdornment position="end">
+                      <Tooltip
+                        title="Locked — provider-specific scopes are fixed by the upstream"
+                        arrow
+                      >
+                        <Box
+                          component="span"
+                          sx={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            color: "text.disabled",
+                            cursor: "help",
+                          }}
+                          aria-label="Scope is locked"
+                        >
+                          <Lock size={14} />
+                        </Box>
+                      </Tooltip>
+                    </InputAdornment>
+                  ) : undefined,
+                },
+              }}
+              sx={{
+                // Soften the disabled appearance so the field reads as
+                // "informationally fixed", not "broken / unavailable". MUI's
+                // default disabled treatment uses very low contrast which
+                // hides the actual scope value the operator wants to see.
+                ...(isScopeLocked && {
+                  "& .MuiInputBase-input.Mui-disabled": {
+                    WebkitTextFillColor: "var(--mui-palette-text-secondary)",
+                    color: "text.secondary",
+                  },
+                  "& .MuiOutlinedInput-root.Mui-disabled .MuiOutlinedInput-notchedOutline":
+                    {
+                      borderStyle: "dashed",
+                    },
+                }),
+              }}
             />
           </FormSection>
 
