@@ -85,7 +85,17 @@ export function ChangePasswordPage() {
         component="form"
         onSubmit={handleSubmit}
         noValidate
-        sx={{ display: "flex", flexDirection: "column", gap: 2 }}
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          // Mute the MUI default required-asterisk colour (issue #405). The
+          // default `error.main` paints the asterisks bright red on mount,
+          // which reads as "validation failed" before the operator typed
+          // anything. Validation here runs in `handleSubmit` and surfaces
+          // through a top-level Alert, not the field `error` prop.
+          "& .MuiFormLabel-asterisk": { color: "text.secondary" },
+        }}
       >
         <TextField
           label="Current Password"

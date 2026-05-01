@@ -311,7 +311,11 @@ export function UsersSection() {
             onChange={(e) => setUsername(e.target.value)}
             required
             size="small"
-            autoFocus
+            // Deliberately no `autoFocus` (issue #405). MUI Dialog's focus-
+            // trap relocates focus to the dialog container right after a
+            // child autoFocus fires, which counts as a `blur` on the input
+            // — any future touched-gated validation would then mark the
+            // field as user-interacted before the operator did anything.
           />
           <TextField
             label="Email"

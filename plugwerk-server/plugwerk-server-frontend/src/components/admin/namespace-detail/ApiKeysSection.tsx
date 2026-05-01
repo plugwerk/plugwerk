@@ -268,7 +268,11 @@ export function ApiKeysSection({ slug }: { slug: string }) {
             }}
             size="small"
             required
-            autoFocus
+            // Deliberately no `autoFocus` (issue #405). MUI Dialog's focus-
+            // trap turns a child autoFocus into an immediate blur on the
+            // input, which would mark the field user-interacted before the
+            // operator typed anything once touched-gated validation is
+            // added.
             helperText="Unique name to identify this key (e.g. 'CI pipeline')."
           />
           <TextField
