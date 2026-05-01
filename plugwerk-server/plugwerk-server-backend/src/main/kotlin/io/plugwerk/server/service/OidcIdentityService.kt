@@ -20,6 +20,7 @@ package io.plugwerk.server.service
 
 import io.plugwerk.server.domain.OidcIdentityEntity
 import io.plugwerk.server.domain.OidcProviderEntity
+import io.plugwerk.server.domain.OidcProviderType
 import io.plugwerk.server.domain.UserEntity
 import io.plugwerk.server.domain.UserSource
 import io.plugwerk.server.repository.OidcIdentityRepository
@@ -88,7 +89,7 @@ class OidcIdentityService(
         loginAt: OffsetDateTime,
     ): UserEntity {
         val email = principal.email?.trim()?.takeIf { it.isNotBlank() }
-            ?: throw OidcEmailMissingException(provider.name)
+            ?: throw OidcEmailMissingException(provider)
         // displayName falls back to subject as a last-resort visible identifier when
         // the adapter could not produce one (e.g. a provider that returns no name claim).
         val displayName = principal.displayName?.trim()?.takeIf { it.isNotBlank() }
@@ -127,12 +128,47 @@ class OidcIdentityService(
 }
 
 /**
- * Thrown when an OIDC callback delivers no `email` claim. Plugwerk requires
- * an email per account (issue #351 — `plugwerk_user.email` is NOT NULL); the
- * IdP must be configured to include `email` in the returned scope.
+ * Thrown when an OIDC / OAuth2 callback resolves to a user with no usable
+ * email address. Plugwerk requires an email per account (issue #351 —
+ * `plugwerk_user.email` is `NOT NULL`, ADR-0029 §5).
+ *
+ * The remediation differs by provider type and the message is shaped
+ * accordingly so the operator (or end user, when surfaced as a 400 body)
+ * sees an actionable hint instead of a generic OIDC-only error:
+ *
+ *   - **OIDC / Google** → operator-actionable: the IdP has to be configured
+ *     to return the `email` claim in the granted scope.
+ *   - **GitHub** → user-actionable: the GitHub account has no public email,
+ *     or the `user:email` scope was not granted. The user can either set a
+ *     public email in their GitHub settings or sign in with another provider.
+ *   - **Facebook** → operator-actionable: the Facebook app has not been
+ *     approved for the `email` permission via Facebook App Review (apps in
+ *     Development mode can authenticate developer/tester accounts only).
+ *
+ * Phase 2 of #357. Phase 3 (GitHub) and Phase 4 (Facebook) become much
+ * cleaner when this message is already provider-aware — they only need to
+ * extend the existing pattern, not invent a new error path.
  */
-class OidcEmailMissingException(providerName: String) :
-    RuntimeException(
-        "OIDC provider '$providerName' returned no `email` claim — configure the IdP to include " +
-            "`email` in the requested scope (default scope is 'openid email profile').",
-    )
+class OidcEmailMissingException(provider: OidcProviderEntity) : RuntimeException(buildMessage(provider))
+
+private fun buildMessage(provider: OidcProviderEntity): String {
+    val name = provider.name
+    return when (provider.providerType) {
+        OidcProviderType.OIDC, OidcProviderType.GOOGLE ->
+            "OIDC provider '$name' returned no `email` claim — configure the IdP to include " +
+                "`email` in the requested scope (default scope is 'openid email profile')."
+
+        OidcProviderType.GITHUB ->
+            "GitHub account signing in via '$name' has no public email available. Either set a " +
+                "public primary email in your GitHub account settings (Settings → Emails → " +
+                "uncheck 'Keep my email addresses private') or sign in with a different provider. " +
+                "If the operator did not request the `user:email` scope when registering the app, " +
+                "ask them to do so."
+
+        OidcProviderType.FACEBOOK ->
+            "Facebook provider '$name' returned no `email` — the Facebook app has likely not been " +
+                "approved for the `email` permission via Facebook App Review. In Development mode " +
+                "only developer/tester accounts can authenticate; promoting the app to Live and " +
+                "completing App Review is the operator's path forward."
+    }
+}

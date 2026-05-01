@@ -168,7 +168,7 @@ class OidcLoginSuccessHandlerTest {
         )
         whenever(oidcProviderRepository.findById(providerId)).thenReturn(Optional.of(provider))
         whenever(oidcIdentityService.upsertOnLogin(any(), any<ResolvedPrincipal>()))
-            .thenThrow(OidcEmailMissingException(provider.name))
+            .thenThrow(OidcEmailMissingException(provider))
 
         val handler =
             OidcLoginSuccessHandler(
