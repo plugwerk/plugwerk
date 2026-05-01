@@ -56,19 +56,22 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * ## Provider type support
  *
- * Browser login is wired for [OidcProviderType.OIDC] (relies on RFC-8414 /
- * OIDC discovery via `issuerUri`), [OidcProviderType.GOOGLE] (same
- * machinery, hardcoded issuer URI — operators only configure clientId +
- * clientSecret, see #357 Phase 1), and [OidcProviderType.GITHUB] (pure
- * OAuth2 via Spring's `CommonOAuth2Provider.GITHUB` template, with the
- * `read:user` and `user:email` scopes hardcoded for this provider type
- * because the operator-supplied scope string from the admin UI defaults to
- * the OIDC vocabulary which GitHub does not understand, see #357 Phase 3).
- * The remaining vendor provider [OidcProviderType.FACEBOOK] has sufficient
- * metadata in [OidcProviderRegistry] to validate incoming bearer tokens
- * but the browser-flow wiring is tracked in #357 Phase 4. It is silently
- * skipped here and emits a single warning at refresh time so operators
- * know the row will not appear on the login page.
+ * Browser login is wired for all four [OidcProviderType] values:
+ *
+ *   - [OidcProviderType.OIDC] — relies on RFC-8414 / OIDC discovery via
+ *     the operator-supplied `issuerUri`.
+ *   - [OidcProviderType.GOOGLE] — same machinery as OIDC, but the issuer
+ *     URI is hardcoded so operators only configure clientId + clientSecret
+ *     (#357 Phase 1).
+ *   - [OidcProviderType.GITHUB] — pure OAuth2 via Spring's
+ *     `CommonOAuth2Provider.GITHUB` template. Scopes are hardcoded to
+ *     `read:user user:email`; the email-recovery path runs out of band via
+ *     [GitHubPrincipalAdapter] / [GitHubEmailFetcher] (#357 Phase 3).
+ *   - [OidcProviderType.FACEBOOK] — pure OAuth2 via Spring's
+ *     `CommonOAuth2Provider.FACEBOOK` template. Scopes are hardcoded to
+ *     `email public_profile`; the userinfo response carries `email`
+ *     directly when Facebook App Review has approved the `email`
+ *     permission (#357 Phase 4).
  *
  * ## Failure isolation
  *
@@ -152,10 +155,15 @@ class DbClientRegistrationRepository(
                 CommonOAuth2Provider.GITHUB.getBuilder(registrationId)
             }
 
-            OidcProviderType.FACEBOOK -> error(
-                "Browser login flow not yet implemented for provider type ${provider.providerType} " +
-                    "(see #357 phase 4). The provider remains usable as a resource-server token issuer.",
-            )
+            // Facebook follows the same shape as GitHub (pure OAuth2, no ID
+            // token, numeric `id` as subject) but its userinfo response
+            // carries `email` directly when the `email` permission was
+            // granted — no out-of-band fetch needed. Spring's
+            // CommonOAuth2Provider.FACEBOOK template carries the right
+            // endpoints. Issue #357 Phase 4.
+            OidcProviderType.FACEBOOK -> {
+                CommonOAuth2Provider.FACEBOOK.getBuilder(registrationId)
+            }
         }
         return builder
             .registrationId(registrationId)
@@ -172,17 +180,27 @@ class DbClientRegistrationRepository(
      * verbatim — both providers share the OIDC vocabulary the admin form
      * defaults to (`openid profile email`).
      *
-     * For GitHub the OIDC default is meaningless (GitHub ignores `openid` and
-     * `profile`), so we ALWAYS hardcode `read:user user:email`. `read:user`
-     * is what powers the `/user` response Spring's user-info call relies on;
-     * `user:email` is what makes `/user/emails` fetchable for the
-     * private-primary-email recovery path in [GitHubPrincipalAdapter]. If a
-     * future operator needs custom GitHub scopes (e.g. `repo` for an app),
-     * the override path is to remove this hardcoded branch and accept that
-     * the admin UI scope hint must then be GitHub-specific.
+     * For GitHub and Facebook the OIDC default is meaningless (GitHub ignores
+     * `openid` and `profile`; Facebook expects its own `email public_profile`
+     * permission set), so we hardcode the right scope for each:
+     *
+     *   - GitHub → `read:user user:email`. `read:user` powers Spring's
+     *     `/user` user-info call; `user:email` makes `/user/emails` fetchable
+     *     for the private-primary-email recovery path in
+     *     [GitHubPrincipalAdapter].
+     *   - Facebook → `email public_profile`. `public_profile` is granted
+     *     implicitly on every Facebook OAuth flow and powers `/me`'s `name`
+     *     attribute; `email` is the permission Facebook App Review approves
+     *     and is what makes `/me`'s `email` attribute populated.
+     *
+     * If a future operator needs custom scopes (GitHub `repo`, Facebook
+     * page-management permissions etc.), the override path is to remove the
+     * hardcoded branch for that provider type and accept that the admin UI
+     * scope hint must then become provider-specific.
      */
     private fun effectiveScopes(provider: OidcProviderEntity): Set<String> = when (provider.providerType) {
         OidcProviderType.GITHUB -> setOf("read:user", "user:email")
+        OidcProviderType.FACEBOOK -> setOf("email", "public_profile")
         else -> provider.scope.split(" ").filter { it.isNotBlank() }.toSet()
     }
 

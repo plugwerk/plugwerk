@@ -116,23 +116,33 @@ class DbClientRegistrationRepositoryTest {
     }
 
     @Test
-    fun `Facebook provider type still skipped (tracked in #357 phase 4)`() {
+    fun `Facebook provider type now produces a registration via CommonOAuth2Provider (#357 phase 4)`() {
+        whenever(textEncryptor.decrypt("{cipher}fb-secret")).thenReturn("plain-fb-secret")
         val facebook = OidcProviderEntity(
             id = UUID.fromString("33333333-3333-3333-3333-333333333333"),
             name = "Facebook",
             providerType = OidcProviderType.FACEBOOK,
             enabled = true,
             clientId = "fb-client",
-            clientSecretEncrypted = "{cipher}ignored",
+            clientSecretEncrypted = "{cipher}fb-secret",
             issuerUri = null,
         )
         whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(facebook))
 
         val repo = DbClientRegistrationRepository(oidcProviderRepository, textEncryptor)
+        val registration = repo.findByRegistrationId(facebook.id.toString())
 
-        // Logged-and-skipped — registry is empty, lookup returns null.
-        assertThat(repo.iterator().hasNext()).isFalse()
-        assertThat(repo.findByRegistrationId(facebook.id.toString())).isNull()
+        assertThat(registration).isNotNull()
+        assertThat(registration!!.clientId).isEqualTo("fb-client")
+        assertThat(registration.clientSecret).isEqualTo("plain-fb-secret")
+        // Hardcoded Facebook scopes — operator-supplied OIDC scopes are
+        // intentionally ignored for this provider type because Facebook
+        // expects its own permission set.
+        assertThat(registration.scopes).containsExactlyInAnyOrder("email", "public_profile")
+        // Spring's CommonOAuth2Provider.FACEBOOK template carries the right
+        // endpoints — pin the token endpoint to confirm.
+        assertThat(registration.providerDetails.tokenUri)
+            .isEqualTo("https://graph.facebook.com/v2.8/oauth/access_token")
     }
 
     @Test
