@@ -20,6 +20,7 @@ import { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { CircularProgress, Box } from "@mui/material";
 import { AppShell } from "../AppShell";
+import { AdminIndexRedirect } from "../components/admin/AdminIndexRedirect";
 import { AdminRoute } from "../components/auth/AdminRoute";
 import { ProtectedRoute } from "../components/auth/ProtectedRoute";
 import { CatalogPage } from "../pages/CatalogPage";
@@ -127,7 +128,10 @@ export const router = createBrowserRouter([
           </ProtectedRoute>
         ),
         children: [
-          { index: true, element: <Navigate to="global-settings" replace /> },
+          // Role-aware index redirect — see AdminIndexRedirect for why
+          // hard-coding `global-settings` here would land namespace admins
+          // on a 403 page (issue #411).
+          { index: true, element: <AdminIndexRedirect /> },
           {
             path: "global-settings",
             element: (
