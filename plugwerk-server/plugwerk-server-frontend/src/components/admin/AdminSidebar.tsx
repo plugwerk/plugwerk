@@ -17,7 +17,7 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 import { Box, Typography } from "@mui/material";
-import { Settings, Users, Shield, FileCheck, Globe } from "lucide-react";
+import { Settings, Users, Shield, FileCheck, Globe, Mail } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { tokens } from "../../theme/tokens";
 import { useAuthStore } from "../../stores/authStore";
@@ -59,6 +59,12 @@ const ADMIN_SECTIONS: AdminSection[] = [
     path: "oidc-providers",
     label: "OIDC Providers",
     icon: <Shield size={16} />,
+    requiresSuperadmin: true,
+  },
+  {
+    path: "email",
+    label: "Email",
+    icon: <Mail size={16} />,
     requiresSuperadmin: true,
   },
   { path: "reviews", label: "Pending Reviews", icon: <FileCheck size={16} /> },
