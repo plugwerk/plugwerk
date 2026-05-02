@@ -98,11 +98,12 @@ function ProviderAccountSwitchAffordance({ provider }: AffordanceProps) {
         color="text.secondary"
         aria-label={`Sign in with a different ${provider.name} account`}
         sx={{
-          // Match the surrounding caption rhythm — gentle hover into the
-          // primary palette so the link feels like an offer rather than a
-          // demand.
+          // Same `text.secondary` colour as the GitHub-hint host link
+          // below, including on hover — keeps both affordances visually
+          // identical so the difference between "click me" and "this is
+          // here for context" lives in the wording, not the colour.
           fontWeight: 500,
-          "&:hover": { color: "primary.main" },
+          "&:hover": { color: "text.secondary" },
         }}
       >
         Use a different account
