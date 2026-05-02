@@ -118,7 +118,13 @@ class AuthController(
         val jti = jwt.id ?: throw UnauthorizedException("Token missing jti claim")
         val expiresAt = jwt.expiresAt ?: throw UnauthorizedException("Token missing exp claim")
         val subject = jwt.subject ?: throw UnauthorizedException("Token missing sub claim")
-        tokenRevocationService.revokeToken(jti, subject, expiresAt)
+        // Post-#351 the JWT `sub` is the plugwerk_user.id UUID. After #422 the
+        // revoked_token.user_id column is a typed FK, so a non-UUID `sub` can
+        // no longer be persisted as audit data — it can only originate from a
+        // forged or pre-#351 token, both of which we reject as unauthorized.
+        val userId = runCatching { UUID.fromString(subject) }.getOrNull()
+            ?: throw UnauthorizedException("Token sub claim is not a valid user id")
+        tokenRevocationService.revokeToken(jti, userId, expiresAt)
 
         // Resolve the upstream RP-Initiated Logout URL *before* burning the refresh-token
         // family — once the row is revoked we lose access to the upstream id_token hint

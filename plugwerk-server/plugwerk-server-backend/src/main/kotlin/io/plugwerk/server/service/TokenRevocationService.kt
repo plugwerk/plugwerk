@@ -65,21 +65,23 @@ class TokenRevocationService(
      * The raw [jti] is hashed (SHA-256 hex) before being persisted or cached so a
      * database leak exposes only opaque digests, not still-valid JWT IDs (SBS-013 / #268).
      *
-     * @param subject The JWT `sub` claim — `plugwerk_user.id` UUID-string after #351.
+     * @param userId The owning [io.plugwerk.server.domain.UserEntity.id]. Stored
+     *   on the row as a proper FK (#422) so deleting the user cascades to wipe
+     *   their revocation entries.
      */
     @Transactional
-    fun revokeToken(jti: String, subject: String, expiresAt: Instant) {
+    fun revokeToken(jti: String, userId: UUID, expiresAt: Instant) {
         val jtiHash = hashJti(jti)
         if (revokedTokenRepository.existsByJti(jtiHash)) return
         revokedTokenRepository.save(
             RevokedTokenEntity(
                 jti = jtiHash,
-                subject = subject,
+                userId = userId,
                 expiresAt = expiresAt.atOffset(ZoneOffset.UTC),
             ),
         )
         revokedJtiCache.put(jtiHash, true)
-        log.debug("Revoked token jtiHash={} for subject={}", jtiHash, subject)
+        log.debug("Revoked token jtiHash={} for user_id={}", jtiHash, userId)
     }
 
     /**

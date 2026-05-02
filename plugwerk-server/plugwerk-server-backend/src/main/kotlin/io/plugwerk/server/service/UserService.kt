@@ -21,7 +21,6 @@ package io.plugwerk.server.service
 import io.plugwerk.server.domain.UserEntity
 import io.plugwerk.server.domain.UserSource
 import io.plugwerk.server.repository.NamespaceMemberRepository
-import io.plugwerk.server.repository.RevokedTokenRepository
 import io.plugwerk.server.repository.UserRepository
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
@@ -35,7 +34,6 @@ import java.util.UUID
 class UserService(
     private val userRepository: UserRepository,
     private val namespaceMemberRepository: NamespaceMemberRepository,
-    private val revokedTokenRepository: RevokedTokenRepository,
     private val passwordEncoder: PasswordEncoder,
     private val tokenRevocationService: TokenRevocationService,
 ) {
@@ -122,11 +120,11 @@ class UserService(
     fun delete(id: UUID) {
         val user = findById(id)
         if (user.isSuperadmin) throw ForbiddenException("The superadmin account cannot be deleted")
-        // namespace_member rows cascade automatically via the FK introduced in
-        // migration 0017; revoked_token rows for this subject (now keyed by
-        // plugwerk_user.id UUID-string) are wiped explicitly so the audit
-        // surface for the deleted user does not linger.
-        revokedTokenRepository.deleteBySubject(id.toString())
+        // namespace_member rows cascade via the FK from migration 0017;
+        // revoked_token rows cascade via the FK from migration 0024 (#422).
+        // The explicit namespaceMemberRepository sweep is kept defensively in
+        // case the FK is ever loosened — it is a no-op when CASCADE has
+        // already done its work.
         namespaceMemberRepository.deleteAllByUserId(id)
         userRepository.delete(user)
     }
