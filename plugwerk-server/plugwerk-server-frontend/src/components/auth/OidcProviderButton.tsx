@@ -65,11 +65,6 @@ export function OidcProviderButton({ provider }: OidcProviderButtonProps) {
         size="large"
         fullWidth
         startIcon={<ProviderIcon kind={provider.iconKind} />}
-        // Left-align the label so the brand glyph and the provider name
-        // read as one composed unit rather than the icon floating beside
-        // a centered text — a small but consistent rhythm across all
-        // provider buttons regardless of name length.
-        sx={{ justifyContent: "flex-start", textAlign: "left" }}
       >
         {`Sign in with ${provider.name}`}
       </Button>
