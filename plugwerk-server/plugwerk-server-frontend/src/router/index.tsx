@@ -71,6 +71,16 @@ const NamespaceDetailPage = lazy(() =>
     default: m.NamespaceDetailView,
   })),
 );
+const EmailLayout = lazy(() =>
+  import("../pages/admin/EmailLayout").then((m) => ({
+    default: m.EmailLayout,
+  })),
+);
+const EmailServerPage = lazy(() =>
+  import("../pages/admin/EmailServerPage").then((m) => ({
+    default: m.EmailServerPage,
+  })),
+);
 
 function LazyFallback() {
   return (
@@ -171,6 +181,27 @@ export const router = createBrowserRouter([
                 <OidcProvidersSection />
               </Suspense>
             ),
+          },
+          {
+            // Nested layout for `/admin/email/*` (#253) — today only
+            // `server` is shipped; `templates` lands in a follow-up.
+            path: "email",
+            element: (
+              <Suspense fallback={<LazyFallback />}>
+                <EmailLayout />
+              </Suspense>
+            ),
+            children: [
+              { index: true, element: <Navigate to="server" replace /> },
+              {
+                path: "server",
+                element: (
+                  <Suspense fallback={<LazyFallback />}>
+                    <EmailServerPage />
+                  </Suspense>
+                ),
+              },
+            ],
           },
           {
             path: "reviews",

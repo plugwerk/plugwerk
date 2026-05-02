@@ -19,6 +19,7 @@
 import axios, { type AxiosRequestConfig } from "axios";
 import { Configuration } from "./generated/configuration";
 import { AccessKeysApi } from "./generated/api/access-keys-api";
+import { AdminEmailApi } from "./generated/api/admin-email-api";
 import { AdminSettingsApi } from "./generated/api/admin-settings-api";
 import { AdminUsersApi } from "./generated/api/admin-users-api";
 import { AuthApi } from "./generated/api/auth-api";
@@ -131,6 +132,11 @@ export const accessKeysApi = new AccessKeysApi(
   axiosInstance,
 );
 export const adminSettingsApi = new AdminSettingsApi(
+  apiConfig,
+  BASE_PATH,
+  axiosInstance,
+);
+export const adminEmailApi = new AdminEmailApi(
   apiConfig,
   BASE_PATH,
   axiosInstance,
