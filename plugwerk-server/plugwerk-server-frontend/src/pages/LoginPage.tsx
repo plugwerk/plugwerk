@@ -27,6 +27,7 @@ import {
   Typography,
 } from "@mui/material";
 import { AuthCard } from "../components/auth/AuthCard";
+import { OidcProviderButton } from "../components/auth/OidcProviderButton";
 import { useAuthStore } from "../stores/authStore";
 import { useConfigStore } from "../stores/configStore";
 import { safeRedirectPath } from "../utils/safeRedirectPath";
@@ -142,28 +143,14 @@ export function LoginPage() {
       </Box>
 
       {oidcProviders.length > 0 && (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mt: 1 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
           <Divider>
             <Typography variant="caption" color="text.secondary">
               or
             </Typography>
           </Divider>
           {oidcProviders.map((provider) => (
-            // Plain anchor — Spring Security's OAuth2 client filter intercepts
-            // the navigation server-side; an XHR-driven button would not start
-            // the redirect dance. The loginUrl is always relative
-            // (`/oauth2/authorization/{id}`), so the open-redirect guard from
-            // #274 is trivially satisfied.
-            <Button
-              key={provider.id}
-              component="a"
-              href={provider.loginUrl}
-              variant="outlined"
-              size="large"
-              fullWidth
-            >
-              {`Login with ${provider.name}`}
-            </Button>
+            <OidcProviderButton key={provider.id} provider={provider} />
           ))}
         </Box>
       )}

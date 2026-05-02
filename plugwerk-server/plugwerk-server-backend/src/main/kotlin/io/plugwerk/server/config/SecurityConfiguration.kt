@@ -28,6 +28,7 @@ import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.security.OidcLoginSuccessHandler
 import io.plugwerk.server.security.OidcProviderRegistry
 import io.plugwerk.server.security.PasswordChangeRequiredFilter
+import io.plugwerk.server.security.PromptAwareOAuth2AuthorizationRequestResolver
 import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.security.RefreshRateLimitFilter
 import org.springframework.context.annotation.Bean
@@ -256,6 +257,7 @@ class SecurityConfiguration(
         http: HttpSecurity,
         dbClientRegistrationRepository: DbClientRegistrationRepository,
         oidcLoginSuccessHandler: OidcLoginSuccessHandler,
+        promptAwareAuthorizationRequestResolver: PromptAwareOAuth2AuthorizationRequestResolver,
     ): SecurityFilterChain {
         http
             // CORS is configured via the corsConfigurationSource() bean above.
@@ -346,6 +348,12 @@ class SecurityConfiguration(
                 oauth2
                     .clientRegistrationRepository(dbClientRegistrationRepository)
                     .successHandler(oidcLoginSuccessHandler)
+                    // Issue #410: lets the login page's "Use a different
+                    // account" link inject `prompt=select_account` (OIDC) /
+                    // `prompt=login` (generic OAuth2) into the upstream
+                    // authorize request. The resolver enforces a strict
+                    // allow-list — see PromptAwareOAuth2AuthorizationRequestResolver.
+                    .authorizationEndpoint { it.authorizationRequestResolver(promptAwareAuthorizationRequestResolver) }
             }
             .authorizeHttpRequests { auth ->
                 auth

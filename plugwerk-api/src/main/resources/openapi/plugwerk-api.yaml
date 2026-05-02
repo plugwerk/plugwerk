@@ -3221,6 +3221,46 @@ components:
             client; never an absolute URL — keeps the same-origin guarantees
             of the open-redirect guard from issue #274 trivially satisfied.
           example: "/oauth2/authorization/keycloak-local"
+        accountPickerLoginUrl:
+          type: string
+          nullable: true
+          description: |
+            Relative URL the frontend navigates the browser to when the user
+            wants to pick a *different* upstream account (issue #410). Same
+            shape as `loginUrl` but with the OIDC `prompt` query parameter
+            appended so the upstream provider re-displays its account-picker
+            / re-auth screen instead of silently re-using the existing IdP
+            session.
+
+            Per provider type:
+
+            - `OIDC`, `GOOGLE`, `FACEBOOK` → `?prompt=select_account`
+            - `OAUTH2` (generic) → `?prompt=login` (best-effort — many but
+              not all OAuth2 providers honour this)
+            - `GITHUB` → `null` (no `prompt` support; see `accountSwitchHintUrl`
+              below for the textual fallback the frontend renders instead)
+
+            The backend whitelists the value strictly via
+            [PromptAwareOAuth2AuthorizationRequestResolver] — only
+            `select_account` and `login` are forwarded upstream.
+          example: "/oauth2/authorization/keycloak-local?prompt=select_account"
+        accountSwitchHintUrl:
+          type: string
+          nullable: true
+          description: |
+            Absolute upstream URL the user can follow to terminate their
+            session at the IdP when the provider does not support OIDC
+            `prompt` (issue #410). Today only set for `GITHUB`
+            (`https://github.com/logout`); `null` for every other provider
+            type because they all surface their account-switch affordance
+            through `accountPickerLoginUrl` instead.
+
+            The frontend renders this as a small inline hint underneath
+            the primary button — never a clickable button. The link only
+            terminates the GitHub session; the user still has to come
+            back to Plugwerk and click the primary button to actually
+            sign in with a different account.
+          example: "https://github.com/logout"
       required:
         - id
         - name
