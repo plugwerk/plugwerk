@@ -24,6 +24,8 @@ import io.plugwerk.api.model.ServerConfigResponse
 import io.plugwerk.api.model.ServerConfigResponseAuth
 import io.plugwerk.api.model.ServerConfigResponseGeneral
 import io.plugwerk.api.model.ServerConfigResponseUpload
+import io.plugwerk.server.domain.OidcProviderEntity
+import io.plugwerk.server.domain.OidcProviderType
 import io.plugwerk.server.repository.OidcProviderRepository
 import io.plugwerk.server.security.OidcRegistrationIds
 import io.plugwerk.server.service.VersionProvider
@@ -67,10 +69,58 @@ class ConfigController(
     private fun enabledOidcProviderLoginInfo(): List<OidcProviderLoginInfo> =
         oidcProviderRepository.findAllByEnabledTrue().map { provider ->
             val registrationId = OidcRegistrationIds.of(provider)
+            val loginUrl = "/oauth2/authorization/$registrationId"
             OidcProviderLoginInfo(
                 id = registrationId,
                 name = provider.name,
-                loginUrl = "/oauth2/authorization/$registrationId",
+                loginUrl = loginUrl,
+                accountPickerLoginUrl = accountPickerLoginUrlFor(provider, loginUrl),
+                accountSwitchHintUrl = accountSwitchHintUrlFor(provider),
             )
         }
+
+    /**
+     * Per-provider-type "use a different account" URL (issue #410).
+     *
+     * The OIDC `prompt` query parameter the upstream accepts is not
+     * uniform across the provider types Plugwerk supports:
+     *
+     *   - OIDC / Google / Facebook → `select_account` (OIDC standard
+     *     for "show the account picker"). Google uses the same value
+     *     in its specific dialect.
+     *   - Generic OAuth2 → `login` (OIDC standard for "force a fresh
+     *     login"). Best-effort hint; not all OAuth2 providers honour it
+     *     but the well-behaved ones do.
+     *   - GitHub → `null`. GitHub's authorize endpoint does not implement
+     *     `prompt`; the frontend renders a textual "sign out at
+     *     github.com" hint instead of a clickable link.
+     *
+     * The value forwarded upstream is allow-listed by
+     * [PromptAwareOAuth2AuthorizationRequestResolver] so this mapping
+     * stays the single source of truth — operators cannot inject
+     * arbitrary `prompt` values via crafted query strings.
+     */
+    private fun accountPickerLoginUrlFor(provider: OidcProviderEntity, loginUrl: String): String? =
+        when (provider.providerType) {
+            OidcProviderType.OIDC,
+            OidcProviderType.GOOGLE,
+            OidcProviderType.FACEBOOK,
+            -> "$loginUrl?prompt=select_account"
+
+            OidcProviderType.OAUTH2 -> "$loginUrl?prompt=login"
+
+            OidcProviderType.GITHUB -> null
+        }
+
+    /**
+     * Upstream sign-out URL for providers that do not honour `prompt`,
+     * surfaced by the frontend as a textual hint instead of an in-product
+     * picker (issue #410). Today only GitHub, where session termination
+     * happens at github.com/logout — the user then comes back and clicks
+     * the primary button to actually sign in with a different account.
+     */
+    private fun accountSwitchHintUrlFor(provider: OidcProviderEntity): String? = when (provider.providerType) {
+        OidcProviderType.GITHUB -> "https://github.com/logout"
+        else -> null
+    }
 }

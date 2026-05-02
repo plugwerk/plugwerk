@@ -32,6 +32,28 @@ export interface OidcProviderLoginInfo {
   readonly id: string;
   readonly name: string;
   readonly loginUrl: string;
+  /**
+   * Same shape as `loginUrl` but with the OIDC `prompt` query parameter
+   * appended so the upstream re-displays its account-picker / re-auth
+   * screen instead of silently re-using the existing IdP session
+   * (issue #410).
+   *
+   * `null` for provider types that do not honour `prompt` (today only
+   * GitHub) — see `accountSwitchHintUrl` for the textual fallback.
+   */
+  readonly accountPickerLoginUrl: string | null;
+  /**
+   * Absolute upstream URL the user follows to terminate their session
+   * at the IdP, when the provider does not honour OIDC `prompt`. Today
+   * only set for GitHub (`https://github.com/logout`); `null` for every
+   * other provider type.
+   *
+   * Frontend renders this as a small textual hint underneath the
+   * primary button — never as a clickable button — and the user still
+   * has to come back to Plugwerk and click the primary button to
+   * actually sign in with a different account.
+   */
+  readonly accountSwitchHintUrl: string | null;
 }
 
 interface ConfigState {
@@ -100,6 +122,26 @@ function parseOidcProviders(raw: unknown): readonly OidcProviderLoginInfo[] {
     ) {
       return [];
     }
-    return [{ id: e.id, name: e.name, loginUrl: e.loginUrl }];
+    // Defensive null on unexpected shapes — a missing field is treated
+    // as "provider does not support account-switching" rather than
+    // crashing. Backend always sends the field (string or null) per
+    // OpenAPI, but the runtime narrowing keeps the store honest.
+    const accountPickerLoginUrl =
+      typeof e.accountPickerLoginUrl === "string"
+        ? e.accountPickerLoginUrl
+        : null;
+    const accountSwitchHintUrl =
+      typeof e.accountSwitchHintUrl === "string"
+        ? e.accountSwitchHintUrl
+        : null;
+    return [
+      {
+        id: e.id,
+        name: e.name,
+        loginUrl: e.loginUrl,
+        accountPickerLoginUrl,
+        accountSwitchHintUrl,
+      },
+    ];
   });
 }

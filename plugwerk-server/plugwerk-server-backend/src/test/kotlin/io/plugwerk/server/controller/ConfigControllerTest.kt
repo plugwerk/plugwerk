@@ -180,4 +180,100 @@ class ConfigControllerTest {
                 jsonPath("$.auth.oidcProviders[0].clientSecret") { doesNotExist() }
             }
     }
+
+    @Test
+    fun `GET config exposes accountPickerLoginUrl=prompt=select_account for OIDC, GOOGLE, FACEBOOK (#410)`() {
+        // The four OIDC-shaped provider types use the OIDC standard
+        // `select_account` prompt to pop the account picker; all three
+        // get the same shape of accountPickerLoginUrl.
+        whenever(settingsService.maxUploadSizeMb()).thenReturn(100)
+        whenever(settingsService.defaultTimezone()).thenReturn("UTC")
+        whenever(versionProvider.getVersion()).thenReturn("1.0.0")
+        val oidcId = UUID.fromString("11111111-0000-0000-0000-000000000001")
+        val googleId = UUID.fromString("11111111-0000-0000-0000-000000000002")
+        val facebookId = UUID.fromString("11111111-0000-0000-0000-000000000003")
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(
+            listOf(
+                providerOf(oidcId, OidcProviderType.OIDC),
+                providerOf(googleId, OidcProviderType.GOOGLE),
+                providerOf(facebookId, OidcProviderType.FACEBOOK),
+            ),
+        )
+
+        mockMvc.get("/api/v1/config")
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.auth.oidcProviders.length()") { value(3) }
+                jsonPath("$.auth.oidcProviders[0].accountPickerLoginUrl") {
+                    value("/oauth2/authorization/$oidcId?prompt=select_account")
+                }
+                jsonPath("$.auth.oidcProviders[1].accountPickerLoginUrl") {
+                    value("/oauth2/authorization/$googleId?prompt=select_account")
+                }
+                jsonPath("$.auth.oidcProviders[2].accountPickerLoginUrl") {
+                    value("/oauth2/authorization/$facebookId?prompt=select_account")
+                }
+            }
+    }
+
+    @Test
+    fun `GET config exposes accountPickerLoginUrl=prompt=login for OAUTH2 generic providers (#410)`() {
+        // Generic OAuth2 (post-#409) is best-effort — many but not all
+        // OAuth2 providers honour `prompt=login`. The frontend renders
+        // the link unconditionally; if the upstream ignores the value
+        // the user sees a silent re-login (no harm).
+        whenever(settingsService.maxUploadSizeMb()).thenReturn(100)
+        whenever(settingsService.defaultTimezone()).thenReturn("UTC")
+        whenever(versionProvider.getVersion()).thenReturn("1.0.0")
+        val oauth2Id = UUID.fromString("22222222-0000-0000-0000-000000000001")
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(
+            listOf(providerOf(oauth2Id, OidcProviderType.OAUTH2)),
+        )
+
+        mockMvc.get("/api/v1/config")
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.auth.oidcProviders[0].accountPickerLoginUrl") {
+                    value("/oauth2/authorization/$oauth2Id?prompt=login")
+                }
+            }
+    }
+
+    @Test
+    fun `GET config returns null accountPickerLoginUrl for GITHUB providers (#410)`() {
+        // GitHub does not implement OIDC `prompt`. We must surface this
+        // as null so the frontend can render the textual hint instead of
+        // a clickable link that would do nothing useful.
+        whenever(settingsService.maxUploadSizeMb()).thenReturn(100)
+        whenever(settingsService.defaultTimezone()).thenReturn("UTC")
+        whenever(versionProvider.getVersion()).thenReturn("1.0.0")
+        val githubId = UUID.fromString("33333333-0000-0000-0000-000000000001")
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(
+            listOf(providerOf(githubId, OidcProviderType.GITHUB)),
+        )
+
+        mockMvc.get("/api/v1/config")
+            .andExpect {
+                status { isOk() }
+                // OpenAPI generates `accountPickerLoginUrl` as a nullable
+                // optional field; serialised as either `null` or absent
+                // depending on Jackson defaults. Either is correct from
+                // the schema's perspective; assert "not present as a
+                // string value".
+                jsonPath("$.auth.oidcProviders[0].id") { value(githubId.toString()) }
+                jsonPath("$.auth.oidcProviders[0].accountPickerLoginUrl") {
+                    value(null as String?)
+                }
+            }
+    }
+
+    private fun providerOf(id: UUID, type: OidcProviderType) = OidcProviderEntity(
+        id = id,
+        name = "Test ${type.name}",
+        providerType = type,
+        enabled = true,
+        clientId = "test-client",
+        clientSecretEncrypted = "{cipher}ignored",
+        issuerUri = "https://example.test/realms/x",
+    )
 }
