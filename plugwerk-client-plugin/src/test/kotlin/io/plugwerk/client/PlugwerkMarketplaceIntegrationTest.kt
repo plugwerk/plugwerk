@@ -182,7 +182,7 @@ class PlugwerkMarketplaceIntegrationTest {
         serverB.start()
 
         try {
-            val plugin = PlugwerkPluginImpl(pluginManager)
+            val plugin = PlugwerkPluginImpl()
             val marketplaceA = plugin.connect(
                 PlugwerkConfig(
                     serverUrl = server.url("/").toString().trimEnd('/'),
@@ -190,6 +190,7 @@ class PlugwerkMarketplaceIntegrationTest {
                     accessToken = "token-a",
                     pluginDirectory = pluginDir,
                 ),
+                pluginManager,
             )
             val marketplaceB = plugin.connect(
                 PlugwerkConfig(
@@ -198,6 +199,7 @@ class PlugwerkMarketplaceIntegrationTest {
                     accessToken = "token-b",
                     pluginDirectory = pluginDir,
                 ),
+                pluginManager,
             )
 
             val emptyPage = """{"content":[],"totalElements":0,"page":0,"size":20,"totalPages":0}"""

@@ -27,8 +27,9 @@ import java.util.concurrent.CopyOnWriteArrayList
  * PF4J plugin entry point for the Plugwerk Client SDK.
  *
  * This class is referenced in `MANIFEST.MF` via `Plugin-Class`. PF4J instantiates it
- * when the SDK JAR is loaded as a plugin; hosts then access it through the
- * [PlugwerkPlugin] interface and call [connect] to open marketplaces.
+ * via the no-arg `Plugin()` constructor — the deprecated `(PluginWrapper)` path is
+ * intentionally not used (#426 / PF4J 3.15 deprecates `Plugin#wrapper`). The host
+ * passes the live `PluginManager` to [connect] explicitly instead.
  *
  * ### Lifecycle
  *
@@ -43,31 +44,13 @@ import java.util.concurrent.CopyOnWriteArrayList
  *
  * @see PlugwerkPlugin
  */
-class PlugwerkPluginImpl() :
+class PlugwerkPluginImpl :
     Plugin(),
     PlugwerkPlugin {
 
     private val openMarketplaces = CopyOnWriteArrayList<WeakReference<PlugwerkMarketplaceImpl>>()
 
-    /**
-     * Test-only constructor bypassing PF4J's wrapper injection. Lets tests pass
-     * a mock [PluginManager] without first running a real PF4J load cycle.
-     * Production code uses the no-arg constructor and reads the wrapper-supplied
-     * `PluginManager` at [connect] time.
-     */
-    private var explicitPluginManager: PluginManager? = null
-
-    internal constructor(pluginManager: PluginManager) : this() {
-        this.explicitPluginManager = pluginManager
-    }
-
-    override fun connect(config: PlugwerkConfig): PlugwerkMarketplace {
-        // PF4J injects the wrapper after construction; reading it here is safe
-        // because `connect` is host-driven and only callable once the plugin is
-        // fully loaded. The PluginManager from the wrapper is the same one the
-        // host used to load us — that is the one the installer must drive.
-        @Suppress("DEPRECATION")
-        val pluginManager = explicitPluginManager ?: wrapper.pluginManager
+    override fun connect(config: PlugwerkConfig, pluginManager: PluginManager): PlugwerkMarketplace {
         val marketplace = PlugwerkMarketplaceImpl.create(config, pluginManager)
         openMarketplaces.add(WeakReference(marketplace))
         return marketplace

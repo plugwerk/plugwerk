@@ -56,6 +56,7 @@ plugin.connect(
         .accessToken("eyJhbG...")
         .pluginDirectory(Path.of("/var/app/plugins"))
         .build(),
+    pluginManager,
 ).use { marketplace ->
     marketplace.catalog().listPlugins()
 }
@@ -64,7 +65,7 @@ plugin.connect(
 For long-lived references, store the marketplace and close it explicitly when the host shuts down:
 
 ```kotlin
-val marketplace = plugin.connect(config)
+val marketplace = plugin.connect(config, pluginManager)
 // ... use it across the app's lifetime
 marketplace.close()
 ```
@@ -75,7 +76,10 @@ The plugin is a stateless factory — every `connect()` call returns a fresh mar
 
 ```kotlin
 @Configuration
-class PlugwerkBeans(private val plugin: PlugwerkPlugin) {
+class PlugwerkBeans(
+    private val plugin: PlugwerkPlugin,
+    private val pluginManager: PluginManager,
+) {
 
     @Bean(destroyMethod = "close")
     fun productionMarketplace(): PlugwerkMarketplace = plugin.connect(
@@ -83,6 +87,7 @@ class PlugwerkBeans(private val plugin: PlugwerkPlugin) {
             .accessToken("prod-token")
             .pluginDirectory(Path.of("/var/app/plugins"))
             .build(),
+        pluginManager,
     )
 
     @Bean(destroyMethod = "close")
@@ -91,6 +96,7 @@ class PlugwerkBeans(private val plugin: PlugwerkPlugin) {
             .accessToken("staging-token")
             .pluginDirectory(Path.of("/var/app/plugins"))
             .build(),
+        pluginManager,
     )
 }
 ```
@@ -108,7 +114,7 @@ plugwerk.pluginDirectory=/var/app/plugins
 
 ```kotlin
 val config = PlugwerkConfig.fromProperties(Path.of("plugwerk-client.properties"))
-val marketplace = plugin.connect(config)
+val marketplace = plugin.connect(config, pluginManager)
 ```
 
 > **Security:** Never pass access tokens as JVM system properties (`-Dplugwerk.accessToken=…`) —
