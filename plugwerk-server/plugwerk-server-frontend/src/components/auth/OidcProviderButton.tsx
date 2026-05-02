@@ -18,6 +18,7 @@
  */
 import { Box, Button, Link, Typography } from "@mui/material";
 import type { OidcProviderLoginInfo } from "../../stores/configStore";
+import { ProviderIcon } from "./ProviderIcon";
 
 interface OidcProviderButtonProps {
   provider: OidcProviderLoginInfo;
@@ -63,8 +64,9 @@ export function OidcProviderButton({ provider }: OidcProviderButtonProps) {
         variant="outlined"
         size="large"
         fullWidth
+        startIcon={<ProviderIcon kind={provider.iconKind} />}
       >
-        {`Login with ${provider.name}`}
+        {`Sign in with ${provider.name}`}
       </Button>
       <ProviderAccountSwitchAffordance provider={provider} />
     </Box>

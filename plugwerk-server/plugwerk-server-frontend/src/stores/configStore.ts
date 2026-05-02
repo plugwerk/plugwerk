@@ -54,7 +54,35 @@ export interface OidcProviderLoginInfo {
    * actually sign in with a different account.
    */
   readonly accountSwitchHintUrl: string | null;
+  /**
+   * Brand-agnostic icon identifier the login-page button uses to pick
+   * the right glyph. Stable enum from the backend — see
+   * `OidcProviderLoginInfo.iconKind` in the OpenAPI spec for the full
+   * mapping. Defaults to `"oidc"` (generic key glyph) on any unknown /
+   * missing value so a backend regression cannot remove the icon
+   * silently.
+   */
+  readonly iconKind: ProviderIconKind;
 }
+
+/**
+ * Closed set of icon glyphs the frontend can render for a provider
+ * button. Mirrors the OpenAPI enum at `OidcProviderLoginInfo.iconKind`.
+ */
+export type ProviderIconKind =
+  | "github"
+  | "google"
+  | "facebook"
+  | "oidc"
+  | "oauth2";
+
+const KNOWN_ICON_KINDS: ReadonlySet<ProviderIconKind> = new Set([
+  "github",
+  "google",
+  "facebook",
+  "oidc",
+  "oauth2",
+]);
 
 interface ConfigState {
   readonly version: string;
@@ -134,6 +162,15 @@ function parseOidcProviders(raw: unknown): readonly OidcProviderLoginInfo[] {
       typeof e.accountSwitchHintUrl === "string"
         ? e.accountSwitchHintUrl
         : null;
+    // Fall through to "oidc" (generic key glyph) on any unknown / missing
+    // value so a backend regression cannot remove the provider icon
+    // silently — the operator still sees a button, just without brand
+    // colour.
+    const iconKind: ProviderIconKind =
+      typeof e.iconKind === "string" &&
+      KNOWN_ICON_KINDS.has(e.iconKind as ProviderIconKind)
+        ? (e.iconKind as ProviderIconKind)
+        : "oidc";
     return [
       {
         id: e.id,
@@ -141,6 +178,7 @@ function parseOidcProviders(raw: unknown): readonly OidcProviderLoginInfo[] {
         loginUrl: e.loginUrl,
         accountPickerLoginUrl,
         accountSwitchHintUrl,
+        iconKind,
       },
     ];
   });

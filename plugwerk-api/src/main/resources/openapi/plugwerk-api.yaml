@@ -3261,10 +3261,28 @@ components:
             back to Plugwerk and click the primary button to actually
             sign in with a different account.
           example: "https://github.com/logout"
+        iconKind:
+          type: string
+          enum: [github, google, facebook, oidc, oauth2]
+          description: |
+            Stable, brand-agnostic identifier the frontend uses to pick
+            the right icon glyph for the provider button on the login
+            page. Exposed as a fixed enum (rather than the internal
+            `OidcProviderType`) so the public `/config` surface stays
+            decoupled from the domain enum's evolution.
+
+            Mapping:
+            - `github` → GitHub vendor mark
+            - `google` → Google "G" vendor mark
+            - `facebook` → Facebook "f" vendor mark
+            - `oidc` → key icon (Generic OIDC: Keycloak, Authentik, …)
+            - `oauth2` → key icon (Generic OAuth2: GitLab, Bitbucket, …)
+          example: "github"
       required:
         - id
         - name
         - loginUrl
+        - iconKind
 
     AccessKeyDto:
       type: object

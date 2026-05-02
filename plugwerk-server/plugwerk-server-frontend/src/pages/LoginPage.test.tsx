@@ -42,7 +42,7 @@ describe("LoginPage", () => {
   it("renders username and password inputs", () => {
     renderWithRouter(<LoginPage />);
     expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^password/i)).toBeInTheDocument();
   });
 
   it("renders the sign in button", () => {
@@ -79,7 +79,7 @@ describe("LoginPage", () => {
     const user = userEvent.setup();
     renderWithRouter(<LoginPage />);
     await user.type(screen.getByLabelText(/username/i), "alice");
-    await user.type(screen.getByLabelText(/password/i), "secret");
+    await user.type(screen.getByLabelText(/^password/i), "secret");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
@@ -94,7 +94,7 @@ describe("LoginPage", () => {
     const user = userEvent.setup();
     renderWithRouter(<LoginPage />);
     await user.type(screen.getByLabelText(/username/i), "  alice  ");
-    await user.type(screen.getByLabelText(/password/i), "secret");
+    await user.type(screen.getByLabelText(/^password/i), "secret");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
@@ -109,7 +109,7 @@ describe("LoginPage", () => {
     const user = userEvent.setup();
     renderWithRouter(<LoginPage />);
     await user.type(screen.getByLabelText(/username/i), "wrong");
-    await user.type(screen.getByLabelText(/password/i), "wrong");
+    await user.type(screen.getByLabelText(/^password/i), "wrong");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
