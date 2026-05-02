@@ -36,6 +36,7 @@ import io.plugwerk.server.service.PluginNotFoundException
 import io.plugwerk.server.service.ReleaseAlreadyExistsException
 import io.plugwerk.server.service.ReleaseNotFoundException
 import io.plugwerk.server.service.UnauthorizedException
+import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -93,6 +94,32 @@ class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidation(ex: MethodArgumentNotValidException): ResponseEntity<ErrorResponse> {
         val details = ex.bindingResult.fieldErrors.joinToString("; ") { "${it.field}: ${it.defaultMessage}" }
+        return errorResponse(HttpStatus.BAD_REQUEST, details.ifBlank { "Validation failed" })
+    }
+
+    /**
+     * Maps `@Validated` class + `@Min` / `@Max` / `@Pattern` / `@Size` violations
+     * on `@RequestParam` and `@PathVariable` arguments to a clean 400 response
+     * with the same `ErrorResponse` envelope as [handleValidation] (#430).
+     *
+     * Without this handler such violations would fall through to
+     * [handleUnexpected] and surface as 500 Internal Server Error — confusing
+     * callers and breaking the API's documented contract that bad input
+     * produces 400.
+     *
+     * `@Valid @RequestBody` violations go through [handleValidation] (different
+     * exception type — `MethodArgumentNotValidException`); the two paths cover
+     * the full Bean Validation surface.
+     */
+    @ExceptionHandler(ConstraintViolationException::class)
+    fun handleConstraintViolation(ex: ConstraintViolationException): ResponseEntity<ErrorResponse> {
+        val details = ex.constraintViolations
+            .joinToString("; ") { violation ->
+                // propertyPath is "methodName.paramName" (e.g. "listPlugins.size") —
+                // keep only the last segment for a caller-friendly field name.
+                val field = violation.propertyPath.toString().substringAfterLast('.')
+                "$field: ${violation.message}"
+            }
         return errorResponse(HttpStatus.BAD_REQUEST, details.ifBlank { "Validation failed" })
     }
 
