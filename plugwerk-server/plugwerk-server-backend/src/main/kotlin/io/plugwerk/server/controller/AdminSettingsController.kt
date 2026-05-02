@@ -22,6 +22,7 @@ import io.plugwerk.api.AdminSettingsApi
 import io.plugwerk.api.model.ApplicationSettingDto
 import io.plugwerk.api.model.ApplicationSettingsResponse
 import io.plugwerk.api.model.ApplicationSettingsUpdateRequest
+import io.plugwerk.server.domain.SettingValueType
 import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.security.currentAuthentication
 import io.plugwerk.server.service.settings.ApplicationSettingKey
@@ -78,19 +79,34 @@ class AdminSettingsController(
     private fun buildResponse(): ApplicationSettingsResponse =
         ApplicationSettingsResponse(settings = settingsService.listAll().map { it.toDto() })
 
-    private fun SettingSnapshot.toDto(): ApplicationSettingDto = ApplicationSettingDto(
-        key = key.key,
-        value = value,
-        valueType = ApplicationSettingDto.ValueType.valueOf(key.valueType.name),
-        source = when (source) {
-            SettingSource.DATABASE -> ApplicationSettingDto.Source.DATABASE
-            SettingSource.DEFAULT -> ApplicationSettingDto.Source.DEFAULT
-        },
-        requiresRestart = key.requiresRestart,
-        restartPending = restartPending,
-        description = description,
-        allowedValues = key.allowedValues?.toList(),
-        minInt = key.minInt,
-        maxInt = key.maxInt,
-    )
+    private fun SettingSnapshot.toDto(): ApplicationSettingDto {
+        // PASSWORD-typed values are masked before they leave the process —
+        // the cache stores ciphertext, never plaintext, but we never want to
+        // hand even the ciphertext to the client either (it would let an
+        // attacker who learns the encryption key replay the original
+        // password). Render the sentinel `***` instead, and treat that
+        // exact string as "no change" on the write path (#253).
+        // Empty values stay empty so the UI can distinguish "not configured"
+        // from "configured (hidden)".
+        val displayValue = if (key.valueType == SettingValueType.PASSWORD && value.isNotEmpty()) {
+            ApplicationSettingsService.MASKED_VALUE
+        } else {
+            value
+        }
+        return ApplicationSettingDto(
+            key = key.key,
+            value = displayValue,
+            valueType = ApplicationSettingDto.ValueType.valueOf(key.valueType.name),
+            source = when (source) {
+                SettingSource.DATABASE -> ApplicationSettingDto.Source.DATABASE
+                SettingSource.DEFAULT -> ApplicationSettingDto.Source.DEFAULT
+            },
+            requiresRestart = key.requiresRestart,
+            restartPending = restartPending,
+            description = description,
+            allowedValues = key.allowedValues?.toList(),
+            minInt = key.minInt,
+            maxInt = key.maxInt,
+        )
+    }
 }

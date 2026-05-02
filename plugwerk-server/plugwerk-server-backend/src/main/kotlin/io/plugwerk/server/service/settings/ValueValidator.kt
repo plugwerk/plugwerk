@@ -67,6 +67,14 @@ internal object ValueValidator {
         SettingValueType.STRING ->
             if (!allowBlankString && rawValue.isBlank()) "value must not be blank" else null
 
+        SettingValueType.PASSWORD ->
+            // Same rules as STRING — the only difference is at the storage
+            // and display layer (encrypted at rest, masked in GET responses).
+            // The PASSWORD-specific magic lives in
+            // `ApplicationSettingsService.update` (encrypt) and
+            // `AdminSettingsController.toDto` (mask) — not here (#253).
+            if (!allowBlankString && rawValue.isBlank()) "value must not be blank" else null
+
         SettingValueType.INTEGER -> {
             val parsed = rawValue.toIntOrNull()
             when {

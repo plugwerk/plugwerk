@@ -131,6 +131,25 @@ class GlobalExceptionHandler {
     fun handleIllegalArgument(ex: IllegalArgumentException): ResponseEntity<ErrorResponse> =
         errorResponse(HttpStatus.BAD_REQUEST, ex.message ?: "Invalid request")
 
+    /**
+     * SMTP is disabled or its configuration is incomplete — the test endpoint
+     * surfaces this as 400 so the operator gets a clear "you need to configure
+     * SMTP first" rather than a 5xx that suggests the server is broken (#253).
+     */
+    @ExceptionHandler(SmtpNotConfiguredException::class)
+    fun handleSmtpNotConfigured(ex: SmtpNotConfiguredException): ResponseEntity<ErrorResponse> =
+        errorResponse(HttpStatus.BAD_REQUEST, ex.message ?: "SMTP is not configured")
+
+    /**
+     * The configured SMTP server rejected the message (auth failed, host
+     * unreachable, recipient refused, etc.). Mapped to 502 because we are
+     * acting as a gateway to an upstream that misbehaved — same semantic as
+     * a downstream HTTP service returning 5xx (#253).
+     */
+    @ExceptionHandler(SmtpDeliveryException::class)
+    fun handleSmtpDelivery(ex: SmtpDeliveryException): ResponseEntity<ErrorResponse> =
+        errorResponse(HttpStatus.BAD_GATEWAY, ex.message ?: "SMTP server rejected the message")
+
     @ExceptionHandler(
         DescriptorNotFoundException::class,
         DescriptorParseException::class,

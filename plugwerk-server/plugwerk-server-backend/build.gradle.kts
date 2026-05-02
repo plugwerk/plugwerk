@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.spring.boot.starter.oauth2.client)
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.validation)
+    implementation(libs.spring.boot.starter.mail)
     implementation(libs.jackson.module.kotlin)
     implementation(libs.spring.boot.starter.liquibase)
     implementation(libs.bucket4j.core)
@@ -70,6 +71,7 @@ dependencies {
     testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.testcontainers.postgresql)
     testImplementation(libs.mock.oauth2.server)
+    testImplementation(libs.greenmail.junit5)
 
     testRuntimeOnly(libs.h2)
 }

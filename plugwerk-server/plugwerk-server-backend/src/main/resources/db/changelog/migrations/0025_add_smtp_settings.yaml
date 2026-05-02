@@ -1,0 +1,166 @@
+# Seed the SMTP/email server settings registered in ApplicationSettingKey
+# (#253). All values default to empty / disabled — the operator configures
+# them at runtime via /admin/email/server.
+#
+# `smtp.password` is stored encrypted at rest. The seed inserts an empty
+# string (which the application layer treats as "no password set"); when
+# the operator first writes a password the AdminSettingsController's
+# update path runs the value through TextEncryptor before persisting.
+#
+# No new column is added — the existing `application_setting` table from
+# 0005 already supports arbitrary keys with `value_type` discriminating
+# parsing. The new value_type=PASSWORD is recognised by both the entity
+# enum and the value validator.
+databaseChangeLog:
+  - changeSet:
+      id: 0025-seed-smtp-settings
+      author: plugwerk
+      changes:
+        - insert:
+            tableName: application_setting
+            columns:
+              - column:
+                  name: id
+                  valueComputed: gen_random_uuid()
+              - column:
+                  name: setting_key
+                  value: smtp.enabled
+              - column:
+                  name: setting_value
+                  value: "false"
+              - column:
+                  name: setting_desc
+                  value: "Master switch — when false, the application sends no emails regardless of other SMTP settings."
+              - column:
+                  name: value_type
+                  value: BOOLEAN
+        - insert:
+            tableName: application_setting
+            columns:
+              - column:
+                  name: id
+                  valueComputed: gen_random_uuid()
+              - column:
+                  name: setting_key
+                  value: smtp.host
+              - column:
+                  name: setting_value
+                  value: ""
+              - column:
+                  name: setting_desc
+                  value: "SMTP server hostname (e.g. smtp.example.com)."
+              - column:
+                  name: value_type
+                  value: STRING
+        - insert:
+            tableName: application_setting
+            columns:
+              - column:
+                  name: id
+                  valueComputed: gen_random_uuid()
+              - column:
+                  name: setting_key
+                  value: smtp.port
+              - column:
+                  name: setting_value
+                  value: "587"
+              - column:
+                  name: setting_desc
+                  value: "SMTP server port (1–65535). 587 for STARTTLS submission, 465 for implicit TLS, 25 for plain SMTP."
+              - column:
+                  name: value_type
+                  value: INTEGER
+        - insert:
+            tableName: application_setting
+            columns:
+              - column:
+                  name: id
+                  valueComputed: gen_random_uuid()
+              - column:
+                  name: setting_key
+                  value: smtp.username
+              - column:
+                  name: setting_value
+                  value: ""
+              - column:
+                  name: setting_desc
+                  value: "SMTP authentication username. Leave blank for unauthenticated relays."
+              - column:
+                  name: value_type
+                  value: STRING
+        - insert:
+            tableName: application_setting
+            columns:
+              - column:
+                  name: id
+                  valueComputed: gen_random_uuid()
+              - column:
+                  name: setting_key
+                  value: smtp.password
+              - column:
+                  name: setting_value
+                  value: ""
+              - column:
+                  name: setting_desc
+                  value: "SMTP authentication password. Stored encrypted at rest, masked in API responses."
+              - column:
+                  name: value_type
+                  value: PASSWORD
+        - insert:
+            tableName: application_setting
+            columns:
+              - column:
+                  name: id
+                  valueComputed: gen_random_uuid()
+              - column:
+                  name: setting_key
+                  value: smtp.encryption
+              - column:
+                  name: setting_value
+                  value: starttls
+              - column:
+                  name: setting_desc
+                  value: "Transport encryption: 'none' (plain), 'starttls' (port 587-style upgrade), or 'tls' (implicit TLS, port 465-style)."
+              - column:
+                  name: value_type
+                  value: ENUM
+        - insert:
+            tableName: application_setting
+            columns:
+              - column:
+                  name: id
+                  valueComputed: gen_random_uuid()
+              - column:
+                  name: setting_key
+                  value: smtp.from_address
+              - column:
+                  name: setting_value
+                  value: ""
+              - column:
+                  name: setting_desc
+                  value: "Envelope-From and From-header email address used for all outgoing mail."
+              - column:
+                  name: value_type
+                  value: STRING
+        - insert:
+            tableName: application_setting
+            columns:
+              - column:
+                  name: id
+                  valueComputed: gen_random_uuid()
+              - column:
+                  name: setting_key
+                  value: smtp.from_name
+              - column:
+                  name: setting_value
+                  value: Plugwerk
+              - column:
+                  name: setting_desc
+                  value: "Display name used in the From: header (e.g. 'Plugwerk'). Combined with from_address."
+              - column:
+                  name: value_type
+                  value: STRING
+      rollback:
+        - delete:
+            tableName: application_setting
+            where: "setting_key IN ('smtp.enabled', 'smtp.host', 'smtp.port', 'smtp.username', 'smtp.password', 'smtp.encryption', 'smtp.from_address', 'smtp.from_name')"

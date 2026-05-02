@@ -34,6 +34,27 @@ private fun validateTimezone(rawValue: String): String? = try {
 }
 
 /**
+ * Conservative RFC-5322-ish email check used for `smtp.from_address` (#253).
+ *
+ * We deliberately allow blank because the SMTP config can legitimately be
+ * empty when the operator has not yet set it up — the cross-key invariant
+ * "from_address must be set when smtp.enabled=true" is enforced at send
+ * time by the mail layer, not at per-key write time.
+ */
+private fun validateEmailAllowingBlank(rawValue: String): String? {
+    if (rawValue.isBlank()) return null
+    // Single-line, must contain exactly one @, local + domain non-empty,
+    // domain has at least one dot. Good enough for an internal admin field;
+    // RFC 5322 in full would require a 100-line parser nobody asked for.
+    val emailPattern = Regex("^[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}$")
+    return if (emailPattern.matches(rawValue)) {
+        null
+    } else {
+        "value must be a valid email address, got '$rawValue'"
+    }
+}
+
+/**
  * Central registry of every admin-manageable application setting (ADR-0016).
  *
  * Each entry declares its dotted key, its typed default (used as a last-resort fallback if
@@ -55,6 +76,13 @@ enum class ApplicationSettingKey(
     val allowedValues: Set<String>? = null,
     val minInt: Int? = null,
     val maxInt: Int? = null,
+    /**
+     * `true` lets the type-validator accept blank strings for STRING/PASSWORD keys.
+     * Default is `false` because most application settings are mandatory once
+     * configured. SMTP keys override this so an unconfigured operator is not
+     * forced to invent placeholder values (#253).
+     */
+    val allowBlank: Boolean = false,
     val extraValidator: ((String) -> String?)? = null,
 ) {
     GENERAL_DEFAULT_LANGUAGE(
@@ -102,13 +130,69 @@ enum class ApplicationSettingKey(
         valueType = SettingValueType.BOOLEAN,
         defaultValue = "true",
     ),
+
+    // ---- SMTP / Email (#253) ------------------------------------------------
+    // All SMTP keys allow blank because the operator may not have configured
+    // anything yet. Cross-key invariants ("host required when enabled=true")
+    // are enforced at send time by the mail layer, not per-key.
+
+    SMTP_ENABLED(
+        key = "smtp.enabled",
+        valueType = SettingValueType.BOOLEAN,
+        defaultValue = "false",
+    ),
+    SMTP_HOST(
+        key = "smtp.host",
+        valueType = SettingValueType.STRING,
+        defaultValue = "",
+        allowBlank = true,
+    ),
+    SMTP_PORT(
+        key = "smtp.port",
+        valueType = SettingValueType.INTEGER,
+        defaultValue = "587",
+        minInt = 1,
+        maxInt = 65535,
+    ),
+    SMTP_USERNAME(
+        key = "smtp.username",
+        valueType = SettingValueType.STRING,
+        defaultValue = "",
+        allowBlank = true,
+    ),
+    SMTP_PASSWORD(
+        key = "smtp.password",
+        valueType = SettingValueType.PASSWORD,
+        defaultValue = "",
+        allowBlank = true,
+    ),
+    SMTP_ENCRYPTION(
+        key = "smtp.encryption",
+        valueType = SettingValueType.ENUM,
+        defaultValue = "starttls",
+        allowedValues = setOf("none", "starttls", "tls"),
+    ),
+    SMTP_FROM_ADDRESS(
+        key = "smtp.from_address",
+        valueType = SettingValueType.STRING,
+        defaultValue = "",
+        allowBlank = true,
+        extraValidator = ::validateEmailAllowingBlank,
+    ),
+    SMTP_FROM_NAME(
+        key = "smtp.from_name",
+        valueType = SettingValueType.STRING,
+        defaultValue = "Plugwerk",
+        allowBlank = true,
+    ),
     ;
 
     /**
      * Validates a proposed new raw value for this key. Application settings forbid blank
-     * strings and support integer range constraints; the shared [ValueValidator] implements
-     * the type-level rules, and per-key [extraValidator] runs afterwards on a valid raw
-     * value (e.g. IANA timezone check for `general.default_timezone`).
+     * strings by default (override per key via [allowBlank]) and support integer range
+     * constraints; the shared [ValueValidator] implements the type-level rules, and
+     * per-key [extraValidator] runs afterwards on a valid raw value (e.g. IANA timezone
+     * check for `general.default_timezone`).
      *
      * @return `null` if the value is acceptable, or a human-readable error message otherwise.
      */
@@ -120,7 +204,7 @@ enum class ApplicationSettingKey(
             allowedValues = allowedValues,
             minInt = minInt,
             maxInt = maxInt,
-            allowBlankString = false,
+            allowBlankString = allowBlank,
         )
         return typeError ?: extraValidator?.invoke(rawValue)
     }

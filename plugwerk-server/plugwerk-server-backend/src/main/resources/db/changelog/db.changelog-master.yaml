@@ -47,3 +47,5 @@ databaseChangeLog:
       file: db/changelog/migrations/0023_user_source_internal_external.yaml
   - include:
       file: db/changelog/migrations/0024_revoked_token_user_fk.yaml
+  - include:
+      file: db/changelog/migrations/0025_add_smtp_settings.yaml
