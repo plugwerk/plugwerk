@@ -52,9 +52,10 @@ interface PlugwerkCatalog : ExtensionPoint {
      * The returned list includes only plugins with status [io.plugwerk.spi.model.PluginStatus.ACTIVE].
      * Suspended or archived plugins are excluded.
      *
-     * **Multiple HTTP round-trips.** The default SDK implementation walks every
-     * server page until the catalog is exhausted (#428) — a 200-plugin namespace
-     * at the server's default page size of 20 will issue 10 GETs. Hosts that
+     * **Multiple HTTP round-trips when the catalog exceeds one page.** The
+     * default SDK implementation walks every server page until the catalog is
+     * exhausted (#428) and asks for the OpenAPI-documented maximum of 100
+     * items per page, so a 250-plugin namespace becomes 3 GETs. Hosts that
      * want to render paginated UIs should keep their own page state and fetch
      * one server page at a time; today they must drop to the lower-level
      * `PlugwerkClient` to do so (paginated SPI variant tracked separately).

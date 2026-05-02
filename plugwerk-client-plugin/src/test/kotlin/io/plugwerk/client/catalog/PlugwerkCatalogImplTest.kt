@@ -182,13 +182,14 @@ class PlugwerkCatalogImplTest {
 
         assertEquals(listOf("a", "b"), plugins.map { it.pluginId })
         assertEquals(2, server.requestCount)
-        // Query params survive every page request — `?q=hello&tag=ai&page=N` shape.
+        // Query params survive every page request — `?q=hello&tag=ai&page=N&size=100` shape.
         repeat(2) { i ->
             val request = server.takeRequest()
             val path = request.path!!
             assert(path.contains("q=hello")) { "Page $i lost q= parameter: $path" }
             assert(path.contains("tag=ai")) { "Page $i lost tag= parameter: $path" }
             assert(path.contains("page=$i")) { "Page $i missing page=$i: $path" }
+            assert(path.contains("size=100")) { "Page $i missing size=100: $path" }
         }
     }
 
@@ -248,8 +249,8 @@ class PlugwerkCatalogImplTest {
 
     /**
      * Verifies the SDK issued one request per expected page in order, with
-     * `?page=N` appended to [pathPrefix]. Drains MockWebServer's request
-     * queue in the process.
+     * `?page=N&size=100` appended to [pathPrefix]. Drains MockWebServer's
+     * request queue in the process.
      */
     private fun assertPagedRequests(expectedPages: List<Int>, pathPrefix: String) {
         expectedPages.forEach { p ->
@@ -257,6 +258,7 @@ class PlugwerkCatalogImplTest {
             val path = request.path!!
             assert(path.startsWith(pathPrefix)) { "Page $p hit unexpected path: $path" }
             assert(path.contains("page=$p")) { "Page $p missing page=$p: $path" }
+            assert(path.contains("size=100")) { "Page $p missing size=100: $path" }
         }
     }
 }

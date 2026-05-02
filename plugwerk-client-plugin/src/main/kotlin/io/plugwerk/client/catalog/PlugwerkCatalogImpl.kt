@@ -33,7 +33,7 @@ internal class PlugwerkCatalogImpl(private val client: PlugwerkClient) : Plugwer
     private val log = LoggerFactory.getLogger(PlugwerkCatalogImpl::class.java)
 
     override fun listPlugins(): List<PluginInfo> = paginate(
-        fetchPage = { p -> client.get<PluginPagedResponse>("plugins?page=$p") },
+        fetchPage = { p -> client.get<PluginPagedResponse>(pageUrl("plugins", query = "", page = p)) },
         contentOf = { it.content },
         totalPagesOf = { it.totalPages },
     ).map { it.toPluginInfo() }
@@ -55,7 +55,9 @@ internal class PlugwerkCatalogImpl(private val client: PlugwerkClient) : Plugwer
     }
 
     override fun getPluginReleases(pluginId: String): List<PluginReleaseInfo> = paginate(
-        fetchPage = { p -> client.get<ReleasePagedResponse>("plugins/$pluginId/releases?page=$p") },
+        fetchPage = { p ->
+            client.get<ReleasePagedResponse>(pageUrl("plugins/$pluginId/releases", query = "", page = p))
+        },
         contentOf = { it.content },
         totalPagesOf = { it.totalPages },
     ).map { it.toReleaseInfo() }
@@ -106,12 +108,26 @@ internal class PlugwerkCatalogImpl(private val client: PlugwerkClient) : Plugwer
         return all
     }
 
+    /**
+     * Builds `path?query&page=N&size=PAGE_SIZE`. Always asks for [PAGE_SIZE]
+     * items per page (the OpenAPI-documented maximum) so a 100-plugin catalog
+     * fits in one round-trip instead of five at the server's default of 20.
+     */
     private fun pageUrl(path: String, query: String, page: Int): String = when {
-        query.isBlank() -> "$path?page=$page"
-        else -> "$path?$query&page=$page"
+        query.isBlank() -> "$path?page=$page&size=$PAGE_SIZE"
+        else -> "$path?$query&page=$page&size=$PAGE_SIZE"
     }
 
     private companion object {
+        /**
+         * Items per page requested from the server. OpenAPI-documented maximum
+         * is 100 (`SizeQuery` parameter in `plugwerk-api.yaml`). Picking the
+         * max minimises round-trips for typical catalog sizes — a 99-plugin
+         * namespace becomes one HTTP call instead of five at the server's
+         * default of 20.
+         */
+        const val PAGE_SIZE = 100
+
         /** Defence against a misbehaving server returning inconsistent `totalPages`. */
         const val MAX_PAGES = 100
     }
