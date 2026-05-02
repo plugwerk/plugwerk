@@ -136,32 +136,36 @@ Plugwerk's transactional email pipeline (`MailService` → `MailSenderProvider`
 → `JavaMailSenderImpl`) needs a real SMTP server to talk to. Two options for
 local dev — pick one:
 
-### Option A — MailHog via the bundled compose profile (recommended)
+### Option A — Mailpit via the bundled compose profile (recommended)
 
-The repo's `docker-compose.yml` ships a `mailhog` profile that is **off by
+The repo's `docker-compose.yml` ships a `mailpit` profile that is **off by
 default** (same opt-in pattern as `keycloak` for OIDC dev). Bring it up:
 
 ```bash
-docker compose --profile mailhog up -d mailhog
+docker compose --profile mailpit up -d mailpit
 ```
 
-This starts [MailHog](https://github.com/mailhog/MailHog) on:
+This starts [Mailpit](https://github.com/axllent/mailpit) on:
 - `127.0.0.1:1025` — SMTP (catches everything, never forwards)
-- `127.0.0.1:8025` — Web UI
+- `127.0.0.1:8025` — Web UI + REST API
+
+Mailpit is the actively-maintained successor to MailHog and ships native
+multi-arch images (`linux/amd64` + `linux/arm64`), so Apple Silicon
+contributors do not pay the Rosetta tax.
 
 Then in the Plugwerk Admin UI under **Settings → Email → Server**:
 
 | Field | Value |
 |---|---|
 | `SMTP enabled` | ✅ |
-| `Host` | `mailhog` (when Plugwerk runs in the same compose stack) **or** `localhost` (when Plugwerk runs natively on the host) |
+| `Host` | `mailpit` (when Plugwerk runs in the same compose stack) **or** `localhost` (when Plugwerk runs natively on the host) |
 | `Port` | `1025` |
-| `Encryption` | `None (plain SMTP)` — MailHog speaks no TLS |
+| `Encryption` | `None (plain SMTP)` — Mailpit speaks no TLS by default |
 | `Username` / `Password` | (leave blank) |
 | `From address` | `noreply@plugwerk.local` |
 
 Save, then click **Send Test Email** with any target — it lands in the
-MailHog inbox at <http://localhost:8025>.
+Mailpit inbox at <http://localhost:8025>.
 
 ### Option B — GreenMail in unit tests
 
