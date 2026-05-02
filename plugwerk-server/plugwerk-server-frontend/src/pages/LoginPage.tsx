@@ -19,13 +19,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  Box,
-  TextField,
-  Button,
   Alert,
+  Box,
+  Button,
+  CircularProgress,
   Divider,
+  IconButton,
+  InputAdornment,
+  TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
+import { Eye, EyeOff } from "lucide-react";
 import { AuthCard } from "../components/auth/AuthCard";
 import { OidcProviderButton } from "../components/auth/OidcProviderButton";
 import { useAuthStore } from "../stores/authStore";
@@ -50,6 +55,7 @@ export function LoginPage() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -124,12 +130,38 @@ export function LoginPage() {
         />
         <TextField
           label="Password"
-          type="password"
+          type={showPassword ? "text" : "password"}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
           autoComplete="current-password"
           size="small"
+          slotProps={{
+            input: {
+              endAdornment: (
+                <InputAdornment position="end">
+                  <Tooltip
+                    title={showPassword ? "Hide password" : "Show password"}
+                    placement="top"
+                    arrow
+                  >
+                    <IconButton
+                      onClick={() => setShowPassword((s) => !s)}
+                      onMouseDown={(e) => e.preventDefault()}
+                      aria-label={
+                        showPassword ? "Hide password" : "Show password"
+                      }
+                      aria-pressed={showPassword}
+                      edge="end"
+                      size="small"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </IconButton>
+                  </Tooltip>
+                </InputAdornment>
+              ),
+            },
+          }}
         />
         <Button
           type="submit"
@@ -137,6 +169,13 @@ export function LoginPage() {
           size="large"
           disabled={loading}
           fullWidth
+          // Reserve the spinner slot in the start position so the button
+          // width does not jitter on click — the inline spinner replaces
+          // an invisible 18×18 placeholder rather than expanding the
+          // button mid-press.
+          startIcon={
+            loading ? <CircularProgress size={16} color="inherit" /> : undefined
+          }
         >
           {loading ? "Signing in…" : "Sign In"}
         </Button>

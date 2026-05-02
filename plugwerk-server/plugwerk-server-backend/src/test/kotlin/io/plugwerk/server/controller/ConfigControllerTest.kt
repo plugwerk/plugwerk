@@ -182,6 +182,41 @@ class ConfigControllerTest {
     }
 
     @Test
+    fun `GET config exposes per-provider iconKind for the login-page button glyph`() {
+        // Closed enum the frontend uses to pick the right brand glyph.
+        // Pinned across all five provider types so a refactor of the
+        // domain enum cannot silently break the public surface.
+        whenever(settingsService.maxUploadSizeMb()).thenReturn(100)
+        whenever(settingsService.defaultTimezone()).thenReturn("UTC")
+        whenever(versionProvider.getVersion()).thenReturn("1.0.0")
+        val oidcId = UUID.fromString("aaaaaaaa-1111-0000-0000-000000000001")
+        val googleId = UUID.fromString("aaaaaaaa-1111-0000-0000-000000000002")
+        val githubId = UUID.fromString("aaaaaaaa-1111-0000-0000-000000000003")
+        val facebookId = UUID.fromString("aaaaaaaa-1111-0000-0000-000000000004")
+        val oauth2Id = UUID.fromString("aaaaaaaa-1111-0000-0000-000000000005")
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(
+            listOf(
+                providerOf(oidcId, OidcProviderType.OIDC),
+                providerOf(googleId, OidcProviderType.GOOGLE),
+                providerOf(githubId, OidcProviderType.GITHUB),
+                providerOf(facebookId, OidcProviderType.FACEBOOK),
+                providerOf(oauth2Id, OidcProviderType.OAUTH2),
+            ),
+        )
+
+        mockMvc.get("/api/v1/config")
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.auth.oidcProviders.length()") { value(5) }
+                jsonPath("$.auth.oidcProviders[0].iconKind") { value("oidc") }
+                jsonPath("$.auth.oidcProviders[1].iconKind") { value("google") }
+                jsonPath("$.auth.oidcProviders[2].iconKind") { value("github") }
+                jsonPath("$.auth.oidcProviders[3].iconKind") { value("facebook") }
+                jsonPath("$.auth.oidcProviders[4].iconKind") { value("oauth2") }
+            }
+    }
+
+    @Test
     fun `GET config exposes accountPickerLoginUrl=prompt=select_account for OIDC, GOOGLE, FACEBOOK (#410)`() {
         // The four OIDC-shaped provider types use the OIDC standard
         // `select_account` prompt to pop the account picker; all three

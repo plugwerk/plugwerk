@@ -76,7 +76,25 @@ class ConfigController(
                 loginUrl = loginUrl,
                 accountPickerLoginUrl = accountPickerLoginUrlFor(provider, loginUrl),
                 accountSwitchHintUrl = accountSwitchHintUrlFor(provider),
+                iconKind = iconKindFor(provider),
             )
+        }
+
+    /**
+     * Brand-agnostic icon identifier the frontend renders on the provider
+     * button. Stable enum surface that does **not** mirror
+     * [OidcProviderType] one-to-one — both `OIDC` and `OAUTH2` map to a
+     * generic key glyph because there is no vendor mark to display.
+     * Using a separate enum keeps the public `/config` response decoupled
+     * from internal domain-type evolution.
+     */
+    private fun iconKindFor(provider: OidcProviderEntity): OidcProviderLoginInfo.IconKind =
+        when (provider.providerType) {
+            OidcProviderType.GITHUB -> OidcProviderLoginInfo.IconKind.GITHUB
+            OidcProviderType.GOOGLE -> OidcProviderLoginInfo.IconKind.GOOGLE
+            OidcProviderType.FACEBOOK -> OidcProviderLoginInfo.IconKind.FACEBOOK
+            OidcProviderType.OIDC -> OidcProviderLoginInfo.IconKind.OIDC
+            OidcProviderType.OAUTH2 -> OidcProviderLoginInfo.IconKind.OAUTH2
         }
 
     /**

@@ -52,13 +52,14 @@ export function AuthCard({ title, subtitle, children }: AuthCardProps) {
         }}
         elevation={0}
       >
-        {/* Logo */}
+        {/* Logo — sized at 64px so it reads as identification, not as the
+            visual centre-of-mass. The form below is the centre. */}
         <Box sx={{ display: "flex", justifyContent: "center" }}>
           <Box
             component="img"
             src="/logomark.svg"
             alt="Plugwerk"
-            sx={{ height: 96, width: "auto" }}
+            sx={{ height: 64, width: "auto" }}
           />
         </Box>
 
@@ -66,7 +67,10 @@ export function AuthCard({ title, subtitle, children }: AuthCardProps) {
         <Box sx={{ textAlign: "center" }}>
           <Typography variant="h3">{title}</Typography>
           {subtitle && (
-            <Typography variant="body2" color="text.disabled" sx={{ mt: 0.5 }}>
+            // `text.secondary` (not `text.disabled`) — the subtitle is
+            // information, not a placeholder. Disabled grey reads as
+            // "this field is unavailable" on form-heavy surfaces.
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
               {subtitle}
             </Typography>
           )}

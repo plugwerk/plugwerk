@@ -31,6 +31,7 @@ function provider(
     loginUrl: "/oauth2/authorization/11111111-1111-1111-1111-111111111111",
     accountPickerLoginUrl: null,
     accountSwitchHintUrl: null,
+    iconKind: "oidc",
     ...overrides,
   };
 }
@@ -41,7 +42,7 @@ describe("OidcProviderButton (issue #410)", () => {
       <OidcProviderButton provider={provider({ name: "Google" })} />,
     );
 
-    const primary = screen.getByRole("link", { name: /login with google/i });
+    const primary = screen.getByRole("link", { name: /sign in with google/i });
     expect(primary).toHaveAttribute(
       "href",
       "/oauth2/authorization/11111111-1111-1111-1111-111111111111",
@@ -103,11 +104,31 @@ describe("OidcProviderButton (issue #410)", () => {
     );
 
     expect(
-      screen.getByRole("link", { name: /login with mystery/i }),
+      screen.getByRole("link", { name: /sign in with mystery/i }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: /sign in with a different/i }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/to switch accounts/i)).not.toBeInTheDocument();
+  });
+
+  it("renders an SVG glyph inside the primary button for every iconKind", () => {
+    // Smoke check across the closed enum — every kind must produce an
+    // <svg> inside the primary login link. Pins the contract that
+    // `ProviderIcon` never returns `null` for a known kind, so a button
+    // can never silently render without a glyph.
+    const kinds = ["github", "google", "facebook", "oidc", "oauth2"] as const;
+    for (const kind of kinds) {
+      const { unmount } = renderWithTheme(
+        <OidcProviderButton
+          provider={provider({ name: kind, iconKind: kind })}
+        />,
+      );
+      const link = screen.getByRole("link", {
+        name: new RegExp(`sign in with ${kind}`, "i"),
+      });
+      expect(link.querySelector("svg")).not.toBeNull();
+      unmount();
+    }
   });
 });

@@ -18,6 +18,7 @@
  */
 import { Box, Button, Link, Typography } from "@mui/material";
 import type { OidcProviderLoginInfo } from "../../stores/configStore";
+import { ProviderIcon } from "./ProviderIcon";
 
 interface OidcProviderButtonProps {
   provider: OidcProviderLoginInfo;
@@ -63,8 +64,14 @@ export function OidcProviderButton({ provider }: OidcProviderButtonProps) {
         variant="outlined"
         size="large"
         fullWidth
+        startIcon={<ProviderIcon kind={provider.iconKind} />}
+        // Left-align the label so the brand glyph and the provider name
+        // read as one composed unit rather than the icon floating beside
+        // a centered text — a small but consistent rhythm across all
+        // provider buttons regardless of name length.
+        sx={{ justifyContent: "flex-start", textAlign: "left" }}
       >
-        {`Login with ${provider.name}`}
+        {`Sign in with ${provider.name}`}
       </Button>
       <ProviderAccountSwitchAffordance provider={provider} />
     </Box>
