@@ -5,6 +5,12 @@ plugins {
 
 kotlin {
     jvmToolchain(21)
+    // Preserve parameter names in bytecode so Spring Bean Validation can
+    // produce field-named messages like "size: must be ..." instead of
+    // "arg2: must be ..." for @RequestParam violations (#430).
+    compilerOptions {
+        javaParameters = true
+    }
 }
 
 dependencies {

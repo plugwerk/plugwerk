@@ -250,6 +250,76 @@ class CatalogControllerTest {
         SecurityContextHolder.clearContext()
     }
 
+    // -----------------------------------------------------------------------
+    // Constraint violation handling — #430. Pre-fix these queries fell through
+    // to handleUnexpected(Exception) in GlobalExceptionHandler and surfaced as
+    // 500 Internal Server Error, breaking the API's documented 400 contract
+    // for bad input.
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `GET plugins with size above OpenAPI maximum returns 400 with field-named message (#430)`() {
+        mockMvc.get("/api/v1/namespaces/acme/plugins?size=200")
+            .andExpect {
+                status { isBadRequest() }
+                jsonPath("$.status") { value(400) }
+                // Field name is the unqualified parameter ("size"), not
+                // "listPlugins.size" — substringAfterLast('.') strips the prefix.
+                jsonPath("$.message") { value(org.hamcrest.Matchers.containsString("size:")) }
+                jsonPath("$.message") { value(org.hamcrest.Matchers.containsString("less than or equal to 100")) }
+            }
+    }
+
+    @Test
+    fun `GET plugins with size below OpenAPI minimum returns 400 (#430)`() {
+        mockMvc.get("/api/v1/namespaces/acme/plugins?size=0")
+            .andExpect {
+                status { isBadRequest() }
+                jsonPath("$.message") { value(org.hamcrest.Matchers.containsString("size:")) }
+                jsonPath("$.message") { value(org.hamcrest.Matchers.containsString("greater than or equal to 1")) }
+            }
+    }
+
+    @Test
+    fun `GET plugins with negative page returns 400 (#430)`() {
+        mockMvc.get("/api/v1/namespaces/acme/plugins?page=-1")
+            .andExpect {
+                status { isBadRequest() }
+                jsonPath("$.message") { value(org.hamcrest.Matchers.containsString("page:")) }
+            }
+    }
+
+    @Test
+    fun `GET plugins with malformed sort parameter returns 400 (#430)`() {
+        mockMvc.get("/api/v1/namespaces/acme/plugins?sort=invalid")
+            .andExpect {
+                status { isBadRequest() }
+                jsonPath("$.message") { value(org.hamcrest.Matchers.containsString("sort:")) }
+            }
+    }
+
+    @Test
+    fun `GET plugins with valid size at maximum returns 200 (regression — boundary)`() {
+        whenever(
+            pluginService.findPagedByNamespace(
+                eq("acme"),
+                anyOrNull(),
+                anyOrNull(),
+                anyOrNull(),
+                any<Pageable>(),
+                any(),
+                anyOrNull(),
+            ),
+        )
+            .thenReturn(PluginService.PagedCatalogResult(PageImpl(emptyList()), emptySet()))
+
+        // size=100 is the documented max — must NOT trigger the constraint
+        // violation path. Pinning the boundary so we don't accidentally start
+        // rejecting valid requests after future Bean Validation upgrades.
+        mockMvc.get("/api/v1/namespaces/acme/plugins?size=100")
+            .andExpect { status { isOk() } }
+    }
+
     @Test
     fun `listPlugins surfaces unexpected runtime error from role lookup as 500`() {
         // KT-004 / #287 regression: before the fix, a runtime error thrown by the
