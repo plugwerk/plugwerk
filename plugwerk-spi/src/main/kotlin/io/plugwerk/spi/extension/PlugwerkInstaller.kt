@@ -16,18 +16,23 @@
 package io.plugwerk.spi.extension
 
 import io.plugwerk.spi.model.InstallResult
+import io.plugwerk.spi.model.UninstallResult
 import org.pf4j.ExtensionPoint
 import java.nio.file.Path
 
 /**
- * Extension point for downloading, verifying, and installing plugin artifacts.
+ * Extension point for downloading, verifying, and managing plugin lifecycle.
  *
  * Implement this interface to control how plugin JARs or ZIP bundles are fetched
- * from the Plugwerk server and integrated into a PF4J host application.
- * The default client SDK implementation:
- * 1. Downloads the artifact from the server to a temporary directory.
- * 2. Verifies the SHA-256 checksum against the server-provided value.
- * 3. Moves the verified artifact into the PF4J plugin directory and triggers loading.
+ * from the Plugwerk server and integrated with a PF4J host application's
+ * `PluginManager`. The default client SDK implementation:
+ *
+ *  - [download] fetches and **verifies** an artifact (SHA-256), but does not
+ *    touch PF4J — this is the path for CI / audit / dry-run callers.
+ *  - [install] composes [download] with PF4J `loadPlugin` + `startPlugin`, so
+ *    after a successful return the plugin is live in the host's `PluginManager`.
+ *  - [uninstall] stops + unloads the plugin via `PluginManager` and then
+ *    deletes the artifact file from the plugin directory.
  *
  * Typical usage in a host application:
  *
@@ -51,47 +56,58 @@ import java.nio.file.Path
  */
 interface PlugwerkInstaller : ExtensionPoint {
     /**
-     * Downloads a plugin artifact to [targetDir] without installing it.
+     * Downloads and SHA-256-verifies a plugin artifact into [targetDir] without
+     * touching the PF4J `PluginManager`. The artifact file name is determined by
+     * the implementation (typically `<pluginId>-<version>.jar` or `.zip`).
      *
-     * The artifact file name is determined by the implementation (typically
-     * `<pluginId>-<version>.jar` or `.zip`). The SHA-256 checksum is verified
-     * before the path is returned.
+     * Use this directly for headless audit / dry-run / pre-stage scenarios where
+     * you want a verified file on disk but no live plugin in the host. For the
+     * full lifecycle, call [install] instead.
      *
      * @param pluginId  the plugin's unique ID within the namespace
      * @param version   the exact SemVer version string (e.g. `"1.2.3"`)
-     * @param targetDir directory where the artifact should be saved; must exist and be writable
-     * @return path to the downloaded artifact file inside [targetDir]
+     * @param targetDir directory where the artifact should be saved; must exist or be creatable, and writable
+     * @return path to the downloaded, verified artifact file inside [targetDir]
      * @throws IllegalArgumentException if [pluginId] or [version] are blank
      * @throws java.io.IOException if the download or checksum verification fails
      */
     fun download(pluginId: String, version: String, targetDir: Path): Path
 
     /**
-     * Downloads and installs a plugin into the host application.
+     * Downloads, verifies, and installs a plugin into the host's PF4J
+     * `PluginManager` — the plugin is **loaded and started** before this method
+     * returns successfully.
      *
-     * This is a convenience operation combining [download], [verifyChecksum], and
-     * PF4J plugin loading into a single transactional step. On failure the partial
-     * download is cleaned up automatically.
+     * Reinstall semantics: if a plugin with the same id is already loaded:
+     *   - same version → no-op success
+     *   - different version → stop + unload the old one, delete its artifact,
+     *     then load + start the new one
+     *
+     * On failure between download and start (e.g. PF4J refuses to load), the
+     * partially-installed artifact is rolled back so the plugin directory does
+     * not accumulate stale "downloaded but never loaded" files.
      *
      * @param pluginId the plugin's unique ID within the namespace
      * @param version  the exact SemVer version string (e.g. `"1.2.3"`)
-     * @return [InstallResult.Success] if the plugin was loaded successfully,
+     * @return [InstallResult.Success] if the plugin was loaded and started successfully,
      *         [InstallResult.Failure] with a human-readable reason otherwise
      */
     fun install(pluginId: String, version: String): InstallResult
 
     /**
-     * Unloads and removes a previously installed plugin from the host application.
+     * Stops and unloads a previously installed plugin from the host's PF4J
+     * `PluginManager`, then deletes its artifact file (and any expanded ZIP
+     * directory) from the plugin directory.
      *
-     * The plugin is stopped and unloaded from the PF4J plugin manager before its
-     * artifact file is deleted. If the plugin is not currently installed the
-     * implementation returns [InstallResult.Failure] rather than throwing.
+     * If the plugin is not currently installed (no artifact on disk and no
+     * loaded plugin) the implementation returns [UninstallResult.Failure]
+     * rather than throwing.
      *
      * @param pluginId the plugin's unique ID to remove
-     * @return [InstallResult.Success] if the plugin was removed,
-     *         [InstallResult.Failure] if it was not installed or removal failed
+     * @return [UninstallResult.Success] if the plugin was unloaded and removed,
+     *         [UninstallResult.Failure] if it was not installed or removal failed
      */
-    fun uninstall(pluginId: String): InstallResult
+    fun uninstall(pluginId: String): UninstallResult
 
     /**
      * Verifies the SHA-256 checksum of a local artifact file.

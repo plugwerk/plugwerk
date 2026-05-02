@@ -23,6 +23,7 @@ import io.plugwerk.spi.extension.PlugwerkCatalog
 import io.plugwerk.spi.extension.PlugwerkInstaller
 import io.plugwerk.spi.extension.PlugwerkMarketplace
 import io.plugwerk.spi.extension.PlugwerkUpdateChecker
+import org.pf4j.PluginManager
 
 /**
  * Facade that combines catalog, installer, and update checker into a single
@@ -77,9 +78,13 @@ class PlugwerkMarketplaceImpl internal constructor(
          *
          * [PlugwerkConfig.pluginDirectory] must be set.
          *
-         * @param config server, namespace, and plugin directory configuration
+         * @param config        server, namespace, and plugin directory configuration
+         * @param pluginManager the host's PF4J [PluginManager] — required so the
+         *                      installer can perform actual `loadPlugin` /
+         *                      `startPlugin` / `stopPlugin` / `unloadPlugin` calls
+         *                      (issue #424)
          */
-        fun create(config: PlugwerkConfig): PlugwerkMarketplaceImpl {
+        fun create(config: PlugwerkConfig, pluginManager: PluginManager): PlugwerkMarketplaceImpl {
             val pluginDir = config.pluginDirectory ?: throw IllegalStateException(
                 "pluginDirectory is required — set it via PlugwerkConfig.Builder.pluginDirectory()",
             )
@@ -87,7 +92,7 @@ class PlugwerkMarketplaceImpl internal constructor(
             return PlugwerkMarketplaceImpl(
                 client = client,
                 catalog = PlugwerkCatalogImpl(client),
-                installer = PlugwerkInstallerImpl(client, pluginDir),
+                installer = PlugwerkInstallerImpl(client, pluginDir, pluginManager),
                 updateChecker = PlugwerkUpdateCheckerImpl(client),
             )
         }

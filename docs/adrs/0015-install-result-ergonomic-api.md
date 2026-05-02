@@ -99,3 +99,14 @@ Options C and D were rejected because they introduce breaking changes, lose type
 - **`pluginId` and `version` accessible on base type** — eliminates the most common reason for downcasting
 - **API surface grows** — six new methods on `InstallResult`, but all are small and well-understood
 - **Follows Kotlin `Result<T>` conventions** — developers familiar with the stdlib will find the API intuitive
+
+## Related — `UninstallResult` (2026-05-02, #424)
+
+`PlugwerkInstaller.uninstall()` originally returned `InstallResult` too, but
+uninstall does not know the version of what it removed — only the `pluginId`.
+That forced an empty-string `version` on every result, which leaked through
+the type. Issue #424 introduced `UninstallResult` as a parallel sealed class
+mirroring `InstallResult`'s shape (`Success` / `Failure` + `onSuccess` /
+`onFailure` / `fold` / `isSuccess` / `isFailure` / `reasonOrNull`) but
+carrying only `pluginId`. The decision rationale (callbacks > `fold` > simple
+boolean > exceptions) from this ADR applied unchanged.

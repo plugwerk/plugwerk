@@ -18,56 +18,47 @@ package io.plugwerk.spi.model
 import java.util.function.Consumer
 
 /**
- * Result of a [io.plugwerk.spi.extension.PlugwerkInstaller.install] operation.
+ * Result of a [io.plugwerk.spi.extension.PlugwerkInstaller.uninstall] operation.
  *
- * Uninstall returns [UninstallResult] instead — it does not carry a version
- * (issue #424).
- *
- * [pluginId] and [version] are available on every result without casting.
- * For detailed handling, use [onSuccess] / [onFailure] callbacks, [fold], or
- * Kotlin `when` expressions.
+ * Mirrors [InstallResult] in shape and Java-friendly callback API but carries
+ * only the [pluginId] — uninstall does not know (and does not need) the
+ * version that was installed (issue #424).
  *
  * Kotlin:
  * ```kotlin
- * installer.install("io.example.my-plugin", "2.0.0")
- *     .onSuccess { println("Installed ${it.pluginId} ${it.version}") }
+ * installer.uninstall("io.example.my-plugin")
+ *     .onSuccess { println("Removed ${it.pluginId}") }
  *     .onFailure { println("Failed: ${it.reason}") }
  * ```
  *
  * Java:
  * ```java
- * installer.install("io.example.my-plugin", "2.0.0")
- *     .onSuccess(s -> System.out.printf("Installed: %s%n", s.getPluginId()))
+ * installer.uninstall("io.example.my-plugin")
+ *     .onSuccess(s -> System.out.printf("Removed: %s%n", s.getPluginId()))
  *     .onFailure(f -> System.out.printf("Failed: %s%n", f.getReason()));
  * ```
  *
- * The `when` / `instanceof` pattern is still fully supported for exhaustive matching.
+ * The `when` / `instanceof` pattern is fully supported for exhaustive matching.
  */
-sealed class InstallResult {
+sealed class UninstallResult {
 
     /** The plugin ID that the operation targeted. */
     abstract val pluginId: String
 
-    /** The SemVer version string that the operation targeted. */
-    abstract val version: String
-
     /**
      * The operation completed successfully.
      *
-     * @property pluginId the unique plugin ID that was installed or uninstalled
-     * @property version  the SemVer version string that was installed or uninstalled
+     * @property pluginId the unique plugin ID that was uninstalled
      */
-    data class Success(override val pluginId: String, override val version: String) : InstallResult()
+    data class Success(override val pluginId: String) : UninstallResult()
 
     /**
      * The operation failed.
      *
      * @property pluginId the unique plugin ID for which the operation was attempted
-     * @property version  the SemVer version string that was attempted
      * @property reason   human-readable explanation of why the operation failed
      */
-    data class Failure(override val pluginId: String, override val version: String, val reason: String) :
-        InstallResult()
+    data class Failure(override val pluginId: String, val reason: String) : UninstallResult()
 
     /** Returns `true` if this result represents a successful operation. */
     fun isSuccess(): Boolean = this is Success
@@ -78,14 +69,9 @@ sealed class InstallResult {
     /**
      * Executes [action] if this is a [Success], then returns `this` for chaining.
      *
-     * Uses [Consumer] so Java callers can pass expression lambdas directly
-     * (`s -> System.out.printf(...)`) without `Unit.INSTANCE` boilerplate.
-     *
-     * ```java
-     * result.onSuccess(s -> log.info("Installed: {}", s.getPluginId()));
-     * ```
+     * Uses [Consumer] so Java callers can pass expression lambdas directly.
      */
-    fun onSuccess(action: Consumer<Success>): InstallResult {
+    fun onSuccess(action: Consumer<Success>): UninstallResult {
         if (this is Success) action.accept(this)
         return this
     }
@@ -94,12 +80,8 @@ sealed class InstallResult {
      * Executes [action] if this is a [Failure], then returns `this` for chaining.
      *
      * Uses [Consumer] so Java callers can pass expression lambdas directly.
-     *
-     * ```java
-     * result.onFailure(f -> log.warn("Failed: {}", f.getReason()));
-     * ```
      */
-    fun onFailure(action: Consumer<Failure>): InstallResult {
+    fun onFailure(action: Consumer<Failure>): UninstallResult {
         if (this is Failure) action.accept(this)
         return this
     }
@@ -108,13 +90,6 @@ sealed class InstallResult {
      * Maps this result to a value of type [T] by applying the appropriate function.
      *
      * Both branches must be handled, guaranteeing exhaustive coverage at compile time.
-     *
-     * ```java
-     * String message = result.fold(
-     *     s -> "Installed " + s.getPluginId(),
-     *     f -> "Failed: " + f.getReason()
-     * );
-     * ```
      */
     fun <T> fold(onSuccess: (Success) -> T, onFailure: (Failure) -> T): T = when (this) {
         is Success -> onSuccess(this)

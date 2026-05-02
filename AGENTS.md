@@ -278,7 +278,7 @@ PlugwerkPlugin           // Host-facing factory: connect(config): PlugwerkMarket
 PlugwerkConfig           // Builder pattern or properties file
 PlugwerkClient           // OkHttp-based HTTP client
 PlugwerkCatalog          // Catalog queries (ExtensionPoint)
-PlugwerkInstaller        // Download + SHA-256 verification + transactional install (ExtensionPoint)
+PlugwerkInstaller        // download (verified), install (download + PF4J load+start), uninstall (stop+unload+delete) (ExtensionPoint)
 PlugwerkUpdateChecker    // Update polling (ExtensionPoint)
 PlugwerkMarketplace      // Facade combining all three (ExtensionPoint, AutoCloseable)
 ```

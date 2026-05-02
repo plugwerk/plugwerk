@@ -28,6 +28,10 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.mockito.kotlin.any
+import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.mock
+import org.pf4j.PluginManager
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
@@ -40,6 +44,7 @@ import java.security.MessageDigest
 class PlugwerkMarketplaceIntegrationTest {
     private lateinit var server: MockWebServer
     private lateinit var marketplace: PlugwerkMarketplaceImpl
+    private lateinit var pluginManager: PluginManager
 
     @TempDir
     lateinit var pluginDir: Path
@@ -48,6 +53,10 @@ class PlugwerkMarketplaceIntegrationTest {
     fun setUp() {
         server = MockWebServer()
         server.start()
+        pluginManager = mock {
+            on { getPlugin(any()) } doReturn null
+            on { loadPlugin(any()) } doReturn "my-plugin"
+        }
         marketplace =
             PlugwerkMarketplaceImpl.create(
                 PlugwerkConfig(
@@ -56,6 +65,7 @@ class PlugwerkMarketplaceIntegrationTest {
                     accessToken = "integration-token",
                     pluginDirectory = pluginDir,
                 ),
+                pluginManager,
             )
     }
 
@@ -172,7 +182,7 @@ class PlugwerkMarketplaceIntegrationTest {
         serverB.start()
 
         try {
-            val plugin = PlugwerkPluginImpl()
+            val plugin = PlugwerkPluginImpl(pluginManager)
             val marketplaceA = plugin.connect(
                 PlugwerkConfig(
                     serverUrl = server.url("/").toString().trimEnd('/'),

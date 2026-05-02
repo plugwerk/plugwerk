@@ -21,6 +21,8 @@ import org.junit.jupiter.api.Assertions.assertNotSame
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.mockito.kotlin.mock
+import org.pf4j.PluginManager
 import java.nio.file.Path
 
 class PlugwerkPluginImplTest {
@@ -37,7 +39,9 @@ class PlugwerkPluginImplTest {
 
     @BeforeEach
     fun setUp() {
-        plugin = PlugwerkPluginImpl()
+        // Test-only constructor: bypasses PF4J's wrapper injection so we can
+        // exercise connect() without a real PluginManager load cycle.
+        plugin = PlugwerkPluginImpl(mock<PluginManager>())
     }
 
     @Test
