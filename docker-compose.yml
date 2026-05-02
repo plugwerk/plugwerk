@@ -77,6 +77,43 @@ services:
       retries: 30
       start_period: 30s
 
+  # Mailpit — local-only SMTP catch-all for developing the email pipeline (#253).
+  # Not started by default; enable via the `mailpit` profile:
+  #   docker compose --profile mailpit up -d mailpit
+  #
+  # Mailpit accepts every message sent to it without ever forwarding anywhere
+  # — exactly what you want for verifying the SMTP wiring without spamming
+  # real recipients. It is the actively-maintained successor to MailHog and
+  # ships native multi-arch images (linux/amd64 + linux/arm64), so Apple
+  # Silicon contributors do not pay the Rosetta tax MailHog forced.
+  #
+  # SMTP settings to enter in the Plugwerk Admin UI (Settings → Email → Server):
+  #   Host:        mailpit        (when Plugwerk runs in this same compose stack)
+  #                localhost      (when Plugwerk runs natively on the host)
+  #   Port:        1025
+  #   Encryption:  None (plain SMTP — Mailpit speaks no TLS by default)
+  #   Username:    (leave blank)
+  #   Password:    (leave blank)
+  #   From addr:   noreply@plugwerk.local
+  #
+  # Mailpit Web UI: http://localhost:8025 — every captured message renders here,
+  # plus a JSON API at the same origin for assertions in scripted tests.
+  mailpit:
+    image: axllent/mailpit:latest
+    profiles: ["mailpit"]
+    ports:
+      - "127.0.0.1:1025:1025"   # SMTP
+      - "127.0.0.1:8025:8025"   # Web UI + REST API
+    healthcheck:
+      # Mailpit exposes /readyz and /livez on the HTTP port; readyz is the
+      # canonical readiness probe and goes 200 once the SMTP listener is
+      # actually accepting connections (not just process-up).
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8025/readyz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
 volumes:
   postgres-data:
   plugwerk-artifacts:
