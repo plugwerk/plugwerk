@@ -19,6 +19,7 @@ import io.plugwerk.spi.PlugwerkConfig
 import io.plugwerk.spi.PlugwerkPlugin
 import io.plugwerk.spi.extension.PlugwerkMarketplace
 import org.pf4j.Plugin
+import org.pf4j.PluginManager
 import java.lang.ref.WeakReference
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -42,14 +43,32 @@ import java.util.concurrent.CopyOnWriteArrayList
  *
  * @see PlugwerkPlugin
  */
-class PlugwerkPluginImpl :
+class PlugwerkPluginImpl() :
     Plugin(),
     PlugwerkPlugin {
 
     private val openMarketplaces = CopyOnWriteArrayList<WeakReference<PlugwerkMarketplaceImpl>>()
 
+    /**
+     * Test-only constructor bypassing PF4J's wrapper injection. Lets tests pass
+     * a mock [PluginManager] without first running a real PF4J load cycle.
+     * Production code uses the no-arg constructor and reads the wrapper-supplied
+     * `PluginManager` at [connect] time.
+     */
+    private var explicitPluginManager: PluginManager? = null
+
+    internal constructor(pluginManager: PluginManager) : this() {
+        this.explicitPluginManager = pluginManager
+    }
+
     override fun connect(config: PlugwerkConfig): PlugwerkMarketplace {
-        val marketplace = PlugwerkMarketplaceImpl.create(config)
+        // PF4J injects the wrapper after construction; reading it here is safe
+        // because `connect` is host-driven and only callable once the plugin is
+        // fully loaded. The PluginManager from the wrapper is the same one the
+        // host used to load us — that is the one the installer must drive.
+        @Suppress("DEPRECATION")
+        val pluginManager = explicitPluginManager ?: wrapper.pluginManager
+        val marketplace = PlugwerkMarketplaceImpl.create(config, pluginManager)
         openMarketplaces.add(WeakReference(marketplace))
         return marketplace
     }

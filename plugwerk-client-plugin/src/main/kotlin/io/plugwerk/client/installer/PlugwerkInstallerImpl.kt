@@ -20,57 +20,50 @@ import io.plugwerk.client.PlugwerkClient
 import io.plugwerk.client.PlugwerkNotFoundException
 import io.plugwerk.spi.extension.PlugwerkInstaller
 import io.plugwerk.spi.model.InstallResult
+import io.plugwerk.spi.model.UninstallResult
+import org.pf4j.PluginManager
 import org.slf4j.LoggerFactory
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 
 /**
- * Downloads, verifies, and installs plugin artifacts.
+ * Default [PlugwerkInstaller] implementation.
  *
- * Install protocol:
- * 1. Download artifact to a temporary file in [pluginDirectory]
- * 2. Verify SHA-256 checksum against the server-provided hash
- * 3. Atomically move the temp file to its final location
+ *  - [download] downloads + SHA-256-verifies an artifact into a target dir
+ *    (smart bits used to live in [install] — issue #424).
+ *  - [install] composes [download] with PF4J `loadPlugin` + `startPlugin`.
+ *    Reinstall: same version → no-op; different version → upgrade in place.
+ *    On any failure between download and start, the artifact is rolled back.
+ *  - [uninstall] stops + unloads the plugin via [pluginManager], then deletes
+ *    the artifact file (and any expanded ZIP directory) from [pluginDirectory].
+ *    Returns [UninstallResult] instead of [InstallResult] (#424).
  *
- * On any failure, the temporary file is deleted — no partial state is left in [pluginDirectory].
+ * On any download failure, the temporary file is deleted — no partial state is
+ * left in [pluginDirectory] or the caller-provided target dir.
  */
-internal class PlugwerkInstallerImpl(private val client: PlugwerkClient, private val pluginDirectory: Path) :
-    PlugwerkInstaller {
+internal class PlugwerkInstallerImpl(
+    private val client: PlugwerkClient,
+    private val pluginDirectory: Path,
+    private val pluginManager: PluginManager,
+) : PlugwerkInstaller {
     private val log = LoggerFactory.getLogger(PlugwerkInstallerImpl::class.java)
 
     override fun download(pluginId: String, version: String, targetDir: Path): Path {
+        require(pluginId.isNotBlank()) { "pluginId must not be blank" }
+        require(version.isNotBlank()) { "version must not be blank" }
+
         Files.createDirectories(targetDir)
         val tempFile = Files.createTempFile(targetDir, "$pluginId-$version-", ".tmp")
         try {
-            client.download("plugins/$pluginId/releases/$version/download").use { input ->
-                Files.copy(input, tempFile, StandardCopyOption.REPLACE_EXISTING)
-            }
-            log.debug("Downloaded artifact for {}:{} to {}", pluginId, version, tempFile)
-            return tempFile
-        } catch (ex: Exception) {
-            deleteSilently(tempFile)
-            throw ex
-        }
-    }
-
-    override fun install(pluginId: String, version: String): InstallResult {
-        Files.createDirectories(pluginDirectory)
-        val tempFile = Files.createTempFile(pluginDirectory, "$pluginId-$version-", ".tmp")
-        return try {
-            val releaseInfo =
-                client.getOrNull<PluginReleaseDto>("plugins/$pluginId/releases/$version")
-                    ?: return InstallResult.Failure(pluginId, version, "Release $pluginId:$version not found on server")
+            val releaseInfo = client.getOrNull<PluginReleaseDto>("plugins/$pluginId/releases/$version")
+                ?: throw PlugwerkNotFoundException("Release $pluginId:$version not found on server")
 
             val expectedSha256 = releaseInfo.artifactSha256
-            if (expectedSha256.isNullOrBlank()) {
-                deleteSilently(tempFile)
-                return InstallResult.Failure(
-                    pluginId,
-                    version,
-                    "Server did not provide a SHA-256 checksum for $pluginId:$version — installation aborted",
-                )
+            require(!expectedSha256.isNullOrBlank()) {
+                "Server did not provide a SHA-256 checksum for $pluginId:$version — download aborted"
             }
 
             val (suggestedFilename, bodyStream) = client.downloadWithFilename(
@@ -81,28 +74,87 @@ internal class PlugwerkInstallerImpl(private val client: PlugwerkClient, private
             }
 
             if (!verifyChecksum(tempFile, expectedSha256)) {
-                deleteSilently(tempFile)
-                return InstallResult.Failure(pluginId, version, "SHA-256 checksum mismatch for $pluginId:$version")
+                throw IOException("SHA-256 checksum mismatch for $pluginId:$version")
             }
 
             val extension = releaseInfo.fileFormat?.value
                 ?: suggestedFilename?.substringAfterLast('.')?.lowercase()
                     ?.takeIf { it == "zip" || it == "jar" }
                 ?: "jar"
-            val finalPath = pluginDirectory.resolve("$pluginId-$version.$extension")
+            val finalPath = targetDir.resolve("$pluginId-$version.$extension")
             Files.move(tempFile, finalPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-            log.info("Installed {}:{} to {} ({})", pluginId, version, finalPath, extension)
-            InstallResult.Success(pluginId, version)
-        } catch (ex: PlugwerkNotFoundException) {
-            deleteSilently(tempFile)
-            InstallResult.Failure(pluginId, version, "Release $pluginId:$version not found on server")
+            log.debug("Downloaded and verified {}:{} to {}", pluginId, version, finalPath)
+            return finalPath
         } catch (ex: Exception) {
             deleteSilently(tempFile)
-            InstallResult.Failure(pluginId, version, ex.message ?: "Unexpected error during install")
+            throw ex
         }
     }
 
-    override fun uninstall(pluginId: String): InstallResult {
+    override fun install(pluginId: String, version: String): InstallResult {
+        // Reinstall short-circuits before we touch the network or filesystem so
+        // a no-op install on the same version is genuinely free.
+        val existing = pluginManager.getPlugin(pluginId)
+        if (existing != null && existing.descriptor.version == version) {
+            log.info("Plugin {}:{} is already installed — install is a no-op", pluginId, version)
+            return InstallResult.Success(pluginId, version)
+        }
+
+        val artifactPath: Path = try {
+            download(pluginId, version, pluginDirectory)
+        } catch (ex: PlugwerkNotFoundException) {
+            return InstallResult.Failure(pluginId, version, "Release $pluginId:$version not found on server")
+        } catch (ex: Exception) {
+            return InstallResult.Failure(pluginId, version, ex.message ?: "Unexpected error during download")
+        }
+
+        // If a different version was already loaded, evict it first so PF4J
+        // does not reject the new artifact with a duplicate-id error. Old
+        // artifact removal mirrors uninstall's filesystem sweep.
+        if (existing != null) {
+            try {
+                evictExistingVersion(pluginId, existing.descriptor.version)
+            } catch (ex: Exception) {
+                deleteSilently(artifactPath)
+                return InstallResult.Failure(
+                    pluginId,
+                    version,
+                    "Failed to evict previous ${existing.descriptor.version}: ${ex.message ?: "unknown"}",
+                )
+            }
+        }
+
+        return try {
+            val loadedId = pluginManager.loadPlugin(artifactPath)
+                ?: throw IllegalStateException("loadPlugin returned null for $artifactPath")
+            check(loadedId == pluginId) {
+                "Loaded plugin id '$loadedId' does not match requested '$pluginId' — refusing"
+            }
+            pluginManager.startPlugin(pluginId)
+            log.info("Installed and started {}:{} from {}", pluginId, version, artifactPath)
+            InstallResult.Success(pluginId, version)
+        } catch (ex: Exception) {
+            // Rollback: PF4J rejected the artifact. Clean up so the plugin
+            // directory does not accumulate "downloaded but never loaded" files.
+            rollback(pluginId, artifactPath)
+            InstallResult.Failure(pluginId, version, ex.message ?: "Unexpected error during PF4J load")
+        }
+    }
+
+    override fun uninstall(pluginId: String): UninstallResult {
+        val loaded = pluginManager.getPlugin(pluginId)
+        if (loaded != null) {
+            try {
+                pluginManager.stopPlugin(pluginId)
+                pluginManager.unloadPlugin(pluginId)
+            } catch (ex: Exception) {
+                return UninstallResult.Failure(
+                    pluginId,
+                    "Failed to stop/unload plugin: ${ex.message ?: "unknown"}",
+                )
+            }
+        }
+
         val (artifactFiles, extractedDirs) =
             Files.list(pluginDirectory).use { stream ->
                 stream.filter { path ->
@@ -114,24 +166,54 @@ internal class PlugwerkInstallerImpl(private val client: PlugwerkClient, private
                 name.endsWith(".jar") || name.endsWith(".zip")
             }
 
-        if (artifactFiles.isEmpty() && extractedDirs.isEmpty()) {
-            return InstallResult.Failure(pluginId, "", "No installed artifact found for plugin $pluginId")
+        if (loaded == null && artifactFiles.isEmpty() && extractedDirs.isEmpty()) {
+            return UninstallResult.Failure(pluginId, "No installed artifact found for plugin $pluginId")
         }
 
-        // Remove the ZIP/JAR artifact file
         artifactFiles.forEach { Files.deleteIfExists(it) }
-
-        // Remove the extracted directory that PF4J created when loading the ZIP
-        // (DefaultPluginRepository.expandIfZip strips the .zip suffix for the dir name)
         extractedDirs
             .filter { Files.isDirectory(it) }
             .forEach { deleteRecursively(it) }
 
         log.info("Uninstalled plugin {}", pluginId)
-        return InstallResult.Success(pluginId, "")
+        return UninstallResult.Success(pluginId)
     }
 
-    private fun deleteRecursively(path: java.nio.file.Path) {
+    /**
+     * Stops + unloads the previous version inside an upgrade flow and clears
+     * its artifact file so PF4J does not see a second `pluginId-*.jar` file
+     * once the new version is downloaded.
+     *
+     * Sweeps only files matching `pluginId-{oldVersion}.{jar,zip}` — using a
+     * broader `pluginId-*` glob would also delete the just-downloaded new
+     * artifact, since this method runs after [download] in the upgrade flow.
+     */
+    private fun evictExistingVersion(pluginId: String, oldVersion: String) {
+        log.info("Upgrading plugin {} from {} to a different version — evicting old", pluginId, oldVersion)
+        pluginManager.stopPlugin(pluginId)
+        pluginManager.unloadPlugin(pluginId)
+        listOf("jar", "zip").forEach { ext ->
+            Files.deleteIfExists(pluginDirectory.resolve("$pluginId-$oldVersion.$ext"))
+        }
+    }
+
+    /**
+     * Rolls back a partially-completed install. Deletes the artifact file and,
+     * defensively, asks PF4J to unload the plugin in case `loadPlugin` succeeded
+     * but `startPlugin` failed.
+     */
+    private fun rollback(pluginId: String, artifactPath: Path) {
+        try {
+            if (pluginManager.getPlugin(pluginId) != null) {
+                pluginManager.unloadPlugin(pluginId)
+            }
+        } catch (ex: Exception) {
+            log.warn("Rollback: unloadPlugin({}) failed — {}", pluginId, ex.message)
+        }
+        deleteSilently(artifactPath)
+    }
+
+    private fun deleteRecursively(path: Path) {
         if (Files.isDirectory(path)) {
             Files.list(path).use { children ->
                 children.forEach { deleteRecursively(it) }
