@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted (the original `configure()` + `marketplace()` two-step flow on `PlugwerkPlugin` was later collapsed into a single JDBC-style `connect(config)` factory — see the [SPI shape update](#spi-shape-update-2026-04-28) section below).
+Accepted, with two later refinements documented inline:
+- the original `configure()` + `marketplace()` two-step flow on `PlugwerkPlugin` was collapsed into a single JDBC-style `connect(config)` factory — see [SPI shape update](#spi-shape-update-2026-04-28),
+- `PlugwerkInstaller` was rewired to drive PF4J's `PluginManager` lifecycle directly — see [Installer lifecycle update](#installer-lifecycle-update-2026-05-02).
 
 ## Context
 
@@ -109,14 +111,24 @@ Host applications that need pf4j-update integration can build a thin adapter usi
 
 ### 8. Transactional Install with Rollback
 
-`PlugwerkInstallerImpl.install()` follows a safe three-step protocol:
+`PlugwerkInstallerImpl.install()` follows a safe protocol — historically just
+a filesystem move, expanded in [issue #424](https://github.com/plugwerk/plugwerk/issues/424)
+to also drive PF4J's `PluginManager` so the method honours its name:
 
-1. Download artifact to a temporary file
-2. Verify SHA-256 checksum against the server-provided hash
-3. Atomically move the temp file to the plugin directory (`Files.move` with `ATOMIC_MOVE`)
+1. Look up release info on the server (`/plugins/{id}/releases/{version}`)
+2. Download artifact to a temporary file
+3. Verify SHA-256 checksum against the server-provided hash
+4. Atomically move the temp file to its final name in the plugin directory (`Files.move` with `ATOMIC_MOVE`)
+5. `pluginManager.loadPlugin(path)` + `pluginManager.startPlugin(id)`
 
-On any failure (download error, checksum mismatch, move failure), the temporary file is deleted.
-No partial state is left in the plugin directory.
+Steps 1–4 are exposed independently as `PlugwerkInstaller.download(...)`
+for headless / CI / dry-run callers that want a verified file on disk
+without a live PF4J load.
+
+On any failure between download and start, the artifact is rolled back
+(deleted from the plugin directory; if `loadPlugin` succeeded but `startPlugin`
+threw, `unloadPlugin` is also called as defence-in-depth). No partial state
+is left in the plugin directory.
 
 ### 9. Shared API Model Module
 
@@ -187,3 +199,58 @@ a small explicit class implementing `AutoCloseable`). Section 5
 canonical pattern is now host-driven, not plugin-driven.
 
 The change landed in plugwerk/plugwerk#365.
+
+## Installer lifecycle update (2026-05-02)
+
+Pre-#424, `PlugwerkInstaller.install()` only manipulated the filesystem
+(download + verify + atomic move). Hosts had to call
+`pluginManager.loadPlugin(path)` + `startPlugin(id)` themselves afterwards —
+the method's name lied about what it did. Symmetric problem for `uninstall()`,
+which only deleted the JAR and left the host to call `stopPlugin` /
+`unloadPlugin`. `download()` did a "dumb" download with no checksum verify,
+and the smart bits (release-info lookup + SHA-256) lived inline inside
+`install()`.
+
+The SPI was reshaped (#424) so the method names match what they do:
+
+- **`download(pluginId, version, targetDir): Path`** — verified download
+  (release-info lookup + SHA-256 + atomic move + cleanup-on-failure).
+  Throws on failure. The path callers want when they need a file but no
+  live PF4J load (CI, audit, dry-run).
+- **`install(pluginId, version): InstallResult`** — composes `download`
+  with `pluginManager.loadPlugin` + `startPlugin`. After successful return
+  the plugin is **live** in PF4J. Reinstall semantics: same version → no-op
+  success; different version → upgrade in place (stop + unload old → load +
+  start new). Failure between download and start rolls the artifact back.
+- **`uninstall(pluginId): UninstallResult`** (was `InstallResult`) — stops +
+  unloads via `PluginManager`, then deletes the artifact and any expanded
+  ZIP directory. New `UninstallResult` sealed class mirrors `InstallResult`
+  but carries only `pluginId` (uninstall does not know the version, and
+  the empty-string-version code smell is gone).
+
+**Wire-up:** `PlugwerkInstallerImpl` now requires a `PluginManager`
+constructor parameter. `PlugwerkPluginImpl.connect()` reads it from the
+PF4J wrapper; embedders calling `PlugwerkMarketplaceImpl.create(config,
+pluginManager)` programmatically must supply one.
+
+**Why the change:**
+
+1. The old method names were dishonest — `install` did not install (in the
+   PF4J sense), `uninstall` did not uninstall. Hosts that wanted the lifecycle
+   step had to remember to call PF4J themselves afterwards, and that
+   coupling was nowhere in the contract.
+2. `download(...)` without checksum verification is a footgun in a public
+   SPI — moving the smart bits in means `download` is now safe to call
+   directly, and `install` becomes a clean composition over it.
+3. Pre-1.0 (still on `1.0.0-beta.1`) is the right window to break the SPI
+   surface for this kind of cleanup.
+
+The architect briefing for #424 considered three options (rename to
+`fetch`/`remove` / full lifecycle / split into a parallel `PlugwerkPluginLifecycle`
+extension point) and recommended the rename path. The implementation chose
+full lifecycle on the user's call: the SPI is already coupled to PF4J via
+`ExtensionPoint`, so the marginal cost of `PluginManager` injection is
+small, and the honest naming is worth more than the version-agnostic
+flexibility we lose.
+
+The change landed in plugwerk/plugwerk#425.

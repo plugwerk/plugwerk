@@ -13,7 +13,7 @@ Because PF4J requires that `ExtensionPoint` interfaces are loaded by the **paren
 | Package | Description |
 |---------|-------------|
 | `io.plugwerk.spi.extension` | Extension point interfaces: `PlugwerkCatalog`, `PlugwerkInstaller`, `PlugwerkUpdateChecker`, `PlugwerkMarketplace` (facade) |
-| `io.plugwerk.spi.model` | Immutable data classes: `PluginInfo`, `PluginReleaseInfo`, `SearchCriteria`, `UpdateInfo`, `InstallResult` (sealed), `PluginStatus`, `ReleaseStatus` |
+| `io.plugwerk.spi.model` | Immutable data classes: `PluginInfo`, `PluginReleaseInfo`, `SearchCriteria`, `UpdateInfo`, `InstallResult` (sealed), `UninstallResult` (sealed), `PluginStatus`, `ReleaseStatus` |
 | `io.plugwerk.spi.version` | SemVer comparison helpers built on semver4j |
 
 ## Extension Points
@@ -21,7 +21,7 @@ Because PF4J requires that `ExtensionPoint` interfaces are loaded by the **paren
 | Interface | Responsibility |
 |-----------|---------------|
 | `PlugwerkCatalog` | Browse and search the plugin catalog (read-only) |
-| `PlugwerkInstaller` | Download, install, uninstall plugins with SHA-256 verification |
+| `PlugwerkInstaller` | Verified download (SHA-256); `install` loads + starts via PF4J `PluginManager`, `uninstall` stops + unloads + deletes (#424) |
 | `PlugwerkUpdateChecker` | Poll for available updates given currently installed versions |
 | `PlugwerkMarketplace` | Unified facade combining all three; `AutoCloseable` — the host owns lifecycle |
 | `PlugwerkPlugin` | Host-facing factory: `connect(config): PlugwerkMarketplace` (JDBC-style) |
