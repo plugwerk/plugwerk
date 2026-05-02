@@ -40,6 +40,14 @@ enum class SettingValueType {
     INTEGER,
     BOOLEAN,
     ENUM,
+
+    /**
+     * Sensitive value (e.g. SMTP password, future API tokens). Stored
+     * encrypted at rest; masked as `***` in GET responses; rendered as
+     * `<input type="password">` by the Admin UI. Behaves like [STRING] for
+     * validation purposes (#253).
+     */
+    PASSWORD,
 }
 
 /**

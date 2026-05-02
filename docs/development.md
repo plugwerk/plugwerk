@@ -129,3 +129,44 @@ For production use, prefer Maven Central and Docker Hub. GitHub Packages and GHC
 same artifacts for org-internal convenience.
 
 See [ADR-0017](adrs/0017-dual-registry-publishing-strategy.md) for the full rationale.
+
+## Local SMTP for Email Development (#253)
+
+Plugwerk's transactional email pipeline (`MailService` → `MailSenderProvider`
+→ `JavaMailSenderImpl`) needs a real SMTP server to talk to. Two options
+for local dev:
+
+### Option A — MailHog in Docker Compose (recommended)
+
+Add to your local `docker-compose.override.yml`:
+
+```yaml
+services:
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+```
+
+Then in the Plugwerk admin UI under **Settings → Email → Server**:
+
+| Field | Value |
+|---|---|
+| `smtp.enabled` | `true` |
+| `smtp.host` | `localhost` (or `mailhog` if your Plugwerk container is on the same compose network) |
+| `smtp.port` | `1025` |
+| `smtp.encryption` | `none` |
+| `smtp.username` | (leave blank) |
+| `smtp.password` | (leave blank) |
+| `smtp.from_address` | `noreply@plugwerk.local` |
+
+Open <http://localhost:8025> to inspect every message Plugwerk sent.
+
+### Option B — GreenMail in unit tests
+
+`SmtpEmailIT` already wires GreenMail on a dynamic port. Use it as a
+template when adding test coverage for new mail-triggering flows. No
+Docker setup needed; runs as part of `./gradlew :plugwerk-server:plugwerk-server-backend:integrationTest`.
+
+See [ADR-0031](adrs/0031-email-infrastructure.md) for the full design.
