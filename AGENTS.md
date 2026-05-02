@@ -131,6 +131,10 @@ Every GitHub Issue must have (see [ADR-0002](docs/adrs/0002-issue-management-gui
 - **Labels** applied
 - **Relationships** (parent/child) if applicable
 
+## CI Workflows
+
+- **CLA workflow** — the canonical pattern lives in [`.github/workflows/cla.yml`](.github/workflows/cla.yml). When adopting it in a sibling org repo (`plugwerk/examples`, `plugwerk/website`, …), copy that file **with the job-level `if:` filter intact**. Without the filter, every Issue comment triggers the action and crashes inside the GraphQL `getCommitterDetails` call because `issue_comment` fires for both Issues AND PRs (see #439 for the failure mode and rationale). Security envelope is documented in [ADR-0019](docs/adrs/0019-cla-workflow-supply-chain.md).
+
 ## Configuration Property Documentation (MANDATORY)
 
 Every configuration property — whether in `application.yml` or bound via `@ConfigurationProperties` — **must** be documented in both places:

@@ -28,6 +28,16 @@
 # `statuses: write` permissions on the CLA job match the action's README
 # requirements at the pinned SHA — do not narrow without re-reading the
 # action's docs at the pinned version.
+#
+# COPY-THIS-FILE NOTE
+#
+# If a sibling repo (`plugwerk/examples`, `plugwerk/website`, …) ever
+# adopts CLA, copy this file *with the job-level `if:` filter intact*.
+# Without it, every Issue comment triggers the action and crashes inside
+# the GraphQL `getCommitterDetails` call — the trigger is `issue_comment`
+# which fires for both Issues AND PRs (#439). The `if:` filter restricts
+# execution to "PR comments only" using the canonical
+# `github.event.issue.pull_request != null` presence check.
 # ---------------------------------------------------------------------------
 name: CLA
 
