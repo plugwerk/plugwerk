@@ -77,6 +77,40 @@ services:
       retries: 30
       start_period: 30s
 
+  # MailHog — local-only SMTP catch-all for developing the email pipeline (#253).
+  # Not started by default; enable via the `mailhog` profile:
+  #   docker compose --profile mailhog up -d
+  #
+  # MailHog accepts every message sent to it without ever forwarding anywhere
+  # — exactly what you want for verifying the SMTP wiring without spamming
+  # real recipients.
+  #
+  # SMTP settings to enter in the Plugwerk Admin UI (Settings → Email → Server):
+  #   Host:        mailhog        (when Plugwerk runs in this same compose stack)
+  #                localhost      (when Plugwerk runs natively on the host)
+  #   Port:        1025
+  #   Encryption:  None (plain SMTP — MailHog speaks no TLS)
+  #   Username:    (leave blank)
+  #   Password:    (leave blank)
+  #   From addr:   noreply@plugwerk.local
+  #
+  # MailHog Web UI: http://localhost:8025 — every captured message renders here.
+  mailhog:
+    image: mailhog/mailhog:latest
+    profiles: ["mailhog"]
+    ports:
+      - "127.0.0.1:1025:1025"   # SMTP
+      - "127.0.0.1:8025:8025"   # Web UI
+    healthcheck:
+      # MailHog has no built-in /health endpoint; probing the SMTP banner is
+      # the cheapest readiness signal — the server writes "220 mailhog.example..."
+      # as soon as it accepts connections.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/1025 && head -1 <&3 | grep -q '^220 '"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
 volumes:
   postgres-data:
   plugwerk-artifacts:

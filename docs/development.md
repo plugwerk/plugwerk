@@ -133,40 +133,41 @@ See [ADR-0017](adrs/0017-dual-registry-publishing-strategy.md) for the full rati
 ## Local SMTP for Email Development (#253)
 
 Plugwerk's transactional email pipeline (`MailService` → `MailSenderProvider`
-→ `JavaMailSenderImpl`) needs a real SMTP server to talk to. Two options
-for local dev:
+→ `JavaMailSenderImpl`) needs a real SMTP server to talk to. Two options for
+local dev — pick one:
 
-### Option A — MailHog in Docker Compose (recommended)
+### Option A — MailHog via the bundled compose profile (recommended)
 
-Add to your local `docker-compose.override.yml`:
+The repo's `docker-compose.yml` ships a `mailhog` profile that is **off by
+default** (same opt-in pattern as `keycloak` for OIDC dev). Bring it up:
 
-```yaml
-services:
-  mailhog:
-    image: mailhog/mailhog:latest
-    ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # Web UI
+```bash
+docker compose --profile mailhog up -d mailhog
 ```
 
-Then in the Plugwerk admin UI under **Settings → Email → Server**:
+This starts [MailHog](https://github.com/mailhog/MailHog) on:
+- `127.0.0.1:1025` — SMTP (catches everything, never forwards)
+- `127.0.0.1:8025` — Web UI
+
+Then in the Plugwerk Admin UI under **Settings → Email → Server**:
 
 | Field | Value |
 |---|---|
-| `smtp.enabled` | `true` |
-| `smtp.host` | `localhost` (or `mailhog` if your Plugwerk container is on the same compose network) |
-| `smtp.port` | `1025` |
-| `smtp.encryption` | `none` |
-| `smtp.username` | (leave blank) |
-| `smtp.password` | (leave blank) |
-| `smtp.from_address` | `noreply@plugwerk.local` |
+| `SMTP enabled` | ✅ |
+| `Host` | `mailhog` (when Plugwerk runs in the same compose stack) **or** `localhost` (when Plugwerk runs natively on the host) |
+| `Port` | `1025` |
+| `Encryption` | `None (plain SMTP)` — MailHog speaks no TLS |
+| `Username` / `Password` | (leave blank) |
+| `From address` | `noreply@plugwerk.local` |
 
-Open <http://localhost:8025> to inspect every message Plugwerk sent.
+Save, then click **Send Test Email** with any target — it lands in the
+MailHog inbox at <http://localhost:8025>.
 
 ### Option B — GreenMail in unit tests
 
 `SmtpEmailIT` already wires GreenMail on a dynamic port. Use it as a
 template when adding test coverage for new mail-triggering flows. No
-Docker setup needed; runs as part of `./gradlew :plugwerk-server:plugwerk-server-backend:integrationTest`.
+Docker setup needed; runs as part of
+`./gradlew :plugwerk-server:plugwerk-server-backend:integrationTest`.
 
 See [ADR-0031](adrs/0031-email-infrastructure.md) for the full design.
