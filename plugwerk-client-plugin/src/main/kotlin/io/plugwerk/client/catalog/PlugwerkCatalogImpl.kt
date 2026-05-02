@@ -26,11 +26,17 @@ import io.plugwerk.spi.model.PluginInfo
 import io.plugwerk.spi.model.PluginReleaseInfo
 import io.plugwerk.spi.model.PluginStatus
 import io.plugwerk.spi.model.SearchCriteria
+import org.slf4j.LoggerFactory
 
 /** HTTP-backed implementation of [PlugwerkCatalog]. All requests are scoped to the namespace in [client.config]. */
 internal class PlugwerkCatalogImpl(private val client: PlugwerkClient) : PlugwerkCatalog {
-    override fun listPlugins(): List<PluginInfo> =
-        client.get<PluginPagedResponse>("plugins").content.map { it.toPluginInfo() }
+    private val log = LoggerFactory.getLogger(PlugwerkCatalogImpl::class.java)
+
+    override fun listPlugins(): List<PluginInfo> = paginate(
+        fetchPage = { p -> client.get<PluginPagedResponse>(pageUrl("plugins", query = "", page = p)) },
+        contentOf = { it.content },
+        totalPagesOf = { it.totalPages },
+    ).map { it.toPluginInfo() }
 
     override fun getPlugin(pluginId: String): PluginInfo? =
         client.getOrNull<PluginDto>("plugins/$pluginId")?.toPluginInfo()
@@ -41,12 +47,20 @@ internal class PlugwerkCatalogImpl(private val client: PlugwerkClient) : Plugwer
             criteria.tag?.let { append("tag=${it.urlEncode()}&") }
             criteria.compatibleWith?.let { append("compatibleWith=${it.urlEncode()}&") }
         }.trimEnd('&')
-        val path = if (query.isBlank()) "plugins" else "plugins?$query"
-        return client.get<PluginPagedResponse>(path).content.map { it.toPluginInfo() }
+        return paginate(
+            fetchPage = { p -> client.get<PluginPagedResponse>(pageUrl("plugins", query, p)) },
+            contentOf = { it.content },
+            totalPagesOf = { it.totalPages },
+        ).map { it.toPluginInfo() }
     }
 
-    override fun getPluginReleases(pluginId: String): List<PluginReleaseInfo> =
-        client.get<ReleasePagedResponse>("plugins/$pluginId/releases").content.map { it.toReleaseInfo() }
+    override fun getPluginReleases(pluginId: String): List<PluginReleaseInfo> = paginate(
+        fetchPage = { p ->
+            client.get<ReleasePagedResponse>(pageUrl("plugins/$pluginId/releases", query = "", page = p))
+        },
+        contentOf = { it.content },
+        totalPagesOf = { it.totalPages },
+    ).map { it.toReleaseInfo() }
 
     override fun getPluginRelease(pluginId: String, version: String): PluginReleaseInfo? =
         client.getOrNull<PluginReleaseDto>("plugins/$pluginId/releases/$version")?.toReleaseInfo()
@@ -54,6 +68,69 @@ internal class PlugwerkCatalogImpl(private val client: PlugwerkClient) : Plugwer
     /** Returns the artifact download URL for the given plugin release. */
     fun downloadUrl(pluginId: String, version: String): String =
         client.url("plugins/$pluginId/releases/$version/download")
+
+    /**
+     * Fetches every page of a paginated server response and concatenates the
+     * `content` lists. Closes #428 — the pre-fix code only consumed `.content`
+     * of page 0 and silently dropped everything else.
+     *
+     * Capped at [MAX_PAGES] iterations as a defence against a server that
+     * returns inconsistent `totalPages` (would otherwise loop forever). At the
+     * server's default page size of 20 the cap covers up to 2000 items per
+     * call — far beyond any realistic catalog size today. If the cap is hit
+     * we log a warning and return what we have so far rather than throwing,
+     * because the alternative (throwing) would brick existing callers.
+     */
+    private inline fun <P, T> paginate(
+        fetchPage: (Int) -> P,
+        contentOf: (P) -> List<T>,
+        totalPagesOf: (P) -> Int,
+    ): List<T> {
+        val all = mutableListOf<T>()
+        var page = 0
+        var totalPages: Int
+        do {
+            val response = fetchPage(page)
+            all.addAll(contentOf(response))
+            totalPages = totalPagesOf(response)
+            page++
+            if (page >= MAX_PAGES && page < totalPages) {
+                log.warn(
+                    "Paginated fetch hit the {}-page safety cap (server reported totalPages={}); " +
+                        "returning {} items collected so far. If this is legitimate, paginate explicitly.",
+                    MAX_PAGES,
+                    totalPages,
+                    all.size,
+                )
+                break
+            }
+        } while (page < totalPages)
+        return all
+    }
+
+    /**
+     * Builds `path?query&page=N&size=PAGE_SIZE`. Always asks for [PAGE_SIZE]
+     * items per page (the OpenAPI-documented maximum) so a 100-plugin catalog
+     * fits in one round-trip instead of five at the server's default of 20.
+     */
+    private fun pageUrl(path: String, query: String, page: Int): String = when {
+        query.isBlank() -> "$path?page=$page&size=$PAGE_SIZE"
+        else -> "$path?$query&page=$page&size=$PAGE_SIZE"
+    }
+
+    private companion object {
+        /**
+         * Items per page requested from the server. OpenAPI-documented maximum
+         * is 100 (`SizeQuery` parameter in `plugwerk-api.yaml`). Picking the
+         * max minimises round-trips for typical catalog sizes — a 99-plugin
+         * namespace becomes one HTTP call instead of five at the server's
+         * default of 20.
+         */
+        const val PAGE_SIZE = 100
+
+        /** Defence against a misbehaving server returning inconsistent `totalPages`. */
+        const val MAX_PAGES = 100
+    }
 }
 
 private fun PluginDto.toPluginInfo(): PluginInfo = PluginInfo(

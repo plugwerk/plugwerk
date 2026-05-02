@@ -52,6 +52,14 @@ interface PlugwerkCatalog : ExtensionPoint {
      * The returned list includes only plugins with status [io.plugwerk.spi.model.PluginStatus.ACTIVE].
      * Suspended or archived plugins are excluded.
      *
+     * **Multiple HTTP round-trips when the catalog exceeds one page.** The
+     * default SDK implementation walks every server page until the catalog is
+     * exhausted (#428) and asks for the OpenAPI-documented maximum of 100
+     * items per page, so a 250-plugin namespace becomes 3 GETs. Hosts that
+     * want to render paginated UIs should keep their own page state and fetch
+     * one server page at a time; today they must drop to the lower-level
+     * `PlugwerkClient` to do so (paginated SPI variant tracked separately).
+     *
      * @return unordered list of available plugins; empty list if the catalog is empty
      */
     fun listPlugins(): List<PluginInfo>
@@ -70,6 +78,8 @@ interface PlugwerkCatalog : ExtensionPoint {
      * All non-null fields in [criteria] are combined with AND semantics.
      * Passing an empty [SearchCriteria] is equivalent to calling [listPlugins].
      *
+     * Walks every server page like [listPlugins] does (#428).
+     *
      * @param criteria filter criteria; fields left `null` are ignored
      * @return plugins matching all specified criteria; empty list if none match
      */
@@ -80,6 +90,8 @@ interface PlugwerkCatalog : ExtensionPoint {
      *
      * Results are not guaranteed to be version-sorted. Use
      * [io.plugwerk.spi.version.compareSemVer] to sort them if needed.
+     *
+     * Walks every server page like [listPlugins] does (#428).
      *
      * @param pluginId the plugin's unique ID within the namespace
      * @return list of all releases; empty list if the plugin has no releases or does not exist

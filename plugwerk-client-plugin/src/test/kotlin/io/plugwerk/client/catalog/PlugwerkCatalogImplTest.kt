@@ -135,4 +135,130 @@ class PlugwerkCatalogImplTest {
             "Unexpected download URL: $url"
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Pagination — #428 regression coverage. Pre-fix the SDK only consumed
+    // page 0 and silently dropped the rest.
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `listPlugins walks every server page (#428)`() {
+        enqueuePluginPage(page = 0, totalPages = 3, ids = listOf("a", "b"))
+        enqueuePluginPage(page = 1, totalPages = 3, ids = listOf("c", "d"))
+        enqueuePluginPage(page = 2, totalPages = 3, ids = listOf("e"))
+
+        val plugins = catalog.listPlugins()
+
+        assertEquals(listOf("a", "b", "c", "d", "e"), plugins.map { it.pluginId })
+        assertEquals(3, server.requestCount)
+        assertPagedRequests(
+            expectedPages = listOf(0, 1, 2),
+            pathPrefix = "/api/v1/namespaces/acme/plugins",
+        )
+    }
+
+    @Test
+    fun `listPlugins returns empty list when totalPages is zero (#428)`() {
+        // totalPages=0 paths still issue exactly one GET so the loop exits
+        // immediately and callers are not surprised by an extra round-trip.
+        server.enqueue(
+            MockResponse()
+                .setBody("""{"content":[],"totalElements":0,"page":0,"size":20,"totalPages":0}""")
+                .setResponseCode(200),
+        )
+
+        val plugins = catalog.listPlugins()
+
+        assertEquals(0, plugins.size)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `searchPlugins walks every server page and preserves query params (#428)`() {
+        enqueuePluginPage(page = 0, totalPages = 2, ids = listOf("a"))
+        enqueuePluginPage(page = 1, totalPages = 2, ids = listOf("b"))
+
+        val plugins = catalog.searchPlugins(SearchCriteria(query = "hello", tag = "ai"))
+
+        assertEquals(listOf("a", "b"), plugins.map { it.pluginId })
+        assertEquals(2, server.requestCount)
+        // Query params survive every page request — `?q=hello&tag=ai&page=N&size=100` shape.
+        repeat(2) { i ->
+            val request = server.takeRequest()
+            val path = request.path!!
+            assert(path.contains("q=hello")) { "Page $i lost q= parameter: $path" }
+            assert(path.contains("tag=ai")) { "Page $i lost tag= parameter: $path" }
+            assert(path.contains("page=$i")) { "Page $i missing page=$i: $path" }
+            assert(path.contains("size=100")) { "Page $i missing size=100: $path" }
+        }
+    }
+
+    @Test
+    fun `getPluginReleases walks every server page (#428)`() {
+        enqueueReleasePage(page = 0, totalPages = 2, versions = listOf("1.0.0"))
+        enqueueReleasePage(page = 1, totalPages = 2, versions = listOf("2.0.0"))
+
+        val releases = catalog.getPluginReleases("my-plugin")
+
+        assertEquals(listOf("1.0.0", "2.0.0"), releases.map { it.version })
+        assertEquals(2, server.requestCount)
+        assertPagedRequests(
+            expectedPages = listOf(0, 1),
+            pathPrefix = "/api/v1/namespaces/acme/plugins/my-plugin/releases",
+        )
+    }
+
+    @Test
+    fun `paginate caps at the safety limit when server reports inconsistent totalPages (#428)`() {
+        // Server lies about totalPages — every page claims totalPages=10000.
+        // The cap should kick in at MAX_PAGES (= 100 today) so we do not
+        // hammer the server in an unbounded loop.
+        repeat(120) { p ->
+            enqueuePluginPage(page = p, totalPages = 10_000, ids = listOf("p$p"))
+        }
+
+        val plugins = catalog.listPlugins()
+
+        assertEquals(100, server.requestCount) {
+            "Expected the safety cap to stop after MAX_PAGES requests, got ${server.requestCount}"
+        }
+        assertEquals(100, plugins.size) {
+            "Items collected before the cap should still be returned"
+        }
+    }
+
+    private fun enqueuePluginPage(page: Int, totalPages: Int, ids: List<String>) {
+        val items = ids.joinToString(",") { id ->
+            """{"id":"00000000-0000-0000-0000-000000000001",""" +
+                """"pluginId":"$id","name":"P-$id","status":"active"}"""
+        }
+        val body = """{"content":[$items],"totalElements":${ids.size},""" +
+            """"page":$page,"size":20,"totalPages":$totalPages}"""
+        server.enqueue(MockResponse().setBody(body).setResponseCode(200))
+    }
+
+    private fun enqueueReleasePage(page: Int, totalPages: Int, versions: List<String>) {
+        val items = versions.joinToString(",") { v ->
+            """{"id":"00000000-0000-0000-0000-000000000002",""" +
+                """"pluginId":"my-plugin","version":"$v","status":"published"}"""
+        }
+        val body = """{"content":[$items],"totalElements":${versions.size},""" +
+            """"page":$page,"size":20,"totalPages":$totalPages}"""
+        server.enqueue(MockResponse().setBody(body).setResponseCode(200))
+    }
+
+    /**
+     * Verifies the SDK issued one request per expected page in order, with
+     * `?page=N&size=100` appended to [pathPrefix]. Drains MockWebServer's
+     * request queue in the process.
+     */
+    private fun assertPagedRequests(expectedPages: List<Int>, pathPrefix: String) {
+        expectedPages.forEach { p ->
+            val request = server.takeRequest()
+            val path = request.path!!
+            assert(path.startsWith(pathPrefix)) { "Page $p hit unexpected path: $path" }
+            assert(path.contains("page=$p")) { "Page $p missing page=$p: $path" }
+            assert(path.contains("size=100")) { "Page $p missing size=100: $path" }
+        }
+    }
 }
