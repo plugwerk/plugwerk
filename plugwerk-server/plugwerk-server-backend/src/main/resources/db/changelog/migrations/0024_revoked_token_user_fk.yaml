@@ -1,0 +1,165 @@
+# revoked_token.subject (free text) → revoked_token.user_id (uuid FK on
+# plugwerk_user). Issue #422.
+#
+# Background: post-#351 the column held the plugwerk_user.id UUID-string
+# verbatim, but never got a proper type, FK, or cascade — leaving
+# `UserService.delete` to fan out a manual `deleteBySubject(id.toString())`
+# call to keep audit rows from outliving their owner. This migration
+# tightens the schema so the DB enforces the invariant directly. Same
+# pattern as 0019 (user_setting.user_subject → user_setting.user_id).
+#
+# Effects:
+#   - Adds user_id uuid FK with ON DELETE CASCADE so user deletes via
+#     /admin/users no longer require an explicit revoked_token sweep.
+#   - Drops the misleading `subject` column whose name implied "any JWT
+#     sub" but in practice held only UUIDs post-#351.
+#   - Adds idx_revoked_token_user_id to keep the cascade delete and any
+#     future "all tokens for user X" query plan-stable. The existing
+#     uq_revoked_token_jti index is unaffected.
+databaseChangeLog:
+  # ===========================================================================
+  # 1) Safety probe — abort if any subject is not UUID-shaped. Migration 0014
+  #    wiped the pre-hash rows so realistically the table only holds post-#351
+  #    UUID strings, but a HALT on malformed data is the same defensive
+  #    posture 0019 took for user_setting and lets us cast in step 3 without
+  #    a NULL-on-failure landmine.
+  # ===========================================================================
+  - changeSet:
+      id: 0024-precheck-all-subjects-are-uuids
+      author: plugwerk
+      preConditions:
+        - onFail: HALT
+        - sqlCheck:
+            expectedResult: 0
+            sql: >
+              SELECT count(*) FROM revoked_token
+               WHERE subject !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      changes:
+        - sql:
+            sql: "SELECT 1"
+      rollback:
+        - sql:
+            sql: "SELECT 1"
+
+  # ===========================================================================
+  # 2) Add the new FK column nullable so the backfill (step 3) can populate
+  #    it before NOT NULL is enforced (step 4).
+  # ===========================================================================
+  - changeSet:
+      id: 0024-add-user-id-column
+      author: plugwerk
+      changes:
+        - addColumn:
+            tableName: revoked_token
+            columns:
+              - column:
+                  name: user_id
+                  type: uuid
+      rollback:
+        - dropColumn:
+            tableName: revoked_token
+            columnName: user_id
+
+  # ===========================================================================
+  # 3) Backfill: cast every existing subject to UUID. Safe because of step 1's
+  #    precondition — without that probe a single malformed row would crash
+  #    the whole migration.
+  # ===========================================================================
+  - changeSet:
+      id: 0024-backfill-user-id
+      author: plugwerk
+      changes:
+        - sql:
+            sql: |
+              UPDATE revoked_token
+                 SET user_id = subject::uuid;
+      rollback:
+        - sql:
+            sql: |
+              UPDATE revoked_token
+                 SET user_id = NULL;
+
+  # ===========================================================================
+  # 4) Lock down: NOT NULL + FK with ON DELETE CASCADE. CASCADE is what
+  #    UserService.delete previously emulated by hand (revokedTokenRepository.
+  #    deleteBySubject(id.toString())) — moving the invariant into the schema
+  #    means no future caller can forget the sweep.
+  # ===========================================================================
+  - changeSet:
+      id: 0024-user-id-not-null
+      author: plugwerk
+      changes:
+        - addNotNullConstraint:
+            tableName: revoked_token
+            columnName: user_id
+            columnDataType: uuid
+      rollback:
+        - dropNotNullConstraint:
+            tableName: revoked_token
+            columnName: user_id
+            columnDataType: uuid
+
+  - changeSet:
+      id: 0024-user-id-fk
+      author: plugwerk
+      changes:
+        - addForeignKeyConstraint:
+            constraintName: fk_revoked_token_user
+            baseTableName: revoked_token
+            baseColumnNames: user_id
+            referencedTableName: plugwerk_user
+            referencedColumnNames: id
+            onDelete: CASCADE
+      rollback:
+        - dropForeignKeyConstraint:
+            baseTableName: revoked_token
+            constraintName: fk_revoked_token_user
+
+  # ===========================================================================
+  # 5) Index for cascade delete + future "all tokens for user X" lookups.
+  #    Unlike user_setting (whose unique constraint already covers the FK
+  #    column), revoked_token has no composite unique on user_id, so a
+  #    dedicated index is needed for plan-stable joins.
+  # ===========================================================================
+  - changeSet:
+      id: 0024-add-user-id-index
+      author: plugwerk
+      changes:
+        - createIndex:
+            tableName: revoked_token
+            indexName: idx_revoked_token_user_id
+            columns:
+              - column:
+                  name: user_id
+      rollback:
+        - dropIndex:
+            tableName: revoked_token
+            indexName: idx_revoked_token_user_id
+
+  # ===========================================================================
+  # 6) Drop the legacy column. Rollback recreates it and re-populates from
+  #    user_id::text so LiquibaseRollbackIT continues to land on a usable
+  #    schema state — same approach as 0019's drop-user-subject rollback.
+  # ===========================================================================
+  - changeSet:
+      id: 0024-drop-subject
+      author: plugwerk
+      changes:
+        - dropColumn:
+            tableName: revoked_token
+            columnName: subject
+      rollback:
+        - addColumn:
+            tableName: revoked_token
+            columns:
+              - column:
+                  name: subject
+                  type: varchar(255)
+        - sql:
+            sql: |
+              UPDATE revoked_token
+                 SET subject = user_id::text;
+        - addNotNullConstraint:
+            tableName: revoked_token
+            columnName: subject
+            columnDataType: varchar(255)

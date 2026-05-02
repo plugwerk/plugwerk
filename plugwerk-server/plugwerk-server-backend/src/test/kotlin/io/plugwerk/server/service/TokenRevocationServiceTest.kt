@@ -75,15 +75,15 @@ class TokenRevocationServiceTest {
     )
 
     @Test
-    fun `revokeToken persists entry to database`() {
+    fun `revokeToken persists entry to database with user_id FK`() {
         val jti = UUID.randomUUID().toString()
-        val subject = UUID.randomUUID().toString()
+        val userId = UUID.randomUUID()
         whenever(revokedTokenRepository.existsByJti(sha256Hex(jti))).thenReturn(false)
         whenever(revokedTokenRepository.save(any<RevokedTokenEntity>())).thenAnswer { it.arguments[0] }
 
-        service.revokeToken(jti, subject, Instant.now().plusSeconds(3600))
+        service.revokeToken(jti, userId, Instant.now().plusSeconds(3600))
 
-        verify(revokedTokenRepository).save(argThat { this.jti == sha256Hex(jti) && this.subject == subject })
+        verify(revokedTokenRepository).save(argThat { this.jti == sha256Hex(jti) && this.userId == userId })
     }
 
     @Test
@@ -92,7 +92,7 @@ class TokenRevocationServiceTest {
         whenever(revokedTokenRepository.existsByJti(any())).thenReturn(false)
         whenever(revokedTokenRepository.save(any<RevokedTokenEntity>())).thenAnswer { it.arguments[0] }
 
-        service.revokeToken(jti, UUID.randomUUID().toString(), Instant.now().plusSeconds(3600))
+        service.revokeToken(jti, UUID.randomUUID(), Instant.now().plusSeconds(3600))
 
         verify(revokedTokenRepository).save(
             argThat {
@@ -109,7 +109,7 @@ class TokenRevocationServiceTest {
         val jti = UUID.randomUUID().toString()
         whenever(revokedTokenRepository.existsByJti(sha256Hex(jti))).thenReturn(true)
 
-        service.revokeToken(jti, UUID.randomUUID().toString(), Instant.now().plusSeconds(3600))
+        service.revokeToken(jti, UUID.randomUUID(), Instant.now().plusSeconds(3600))
 
         verify(revokedTokenRepository, never()).save(any())
     }
