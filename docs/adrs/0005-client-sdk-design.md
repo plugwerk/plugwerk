@@ -2,9 +2,10 @@
 
 ## Status
 
-Accepted, with two later refinements documented inline:
+Accepted, with three later refinements documented inline:
 - the original `configure()` + `marketplace()` two-step flow on `PlugwerkPlugin` was collapsed into a single JDBC-style `connect(config)` factory — see [SPI shape update](#spi-shape-update-2026-04-28),
-- `PlugwerkInstaller` was rewired to drive PF4J's `PluginManager` lifecycle directly — see [Installer lifecycle update](#installer-lifecycle-update-2026-05-02).
+- `PlugwerkInstaller` was rewired to drive PF4J's `PluginManager` lifecycle directly — see [Installer lifecycle update](#installer-lifecycle-update-2026-05-02),
+- `connect()` gained an explicit `pluginManager` parameter so the SDK does not depend on PF4J's deprecated `Plugin#wrapper` injection — see [Installer connect-signature update](#installer-connect-signature-update-2026-05-02).
 
 ## Context
 
@@ -229,9 +230,16 @@ The SPI was reshaped (#424) so the method names match what they do:
   the empty-string-version code smell is gone).
 
 **Wire-up:** `PlugwerkInstallerImpl` now requires a `PluginManager`
-constructor parameter. `PlugwerkPluginImpl.connect()` reads it from the
-PF4J wrapper; embedders calling `PlugwerkMarketplaceImpl.create(config,
-pluginManager)` programmatically must supply one.
+constructor parameter. The host passes its `PluginManager` explicitly to
+`PlugwerkPlugin.connect(config, pluginManager)` — the same instance it
+just used to resolve the SDK plugin via `getPlugin(PLUGIN_ID)`. The SDK
+deliberately does NOT read it from `wrapper.pluginManager`: PF4J 3.15
+deprecates `Plugin#wrapper`, the `(PluginWrapper)` constructor and
+`getWrapper()`, and recommends host-defined context injection instead.
+Threading `pluginManager` through the SPI signature keeps the SDK off the
+deprecated API surface and makes the dependency explicit at the call site.
+See [Installer connect-signature update](#installer-connect-signature-update-2026-05-02)
+below for the post-#426 follow-up that landed this approach.
 
 **Why the change:**
 
@@ -254,3 +262,47 @@ small, and the honest naming is worth more than the version-agnostic
 flexibility we lose.
 
 The change landed in plugwerk/plugwerk#425.
+
+## Installer connect-signature update (2026-05-02)
+
+#425 originally read the host's `PluginManager` from `wrapper.pluginManager`
+inside `PlugwerkPluginImpl.connect()`. Two problems surfaced quickly:
+
+1. **NPE under the canonical PF4J load path (#426).** PF4J's
+   `DefaultPluginFactory` looks for `Constructor(PluginWrapper)` first and
+   falls back to no-arg only if absent. Because we exposed only no-arg + a
+   test-only `(PluginManager)` constructor, PF4J chose no-arg and never
+   set the inherited `Plugin#wrapper` field. The first `wrapper.pluginManager`
+   read NPEd. Documented host pattern (Spring example) was broken.
+2. **PF4J 3.15 deprecates the entire `Plugin#wrapper` injection path.**
+   `Plugin(PluginWrapper)`, `Plugin#wrapper` field, and `getWrapper()`
+   are all marked `@Deprecated` with the recommendation to use
+   "application custom `PluginContext` instead of `PluginWrapper`."
+   Adding a `(PluginWrapper)` constructor would have fixed #426 today
+   but tied us to a deprecated API forever.
+
+The fix collapses both problems by **threading `pluginManager` through
+the `connect()` signature**:
+
+```kotlin
+// Before
+fun connect(config: PlugwerkConfig): PlugwerkMarketplace
+
+// After (#426 / PR #427)
+fun connect(config: PlugwerkConfig, pluginManager: PluginManager): PlugwerkMarketplace
+```
+
+The host always has a `PluginManager` reference in scope at the call
+site — it's the same instance it just used to resolve the SDK plugin
+via `pluginManager.getPlugin(PlugwerkPlugin.PLUGIN_ID)`. Passing it
+costs one extra parameter and:
+
+- removes every read from `Plugin#wrapper` in our code,
+- removes the (now-unnecessary) test-only `(PluginManager)` constructor
+  and the `explicitPluginManager` field,
+- makes the dependency on PF4J's lifecycle explicit at the call site,
+- keeps `PlugwerkPluginImpl` on the canonical no-arg `Plugin()`
+  constructor — exactly what the deprecation note recommends moving
+  toward.
+
+The change landed in plugwerk/plugwerk#427.

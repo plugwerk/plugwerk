@@ -31,6 +31,7 @@ class PlugwerkPluginImplTest {
     lateinit var tempDir: Path
 
     private lateinit var plugin: PlugwerkPluginImpl
+    private lateinit var pluginManager: PluginManager
 
     private fun config(serverUrl: String = "http://localhost:8080", namespace: String = "acme") =
         PlugwerkConfig.Builder(serverUrl, namespace)
@@ -39,14 +40,20 @@ class PlugwerkPluginImplTest {
 
     @BeforeEach
     fun setUp() {
-        // Test-only constructor: bypasses PF4J's wrapper injection so we can
-        // exercise connect() without a real PluginManager load cycle.
-        plugin = PlugwerkPluginImpl(mock<PluginManager>())
+        // PF4J would call the no-arg constructor at load time. We mirror that
+        // here exactly — the (PluginWrapper) deprecated path is intentionally
+        // not exercised. PluginManager arrives via connect()'s parameter
+        // instead, the same way real hosts pass it after #426.
+        plugin = PlugwerkPluginImpl()
+        pluginManager = mock()
     }
 
     @Test
     fun `connect returns a fresh marketplace bound to the given config`() {
-        val marketplace = plugin.connect(config("http://server-a:8080", "ns-a")) as PlugwerkMarketplaceImpl
+        val marketplace = plugin.connect(
+            config("http://server-a:8080", "ns-a"),
+            pluginManager,
+        ) as PlugwerkMarketplaceImpl
 
         assertEquals("http://server-a:8080", marketplace.client.config.serverUrl)
         assertEquals("ns-a", marketplace.client.config.namespace)
@@ -56,16 +63,16 @@ class PlugwerkPluginImplTest {
     fun `connect returns a new instance on every call`() {
         // No internal cache by design — each call yields its own HTTP client. Hosts
         // that want to reuse a marketplace are expected to store the reference.
-        val first = plugin.connect(config())
-        val second = plugin.connect(config())
+        val first = plugin.connect(config(), pluginManager)
+        val second = plugin.connect(config(), pluginManager)
 
         assertNotSame(first, second)
     }
 
     @Test
     fun `multiple connects with different configs produce isolated marketplaces`() {
-        val a = plugin.connect(config("http://server-a:8080", "ns-a")) as PlugwerkMarketplaceImpl
-        val b = plugin.connect(config("http://server-b:8080", "ns-b")) as PlugwerkMarketplaceImpl
+        val a = plugin.connect(config("http://server-a:8080", "ns-a"), pluginManager) as PlugwerkMarketplaceImpl
+        val b = plugin.connect(config("http://server-b:8080", "ns-b"), pluginManager) as PlugwerkMarketplaceImpl
 
         assertEquals("http://server-a:8080", a.client.config.serverUrl)
         assertEquals("ns-a", a.client.config.namespace)
@@ -78,8 +85,8 @@ class PlugwerkPluginImplTest {
         // Hosts that forget to call close() leave us with HTTP clients to reclaim.
         // Stop must close those rather than leaking dispatcher threads on plugin
         // unload.
-        val a = plugin.connect(config()) as PlugwerkMarketplaceImpl
-        val b = plugin.connect(config()) as PlugwerkMarketplaceImpl
+        val a = plugin.connect(config(), pluginManager) as PlugwerkMarketplaceImpl
+        val b = plugin.connect(config(), pluginManager) as PlugwerkMarketplaceImpl
 
         plugin.stop()
 
@@ -94,7 +101,7 @@ class PlugwerkPluginImplTest {
 
     @Test
     fun `close on the marketplace is idempotent`() {
-        val marketplace = plugin.connect(config())
+        val marketplace = plugin.connect(config(), pluginManager)
 
         marketplace.close()
         // Second close is a no-op; if it threw or double-closed the underlying
