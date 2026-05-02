@@ -43,6 +43,18 @@ jobs:
   cla-check:
     runs-on: ubuntu-latest
 
+    # GitHub fires `issue_comment` for both Issue AND PR comments — they
+    # share the same event payload. Without this filter, every comment on
+    # a regular Issue (e.g. design discussion threads) triggers the CLA
+    # action, which then tries to GraphQL-resolve a PR with the issue's
+    # number and crashes with "Could not resolve to a PullRequest". The
+    # `issue.pull_request` field is set only when the parent is a PR, so
+    # this is the canonical filter for "PR comment only". Uses `event_name`
+    # and a presence check — no untrusted user input is interpolated.
+    if: |
+      github.event_name == 'pull_request_target' ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null)
+
     # Match the action's documented permission requirements. Scoped to this
     # job only so future jobs in this file do not inherit write access.
     permissions:
