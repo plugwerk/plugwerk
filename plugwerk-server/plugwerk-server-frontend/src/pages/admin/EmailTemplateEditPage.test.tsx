@@ -237,9 +237,16 @@ describe("EmailTemplateEditPage", () => {
         }),
       });
     });
-    // Preview region is in the page from the start.
+    // The page renders three preview panes — one per editor — sharing
+    // a single API result.
     expect(
-      screen.getByRole("region", { name: /Mail template live preview/i }),
+      screen.getByRole("region", { name: "Subject preview" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Plaintext body preview" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "HTML body preview" }),
     ).toBeInTheDocument();
   });
 
