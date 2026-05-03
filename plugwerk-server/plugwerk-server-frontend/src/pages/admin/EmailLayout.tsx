@@ -20,18 +20,14 @@ import { Box, Tab, Tabs, Typography } from "@mui/material";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 /**
- * Shell for the `/admin/email/*` admin area (#253).
+ * Shell for the `/admin/email/*` admin area (#253, #438).
  *
- * Today the only sub-page is `Server`. The Tab strip exists ahead of the
- * `Templates` follow-up so adding the second tab is a one-line change rather
- * than reshuffling routing + navigation. Hidden when there's only one tab
- * would feel cleaner — but the pattern then breaks the moment Templates
- * lands, and the reviewer has to follow two separate diffs to understand
- * why the Tab appeared.
+ * Two sub-pages: `Server` (SMTP transport configuration) and `Templates`
+ * (per-template subject + body editor backed by `MailTemplateService`).
  */
 const EMAIL_TABS = [
   { path: "server", label: "Server" },
-  // Templates page lands as a follow-up to #253.
+  { path: "templates", label: "Templates" },
 ];
 
 export function EmailLayout() {

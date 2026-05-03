@@ -18,6 +18,7 @@
     "license:add": "bash scripts/license-check.sh --fix"
   },
   "dependencies": {
+    "@codemirror/lang-html": "^6.4.11",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@fontsource/inter": "^5.2.8",
@@ -25,6 +26,7 @@
     "@mui/material": "^7.3.9",
     "@scalar/api-reference-react": "^0.9.23",
     "@tanstack/react-query": "^5.100.0",
+    "@uiw/react-codemirror": "^4.25.9",
     "axios": "^1.15.0",
     "lucide-react": "^0.577.0",
     "react": "^19.2.4",

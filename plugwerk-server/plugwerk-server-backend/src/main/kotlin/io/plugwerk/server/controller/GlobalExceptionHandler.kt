@@ -150,6 +150,10 @@ class GlobalExceptionHandler {
     fun handleSmtpDelivery(ex: SmtpDeliveryException): ResponseEntity<ErrorResponse> =
         errorResponse(HttpStatus.BAD_GATEWAY, ex.message ?: "SMTP server rejected the message")
 
+    @ExceptionHandler(MailTemplateNotFoundException::class)
+    fun handleMailTemplateNotFound(ex: MailTemplateNotFoundException): ResponseEntity<ErrorResponse> =
+        errorResponse(HttpStatus.NOT_FOUND, ex.message ?: "Mail template not found")
+
     @ExceptionHandler(
         DescriptorNotFoundException::class,
         DescriptorParseException::class,

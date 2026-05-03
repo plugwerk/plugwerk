@@ -89,6 +89,12 @@ package io.plugwerk.server.service.mail
  *   may reference. The service validates the DB-stored subject + plain +
  *   html variants at write time — typos surface as 400, not as a runtime
  *   "undefined variable" exception during a live send.
+ * @property previewSampleVars demo values rendered into the admin preview
+ *   (#438). Every name in [placeholders] must have an entry — verified by
+ *   `init` so a forgotten sample fails the build, not the preview at
+ *   runtime. The values are intentionally obviously-fake so an admin who
+ *   pastes the rendered output into a real test send realises it isn't
+ *   real data.
  */
 enum class MailTemplate(
     val key: String,
@@ -96,6 +102,7 @@ enum class MailTemplate(
     val defaultBodyPlainTemplate: String,
     val defaultBodyHtmlTemplate: String?,
     val placeholders: Set<String>,
+    val previewSampleVars: Map<String, String>,
 ) {
     /**
      * Verification email sent during opt-in self-registration (#420).
@@ -130,6 +137,11 @@ enum class MailTemplate(
             </html>
         """.trimIndent(),
         placeholders = setOf("username", "verificationLink", "expiresAtHuman"),
+        previewSampleVars = mapOf(
+            "username" to "Alice",
+            "verificationLink" to "https://app.plugwerk.test/verify?token=demo-token-123",
+            "expiresAtHuman" to "in 24 hours",
+        ),
     ),
 
     /**
@@ -168,8 +180,21 @@ enum class MailTemplate(
             </html>
         """.trimIndent(),
         placeholders = setOf("username", "resetLink", "expiresAtHuman"),
+        previewSampleVars = mapOf(
+            "username" to "Alice",
+            "resetLink" to "https://app.plugwerk.test/reset?token=demo-token-123",
+            "expiresAtHuman" to "in 30 minutes",
+        ),
     ),
     ;
+
+    init {
+        require(previewSampleVars.keys == placeholders) {
+            "MailTemplate.$name: previewSampleVars must cover every placeholder. " +
+                "Missing: ${placeholders - previewSampleVars.keys}, " +
+                "extra: ${previewSampleVars.keys - placeholders}"
+        }
+    }
 
     companion object {
         private val BY_KEY: Map<String, MailTemplate> = entries.associateBy { it.key }

@@ -81,6 +81,16 @@ const EmailServerPage = lazy(() =>
     default: m.EmailServerPage,
   })),
 );
+const EmailTemplatesListPage = lazy(() =>
+  import("../pages/admin/EmailTemplatesListPage").then((m) => ({
+    default: m.EmailTemplatesListPage,
+  })),
+);
+const EmailTemplateEditPage = lazy(() =>
+  import("../pages/admin/EmailTemplateEditPage").then((m) => ({
+    default: m.EmailTemplateEditPage,
+  })),
+);
 
 function LazyFallback() {
   return (
@@ -183,8 +193,7 @@ export const router = createBrowserRouter([
             ),
           },
           {
-            // Nested layout for `/admin/email/*` (#253) — today only
-            // `server` is shipped; `templates` lands in a follow-up.
+            // Nested layout for `/admin/email/*` (#253, #438).
             path: "email",
             element: (
               <Suspense fallback={<LazyFallback />}>
@@ -198,6 +207,22 @@ export const router = createBrowserRouter([
                 element: (
                   <Suspense fallback={<LazyFallback />}>
                     <EmailServerPage />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "templates",
+                element: (
+                  <Suspense fallback={<LazyFallback />}>
+                    <EmailTemplatesListPage />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "templates/:key",
+                element: (
+                  <Suspense fallback={<LazyFallback />}>
+                    <EmailTemplateEditPage />
                   </Suspense>
                 ),
               },
