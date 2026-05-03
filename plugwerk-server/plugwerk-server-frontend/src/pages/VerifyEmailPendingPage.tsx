@@ -85,8 +85,8 @@ export function VerifyEmailPendingPage() {
           in 24 hours.
         </Typography>
         <Typography variant="caption" color="text.disabled" sx={{ mt: 1 }}>
-          No email? Check your spam folder. If the address is already in use,
-          no new email is sent — try{" "}
+          No email? Check your spam folder. If the address is already in use, no
+          new email is sent — try{" "}
           <Box component="strong" sx={{ fontWeight: 600 }}>
             signing in
           </Box>{" "}

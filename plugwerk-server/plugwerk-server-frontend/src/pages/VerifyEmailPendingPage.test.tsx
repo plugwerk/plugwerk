@@ -72,9 +72,7 @@ describe("VerifyEmailPendingPage", () => {
     // collisions and returns the same response shape as a successful
     // registration. The UI must therefore not assert that an email was
     // actually sent — both branches need to fit one truthful sentence.
-    expect(
-      screen.getByText(/isn't already registered/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/isn't already registered/i)).toBeInTheDocument();
     expect(
       screen.getByText(/if the address is already in use/i),
     ).toBeInTheDocument();
