@@ -36,6 +36,7 @@ import io.plugwerk.server.service.PluginNotFoundException
 import io.plugwerk.server.service.ReleaseAlreadyExistsException
 import io.plugwerk.server.service.ReleaseNotFoundException
 import io.plugwerk.server.service.UnauthorizedException
+import io.plugwerk.server.service.auth.InvalidVerificationTokenException
 import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -153,6 +154,34 @@ class GlobalExceptionHandler {
     @ExceptionHandler(MailTemplateNotFoundException::class)
     fun handleMailTemplateNotFound(ex: MailTemplateNotFoundException): ResponseEntity<ErrorResponse> =
         errorResponse(HttpStatus.NOT_FOUND, ex.message ?: "Mail template not found")
+
+    /**
+     * Self-registration verification token failed validation (#420). Mapped
+     * to 400 with the specific reason ("invalid", "expired", "already used")
+     * so the verify-email landing page can show actionable copy.
+     */
+    @ExceptionHandler(InvalidVerificationTokenException::class)
+    fun handleInvalidVerificationToken(ex: InvalidVerificationTokenException): ResponseEntity<ErrorResponse> =
+        errorResponse(HttpStatus.BAD_REQUEST, ex.message ?: "Verification token is invalid")
+
+    /**
+     * Honour the status code carried inside any [ResponseStatusException]
+     * thrown from a controller. Without this explicit handler the catch-all
+     * `Exception` mapper below would re-wrap them as 500 — which the
+     * self-registration controller (#420) relies on for its 404-when-disabled
+     * disguise and 503-no-mail fallback.
+     */
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException::class)
+    fun handleResponseStatus(
+        ex: org.springframework.web.server.ResponseStatusException,
+    ): ResponseEntity<ErrorResponse> {
+        val status = HttpStatus.resolve(ex.statusCode.value()) ?: HttpStatus.INTERNAL_SERVER_ERROR
+        // Reason is a short tag like "Self-registration is disabled"; the
+        // exception's `message` includes the full status line which we
+        // strip so the body reads cleanly.
+        val msg = ex.reason ?: status.reasonPhrase
+        return errorResponse(status, msg)
+    }
 
     @ExceptionHandler(
         DescriptorNotFoundException::class,

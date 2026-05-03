@@ -51,3 +51,7 @@ databaseChangeLog:
       file: db/changelog/migrations/0025_add_smtp_settings.yaml
   - include:
       file: db/changelog/migrations/0026_mail_template.yaml
+  - include:
+      file: db/changelog/migrations/0027_add_self_registration_settings.yaml
+  - include:
+      file: db/changelog/migrations/0028_email_verification_token.yaml

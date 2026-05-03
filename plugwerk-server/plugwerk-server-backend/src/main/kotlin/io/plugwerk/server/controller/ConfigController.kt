@@ -47,7 +47,10 @@ class ConfigController(
             version = versionProvider.getVersion(),
             upload = ServerConfigResponseUpload(maxFileSizeMb = settingsService.maxUploadSizeMb()),
             general = ServerConfigResponseGeneral(defaultTimezone = settingsService.defaultTimezone()),
-            auth = ServerConfigResponseAuth(oidcProviders = enabledOidcProviderLoginInfo()),
+            auth = ServerConfigResponseAuth(
+                oidcProviders = enabledOidcProviderLoginInfo(),
+                selfRegistrationEnabled = settingsService.selfRegistrationEnabled(),
+            ),
         ),
     )
 

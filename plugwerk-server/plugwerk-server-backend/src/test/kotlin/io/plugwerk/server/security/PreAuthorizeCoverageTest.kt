@@ -64,6 +64,12 @@ class PreAuthorizeCoverageTest {
         // requestMatchers(...).authenticated() rule in SecurityConfiguration; the operation
         // is scoped to the caller's own subject inside the controller body.
         "AuthController.changePassword",
+        // AuthRegistrationController.register — public self-registration (#420).
+        // Gated at the controller-body level by an ApplicationSettings check
+        // that throws 404 when self-registration is disabled, so the endpoint
+        // is invisible on locked-down deployments. Rate-limited per IP and
+        // per email (RegisterRateLimitFilter + RegisterRateLimitService).
+        "AuthRegistrationController.register",
         // UpdateCheckController.checkForUpdates — intentionally public: PF4J client plugins
         // submit their installed-plugin list (no secrets) and the server answers with
         // available updates. Anonymous callers are allowed by design (see

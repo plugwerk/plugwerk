@@ -117,6 +117,16 @@ tags:
 
       A refresh-cookie endpoint exists at `/api/v1/auth/refresh` but is not modelled in this
       spec because it returns `Set-Cookie`, which the OpenAPI generator does not represent.
+  - name: AuthRegistration
+    description: |
+      Public self-registration flow (#420). Available only when the operator
+      has enabled `auth.self_registration_enabled`; the endpoints return 404
+      otherwise so a locked-down deployment never advertises that the
+      registration surface exists at all. Split into its own tag so the
+      generated `AuthRegistrationApi` interface and the
+      `AuthRegistrationController` implementation can co-exist alongside
+      the existing `AuthApi` / `AuthController` pair without ambiguous
+      handler mappings on the shared `Auth` interface.
   - name: Namespaces
     description: |
       Create and list namespaces.
@@ -256,6 +266,8 @@ paths:
                     - id: "keycloak-local"
                       name: "Keycloak Local"
                       loginUrl: "/oauth2/authorization/keycloak-local"
+                      iconKind: "OIDC"
+                  selfRegistrationEnabled: false
 
   /auth/login:
     post:
@@ -284,8 +296,12 @@ paths:
             schema:
               $ref: '#/components/schemas/LoginRequest'
             example:
-              username: admin
-              password: changeme
+              # Placeholder credentials — do NOT seed the bootstrap-default
+              # `admin / changeme` pair here, even though it works on a fresh
+              # install. Swagger UI's "Try it out" would otherwise auto-login
+              # as superadmin from the public docs page.
+              username: alice
+              password: your-strong-password
       responses:
         '200':
           description: Login successful — returns a JWT Bearer token
@@ -295,6 +311,102 @@ paths:
                 $ref: '#/components/schemas/LoginResponse'
         '401':
           description: Invalid username or password
+
+  /auth/register:
+    post:
+      tags:
+        - AuthRegistration
+      summary: Self-register a new account (when enabled by the operator)
+      description: |
+        Creates a new local user account. Available only when the operator
+        has enabled `auth.self_registration_enabled`; returns 404 otherwise
+        so the existence of the endpoint is not advertised on locked-down
+        deployments. Public — no authentication required (#420).
+
+        When `auth.self_registration_email_verification_required` is true
+        (default), the new account ships `enabled=false` and a
+        single-use verification link is emailed to the supplied address.
+        The user can log in only after clicking that link. When the
+        verification toggle is off, the account is enabled immediately
+        and no email is sent.
+
+        On a username or email collision the response shape and status
+        are identical to the success path so attackers cannot enumerate
+        existing accounts (no email is sent in the collision case — the
+        legitimate owner of the address sees nothing). Password strength
+        rules are identical to `POST /admin/users`.
+
+        Rate-limited per client IP (10 requests / 60 s) and per email
+        (5 requests / 3600 s). Returns 503 with a descriptive message
+        when verification is required but SMTP is not configured.
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: Registration accepted — see `status` for whether verification is required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          description: Invalid input (weak password, malformed email, missing field)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Self-registration is disabled on this server
+        '429':
+          description: Too many registration attempts — Retry-After header indicates the cool-off
+        '503':
+          description: Self-registration requires email infrastructure that is not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/verify-email:
+    get:
+      tags:
+        - AuthRegistration
+      summary: Consume an email-verification token
+      description: |
+        Validates the single-use token sent to the user's address during
+        self-registration. On success the underlying account is flipped
+        to `enabled=true` and the response says so; the same link cannot
+        be used a second time. Returns 404 when self-registration is
+        disabled (same disguise as `POST /auth/register`). Returns 400
+        when the token is unknown, already consumed, or past its 24 h
+        expiry. Public — no authentication required (#420).
+      operationId: verifyEmail
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 128
+      responses:
+        '200':
+          description: Token consumed — the linked account is now enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyEmailResponse'
+        '400':
+          description: Token is unknown, already consumed, or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Self-registration is disabled on this server
 
   /namespaces:
     get:
@@ -2077,6 +2189,79 @@ components:
         Example: `>=3.0.0`
 
   schemas:
+    RegisterRequest:
+      type: object
+      description: |
+        Self-registration payload (#420). All fields apply the same
+        validation as `POST /admin/users`: email is normalised to lower
+        case before uniqueness checks, password must satisfy the
+        configured strength rules, username and email must be unique
+        across `INTERNAL` users (case-insensitive on email).
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: The chosen account username
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: Address that receives the verification link (when verification is required)
+        password:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 256
+          description: |
+            Plaintext password — same minimum length (12) as admin-create
+            via `POST /admin/users`. The bean-validation layer enforces
+            the floor; future strength checks (zxcvbn, banned-passwords)
+            land in the service.
+        displayName:
+          type: string
+          nullable: true
+          maxLength: 128
+          description: Optional human-readable label; defaults to the username when omitted
+      required:
+        - username
+        - email
+        - password
+
+    RegisterResponse:
+      type: object
+      description: |
+        Outcome of the self-registration call. The `status` field
+        discriminates whether the user can log in immediately or must
+        click the verification link first. The shape is intentionally
+        identical when a username/email collision was silently swallowed
+        for anti-enumeration reasons.
+      properties:
+        status:
+          type: string
+          enum:
+            - VERIFICATION_PENDING
+            - ACTIVE
+          description: |
+            `VERIFICATION_PENDING` when the verification email has been
+            queued and the account stays disabled until the link is
+            clicked. `ACTIVE` when the verification toggle is off and
+            the account is enabled immediately.
+      required:
+        - status
+
+    VerifyEmailResponse:
+      type: object
+      description: Result of consuming an email-verification token.
+      properties:
+        status:
+          type: string
+          enum:
+            - VERIFIED
+          description: Confirms the linked account is now `enabled=true`.
+      required:
+        - status
+
     LoginRequest:
       type: object
       description: Credentials for password-based login
@@ -2085,13 +2270,11 @@ components:
           type: string
           minLength: 1
           description: The account username
-          example: admin
         password:
           type: string
           format: password
           minLength: 1
           description: The account password (transmitted over HTTPS, never stored in plain text)
-          example: changeme
       required:
         - username
         - password
@@ -2155,13 +2338,11 @@ components:
             When `true`, the user must change their password before accessing any resource.
             The frontend should redirect to the change-password page immediately after login.
             Always `false` for OIDC users (they have no Plugwerk-side password).
-          example: false
         isSuperadmin:
           type: boolean
           description: |
             When `true`, the user has global superadmin privileges.
             Used by the frontend to conditionally show admin UI elements.
-          example: false
       required:
         - accessToken
         - tokenType
@@ -2281,24 +2462,30 @@ components:
 
     ErrorResponse:
       type: object
-      description: Standard error response body returned for all 4xx and 5xx responses
+      description: |
+        Standard error response body returned for all 4xx and 5xx
+        responses. The `status`, `error`, and `message` fields vary by
+        endpoint and failure mode — schema-level examples would be
+        misleading because the same envelope is reused for everything
+        from `400 BAD_REQUEST` validation failures to `503 SERVICE_UNAVAILABLE`
+        infrastructure outages. Per-response `examples` blocks on
+        individual endpoints carry the realistic shape for that case.
       properties:
         status:
           type: integer
-          description: HTTP status code (mirrors the response status)
-          example: 404
+          description: HTTP status code (mirrors the response status).
         error:
           type: string
-          description: Short machine-readable error code (e.g. `NOT_FOUND`, `VALIDATION_ERROR`)
-          example: NOT_FOUND
+          description: |
+            Short machine-readable error code (e.g. `NOT_FOUND`,
+            `BAD_REQUEST`, `SERVICE_UNAVAILABLE`).
         message:
           type: string
-          description: Human-readable description of what went wrong
-          example: Plugin 'com.example.my-plugin' not found in namespace 'acme-core'
+          description: Human-readable description of what went wrong.
         timestamp:
           type: string
           format: date-time
-          description: ISO-8601 timestamp of when the error occurred
+          description: ISO-8601 timestamp of when the error occurred.
       required:
         - status
         - error
@@ -2720,14 +2907,18 @@ components:
 
     ReviewDecisionRequest:
       type: object
-      description: Optional comment to attach to an approve or reject decision
+      description: |
+        Optional comment to attach to an approve or reject decision. The
+        same schema is reused for both verdicts via `$ref` — the
+        per-endpoint examples on `POST /reviews/{releaseId}/approve` and
+        `POST /reviews/{releaseId}/reject` carry the contextually correct
+        sample comment for each verb.
       properties:
         comment:
           type: string
           description: |
             Human-readable comment explaining the decision. Strongly recommended for
             rejections so the publisher knows what needs to be fixed.
-          example: Approved after manual artifact verification.
 
     PluginPagedResponse:
       type: object
@@ -3403,14 +3594,23 @@ components:
                 and registered in Spring Security's OAuth2 client registry. Empty
                 when no provider has been activated. The frontend renders one
                 "Login with `<name>`" button per entry on the login page (issue #79).
+                The endpoint-level example on `GET /config` shows a representative
+                payload — the schema deliberately carries no example so it does
+                not drift behind newer `OidcProviderLoginInfo` fields.
               items:
                 $ref: '#/components/schemas/OidcProviderLoginInfo'
-              example:
-                - id: "keycloak-local"
-                  name: "Keycloak Local"
-                  loginUrl: "/oauth2/authorization/keycloak-local"
+            selfRegistrationEnabled:
+              type: boolean
+              description: |
+                Whether the operator has enabled the public self-registration
+                flow (#420). The login page conditionally renders the
+                "Don't have an account? Sign up" link when this is true. The
+                backend enforces the gate independently — flipping this on the
+                client cannot bypass the controller check.
+              example: false
           required:
             - oidcProviders
+            - selfRegistrationEnabled
       required:
         - version
         - upload
@@ -3869,7 +4069,7 @@ components:
           description: Map of setting key to effective value
           example:
             preferred_language: "en"
-            default_namespace: "acme-corp"
+            default_namespace: "acme-core"
             theme: "system"
       required:
         - settings

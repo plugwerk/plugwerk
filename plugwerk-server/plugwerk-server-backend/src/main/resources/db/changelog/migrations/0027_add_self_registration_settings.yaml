@@ -1,0 +1,56 @@
+# Seed the self-registration settings registered in ApplicationSettingKey
+# (#420). Both default to safe values:
+#   - auth.self_registration_enabled = false → the registration endpoint
+#     is hidden behind a 404 disguise on every existing deployment until
+#     the operator explicitly switches it on.
+#   - auth.self_registration_email_verification_required = true → when
+#     registration IS enabled, new accounts ship `enabled=false` until
+#     the user clicks the verification link. Operators who want
+#     friction-free signup can flip this off; the registration controller
+#     then materialises the user as `enabled=true` immediately and skips
+#     the email send.
+databaseChangeLog:
+  - changeSet:
+      id: 0027-seed-self-registration-settings
+      author: plugwerk
+      changes:
+        - insert:
+            tableName: application_setting
+            columns:
+              - column:
+                  name: id
+                  valueComputed: gen_random_uuid()
+              - column:
+                  name: setting_key
+                  value: auth.self_registration_enabled
+              - column:
+                  name: setting_value
+                  value: "false"
+              - column:
+                  name: setting_desc
+                  value: "Master switch for the public /auth/register endpoint. When false the endpoint and the corresponding 'Sign up' link on the login page are hidden (404)."
+              - column:
+                  name: value_type
+                  value: BOOLEAN
+        - insert:
+            tableName: application_setting
+            columns:
+              - column:
+                  name: id
+                  valueComputed: gen_random_uuid()
+              - column:
+                  name: setting_key
+                  value: auth.self_registration_email_verification_required
+              - column:
+                  name: setting_value
+                  value: "true"
+              - column:
+                  name: setting_desc
+                  value: "When true (recommended) the new account stays disabled until the user clicks the link in the verification email. When false the account is enabled immediately on registration and no email is sent."
+              - column:
+                  name: value_type
+                  value: BOOLEAN
+      rollback:
+        - delete:
+            tableName: application_setting
+            where: "setting_key IN ('auth.self_registration_enabled', 'auth.self_registration_email_verification_required')"
