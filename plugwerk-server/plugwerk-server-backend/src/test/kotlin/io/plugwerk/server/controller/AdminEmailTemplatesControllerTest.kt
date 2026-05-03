@@ -348,6 +348,45 @@ class AdminEmailTemplatesControllerTest {
     }
 
     @Test
+    fun `POST preview surfaces unexpected RuntimeExceptions as 400 — not the generic 500`() {
+        // Regression: jmustache occasionally surfaces malformed-template
+        // states as plain RuntimeException (NPE / IndexOutOfBoundsException)
+        // that bypassed the previous catch-MustacheException branch and
+        // hit the GlobalExceptionHandler's catch-all, returning a 500
+        // "An unexpected error occurred" — useless in the live preview
+        // pane. The service now re-wraps every RuntimeException as
+        // IllegalArgumentException so the controller returns 400 with the
+        // cause echoed to the operator.
+        whenever(
+            templates.previewWith(
+                eq(MailTemplate.AUTH_PASSWORD_RESET),
+                any(),
+                any(),
+                anyOrNull(),
+                any(),
+            ),
+        ).doThrow(
+            // Mirror the post-fix behaviour: the service catches a
+            // RuntimeException internally and re-wraps as
+            // IllegalArgumentException with an informative message.
+            IllegalArgumentException(
+                "Template 'auth.password_reset' could not be rendered: " +
+                    "NullPointerException: section variable was null",
+            ),
+        )
+
+        mockMvc.post("/api/v1/admin/email/templates/auth.password_reset/preview") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"subject":"x","bodyPlain":"y"}"""
+        }.andExpect {
+            status { isBadRequest() }
+            // The actual cause text reaches the user, not the generic
+            // "An unexpected error occurred" fallback.
+            jsonPath("$.message") { value(org.hamcrest.Matchers.containsString("could not be rendered")) }
+        }
+    }
+
+    @Test
     fun `POST preview returns 400 when service rejects an undocumented placeholder`() {
         whenever(
             templates.previewWith(

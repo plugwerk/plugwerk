@@ -310,6 +310,13 @@ class MailTemplateService(
 
         val effectiveVars: Map<String, String> = template.previewSampleVars + sampleVarsOverride
 
+        // jmustache surfaces some malformed-template states as plain
+        // RuntimeExceptions (NullPointerException, IndexOutOfBoundsException
+        // when the parser walks off the end of an unterminated tag). Catch
+        // every Throwable and re-wrap as IllegalArgumentException so the
+        // controller's 400 handler renders the actual cause to the operator
+        // — without this, the preview returns a generic 500 "An unexpected
+        // error occurred" and the editor surface is useless for debugging.
         val rendered = try {
             RenderedMail(
                 subject = mustachePlain.compile(subject).execute(effectiveVars),
@@ -318,7 +325,13 @@ class MailTemplateService(
             )
         } catch (ex: MustacheException) {
             throw IllegalArgumentException(
-                "Mustache failed to render preview for template '${template.key}': ${ex.message}",
+                "Template '${template.key}' has malformed Mustache syntax: ${ex.message}",
+                ex,
+            )
+        } catch (ex: RuntimeException) {
+            throw IllegalArgumentException(
+                "Template '${template.key}' could not be rendered: " +
+                    "${ex.javaClass.simpleName}: ${ex.message ?: "no further detail"}",
                 ex,
             )
         }
@@ -425,11 +438,20 @@ class MailTemplateService(
         compiler: Mustache.Compiler,
     ): List<String> {
         // Compile once to surface syntax errors at write time, not at send time.
+        // Catch every Throwable: jmustache occasionally throws plain
+        // RuntimeExceptions (e.g. on unterminated tags) instead of
+        // MustacheException, and we want the operator-facing 400 either way.
         try {
             compiler.compile(source)
         } catch (ex: MustacheException) {
             throw IllegalArgumentException(
                 "Template '${template.key}' $fieldName has malformed Mustache syntax: ${ex.message}",
+                ex,
+            )
+        } catch (ex: RuntimeException) {
+            throw IllegalArgumentException(
+                "Template '${template.key}' $fieldName could not be parsed: " +
+                    "${ex.javaClass.simpleName}: ${ex.message ?: "no further detail"}",
                 ex,
             )
         }

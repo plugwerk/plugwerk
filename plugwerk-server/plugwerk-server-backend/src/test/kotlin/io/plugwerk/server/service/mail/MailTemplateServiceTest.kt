@@ -296,6 +296,49 @@ class MailTemplateServiceTest {
     }
 
     @Test
+    fun `previewWith returns IllegalArgumentException for an undocumented placeholder`() {
+        assertThatThrownBy {
+            service.previewWith(
+                template = MailTemplate.AUTH_PASSWORD_RESET,
+                subject = "Reset",
+                bodyPlain = "Hi {{username}} click {{notARealVar}}",
+                bodyHtml = null,
+            )
+        }
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("notARealVar")
+    }
+
+    @Test
+    fun `previewWith renders against registry sample vars by default`() {
+        val result = service.previewWith(
+            template = MailTemplate.AUTH_PASSWORD_RESET,
+            subject = "Reset for {{username}}",
+            bodyPlain = "Hi {{username}}, click {{resetLink}}",
+            bodyHtml = null,
+        )
+        // Registry default for AUTH_PASSWORD_RESET seeds username = "Alice".
+        assertThat(result.rendered.subject).contains("Alice")
+        assertThat(result.rendered.bodyPlain).contains("Alice")
+        assertThat(result.sampleVars["username"]).isEqualTo("Alice")
+    }
+
+    @Test
+    fun `previewWith merges caller overrides on top of registry sample vars`() {
+        val result = service.previewWith(
+            template = MailTemplate.AUTH_PASSWORD_RESET,
+            subject = "Reset for {{username}}",
+            bodyPlain = "Hi {{username}}",
+            bodyHtml = null,
+            sampleVarsOverride = mapOf("username" to "Bob"),
+        )
+        assertThat(result.rendered.subject).isEqualTo("Reset for Bob")
+        assertThat(result.sampleVars["username"]).isEqualTo("Bob")
+        // Other registry defaults still present (resetLink, expiresAtHuman).
+        assertThat(result.sampleVars["resetLink"]).isNotEmpty()
+    }
+
+    @Test
     fun `findByKey lists every locale variant of a template`() {
         service.update(MailTemplate.AUTH_PASSWORD_RESET, "en", "EN", "Hi {{username}}", null, "test")
         service.update(MailTemplate.AUTH_PASSWORD_RESET, "de", "DE", "Hallo {{username}}", null, "test")
