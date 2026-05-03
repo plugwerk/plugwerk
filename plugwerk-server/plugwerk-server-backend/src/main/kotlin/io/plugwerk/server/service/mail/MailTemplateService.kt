@@ -223,6 +223,45 @@ class MailTemplateService(
     }
 
     /**
+     * Removes the per-locale override row for [template] / [locale]. Render
+     * subsequently falls back to the enum default (stage 4 of the fallback
+     * chain).
+     *
+     * Idempotent — succeeds even when no row exists.
+     *
+     * @return `true` if a row was actually deleted, `false` if no override
+     *   was present.
+     */
+    @Transactional
+    fun delete(template: MailTemplate, locale: String): Boolean {
+        require(locale.isNotBlank()) { "locale must not be blank" }
+        val deleted = repository.deleteByTemplateKeyAndLocale(template.key, locale)
+        if (deleted > 0) {
+            refreshCache()
+        }
+        return deleted > 0
+    }
+
+    /**
+     * Returns the *effective* view for one template at a single locale: the
+     * stored override when present, otherwise a synthesised view backed by
+     * the enum defaults. Used by the admin UI so the list view always shows
+     * one row per registered template, with `source` discriminating override
+     * vs default.
+     */
+    fun findEffective(template: MailTemplate, locale: String): MailTemplateView = findByKeyAndLocale(template, locale)
+        ?: MailTemplateView(
+            key = template,
+            locale = locale,
+            subject = template.defaultSubject,
+            bodyPlain = template.defaultBodyPlainTemplate,
+            bodyHtml = template.defaultBodyHtmlTemplate,
+            source = TemplateSource.DEFAULT,
+            updatedAt = null,
+            updatedBy = null,
+        )
+
+    /**
      * Renders a template against [vars] using the locale-fallback chain.
      *
      * Returns both the plaintext and (optionally) the HTML body. The HTML

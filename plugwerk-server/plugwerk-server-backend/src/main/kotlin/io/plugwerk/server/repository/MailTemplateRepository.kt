@@ -20,6 +20,7 @@ package io.plugwerk.server.repository
 
 import io.plugwerk.server.domain.MailTemplateEntity
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.transaction.annotation.Transactional
 import java.util.Optional
 import java.util.UUID
 
@@ -27,4 +28,7 @@ interface MailTemplateRepository : JpaRepository<MailTemplateEntity, UUID> {
     fun findByTemplateKey(templateKey: String): List<MailTemplateEntity>
 
     fun findByTemplateKeyAndLocale(templateKey: String, locale: String): Optional<MailTemplateEntity>
+
+    @Transactional
+    fun deleteByTemplateKeyAndLocale(templateKey: String, locale: String): Long
 }

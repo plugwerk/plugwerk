@@ -1772,6 +1772,126 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /admin/email/templates:
+    get:
+      tags:
+        - AdminEmailTemplates
+      summary: List all mail templates
+      description: |
+        Returns one entry per registered template (`MailTemplate` enum), each
+        carrying the current effective subject + plaintext body + optional HTML
+        body together with the seeded enum defaults so the UI can render a
+        diff. `source` is `DATABASE` when an admin override exists for the
+        application's default language and `DEFAULT` when render falls back
+        to the enum literal.
+
+        Requires superadmin (#438).
+      operationId: listMailTemplates
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of templates with effective + default values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MailTemplateListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/email/templates/{key}:
+    get:
+      tags:
+        - AdminEmailTemplates
+      summary: Get a single mail template
+      description: |
+        Returns one template by registry key with effective + default values
+        and the placeholder reference list. 404 when the key does not exist
+        in the `MailTemplate` enum (the registry is closed; admins cannot add
+        new templates at runtime). Requires superadmin (#438).
+      operationId: getMailTemplate
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MailTemplateKey'
+      responses:
+        '200':
+          description: Single template with effective + default values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MailTemplateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - AdminEmailTemplates
+      summary: Update a mail template
+      description: |
+        Persists the override for the application's default language. Validates
+        every `{{placeholder}}` reference in subject + bodyPlain + bodyHtml
+        against the registry's allowed list and rejects unknown names with
+        400. Blank `bodyHtml` is rejected — pass `null` to drop HTML. Requires
+        superadmin (#438).
+      operationId: updateMailTemplate
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MailTemplateKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MailTemplateUpdateRequest'
+      responses:
+        '200':
+          description: Updated template snapshot with effective + default values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MailTemplateResponse'
+        '400':
+          description: Validation failure (unknown key, unknown placeholder, blank bodyHtml)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - AdminEmailTemplates
+      summary: Reset a mail template to its enum default
+      description: |
+        Removes the database override row so render falls through to the
+        hard-coded `MailTemplate` enum default. Idempotent — succeeds with
+        204 even when no override row exists. Requires superadmin (#438).
+      operationId: resetMailTemplate
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MailTemplateKey'
+      responses:
+        '204':
+          description: Override removed (or never existed)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
 components:
   parameters:
     NamespaceSlug:
@@ -1818,6 +1938,18 @@ components:
         type: string
         format: uuid
       description: The internal UUID of the release (from `PluginReleaseDto.id`)
+
+    MailTemplateKey:
+      name: key
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$'
+        maxLength: 64
+      description: |
+        Registry key for a `MailTemplate` enum entry, e.g.
+        `auth.password_reset`, `auth.registration_verification`.
 
     PageQuery:
       name: page
@@ -3464,6 +3596,117 @@ components:
             $ref: '#/components/schemas/ApplicationSettingDto'
       required:
         - settings
+
+    MailTemplateResponse:
+      type: object
+      description: |
+        Single mail template view with effective values, seeded enum defaults,
+        and the placeholder reference list. Effective values are sourced
+        either from the database override (when present) or fall back to the
+        enum default — `source` discriminates which.
+      properties:
+        key:
+          type: string
+          description: Registry key (e.g. `auth.password_reset`).
+        friendlyName:
+          type: string
+          description: Humanised registry key for display, e.g. `Auth · Password Reset`.
+        locale:
+          type: string
+          description: |
+            BCP-47 tag of the resolved variant. v1 always returns the
+            application's default language; locale-specific overrides are a
+            future i18n feature.
+        subject:
+          type: string
+          description: Currently effective subject line (override or default).
+        bodyPlain:
+          type: string
+          description: Currently effective plaintext body (override or default).
+        bodyHtml:
+          type: string
+          nullable: true
+          description: |
+            Currently effective HTML body, or `null` when neither the override
+            nor the default ships an HTML alternative. When set, mail sends
+            assemble a `multipart/alternative` MIME message.
+        defaultSubject:
+          type: string
+          description: Hard-coded enum default subject. Always present.
+        defaultBodyPlain:
+          type: string
+          description: Hard-coded enum default plaintext body. Always present.
+        defaultBodyHtml:
+          type: string
+          nullable: true
+          description: Hard-coded enum default HTML body, or `null`.
+        placeholders:
+          type: array
+          items:
+            type: string
+          description: |
+            Allowed `{{var}}` names for this template. Update requests are
+            validated against this list and reject unknown references with 400.
+        source:
+          type: string
+          enum: [DATABASE, DEFAULT]
+          description: |
+            `DATABASE` when an admin override exists for `locale`;
+            `DEFAULT` when render falls back to the enum literal.
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of the last override update, or `null` when never overridden.
+        updatedBy:
+          type: string
+          nullable: true
+          description: Username of the admin who last edited, or `null` when never overridden.
+      required:
+        - key
+        - friendlyName
+        - locale
+        - subject
+        - bodyPlain
+        - defaultSubject
+        - defaultBodyPlain
+        - placeholders
+        - source
+
+    MailTemplateListResponse:
+      type: object
+      description: Snapshot of every registered mail template (#438).
+      properties:
+        templates:
+          type: array
+          items:
+            $ref: '#/components/schemas/MailTemplateResponse'
+      required:
+        - templates
+
+    MailTemplateUpdateRequest:
+      type: object
+      description: |
+        Override a mail template for the application's default language.
+        `bodyHtml` is optional — pass `null` (or omit) to drop the HTML
+        alternative; blank strings are rejected.
+      properties:
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 255
+        bodyPlain:
+          type: string
+          minLength: 1
+        bodyHtml:
+          type: string
+          nullable: true
+          description: |
+            HTML body; `null` means plaintext-only delivery. Blank strings
+            are rejected — use `null` to clear.
+      required:
+        - subject
+        - bodyPlain
 
     SendTestEmailRequest:
       type: object
