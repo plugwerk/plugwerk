@@ -210,6 +210,53 @@ describe("EmailTemplateEditPage", () => {
     ).not.toHaveBeenCalled();
   });
 
+  it("Reset dialog Confirm replaces the form values with the defaults", async () => {
+    // Regression test: previously the store was updated but the local
+    // draft state stayed put, leaving customised text in the form even
+    // though "Reset" succeeded server-side.
+    const user = userEvent.setup();
+    vi.mocked(
+      apiConfig.adminEmailTemplatesApi.resetMailTemplate,
+    ).mockResolvedValue(
+      undefined as unknown as Awaited<
+        ReturnType<typeof apiConfig.adminEmailTemplatesApi.resetMailTemplate>
+      >,
+    );
+    vi.mocked(
+      apiConfig.adminEmailTemplatesApi.getMailTemplate,
+    ).mockResolvedValue({
+      data: {
+        ...TEMPLATE,
+        // Server returns the default values, source flips back to DEFAULT.
+        subject: TEMPLATE.defaultSubject,
+        bodyPlain: TEMPLATE.defaultBodyPlain,
+        bodyHtml: TEMPLATE.defaultBodyHtml,
+        source: MailTemplateResponseSourceEnum.Default,
+      },
+    } as Awaited<
+      ReturnType<typeof apiConfig.adminEmailTemplatesApi.getMailTemplate>
+    >);
+    renderAt();
+
+    // Confirm the form starts with the customised values.
+    expect(screen.getByLabelText("Subject")).toHaveValue("Reset your password");
+
+    await user.click(screen.getByRole("button", { name: /Reset to default/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(
+      within(dialog).getByRole("button", { name: /Reset template/i }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Subject")).toHaveValue(
+        TEMPLATE.defaultSubject,
+      );
+    });
+    expect(screen.getByLabelText("Plaintext body")).toHaveValue(
+      TEMPLATE.defaultBodyPlain,
+    );
+  });
+
   it("Reset dialog Confirm calls store.reset and surfaces a success toast", async () => {
     const user = userEvent.setup();
     vi.mocked(

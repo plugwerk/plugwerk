@@ -33,7 +33,7 @@ interface EmailTemplatesState {
     key: string,
     request: MailTemplateUpdateRequest,
   ) => Promise<MailTemplateResponse>;
-  reset: (key: string) => Promise<void>;
+  reset: (key: string) => Promise<MailTemplateResponse>;
   clear: () => void;
 }
 
@@ -111,6 +111,10 @@ export const useEmailTemplatesStore = create<EmailTemplatesState>((set) => ({
         templates: replaceTemplate(s.templates, response.data),
         saving: false,
       }));
+      // Returned so the edit page can re-seed its local draft state from
+      // the post-reset snapshot — without this, the form keeps showing
+      // the now-stale customised values even though the store is correct.
+      return response.data;
     } catch (err) {
       set({ saving: false, error: extractErrorMessage(err) });
       throw err;

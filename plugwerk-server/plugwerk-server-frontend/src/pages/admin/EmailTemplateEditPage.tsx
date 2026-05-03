@@ -281,7 +281,14 @@ export function EmailTemplateEditPage() {
     if (!template) return;
     setResetDialogOpen(false);
     try {
-      await reset(template.key);
+      const next = await reset(template.key);
+      // Re-seed the local draft from the post-reset snapshot so the form
+      // shows the default values immediately. The mount-time `useEffect`
+      // only seeds when `draft === null`, deliberately so background
+      // refreshes do not stomp typed-but-unsaved input — that means reset,
+      // like save, must wire its own draft refresh.
+      setDraft(diffsFromTemplate(next));
+      setShowHtmlEditor(next.bodyHtml != null);
       addToast({ type: "success", message: "Template reset to default." });
     } catch (err) {
       addToast({ type: "error", message: extractApiError(err) });
