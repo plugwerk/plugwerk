@@ -382,7 +382,11 @@ export function EmailTemplateEditPage() {
             display: "grid",
             gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
             gap: 1.5,
-            alignItems: "start",
+            // Stretch both columns so the editor field grows to match the
+            // preview pane's natural height (header + content). The TextField
+            // below uses height: 100% on its outlined container to fill the
+            // stretched cell.
+            alignItems: "stretch",
           }}
         >
           <TextField
@@ -397,6 +401,8 @@ export function EmailTemplateEditPage() {
             disabled={saving}
             inputProps={{ "aria-label": "Subject" }}
             sx={{
+              height: "100%",
+              "& .MuiOutlinedInput-root": { height: "100%" },
               "& .MuiInputBase-input": {
                 fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
                 fontSize: "0.9rem",
