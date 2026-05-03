@@ -183,6 +183,26 @@ export function LoginPage() {
         >
           {loading ? "Signing in…" : "Sign In"}
         </Button>
+        {selfRegistrationEnabled && (
+          // Rendered conditionally on the public /config flag (#420). The
+          // backend independently 404s POST /auth/register when the flag is
+          // off, so flipping this client-side cannot bypass the gate.
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ textAlign: "center" }}
+          >
+            Don&apos;t have an account?{" "}
+            <Link
+              component={RouterLink}
+              to="/register"
+              underline="hover"
+              fontWeight={600}
+            >
+              Sign up
+            </Link>
+          </Typography>
+        )}
       </Box>
 
       {oidcProviders.length > 0 && (
@@ -195,25 +215,6 @@ export function LoginPage() {
           {oidcProviders.map((provider) => (
             <OidcProviderButton key={provider.id} provider={provider} />
           ))}
-        </Box>
-      )}
-
-      {selfRegistrationEnabled && (
-        // Rendered conditionally on the public /config flag (#420). The
-        // backend independently 404s POST /auth/register when the flag is
-        // off, so flipping this client-side cannot bypass the gate.
-        <Box sx={{ textAlign: "center", mt: 1 }}>
-          <Typography variant="body2" color="text.secondary">
-            Don&apos;t have an account?{" "}
-            <Link
-              component={RouterLink}
-              to="/register"
-              underline="hover"
-              fontWeight={600}
-            >
-              Sign up
-            </Link>
-          </Typography>
         </Box>
       )}
     </AuthCard>
