@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -52,6 +52,10 @@ import {
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { Section } from "../../components/common/Section";
+import {
+  MustacheCodeEditor,
+  type MustacheCodeEditorHandle,
+} from "../../components/admin/mustache/MustacheCodeEditor";
 import { useEmailTemplatesStore } from "../../stores/emailTemplatesStore";
 import { useUiStore } from "../../stores/uiStore";
 import { tokens } from "../../theme/tokens";
@@ -131,8 +135,8 @@ export function EmailTemplateEditPage() {
   const [showHtmlEditor, setShowHtmlEditor] = useState(false);
 
   const subjectRef = useRef<HTMLInputElement>(null);
-  const bodyPlainRef = useRef<HTMLTextAreaElement>(null);
-  const bodyHtmlRef = useRef<HTMLTextAreaElement>(null);
+  const bodyPlainEditor = useRef<MustacheCodeEditorHandle | null>(null);
+  const bodyHtmlEditor = useRef<MustacheCodeEditorHandle | null>(null);
   const lastFocusedRef = useRef<"subject" | "bodyPlain" | "bodyHtml">(
     "bodyPlain",
   );
@@ -214,34 +218,30 @@ export function EmailTemplateEditPage() {
 
   function handleInsertPlaceholder(name: string, asRaw: boolean = false) {
     const target = lastFocusedRef.current;
-    const refMap: Record<
-      typeof target,
-      RefObject<HTMLInputElement | HTMLTextAreaElement | null>
-    > = {
-      subject: subjectRef,
-      bodyPlain: bodyPlainRef,
-      bodyHtml: bodyHtmlRef,
-    };
-    const el = refMap[target].current;
-    if (!el) return;
     const insertion =
       asRaw && target === "bodyHtml" ? `{{{${name}}}}` : `{{${name}}}`;
 
-    const start = el.selectionStart ?? el.value.length;
-    const end = el.selectionEnd ?? el.value.length;
-    const current = el.value;
-    const next = current.slice(0, start) + insertion + current.slice(end);
+    if (target === "subject") {
+      const el = subjectRef.current;
+      if (!el) return;
+      const start = el.selectionStart ?? el.value.length;
+      const end = el.selectionEnd ?? el.value.length;
+      const next = el.value.slice(0, start) + insertion + el.value.slice(end);
+      setField("subject", next);
+      requestAnimationFrame(() => {
+        el.focus();
+        const caret = start + insertion.length;
+        el.setSelectionRange(caret, caret);
+      });
+      return;
+    }
 
-    if (target === "subject") setField("subject", next);
-    else if (target === "bodyPlain") setField("bodyPlain", next);
-    else if (target === "bodyHtml") setField("bodyHtml", next);
-
-    // Restore caret just after the inserted token so successive clicks chain.
-    requestAnimationFrame(() => {
-      el.focus();
-      const caret = start + insertion.length;
-      el.setSelectionRange(caret, caret);
-    });
+    // CodeMirror editors own their own selection state — let the imperative
+    // handle insert at the live caret, then sync the draft via the existing
+    // onChange (CodeMirror's dispatch fires it).
+    const editor =
+      target === "bodyPlain" ? bodyPlainEditor.current : bodyHtmlEditor.current;
+    editor?.insertAtCursor(insertion);
   }
 
   async function handleSave() {
@@ -372,26 +372,18 @@ export function EmailTemplateEditPage() {
         title="Plaintext body"
         description="Always required. Sent as text/plain to mail clients without HTML support."
       >
-        <TextField
-          multiline
-          fullWidth
-          minRows={12}
-          maxRows={30}
+        <MustacheCodeEditor
           value={draft.bodyPlain}
-          onChange={(e) => setField("bodyPlain", e.target.value)}
+          onChange={(next) => setField("bodyPlain", next)}
+          placeholders={template.placeholders}
+          language="plain"
+          ariaLabel="Plaintext body"
+          minHeight="300px"
+          disabled={saving}
           onFocus={() => {
             lastFocusedRef.current = "bodyPlain";
           }}
-          inputRef={bodyPlainRef}
-          disabled={saving}
-          inputProps={{ "aria-label": "Plaintext body" }}
-          sx={{
-            "& .MuiInputBase-input": {
-              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-              fontSize: "0.85rem",
-              lineHeight: 1.55,
-            },
-          }}
+          editorRef={bodyPlainEditor}
         />
         <DefaultDiff
           label="Default plaintext body"
@@ -437,31 +429,18 @@ export function EmailTemplateEditPage() {
         />
         <Collapse in={showHtmlEditor} timeout={200} unmountOnExit>
           <Stack spacing={1.5} sx={{ mt: 1 }}>
-            <TextField
-              multiline
-              fullWidth
-              minRows={14}
-              maxRows={36}
+            <MustacheCodeEditor
               value={draft.bodyHtml ?? ""}
-              onChange={(e) => setField("bodyHtml", e.target.value)}
+              onChange={(next) => setField("bodyHtml", next)}
+              placeholders={template.placeholders}
+              language="html"
+              ariaLabel="HTML body"
+              minHeight="380px"
+              disabled={saving}
               onFocus={() => {
                 lastFocusedRef.current = "bodyHtml";
               }}
-              inputRef={bodyHtmlRef}
-              disabled={saving}
-              placeholder={
-                hasDefaultHtml
-                  ? "Toggling on seeded the enum default — edit to taste."
-                  : "<p>Hello {{username}}, ...</p>"
-              }
-              inputProps={{ "aria-label": "HTML body" }}
-              sx={{
-                "& .MuiInputBase-input": {
-                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                  fontSize: "0.85rem",
-                  lineHeight: 1.55,
-                },
-              }}
+              editorRef={bodyHtmlEditor}
             />
             {hasDefaultHtml && (
               <DefaultDiff

@@ -81,12 +81,18 @@ describe("EmailTemplateEditPage", () => {
     renderAt();
     expect(screen.getByText("Auth · Password Reset")).toBeInTheDocument();
     expect(screen.getByLabelText("Subject")).toHaveValue("Reset your password");
-    expect(screen.getByLabelText("Plaintext body")).toHaveValue(
-      "Hello {{username}}, click {{resetLink}}",
-    );
-    // Placeholder chips render with full {{name}} braces.
-    expect(screen.getByText("{{username}}")).toBeInTheDocument();
-    expect(screen.getByText("{{resetLink}}")).toBeInTheDocument();
+    // The plaintext body renders inside a CodeMirror editor; the wrapper
+    // is exposed as a labelled group with the doc text inline. We check
+    // via textContent rather than `.toHaveValue` because there is no
+    // `<textarea>` to read from.
+    const plainEditor = screen.getByRole("group", { name: "Plaintext body" });
+    expect(plainEditor.textContent ?? "").toContain("Hello");
+    expect(plainEditor.textContent ?? "").toContain("{{username}}");
+    // Placeholder chips render with full {{name}} braces. There may be
+    // multiple matches (chip + decorated mustache token in the editor),
+    // so use getAllByText.
+    expect(screen.getAllByText("{{username}}").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("{{resetLink}}").length).toBeGreaterThan(0);
     expect(screen.getByText("{{expiresAtHuman}}")).toBeInTheDocument();
   });
 
@@ -163,16 +169,33 @@ describe("EmailTemplateEditPage", () => {
 
   it("clicking a placeholder chip inserts {{name}} at the focused field caret", async () => {
     const user = userEvent.setup();
+    vi.mocked(
+      apiConfig.adminEmailTemplatesApi.updateMailTemplate,
+    ).mockResolvedValue({
+      data: TEMPLATE,
+    } as Awaited<
+      ReturnType<typeof apiConfig.adminEmailTemplatesApi.updateMailTemplate>
+    >);
     renderAt();
-    const bodyPlain = screen.getByLabelText(
-      "Plaintext body",
-    ) as HTMLTextAreaElement;
-    // Last-focused defaults to bodyPlain — append a new var via chip click.
-    await user.click(bodyPlain);
-    bodyPlain.setSelectionRange(bodyPlain.value.length, bodyPlain.value.length);
-    await user.click(screen.getByText("{{expiresAtHuman}}"));
 
-    expect(bodyPlain.value).toContain("{{expiresAtHuman}}");
+    // lastFocusedRef defaults to "bodyPlain" — clicking the chip inserts
+    // into the plaintext editor. We can't read CodeMirror's value via
+    // .toHaveValue, so verify by triggering Save and inspecting the PUT
+    // payload — that's the contract that actually matters.
+    await user.click(screen.getByText("{{expiresAtHuman}}"));
+    await user.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    await waitFor(() => {
+      expect(
+        apiConfig.adminEmailTemplatesApi.updateMailTemplate,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mailTemplateUpdateRequest: expect.objectContaining({
+            bodyPlain: expect.stringContaining("{{expiresAtHuman}}"),
+          }),
+        }),
+      );
+    });
   });
 
   it("Reset is disabled when the template is not customised", () => {
@@ -252,9 +275,17 @@ describe("EmailTemplateEditPage", () => {
         TEMPLATE.defaultSubject,
       );
     });
-    expect(screen.getByLabelText("Plaintext body")).toHaveValue(
-      TEMPLATE.defaultBodyPlain,
-    );
+    // The dialog's MUI exit transition leaves it in the tree briefly with
+    // `aria-hidden=true` on the rest of the document, which hides
+    // role-based queries against the editor. Wait for the dialog to fully
+    // unmount before checking editor content.
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    // CodeMirror exposes its value as DOM text in the labelled group
+    // wrapper rather than via a textarea; check the rendered content.
+    const plainEditor = screen.getByRole("group", { name: "Plaintext body" });
+    expect(plainEditor.textContent ?? "").toContain("default plain body");
   });
 
   it("Reset dialog Confirm calls store.reset and surfaces a success toast", async () => {
@@ -300,16 +331,20 @@ describe("EmailTemplateEditPage", () => {
     setStoreWithTemplate({ ...TEMPLATE, bodyHtml: undefined });
     renderAt();
 
-    // Initially off — body field not visible.
-    expect(screen.queryByLabelText("HTML body")).not.toBeInTheDocument();
+    // Initially off — editor not visible.
+    expect(
+      screen.queryByRole("group", { name: "HTML body" }),
+    ).not.toBeInTheDocument();
 
     // FormControlLabel's visible label takes precedence over the input's
     // aria-label as the accessible name, so the toggle is queryable as
     // "Plaintext only" (off state) here.
     const toggle = screen.getByLabelText("Plaintext only");
     await user.click(toggle);
-    const htmlField = await screen.findByLabelText("HTML body");
-    // Seeded with the enum default.
-    expect(htmlField).toHaveValue(TEMPLATE.defaultBodyHtml);
+
+    // Editor appears, seeded with the enum default. CodeMirror exposes
+    // its content as inline DOM text inside the labelled group wrapper.
+    const htmlEditor = await screen.findByRole("group", { name: "HTML body" });
+    expect(htmlEditor.textContent ?? "").toContain("default HTML body");
   });
 });
