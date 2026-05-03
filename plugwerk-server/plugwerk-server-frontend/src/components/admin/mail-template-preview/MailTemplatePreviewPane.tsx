@@ -16,7 +16,21 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { Alert, Box, Stack, Typography, alpha, useTheme } from "@mui/material";
+import { useMemo, useState, type ReactNode } from "react";
+import {
+  Alert,
+  Box,
+  IconButton,
+  Popover,
+  Stack,
+  TextField,
+  Tooltip,
+  Typography,
+  alpha,
+  keyframes,
+  useTheme,
+} from "@mui/material";
+import { AlertCircle, Loader2, RefreshCw, Variable } from "lucide-react";
 import { tokens } from "../../../theme/tokens";
 import type { PreviewStatus } from "../../../hooks/useMailTemplatePreview";
 import type { MailTemplatePreviewResponse } from "../../../api/generated/model/mail-template-preview-response";
@@ -34,24 +48,33 @@ interface MailTemplatePreviewPaneProps {
    */
   minHeight: string;
   ariaLabel: string;
+  /** Page-shared sample variables — same map across every pane. */
+  sampleVars: Record<string, string>;
+  onSampleVarsChange: (next: Record<string, string>) => void;
+  onRefresh: () => void;
+  placeholders: readonly string[];
 }
+
+const livePulse = keyframes`
+  0%   { transform: scale(1);    opacity: 1; }
+  50%  { transform: scale(1.45); opacity: 0.6; }
+  100% { transform: scale(1);    opacity: 1; }
+`;
 
 /**
  * One read-only render output paired side-by-side with its editor (#438).
  *
  * Three modes — `subject` shows the rendered single-line subject in a
- * borrowed input-style box, `plain` shows the rendered plaintext body in
- * a `<pre>`, `html` renders the body inside a sandboxed iframe (no
- * scripts, no same-origin, no forms — pasted `<script>` tags render as
- * inert text).
+ * monospace box, `plain` shows the rendered plaintext body in a `<pre>`,
+ * `html` renders the body inside a sandboxed iframe (no scripts, no
+ * same-origin, no forms — pasted `<script>` tags render as inert text).
  *
- * The pane intentionally has no toolbar of its own; status, refresh, and
- * sample-vars all live in the page-level [MailTemplatePreviewToolbar] so
- * the editor↔preview pairing reads as one unit per row.
- *
- * Width-overflowing draft input (long URLs, wide HTML lines) gets
- * clipped horizontally with overflow: auto so a 4000-character line can
- * never push the page-level grid sideways.
+ * Each pane carries its own header with the live-preview lifecycle
+ * status, a Refresh button, and a Sample-variables popover so the
+ * controls are reachable without scrolling away from the editor pair
+ * the operator is currently looking at. The shared draft state behind
+ * the scenes still produces one API round trip per debounced edit
+ * (centralised in [useMailTemplatePreview]) — three panes, one fetch.
  */
 export function MailTemplatePreviewPane({
   mode,
@@ -60,6 +83,10 @@ export function MailTemplatePreviewPane({
   error,
   minHeight,
   ariaLabel,
+  sampleVars,
+  onSampleVarsChange,
+  onRefresh,
+  placeholders,
 }: MailTemplatePreviewPaneProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
@@ -74,6 +101,9 @@ export function MailTemplatePreviewPane({
 
   // Subject pane is single-line; the body height knob doesn't apply.
   const computedMinHeight = mode === "subject" ? "auto" : minHeight;
+
+  const [varsAnchor, setVarsAnchor] = useState<HTMLElement | null>(null);
+  const sortedVarKeys = useMemo(() => [...placeholders].sort(), [placeholders]);
 
   return (
     <Box
@@ -95,10 +125,11 @@ export function MailTemplatePreviewPane({
       <Stack
         direction="row"
         alignItems="center"
-        spacing={0.75}
+        spacing={1}
         sx={{
           px: 1.5,
           py: 0.5,
+          minHeight: 36,
           borderBottom: "1px solid",
           borderColor: "divider",
           background: isDark
@@ -106,19 +137,124 @@ export function MailTemplatePreviewPane({
             : alpha(tokens.color.gray20, 0.4),
         }}
       >
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={0.75}
+          sx={{ flex: 1, minWidth: 0 }}
+        >
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 600,
+              color: "text.secondary",
+              textTransform: "uppercase",
+              letterSpacing: 0.6,
+              fontSize: "0.65rem",
+              flexShrink: 0,
+            }}
+          >
+            Live preview
+          </Typography>
+          <StatusBadge status={status} />
+        </Stack>
+        <Tooltip title="Sample variables">
+          <span>
+            <IconButton
+              size="small"
+              aria-label={`Sample variables (${Object.keys(sampleVars).length})`}
+              onClick={(e) => setVarsAnchor(e.currentTarget)}
+              sx={{ borderRadius: tokens.radius.btn }}
+            >
+              <Stack direction="row" alignItems="center" spacing={0.375}>
+                <Variable size={13} />
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontSize: "0.7rem",
+                    fontWeight: 600,
+                    color: "text.secondary",
+                    lineHeight: 1,
+                  }}
+                >
+                  {Object.keys(sampleVars).length}
+                </Typography>
+              </Stack>
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="Refresh now">
+          <span>
+            <IconButton
+              size="small"
+              aria-label="Refresh preview"
+              onClick={onRefresh}
+              disabled={status === "syncing"}
+              sx={{ borderRadius: tokens.radius.btn }}
+            >
+              <RefreshCw size={13} />
+            </IconButton>
+          </span>
+        </Tooltip>
+      </Stack>
+
+      <Popover
+        open={Boolean(varsAnchor)}
+        anchorEl={varsAnchor}
+        onClose={() => setVarsAnchor(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        slotProps={{
+          paper: {
+            sx: {
+              p: 2,
+              mt: 0.5,
+              width: 320,
+              borderRadius: tokens.radius.card,
+              border: "1px solid",
+              borderColor: "divider",
+            },
+          },
+        }}
+      >
+        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.25 }}>
+          Sample variables
+        </Typography>
+        <Stack spacing={1.25}>
+          {sortedVarKeys.map((name) => (
+            <TextField
+              key={name}
+              label={`{{${name}}}`}
+              size="small"
+              value={sampleVars[name] ?? ""}
+              onChange={(e) =>
+                onSampleVarsChange({
+                  ...sampleVars,
+                  [name]: e.target.value,
+                })
+              }
+              sx={{
+                "& .MuiInputLabel-root": {
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                  fontSize: "0.78rem",
+                },
+                "& .MuiInputBase-input": {
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                  fontSize: "0.82rem",
+                },
+              }}
+            />
+          ))}
+        </Stack>
         <Typography
           variant="caption"
-          sx={{
-            fontWeight: 600,
-            color: "text.secondary",
-            textTransform: "uppercase",
-            letterSpacing: 0.6,
-            fontSize: "0.65rem",
-          }}
+          color="text.secondary"
+          sx={{ display: "block", mt: 1.5, fontStyle: "italic" }}
         >
-          Preview
+          Changes apply automatically after a short pause.
         </Typography>
-      </Stack>
+      </Popover>
+
       <Box sx={{ flex: 1, minHeight: 0, position: "relative" }}>
         {showError ? (
           <Box sx={{ p: 1.5 }}>
@@ -205,3 +341,108 @@ export function MailTemplatePreviewPane({
     </Box>
   );
 }
+
+interface StatusBadgeProps {
+  status: PreviewStatus;
+}
+
+function StatusBadge({ status }: StatusBadgeProps): ReactNode {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  const meta = STATUS_META[status];
+  if (status === "idle") return null;
+  return (
+    <Stack
+      direction="row"
+      alignItems="center"
+      spacing={0.5}
+      sx={{
+        px: 0.875,
+        py: 0.125,
+        borderRadius: 999,
+        background: isDark ? alpha(meta.color, 0.18) : alpha(meta.color, 0.12),
+        color: meta.color,
+        fontSize: "0.65rem",
+        fontWeight: 700,
+        letterSpacing: 0.5,
+        textTransform: "uppercase",
+        userSelect: "none",
+        flexShrink: 0,
+      }}
+      role="status"
+      aria-live="polite"
+      aria-label={`Preview status: ${meta.label}`}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          color: "inherit",
+          ...(status === "live" && {
+            "& > *": {
+              animation: `${livePulse} 1.4s ease-out`,
+              animationIterationCount: 1,
+            },
+          }),
+          ...(status === "syncing" && {
+            "& > *": {
+              animation: "spin 0.9s linear infinite",
+              "@keyframes spin": {
+                from: { transform: "rotate(0deg)" },
+                to: { transform: "rotate(360deg)" },
+              },
+            },
+          }),
+        }}
+      >
+        {meta.icon}
+      </Box>
+      <Box component="span">{meta.label}</Box>
+    </Stack>
+  );
+}
+
+const STATUS_META: Record<
+  PreviewStatus,
+  { label: string; color: string; icon: ReactNode }
+> = {
+  idle: { label: "", color: tokens.color.gray60, icon: null },
+  stale: {
+    label: "Stale",
+    color: tokens.color.gray60,
+    icon: (
+      <Box
+        sx={{
+          width: 5,
+          height: 5,
+          borderRadius: "50%",
+          background: "currentColor",
+        }}
+      />
+    ),
+  },
+  syncing: {
+    label: "Syncing",
+    color: tokens.color.primary,
+    icon: <Loader2 size={9} />,
+  },
+  live: {
+    label: "Live",
+    color: tokens.color.success,
+    icon: (
+      <Box
+        sx={{
+          width: 5,
+          height: 5,
+          borderRadius: "50%",
+          background: "currentColor",
+        }}
+      />
+    ),
+  },
+  error: {
+    label: "Error",
+    color: tokens.color.danger,
+    icon: <AlertCircle size={9} />,
+  },
+};

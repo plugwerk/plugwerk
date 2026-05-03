@@ -16,8 +16,9 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MailTemplatePreviewPane } from "./MailTemplatePreviewPane";
 import { renderWithTheme } from "../../../test/renderWithTheme";
 
@@ -32,6 +33,13 @@ const RESULT = {
   },
 };
 
+const SHARED_PROPS = {
+  sampleVars: RESULT.sampleVars,
+  onSampleVarsChange: () => {},
+  onRefresh: () => {},
+  placeholders: ["username", "resetLink", "expiresAtHuman"] as const,
+};
+
 describe("MailTemplatePreviewPane", () => {
   it("renders the rendered subject in subject mode", () => {
     renderWithTheme(
@@ -42,6 +50,7 @@ describe("MailTemplatePreviewPane", () => {
         error={null}
         minHeight="auto"
         ariaLabel="Subject preview"
+        {...SHARED_PROPS}
       />,
     );
     expect(
@@ -58,6 +67,7 @@ describe("MailTemplatePreviewPane", () => {
         error={null}
         minHeight="300px"
         ariaLabel="Plaintext body preview"
+        {...SHARED_PROPS}
       />,
     );
     const region = screen.getByRole("region", {
@@ -77,6 +87,7 @@ describe("MailTemplatePreviewPane", () => {
         error={null}
         minHeight="380px"
         ariaLabel="HTML body preview"
+        {...SHARED_PROPS}
       />,
     );
     const iframe = screen.getByTitle("HTML body preview") as HTMLIFrameElement;
@@ -94,6 +105,7 @@ describe("MailTemplatePreviewPane", () => {
         error="undocumented placeholder badVar"
         minHeight="300px"
         ariaLabel="Plaintext body preview"
+        {...SHARED_PROPS}
       />,
     );
     expect(screen.getByRole("alert")).toHaveTextContent(
@@ -110,11 +122,60 @@ describe("MailTemplatePreviewPane", () => {
         error={null}
         minHeight="300px"
         ariaLabel="Plaintext body preview"
+        {...SHARED_PROPS}
       />,
     );
     expect(
       screen.getByRole("region", { name: "Plaintext body preview" }),
     ).toHaveTextContent(/Rendering…/);
+  });
+
+  it("Refresh button calls onRefresh", async () => {
+    const user = userEvent.setup();
+    const onRefresh = vi.fn();
+    renderWithTheme(
+      <MailTemplatePreviewPane
+        mode="plain"
+        result={RESULT}
+        status="live"
+        error={null}
+        minHeight="300px"
+        ariaLabel="Plaintext body preview"
+        sampleVars={SHARED_PROPS.sampleVars}
+        onSampleVarsChange={() => {}}
+        onRefresh={onRefresh}
+        placeholders={SHARED_PROPS.placeholders}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /Refresh preview/i }));
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("Sample variables button opens a popover and editing a field calls onSampleVarsChange", async () => {
+    const user = userEvent.setup();
+    const onSampleVarsChange = vi.fn();
+    renderWithTheme(
+      <MailTemplatePreviewPane
+        mode="plain"
+        result={RESULT}
+        status="live"
+        error={null}
+        minHeight="300px"
+        ariaLabel="Plaintext body preview"
+        sampleVars={SHARED_PROPS.sampleVars}
+        onSampleVarsChange={onSampleVarsChange}
+        onRefresh={() => {}}
+        placeholders={SHARED_PROPS.placeholders}
+      />,
+    );
+    await user.click(
+      screen.getByRole("button", { name: /Sample variables \(3\)/i }),
+    );
+    const usernameField = await screen.findByLabelText("{{username}}");
+    await user.type(usernameField, "X");
+    expect(onSampleVarsChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ username: "AliceX" }),
+    );
   });
 
   it("renders a 'No HTML body to preview.' message when html mode has a null bodyHtml", () => {
@@ -126,6 +187,7 @@ describe("MailTemplatePreviewPane", () => {
         error={null}
         minHeight="380px"
         ariaLabel="HTML body preview"
+        {...SHARED_PROPS}
       />,
     );
     expect(

@@ -56,7 +56,6 @@ import {
   MustacheCodeEditor,
   type MustacheCodeEditorHandle,
 } from "../../components/admin/mustache/MustacheCodeEditor";
-import { MailTemplatePreviewToolbar } from "../../components/admin/mail-template-preview/MailTemplatePreviewToolbar";
 import { MailTemplatePreviewPane } from "../../components/admin/mail-template-preview/MailTemplatePreviewPane";
 import { useMailTemplatePreview } from "../../hooks/useMailTemplatePreview";
 import { useEmailTemplatesStore } from "../../stores/emailTemplatesStore";
@@ -227,6 +226,14 @@ export function EmailTemplateEditPage() {
     template.source === MailTemplateResponseSourceEnum.Database;
   const hasDefaultHtml = template.defaultBodyHtml != null;
 
+  // Effective sample-vars surfaced to every pane: operator overrides
+  // when present, otherwise the registry defaults the server returned
+  // on the first render. Avoids a "(0)" badge on first paint.
+  const effectiveSampleVars =
+    Object.keys(sampleVars).length > 0
+      ? sampleVars
+      : (previewState.result?.sampleVars ?? sampleVars);
+
   function setField<K extends keyof DraftState>(
     field: K,
     value: DraftState[K],
@@ -357,18 +364,6 @@ export function EmailTemplateEditPage() {
         onInsert={handleInsertPlaceholder}
       />
 
-      <MailTemplatePreviewToolbar
-        status={previewState.status}
-        sampleVars={
-          Object.keys(sampleVars).length > 0
-            ? sampleVars
-            : (previewState.result?.sampleVars ?? sampleVars)
-        }
-        onSampleVarsChange={setSampleVars}
-        onRefresh={previewState.refresh}
-        placeholders={template.placeholders}
-      />
-
       {/*
        * Each body section pairs its editor with a preview pane in a
        * 2-column row (md+) so what the operator types and what gets sent
@@ -415,6 +410,10 @@ export function EmailTemplateEditPage() {
             error={previewState.error}
             minHeight="auto"
             ariaLabel="Subject preview"
+            sampleVars={effectiveSampleVars}
+            onSampleVarsChange={setSampleVars}
+            onRefresh={previewState.refresh}
+            placeholders={template.placeholders}
           />
         </Box>
         <DefaultDiff label="Default subject" value={template.defaultSubject} />
@@ -454,6 +453,10 @@ export function EmailTemplateEditPage() {
             error={previewState.error}
             minHeight="300px"
             ariaLabel="Plaintext body preview"
+            sampleVars={effectiveSampleVars}
+            onSampleVarsChange={setSampleVars}
+            onRefresh={previewState.refresh}
+            placeholders={template.placeholders}
           />
         </Box>
         <DefaultDiff
@@ -527,6 +530,10 @@ export function EmailTemplateEditPage() {
                 error={previewState.error}
                 minHeight="380px"
                 ariaLabel="HTML body preview"
+                sampleVars={effectiveSampleVars}
+                onSampleVarsChange={setSampleVars}
+                onRefresh={previewState.refresh}
+                placeholders={template.placeholders}
               />
             </Box>
             {hasDefaultHtml && (
