@@ -77,21 +77,22 @@ export function VerifyEmailCallbackPage() {
   useEffect(() => {
     if (!token || fired.current) return;
     fired.current = true;
-    let cancelled = false;
+    // Deliberately no cleanup-cancellation: with the fired-guard above
+    // there is exactly one in-flight request, so the classic
+    // closure-cancelled pattern would just turn StrictMode's simulated
+    // unmount into a permanent loading spinner (the cleanup sets
+    // cancelled=true, the second effect bails on `fired`, the only
+    // resolved promise sees `cancelled` and never updates state).
+    // React 18+ silently no-ops setState on unmounted components.
     void (async () => {
       try {
         await authRegistrationApi.verifyEmail({ token });
-        if (cancelled) return;
         setStatus("verified");
       } catch (err) {
-        if (cancelled) return;
         setErrorMessage(extractApiError(err));
         setStatus("invalid");
       }
     })();
-    return () => {
-      cancelled = true;
-    };
   }, [token]);
 
   if (status === "missing") {
