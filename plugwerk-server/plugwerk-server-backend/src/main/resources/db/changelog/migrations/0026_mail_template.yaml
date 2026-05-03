@@ -4,11 +4,20 @@
 # touching this schema. See MailTemplate.kt KDoc for the full design
 # rationale.
 #
-# Seed values mirror the hard-coded MailTemplate.defaultSubject /
-# defaultBodyTemplate strings so a fresh install ships with usable
+# Two body columns:
+#
+#   body_plain (NOT NULL) — plaintext body, always required. Spam filters
+#     and accessibility-focused clients still benefit from a real plaintext
+#     body even when an HTML alternative is present.
+#   body_html  (NULL)     — optional HTML alternative. When set, the mail
+#     layer assembles a multipart/alternative MIME message with both parts;
+#     when null, the message is single-part text/plain.
+#
+# Seed values mirror the hard-coded MailTemplate.defaultBodyPlainTemplate /
+# defaultBodyHtmlTemplate strings so a fresh install ships with usable
 # emails out of the box. Operators can override per template via the
-# Templates admin page (#438) — overrides survive every deployment
-# because Liquibase only INSERTs once per checksum.
+# Templates admin page (#438) — overrides survive every deployment because
+# Liquibase only INSERTs once per checksum.
 databaseChangeLog:
   - changeSet:
       id: 0026-create-mail-template
@@ -39,10 +48,15 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
-                  name: body
+                  name: body_plain
                   type: text
                   constraints:
                     nullable: false
+              - column:
+                  name: body_html
+                  type: text
+                  constraints:
+                    nullable: true
               - column:
                   name: updated_at
                   type: timestamptz
@@ -86,7 +100,7 @@ databaseChangeLog:
                   name: subject
                   value: "Verify your Plugwerk account"
               - column:
-                  name: body
+                  name: body_plain
                   value: |
                     Hello {{username}},
 
@@ -96,6 +110,22 @@ databaseChangeLog:
                     {{verificationLink}}
 
                     If you did not create an account, you can safely ignore this message.
+              - column:
+                  name: body_html
+                  value: |
+                    <!DOCTYPE html>
+                    <html>
+                      <body>
+                        <p>Hello {{username}},</p>
+                        <p>Welcome to Plugwerk! Please verify your email address by clicking
+                          the link below — it is valid {{expiresAtHuman}}.</p>
+                        <p><a href="{{verificationLink}}">Verify my email</a></p>
+                        <p>If the button does not work, paste this URL into your browser:<br>
+                          <a href="{{verificationLink}}">{{verificationLink}}</a></p>
+                        <p style="color: #666; font-size: 0.9em;">If you did not create an account,
+                          you can safely ignore this message.</p>
+                      </body>
+                    </html>
       rollback:
         - delete:
             tableName: mail_template
@@ -121,7 +151,7 @@ databaseChangeLog:
                   name: subject
                   value: "Reset your Plugwerk password"
               - column:
-                  name: body
+                  name: body_plain
                   value: |
                     Hello {{username}},
 
@@ -132,6 +162,24 @@ databaseChangeLog:
 
                     If you did not request a password reset, you can safely ignore this
                     message — your existing password remains active.
+              - column:
+                  name: body_html
+                  value: |
+                    <!DOCTYPE html>
+                    <html>
+                      <body>
+                        <p>Hello {{username}},</p>
+                        <p>We received a request to reset the password for your Plugwerk
+                          account. Click the link below to set a new password — it is valid
+                          {{expiresAtHuman}}.</p>
+                        <p><a href="{{resetLink}}">Reset my password</a></p>
+                        <p>If the button does not work, paste this URL into your browser:<br>
+                          <a href="{{resetLink}}">{{resetLink}}</a></p>
+                        <p style="color: #666; font-size: 0.9em;">If you did not request a
+                          password reset, you can safely ignore this message — your existing
+                          password remains active.</p>
+                      </body>
+                    </html>
       rollback:
         - delete:
             tableName: mail_template

@@ -45,19 +45,30 @@ import java.util.concurrent.atomic.AtomicReference
  *   1. **Requested locale exact** — `(key, requestedLocale)` row
  *   2. **Language base** — `de-CH` falls back to `de`
  *   3. **Application default** — `general.default_language` (today: `en`)
- *   4. **Enum default** — [MailTemplate.defaultSubject] / [defaultBodyTemplate],
- *      hard-coded fallback that always exists
+ *   4. **Enum default** — [MailTemplate.defaultSubject] / [defaultBodyPlainTemplate]
+ *      / [defaultBodyHtmlTemplate], hard-coded fallback that always exists.
  *
  * The locale parameter is optional; `null` means "use the application default
  * directly" and skips stages 1–2.
  *
- * ### Strict Mustache
+ * ### Strict Mustache + dual compilers
  *
- * The renderer is configured with `strictSections=true` so unknown section
- * tags fail loudly. Variable lookups are wrapped to throw on missing keys —
- * a `{{verificationLink}}` reference in the template plus a render-time map
- * without that key produces an [IllegalArgumentException], not a silently
- * empty placeholder. Auth emails without their action link are bugs.
+ * Two compilers are used because subject/plaintext-body must NOT be HTML-
+ * escaped (they're plaintext) but the HTML body should auto-escape `{{var}}`
+ * substitutions to prevent stored-XSS-style injection through user-controlled
+ * vars (e.g. a username with `<script>` in it):
+ *
+ *   - [mustachePlain]: `escapeHTML=false` — for subject + plaintext body
+ *   - [mustacheHtml]:  `escapeHTML=true`  — for HTML body
+ *
+ * In the HTML body, admins who genuinely want raw HTML in a substitution
+ * use Mustache's triple-mustache `{{{var}}}` to opt out per reference.
+ *
+ * Both compilers run with `strictSections=true`, and the variable map
+ * wrapper throws on missing keys — a `{{verificationLink}}` reference plus
+ * a render-time map without that key produces an [IllegalArgumentException],
+ * not a silently empty placeholder. Auth emails without their action link
+ * are bugs.
  */
 @Service
 class MailTemplateService(
@@ -71,13 +82,35 @@ class MailTemplateService(
     private val cache = AtomicReference<Map<CacheKey, StoredTemplate>>(emptyMap())
 
     /**
-     * Strict-mode Mustache compiler. `strictSections(true)` rejects unknown
-     * section tags; the missing-key behaviour is enforced at the render-time
-     * variable map level, see [render].
+     * Strict-mode compiler for subject + plaintext body.
+     *
+     * - `strictSections=true` rejects unknown section tags
+     * - missing variable references throw [MustacheException] by default
+     *   (`No method or field with name 'X'`) — strict-on-missing is the
+     *   built-in behaviour
+     * - `nullValue("")` makes intentional null values render as empty
+     *   strings (so callers can pass `mapOf("optional" to null)` without
+     *   blowing up)
+     * - `escapeHTML=false` because the consumer is a `text/plain` MIME
+     *   part, not a browser
      */
-    private val mustache: Mustache.Compiler = Mustache.compiler()
+    private val mustachePlain: Mustache.Compiler = Mustache.compiler()
         .strictSections(true)
-        .escapeHTML(false) // plaintext bodies — HTML escaping would mangle special chars in subjects/bodies
+        .nullValue("")
+        .escapeHTML(false)
+
+    /**
+     * Strict-mode compiler for HTML body. Same strict-on-missing semantics
+     * as [mustachePlain]; differs in that `escapeHTML=true` so admin-edited
+     * templates that interpolate user-controlled vars (e.g.
+     * `<p>Hello {{username}}</p>`) are not a stored-XSS surface. Templates
+     * that genuinely need raw HTML in a substitution opt out per reference
+     * with the triple-mustache form `{{{var}}}`.
+     */
+    private val mustacheHtml: Mustache.Compiler = Mustache.compiler()
+        .strictSections(true)
+        .nullValue("")
+        .escapeHTML(true)
 
     @PostConstruct
     fun initialize() {
@@ -90,7 +123,8 @@ class MailTemplateService(
         val snapshot = rows.associate { row ->
             CacheKey(row.templateKey, row.locale) to StoredTemplate(
                 subject = row.subject,
-                body = row.body,
+                bodyPlain = row.bodyPlain,
+                bodyHtml = row.bodyHtml,
                 updatedAt = row.updatedAt,
                 updatedBy = row.updatedBy,
             )
@@ -126,31 +160,41 @@ class MailTemplateService(
     /**
      * Inserts or updates a per-locale template variant.
      *
-     * Validates that every `{{var}}` referenced in [subject] or [body] is
-     * declared in [MailTemplate.placeholders] — typos surface as 400, not as
-     * a runtime exception during a live send.
+     * Validates that every `{{var}}` referenced in [subject], [bodyPlain],
+     * or [bodyHtml] is declared in [MailTemplate.placeholders] — typos
+     * surface as 400, not as a runtime exception during a live send.
+     *
+     * @param bodyHtml optional HTML alternative. `null` (the default) keeps
+     *   the variant plaintext-only; a non-null value enables `multipart/alternative`
+     *   delivery for sends that resolve to this variant.
      *
      * @throws IllegalArgumentException if a referenced variable is not in
-     *   the template's documented placeholders, or if [subject]/[body] are
-     *   blank, or if Mustache cannot parse the template at all.
+     *   the template's documented placeholders, if [subject]/[bodyPlain] are
+     *   blank, or if Mustache cannot parse a template at all.
      */
     @Transactional
     fun update(
         template: MailTemplate,
         locale: String,
         subject: String,
-        body: String,
+        bodyPlain: String,
+        bodyHtml: String? = null,
         updatedBy: String?,
     ): MailTemplateView {
         require(locale.isNotBlank()) { "locale must not be blank" }
         require(subject.isNotBlank()) { "subject must not be blank" }
-        require(body.isNotBlank()) { "body must not be blank" }
+        require(bodyPlain.isNotBlank()) { "bodyPlain must not be blank" }
 
-        // Compile both halves so a malformed template (`{{#unclosed`) fails
-        // here, not at send time. The errors-on-unknown-vars check is below.
-        val subjectErrors = validateReferences(template, "subject", subject)
-        val bodyErrors = validateReferences(template, "body", body)
-        val errors = subjectErrors + bodyErrors
+        val errors = buildList {
+            addAll(validateReferences(template, "subject", subject, mustachePlain))
+            addAll(validateReferences(template, "bodyPlain", bodyPlain, mustachePlain))
+            if (bodyHtml != null) {
+                require(bodyHtml.isNotBlank()) {
+                    "bodyHtml must not be blank when provided (use null for plaintext-only)"
+                }
+                addAll(validateReferences(template, "bodyHtml", bodyHtml, mustacheHtml))
+            }
+        }
         if (errors.isNotEmpty()) {
             throw IllegalArgumentException(
                 "Template '${template.key}' references undocumented variables: " +
@@ -161,13 +205,15 @@ class MailTemplateService(
         val existing = repository.findByTemplateKeyAndLocale(template.key, locale).orElse(null)
         val entity = existing?.apply {
             this.subject = subject
-            this.body = body
+            this.bodyPlain = bodyPlain
+            this.bodyHtml = bodyHtml
             this.updatedBy = updatedBy
         } ?: MailTemplateEntity(
             templateKey = template.key,
             locale = locale,
             subject = subject,
-            body = body,
+            bodyPlain = bodyPlain,
+            bodyHtml = bodyHtml,
             updatedBy = updatedBy,
         )
         repository.save(entity)
@@ -179,6 +225,12 @@ class MailTemplateService(
     /**
      * Renders a template against [vars] using the locale-fallback chain.
      *
+     * Returns both the plaintext and (optionally) the HTML body. The HTML
+     * body is `null` iff the resolved template variant has no `body_html`
+     * row column AND the enum default's [MailTemplate.defaultBodyHtmlTemplate]
+     * is also `null` — the mail layer then sends a single-part `text/plain`
+     * message instead of `multipart/alternative`.
+     *
      * @param template registry entry to render.
      * @param vars variable map; every key referenced in the chosen variant
      *   must be present, otherwise [IllegalArgumentException] is thrown.
@@ -186,16 +238,31 @@ class MailTemplateService(
      *   uses the application-default variant or the enum default.
      */
     fun render(template: MailTemplate, vars: Map<String, Any?>, locale: String? = null): RenderedMail {
+        // Per-row fallback: a DB row is treated as the complete definition.
+        // If a stored variant exists for this (key, locale) chain but its
+        // bodyHtml is null, the message is plaintext-only — we do NOT mix
+        // the operator's plaintext with the enum's HTML default. Operators
+        // who deliberately leave HTML blank get plaintext-only, as expected.
         val stored = resolveStored(template, locale)
         val source = if (stored != null) "DATABASE($locale)" else "ENUM_DEFAULT"
-        val subjectTpl = stored?.subject ?: template.defaultSubject
-        val bodyTpl = stored?.body ?: template.defaultBodyTemplate
+        val subjectTpl: String
+        val plainTpl: String
+        val htmlTpl: String?
+        if (stored != null) {
+            subjectTpl = stored.subject
+            plainTpl = stored.bodyPlain
+            htmlTpl = stored.bodyHtml
+        } else {
+            subjectTpl = template.defaultSubject
+            plainTpl = template.defaultBodyPlainTemplate
+            htmlTpl = template.defaultBodyHtmlTemplate
+        }
 
-        val safeVars = StrictVarMap(template.key, vars)
         val rendered = try {
             RenderedMail(
-                subject = mustache.compile(subjectTpl).execute(safeVars),
-                body = mustache.compile(bodyTpl).execute(safeVars),
+                subject = mustachePlain.compile(subjectTpl).execute(vars),
+                bodyPlain = mustachePlain.compile(plainTpl).execute(vars),
+                bodyHtml = htmlTpl?.let { mustacheHtml.compile(it).execute(vars) },
             )
         } catch (ex: MustacheException) {
             throw IllegalArgumentException(
@@ -203,7 +270,12 @@ class MailTemplateService(
                 ex,
             )
         }
-        log.debug("Rendered template {} (source={})", template.key, source)
+        log.debug(
+            "Rendered template {} (source={}, html={})",
+            template.key,
+            source,
+            rendered.bodyHtml != null,
+        )
         return rendered
     }
 
@@ -237,11 +309,21 @@ class MailTemplateService(
      * via a custom Collector, which would mean instantiating an alternate
      * compiler just for validation. Mustache's tag syntax is regular enough
      * that a straight scan is the smaller, more obvious tool.
+     *
+     * @param compiler the strict compiler that will eventually render this
+     *   field — passed in so the syntax-error pre-check uses the same
+     *   parser settings (escapeHTML on/off doesn't affect parsing, but
+     *   keeping the call symmetric removes a gotcha).
      */
-    private fun validateReferences(template: MailTemplate, fieldName: String, source: String): List<String> {
+    private fun validateReferences(
+        template: MailTemplate,
+        fieldName: String,
+        source: String,
+        compiler: Mustache.Compiler,
+    ): List<String> {
         // Compile once to surface syntax errors at write time, not at send time.
         try {
-            mustache.compile(source)
+            compiler.compile(source)
         } catch (ex: MustacheException) {
             throw IllegalArgumentException(
                 "Template '${template.key}' $fieldName has malformed Mustache syntax: ${ex.message}",
@@ -288,7 +370,8 @@ class MailTemplateService(
 
     private data class StoredTemplate(
         val subject: String,
-        val body: String,
+        val bodyPlain: String,
+        val bodyHtml: String?,
         val updatedAt: OffsetDateTime,
         val updatedBy: String?,
     ) {
@@ -296,40 +379,23 @@ class MailTemplateService(
             key = template,
             locale = locale,
             subject = subject,
-            body = body,
+            bodyPlain = bodyPlain,
+            bodyHtml = bodyHtml,
             source = source,
             updatedAt = updatedAt,
             updatedBy = updatedBy,
         )
     }
-
-    /**
-     * Strict variable map wrapper — Mustache lookups for keys not present
-     * in the underlying map throw, so a missing `{{var}}` is a render-time
-     * error rather than a silent empty string.
-     */
-    private class StrictVarMap(private val templateKey: String, private val backing: Map<String, Any?>) :
-        AbstractMap<String, Any?>() {
-        override val entries: Set<Map.Entry<String, Any?>> get() = backing.entries
-
-        override fun containsKey(key: String): Boolean = backing.containsKey(key)
-
-        override fun get(key: String): Any? {
-            if (!backing.containsKey(key)) {
-                throw IllegalArgumentException(
-                    "Template '$templateKey' references {{$key}} but it was not provided in the render vars",
-                )
-            }
-            // jmustache can't render `null`; treat null as "intentionally absent"
-            // and substitute an empty string. Callers wanting "show this is
-            // missing" should pass a placeholder string explicitly.
-            return backing[key] ?: ""
-        }
-    }
 }
 
-/** Outcome of [MailTemplateService.render] — the materialised subject + body. */
-data class RenderedMail(val subject: String, val body: String)
+/**
+ * Outcome of [MailTemplateService.render].
+ *
+ * @property bodyHtml `null` when the resolved template variant has no HTML
+ *   alternative — the mail layer then sends a single-part `text/plain`
+ *   message instead of `multipart/alternative`.
+ */
+data class RenderedMail(val subject: String, val bodyPlain: String, val bodyHtml: String?)
 
 /** Origin of the variant returned by `findAll` / `findByKey` / `findByKeyAndLocale`. */
 enum class TemplateSource {
@@ -338,9 +404,10 @@ enum class TemplateSource {
 
     /**
      * No row exists; the value would come from [MailTemplate.defaultSubject]
-     * / [MailTemplate.defaultBodyTemplate]. Currently surfaced only by the
-     * render path; the find-* methods return `null` / empty list for missing
-     * rows so the caller can decide whether to materialise the enum default.
+     * / [MailTemplate.defaultBodyPlainTemplate] / [MailTemplate.defaultBodyHtmlTemplate].
+     * Currently surfaced only by the render path; the find-* methods return
+     * `null` / empty list for missing rows so the caller can decide whether
+     * to materialise the enum default.
      */
     DEFAULT,
 }
@@ -349,12 +416,15 @@ enum class TemplateSource {
  * A point-in-time view of one template variant. Mirrors `SettingSnapshot`
  * in shape so the Templates admin page (#438) can build on the same patterns
  * the General settings page already uses.
+ *
+ * @property bodyHtml `null` when the variant is plaintext-only.
  */
 data class MailTemplateView(
     val key: MailTemplate,
     val locale: String,
     val subject: String,
-    val body: String,
+    val bodyPlain: String,
+    val bodyHtml: String?,
     val source: TemplateSource,
     val updatedAt: OffsetDateTime?,
     val updatedBy: String?,

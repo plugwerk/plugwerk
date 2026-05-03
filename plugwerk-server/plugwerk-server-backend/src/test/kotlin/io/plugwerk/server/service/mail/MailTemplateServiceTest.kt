@@ -72,9 +72,13 @@ class MailTemplateServiceTest {
         )
 
         assertThat(rendered.subject).isEqualTo("Reset your Plugwerk password")
-        assertThat(rendered.body).contains("Hello alice,")
-        assertThat(rendered.body).contains("https://x")
-        assertThat(rendered.body).contains("in 30 minutes")
+        assertThat(rendered.bodyPlain).contains("Hello alice,")
+        assertThat(rendered.bodyPlain).contains("https://x")
+        assertThat(rendered.bodyPlain).contains("in 30 minutes")
+        // Enum default for AUTH_PASSWORD_RESET ships an HTML body too —
+        // render must materialise it.
+        assertThat(rendered.bodyHtml).isNotNull()
+        assertThat(rendered.bodyHtml).contains("<a href=\"https://x\">Reset my password</a>")
     }
 
     @Test
@@ -83,7 +87,8 @@ class MailTemplateServiceTest {
             MailTemplate.AUTH_PASSWORD_RESET,
             locale = "de",
             subject = "Passwort zurücksetzen",
-            body = "Hallo {{username}}, klicke {{resetLink}} ({{expiresAtHuman}})",
+            bodyPlain = "Hallo {{username}}, klicke {{resetLink}} ({{expiresAtHuman}})",
+            bodyHtml = "<p>Hallo {{username}}, <a href=\"{{resetLink}}\">klicke hier</a></p>",
             updatedBy = "test",
         )
 
@@ -94,7 +99,8 @@ class MailTemplateServiceTest {
         )
 
         assertThat(rendered.subject).isEqualTo("Passwort zurücksetzen")
-        assertThat(rendered.body).isEqualTo("Hallo alice, klicke https://x (in 30 Minuten)")
+        assertThat(rendered.bodyPlain).isEqualTo("Hallo alice, klicke https://x (in 30 Minuten)")
+        assertThat(rendered.bodyHtml).isEqualTo("<p>Hallo alice, <a href=\"https://x\">klicke hier</a></p>")
     }
 
     @Test
@@ -103,54 +109,51 @@ class MailTemplateServiceTest {
             MailTemplate.AUTH_PASSWORD_RESET,
             locale = "de",
             subject = "Passwort",
-            body = "Hi {{username}}",
+            bodyPlain = "Hi {{username}}",
             updatedBy = "test",
         )
 
         val rendered = service.render(
             MailTemplate.AUTH_PASSWORD_RESET,
-            mapOf("username" to "fritz", "resetLink" to "x", "expiresAtHuman" to "y"),
+            mapOf("username" to "fritz"),
             locale = "de-CH",
         )
 
         assertThat(rendered.subject).isEqualTo("Passwort")
-        assertThat(rendered.body).isEqualTo("Hi fritz")
+        assertThat(rendered.bodyPlain).isEqualTo("Hi fritz")
+        // Per-row fallback: the `de` row exists and explicitly has no HTML
+        // body, so render returns null instead of mixing in the enum's
+        // English HTML default. Operator-set plaintext-only stays plaintext-only.
+        assertThat(rendered.bodyHtml).isNull()
     }
 
     @Test
     fun `render falls back to application default language (stage 3) when requested locale not present`() {
-        // Seed an `en` row only. Request `de` → stage 1 misses (no de),
-        // stage 2 misses (de has no language-base), stage 3 hits the en row
-        // because general.default_language=en in this test profile.
         service.update(
             MailTemplate.AUTH_PASSWORD_RESET,
             locale = "en",
             subject = "Reset",
-            body = "Hi {{username}}",
+            bodyPlain = "Hi {{username}}",
             updatedBy = "test",
         )
 
         val rendered = service.render(
             MailTemplate.AUTH_PASSWORD_RESET,
-            mapOf("username" to "alice", "resetLink" to "x", "expiresAtHuman" to "y"),
+            mapOf("username" to "alice"),
             locale = "de",
         )
 
         assertThat(rendered.subject).isEqualTo("Reset")
-        assertThat(rendered.body).isEqualTo("Hi alice")
-        // Sanity check — stage 3 only resolves because settings.defaultLanguage() is `en`.
+        assertThat(rendered.bodyPlain).isEqualTo("Hi alice")
         assertThat(settings.defaultLanguage()).isEqualTo("en")
     }
 
     @Test
     fun `render strict mode throws on missing variable rather than silently emitting empty string`() {
-        // Vars include `username` but not `resetLink` — the template's
-        // default body references {{resetLink}}, so render must throw.
         assertThatThrownBy {
             service.render(
                 MailTemplate.AUTH_PASSWORD_RESET,
                 mapOf("username" to "alice", "expiresAtHuman" to "in 30 minutes"),
-                // No locale → falls through to enum default, which references {{resetLink}}.
             )
         }
             .isInstanceOf(IllegalArgumentException::class.java)
@@ -158,42 +161,91 @@ class MailTemplateServiceTest {
     }
 
     @Test
-    fun `update rejects undocumented placeholder references`() {
+    fun `render auto-escapes HTML in vars to prevent stored-XSS through user-controlled placeholders`() {
+        service.update(
+            MailTemplate.AUTH_PASSWORD_RESET,
+            locale = "en",
+            subject = "Reset",
+            bodyPlain = "Hi {{username}}",
+            bodyHtml = "<p>Hi {{username}}, click <a href=\"{{resetLink}}\">here</a></p>",
+            updatedBy = "test",
+        )
+
+        val rendered = service.render(
+            MailTemplate.AUTH_PASSWORD_RESET,
+            mapOf(
+                "username" to "<script>alert('xss')</script>",
+                "resetLink" to "https://app/reset?token=abc&user=alice",
+                "expiresAtHuman" to "in 30 minutes",
+            ),
+            locale = "en",
+        )
+
+        // Plaintext body keeps `<` `>` `&` intact — no HTML rendering happens.
+        assertThat(rendered.bodyPlain).contains("<script>alert('xss')</script>")
+        // HTML body escapes the dangerous characters — &lt;script&gt; renders
+        // as visible text in the browser, not an executable element.
+        assertThat(rendered.bodyHtml).contains("&lt;script&gt;alert")
+        assertThat(rendered.bodyHtml).doesNotContain("<script>")
+        // The `&` in the URL is escaped to `&amp;`. jmustache's escaper is
+        // aggressive and additionally hex-escapes `=` (-> `&#x3D;`) and `'`
+        // (-> `&#39;`); browsers decode all of those back to the original
+        // characters when rendering the attribute value, so the link still
+        // works at click time. The assertion below pins the safety property
+        // (no raw `&` outside the entity form, no executable script).
+        assertThat(rendered.bodyHtml).contains("&amp;")
+        assertThat(rendered.bodyHtml).doesNotContain("?token=abc&user")
+    }
+
+    @Test
+    fun `update rejects undocumented placeholder references in any of subject, plaintext, html`() {
         assertThatThrownBy {
             service.update(
                 MailTemplate.AUTH_PASSWORD_RESET,
                 locale = "en",
                 subject = "Reset",
-                body = "Hi {{username}}, click {{badPlaceholder}} now",
+                bodyPlain = "Hi {{username}}, click {{badPlaceholder}} now",
                 updatedBy = "test",
             )
         }
             .isInstanceOf(IllegalArgumentException::class.java)
             .hasMessageContaining("badPlaceholder")
-            .hasMessageContaining(MailTemplate.AUTH_PASSWORD_RESET.placeholders.toString())
+
+        // Same check for the HTML body — plain is fine but html has a typo.
+        assertThatThrownBy {
+            service.update(
+                MailTemplate.AUTH_PASSWORD_RESET,
+                locale = "en",
+                subject = "Reset",
+                bodyPlain = "Hi {{username}}",
+                bodyHtml = "<p>Hi {{username}}, <a href=\"{{notARealVar}}\">click</a></p>",
+                updatedBy = "test",
+            )
+        }
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("notARealVar")
     }
 
     @Test
     fun `update accepts a subset of declared placeholders (not every var must be referenced)`() {
-        // The template declares username + resetLink + expiresAtHuman, but
-        // a custom variant might only need username — that is allowed. The
-        // validator catches typos (extra refs), not missing refs.
         val view = service.update(
             MailTemplate.AUTH_PASSWORD_RESET,
             locale = "en",
             subject = "Reset",
-            body = "Hello {{username}}",
+            bodyPlain = "Hello {{username}}",
             updatedBy = "test",
         )
 
-        assertThat(view.body).isEqualTo("Hello {{username}}")
-        // And render against this minimal variant — only username needs to be in vars.
+        assertThat(view.bodyPlain).isEqualTo("Hello {{username}}")
+        assertThat(view.bodyHtml).isNull()
+
         val rendered = service.render(
             MailTemplate.AUTH_PASSWORD_RESET,
             mapOf("username" to "alice"),
             locale = "en",
         )
-        assertThat(rendered.body).isEqualTo("Hello alice")
+        assertThat(rendered.bodyPlain).isEqualTo("Hello alice")
+        assertThat(rendered.bodyHtml).isNull()
     }
 
     @Test
@@ -202,20 +254,38 @@ class MailTemplateServiceTest {
             MailTemplate.AUTH_PASSWORD_RESET,
             locale = "en",
             subject = "v1",
-            body = "Body {{username}}",
+            bodyPlain = "Body {{username}}",
             updatedBy = "test",
         )
         service.update(
             MailTemplate.AUTH_PASSWORD_RESET,
             locale = "en",
             subject = "v2",
-            body = "Body {{username}}",
+            bodyPlain = "Body {{username}}",
+            bodyHtml = "<p>HTML body {{username}}</p>",
             updatedBy = "test",
         )
 
         val variants = service.findByKey(MailTemplate.AUTH_PASSWORD_RESET)
         assertThat(variants).hasSize(1)
         assertThat(variants.first().subject).isEqualTo("v2")
+        assertThat(variants.first().bodyHtml).isEqualTo("<p>HTML body {{username}}</p>")
+    }
+
+    @Test
+    fun `update with explicit blank bodyHtml is rejected — null is the no-html marker, blank is invalid`() {
+        assertThatThrownBy {
+            service.update(
+                MailTemplate.AUTH_PASSWORD_RESET,
+                locale = "en",
+                subject = "Reset",
+                bodyPlain = "Hi {{username}}",
+                bodyHtml = "   ",
+                updatedBy = "test",
+            )
+        }
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("bodyHtml")
     }
 
     @Test
@@ -227,8 +297,8 @@ class MailTemplateServiceTest {
 
     @Test
     fun `findByKey lists every locale variant of a template`() {
-        service.update(MailTemplate.AUTH_PASSWORD_RESET, "en", "EN", "Hi {{username}}", "test")
-        service.update(MailTemplate.AUTH_PASSWORD_RESET, "de", "DE", "Hallo {{username}}", "test")
+        service.update(MailTemplate.AUTH_PASSWORD_RESET, "en", "EN", "Hi {{username}}", null, "test")
+        service.update(MailTemplate.AUTH_PASSWORD_RESET, "de", "DE", "Hallo {{username}}", null, "test")
 
         val variants = service.findByKey(MailTemplate.AUTH_PASSWORD_RESET)
 

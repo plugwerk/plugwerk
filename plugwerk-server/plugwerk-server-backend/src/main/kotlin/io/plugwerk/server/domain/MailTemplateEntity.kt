@@ -49,8 +49,13 @@ import java.util.UUID
  *   so a row can be missing without breaking sends — see
  *   [io.plugwerk.server.service.mail.MailTemplateService.render].
  * @property subject Mustache-templated subject line (`{{var}}` placeholders allowed).
- * @property body Mustache-templated plaintext body. v1 is plaintext only;
- *   HTML / multipart deferred to a follow-up.
+ * @property bodyPlain Mustache-templated plaintext body. Always required —
+ *   spam filters and accessibility-focused clients still benefit from a
+ *   real plaintext body even when an HTML alternative is present.
+ * @property bodyHtml Optional Mustache-templated HTML body. When set, the
+ *   mail layer assembles a `multipart/alternative` MIME message with both
+ *   parts; when null, the message is single-part `text/plain` with only
+ *   [bodyPlain].
  */
 @Entity
 @Table(
@@ -79,8 +84,11 @@ class MailTemplateEntity(
     @Column(name = "subject", nullable = false, columnDefinition = "text")
     var subject: String,
 
-    @Column(name = "body", nullable = false, columnDefinition = "text")
-    var body: String,
+    @Column(name = "body_plain", nullable = false, columnDefinition = "text")
+    var bodyPlain: String,
+
+    @Column(name = "body_html", nullable = true, columnDefinition = "text")
+    var bodyHtml: String? = null,
 
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)

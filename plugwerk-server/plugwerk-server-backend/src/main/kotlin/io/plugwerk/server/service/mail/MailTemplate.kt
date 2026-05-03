@@ -75,16 +75,26 @@ package io.plugwerk.server.service.mail
  *   the `template_key` column value and as the API path segment in #438.
  * @property defaultSubject hard-coded fallback subject. Mustache-templated
  *   like the DB-stored variant.
- * @property defaultBodyTemplate hard-coded fallback plaintext body.
+ * @property defaultBodyPlainTemplate hard-coded fallback plaintext body.
+ *   Always required — spam filters and accessibility-focused clients still
+ *   benefit from a real plaintext body even when an HTML alternative is
+ *   present.
+ * @property defaultBodyHtmlTemplate optional hard-coded fallback HTML body.
+ *   When non-null, the mail layer assembles a `multipart/alternative` MIME
+ *   message with both parts; when null, the message is single-part
+ *   `text/plain` with only [defaultBodyPlainTemplate]. Templates with no
+ *   meaningful HTML representation (e.g. internal admin alerts) leave this
+ *   `null`.
  * @property placeholders closed set of `{{var}}` names this template
- *   may reference. The service validates both the DB-stored variant and
- *   the enum default at write time — typos surface as 400, not as a
- *   runtime "undefined variable" exception during a live send.
+ *   may reference. The service validates the DB-stored subject + plain +
+ *   html variants at write time — typos surface as 400, not as a runtime
+ *   "undefined variable" exception during a live send.
  */
 enum class MailTemplate(
     val key: String,
     val defaultSubject: String,
-    val defaultBodyTemplate: String,
+    val defaultBodyPlainTemplate: String,
+    val defaultBodyHtmlTemplate: String?,
     val placeholders: Set<String>,
 ) {
     /**
@@ -94,7 +104,7 @@ enum class MailTemplate(
     AUTH_REGISTRATION_VERIFICATION(
         key = "auth.registration_verification",
         defaultSubject = "Verify your Plugwerk account",
-        defaultBodyTemplate = """
+        defaultBodyPlainTemplate = """
             Hello {{username}},
 
             Welcome to Plugwerk! Please verify your email address by visiting the
@@ -103,6 +113,21 @@ enum class MailTemplate(
             {{verificationLink}}
 
             If you did not create an account, you can safely ignore this message.
+        """.trimIndent(),
+        defaultBodyHtmlTemplate = """
+            <!DOCTYPE html>
+            <html>
+              <body>
+                <p>Hello {{username}},</p>
+                <p>Welcome to Plugwerk! Please verify your email address by clicking
+                  the link below — it is valid {{expiresAtHuman}}.</p>
+                <p><a href="{{verificationLink}}">Verify my email</a></p>
+                <p>If the button does not work, paste this URL into your browser:<br>
+                  <a href="{{verificationLink}}">{{verificationLink}}</a></p>
+                <p style="color: #666; font-size: 0.9em;">If you did not create an account,
+                  you can safely ignore this message.</p>
+              </body>
+            </html>
         """.trimIndent(),
         placeholders = setOf("username", "verificationLink", "expiresAtHuman"),
     ),
@@ -114,7 +139,7 @@ enum class MailTemplate(
     AUTH_PASSWORD_RESET(
         key = "auth.password_reset",
         defaultSubject = "Reset your Plugwerk password",
-        defaultBodyTemplate = """
+        defaultBodyPlainTemplate = """
             Hello {{username}},
 
             We received a request to reset the password for your Plugwerk account.
@@ -124,6 +149,23 @@ enum class MailTemplate(
 
             If you did not request a password reset, you can safely ignore this
             message — your existing password remains active.
+        """.trimIndent(),
+        defaultBodyHtmlTemplate = """
+            <!DOCTYPE html>
+            <html>
+              <body>
+                <p>Hello {{username}},</p>
+                <p>We received a request to reset the password for your Plugwerk
+                  account. Click the link below to set a new password — it is valid
+                  {{expiresAtHuman}}.</p>
+                <p><a href="{{resetLink}}">Reset my password</a></p>
+                <p>If the button does not work, paste this URL into your browser:<br>
+                  <a href="{{resetLink}}">{{resetLink}}</a></p>
+                <p style="color: #666; font-size: 0.9em;">If you did not request a
+                  password reset, you can safely ignore this message — your existing
+                  password remains active.</p>
+              </body>
+            </html>
         """.trimIndent(),
         placeholders = setOf("username", "resetLink", "expiresAtHuman"),
     ),
