@@ -1,0 +1,83 @@
+# Single-use, time-limited tokens that gate self-registered accounts
+# behind a "click the link in your email" verification step (#420).
+#
+# Storage shape:
+#   - token_hash holds SHA-256(rawToken) hex (64 chars). The raw token is
+#     only ever in flight in the verification email + the inbound query
+#     parameter on /auth/verify-email; it is never persisted. This mirrors
+#     the existing namespace_access_key / revoked_token hash-at-rest
+#     pattern so a DB leak alone cannot grant account access.
+#   - user_id FK with ON DELETE CASCADE so /admin/users delete fans out
+#     automatically — no explicit token sweep needed in UserService.
+#   - consumed_at nullable: a verified token sticks around for audit
+#     until the @Scheduled sweep removes expired+consumed rows after a
+#     grace period (handled in EmailVerificationTokenService).
+#
+# Indexes:
+#   - uq_email_verification_token_hash → fast hash lookup on the
+#     verification callback
+#   - idx_email_verification_token_user → "any in-flight token for user X"
+#     query supports resend logic without a sequential scan
+#   - idx_email_verification_token_expires → @Scheduled sweep
+databaseChangeLog:
+  - changeSet:
+      id: 0028-create-email-verification-token
+      author: plugwerk
+      changes:
+        - createTable:
+            tableName: email_verification_token
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_email_verification_token_user
+                    references: plugwerk_user(id)
+                    deleteCascade: true
+              - column:
+                  name: token_hash
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: expires_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+              - column:
+                  name: consumed_at
+                  type: timestamptz
+                  constraints:
+                    nullable: true
+        - addUniqueConstraint:
+            tableName: email_verification_token
+            columnNames: token_hash
+            constraintName: uq_email_verification_token_hash
+        - createIndex:
+            tableName: email_verification_token
+            indexName: idx_email_verification_token_user
+            columns:
+              - column:
+                  name: user_id
+        - createIndex:
+            tableName: email_verification_token
+            indexName: idx_email_verification_token_expires
+            columns:
+              - column:
+                  name: expires_at
+      rollback:
+        - dropTable:
+            tableName: email_verification_token

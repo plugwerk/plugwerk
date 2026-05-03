@@ -185,6 +185,24 @@ enum class ApplicationSettingKey(
         defaultValue = "Plugwerk",
         allowBlank = true,
     ),
+
+    // ---- Self-registration (#420) -------------------------------------------
+    // Off by default — operators of private deployments never see the flow,
+    // and the controller hides the endpoint with 404 when this is false.
+    // The verification toggle gates whether the user must click an emailed
+    // link before they can log in; off means the registration immediately
+    // produces an enabled account (no mail sent).
+
+    AUTH_SELF_REGISTRATION_ENABLED(
+        key = "auth.self_registration_enabled",
+        valueType = SettingValueType.BOOLEAN,
+        defaultValue = "false",
+    ),
+    AUTH_SELF_REGISTRATION_EMAIL_VERIFICATION_REQUIRED(
+        key = "auth.self_registration_email_verification_required",
+        valueType = SettingValueType.BOOLEAN,
+        defaultValue = "true",
+    ),
     ;
 
     /**

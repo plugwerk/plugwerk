@@ -373,6 +373,7 @@ data class PlugwerkProperties(
             val maxAttempts: Int = 10,
             val windowSeconds: Long = 60,
             val changePassword: ChangePasswordRateLimitProperties = ChangePasswordRateLimitProperties(),
+            val register: RegisterRateLimitProperties = RegisterRateLimitProperties(),
         )
 
         /**
@@ -393,6 +394,35 @@ data class PlugwerkProperties(
          *   Environment variable: `PLUGWERK_AUTH_RATE_LIMIT_CHANGE_PASSWORD_WINDOW_SECONDS`
          */
         data class ChangePasswordRateLimitProperties(val maxAttempts: Int = 5, val windowSeconds: Long = 300)
+
+        /**
+         * Two-bucket rate limiting for `POST /api/v1/auth/register` (#420).
+         *
+         * Self-registration is a public endpoint with two abuse vectors that
+         * each warrant their own bucket: bulk account creation from a single
+         * IP, and email-enumeration probes that systematically iterate
+         * candidate addresses. The IP bucket sets a generous-but-firm ceiling
+         * for the volume case; the email bucket is much stricter so an
+         * attacker probing whether a specific address already exists can't
+         * cycle quickly even from a botnet.
+         *
+         * @property ipMaxAttempts IP-keyed cap per [ipWindowSeconds].
+         *   Environment variable: `PLUGWERK_AUTH_RATE_LIMIT_REGISTER_IP_MAX_ATTEMPTS`
+         * @property ipWindowSeconds IP rate-limit window in seconds.
+         *   Environment variable: `PLUGWERK_AUTH_RATE_LIMIT_REGISTER_IP_WINDOW_SECONDS`
+         * @property emailMaxAttempts Email-keyed cap per [emailWindowSeconds],
+         *   keyed off SHA-256(lowercase(email)) so the email itself is never
+         *   stored in the bucket map.
+         *   Environment variable: `PLUGWERK_AUTH_RATE_LIMIT_REGISTER_EMAIL_MAX_ATTEMPTS`
+         * @property emailWindowSeconds Email rate-limit window in seconds.
+         *   Environment variable: `PLUGWERK_AUTH_RATE_LIMIT_REGISTER_EMAIL_WINDOW_SECONDS`
+         */
+        data class RegisterRateLimitProperties(
+            val ipMaxAttempts: Int = 10,
+            val ipWindowSeconds: Long = 60,
+            val emailMaxAttempts: Int = 5,
+            val emailWindowSeconds: Long = 3600,
+        )
 
         /**
          * Actuator scrape-account configuration (`plugwerk.auth.actuator.*`).

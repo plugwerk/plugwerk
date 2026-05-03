@@ -40,6 +40,20 @@ interface UserRepository : JpaRepository<UserEntity, UUID> {
 
     fun existsByUsernameAndSource(username: String, source: UserSource): Boolean
 
+    /**
+     * Case-insensitive email uniqueness check within a single [source]
+     * (#420 self-registration). Pairs with the partial functional unique
+     * index `uq_plugwerk_user_email_local` from migration 0017 — the DB
+     * is the authoritative defence, this query just lets the service
+     * surface a friendly [io.plugwerk.server.service.ConflictException]
+     * before hitting the constraint violation.
+     */
+    @Query(
+        "SELECT COUNT(u) > 0 FROM UserEntity u " +
+            "WHERE LOWER(u.email) = LOWER(:email) AND u.source = :source",
+    )
+    fun existsByEmailAndSourceIgnoreCase(@Param("email") email: String, @Param("source") source: UserSource): Boolean
+
     fun findAllByEnabled(enabled: Boolean): List<UserEntity>
 
     /**

@@ -31,6 +31,7 @@ import io.plugwerk.server.security.PasswordChangeRequiredFilter
 import io.plugwerk.server.security.PromptAwareOAuth2AuthorizationRequestResolver
 import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.security.RefreshRateLimitFilter
+import io.plugwerk.server.security.RegisterRateLimitFilter
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.annotation.Order
@@ -65,6 +66,7 @@ import java.security.MessageDigest
 @EnableWebSecurity
 class SecurityConfiguration(
     private val loginRateLimitFilter: LoginRateLimitFilter,
+    private val registerRateLimitFilter: RegisterRateLimitFilter,
     private val refreshRateLimitFilter: RefreshRateLimitFilter,
     private val changePasswordRateLimitFilter: ChangePasswordRateLimitFilter,
     private val apiKeyAuthFilter: NamespaceAccessKeyAuthFilter,
@@ -397,6 +399,9 @@ class SecurityConfiguration(
             }
             // LoginRateLimitFilter runs first — blocks brute-force login attempts before any auth processing
             .addFilterBefore(loginRateLimitFilter, UsernamePasswordAuthenticationFilter::class.java)
+            // RegisterRateLimitFilter protects /api/v1/auth/register from bulk account creation (#420).
+            // Email-keyed second bucket runs inside the controller after body parsing.
+            .addFilterAfter(registerRateLimitFilter, LoginRateLimitFilter::class.java)
             // RefreshRateLimitFilter protects /api/v1/auth/refresh from DoS/spam (ADR-0027).
             .addFilterAfter(refreshRateLimitFilter, LoginRateLimitFilter::class.java)
             // PublicNamespaceFilter runs next — sets AnonymousAuth for public namespace GETs

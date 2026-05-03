@@ -72,6 +72,51 @@ class UserService(
     }
 
     /**
+     * Self-registration counterpart to [create] (#420).
+     *
+     * Differences vs. admin-create:
+     *  - `enabled` is a parameter (false when verification is required;
+     *    true when the operator has turned verification off).
+     *  - `passwordChangeRequired` is always `false` — the user just chose
+     *    the password themselves; forcing an immediate change makes no
+     *    sense.
+     *  - Email uniqueness is checked explicitly so the call surfaces a
+     *    [ConflictException] (caller silently swallows for anti-enumeration)
+     *    instead of bubbling a `DataIntegrityViolationException` from the
+     *    DB unique index.
+     *
+     * Username + email validation rules are otherwise identical to
+     * [create] — both go through the same partial unique indexes for
+     * INTERNAL rows.
+     */
+    fun createSelfRegistered(
+        username: String,
+        email: String,
+        password: String,
+        displayName: String?,
+        enabled: Boolean,
+    ): UserEntity {
+        val normalisedEmail = normalizeEmail(email)
+        if (userRepository.existsByUsernameAndSource(username, UserSource.INTERNAL)) {
+            throw ConflictException("Username '$username' is already taken")
+        }
+        if (userRepository.existsByEmailAndSourceIgnoreCase(normalisedEmail, UserSource.INTERNAL)) {
+            throw ConflictException("Email '$normalisedEmail' is already registered")
+        }
+        return userRepository.save(
+            UserEntity(
+                username = username,
+                email = normalisedEmail,
+                displayName = displayName ?: username,
+                source = UserSource.INTERNAL,
+                passwordHash = hashPassword(password),
+                passwordChangeRequired = false,
+                enabled = enabled,
+            ),
+        )
+    }
+
+    /**
      * Trims surrounding whitespace and lowercases the address. Pairs with the partial
      * functional unique index `uq_plugwerk_user_email_local` on
      * `LOWER(email) WHERE source='LOCAL'` (migration 0017). The DB index is the

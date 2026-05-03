@@ -200,6 +200,20 @@ class ApplicationSettingsService(
     /** Typed accessor: `smtp.from_name`. */
     fun smtpFromName(): String = getRaw(ApplicationSettingKey.SMTP_FROM_NAME)
 
+    // ---- Self-registration (#420) ------------------------------------------
+
+    /** Master switch: surface the public registration endpoint at all? */
+    fun selfRegistrationEnabled(): Boolean =
+        getRaw(ApplicationSettingKey.AUTH_SELF_REGISTRATION_ENABLED).toBooleanStrict()
+
+    /**
+     * When self-registration IS on, must the user click an emailed link
+     * before their account is enabled? Default true; turning it off skips
+     * the verification email and creates already-enabled users.
+     */
+    fun selfRegistrationEmailVerificationRequired(): Boolean =
+        getRaw(ApplicationSettingKey.AUTH_SELF_REGISTRATION_EMAIL_VERIFICATION_REQUIRED).toBooleanStrict()
+
     // ------------------------------------------------------------------------
 
     /**
