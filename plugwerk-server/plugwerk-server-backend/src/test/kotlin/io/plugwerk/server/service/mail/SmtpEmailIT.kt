@@ -107,27 +107,86 @@ class SmtpEmailIT {
     }
 
     @Test
-    fun `sendMail delivers to the SMTP server with the expected envelope`() {
+    fun `sendMail with plaintext body delivers a single-part text-plain message`() {
         val result = mailService.sendMail(
             to = "alice@example.test",
             subject = "Welcome to Plugwerk",
-            body = "This is a test message from the SMTP IT.",
+            bodyPlain = "This is a test message from the SMTP IT.",
         )
 
         assertThat(result).isEqualTo(MailService.SendResult.Sent)
-        // GreenMail blocks until the SMTP server has accepted and stored the
-        // message; no extra wait needed.
         val received = greenMail.receivedMessages
         assertThat(received).hasSize(1)
         val message = received[0]
         assertThat(message.subject).isEqualTo("Welcome to Plugwerk")
         assertThat(message.from.first().toString()).contains("noreply@plugwerk.test")
         assertThat(message.allRecipients.first().toString()).isEqualTo("alice@example.test")
-        // Body is multi-part on some SMTP libraries; SimpleMailMessage uses
-        // text/plain, so the content() is a String we can compare directly.
+        assertThat(message.contentType).startsWith("text/plain")
         val rawContent = message.content
         val bodyText = if (rawContent is String) rawContent else rawContent.toString()
         assertThat(bodyText).contains("This is a test message")
+    }
+
+    @Test
+    fun `sendMail with bodyHtml delivers a multipart-alternative message containing both parts`() {
+        val result = mailService.sendMail(
+            to = "alice@example.test",
+            subject = "Multipart test",
+            bodyPlain = "Plain text fallback for HTML clients.",
+            bodyHtml = "<p>HTML <b>preferred</b> view.</p>",
+        )
+
+        assertThat(result).isEqualTo(MailService.SendResult.Sent)
+        val received = greenMail.receivedMessages
+        assertThat(received).hasSize(1)
+        val message = received[0]
+        assertThat(message.contentType).startsWith("multipart/")
+        // Spring's MimeMessageHelper(multipart=true) wraps in MIXED_RELATED;
+        // the outer content-type is `multipart/mixed`, the alternative is
+        // nested inside. Verify the structure end-to-end via the raw stream.
+        val baos = java.io.ByteArrayOutputStream()
+        message.writeTo(baos)
+        val raw = baos.toString()
+        assertThat(raw).contains("multipart/alternative")
+        assertThat(raw).contains("text/plain")
+        assertThat(raw).contains("text/html")
+        assertThat(raw).contains("Plain text fallback")
+        assertThat(raw).contains("<p>HTML <b>preferred</b> view.</p>")
+    }
+
+    @Test
+    fun `sendMailFromTemplate renders the password-reset template and delivers it`() {
+        val result = mailService.sendMailFromTemplate(
+            template = MailTemplate.AUTH_PASSWORD_RESET,
+            to = "alice@example.test",
+            vars = mapOf(
+                "username" to "alice",
+                "resetLink" to "https://app.plugwerk.test/reset?token=abc",
+                "expiresAtHuman" to "in 30 minutes",
+            ),
+        )
+
+        assertThat(result).isEqualTo(MailService.SendResult.Sent)
+        val received = greenMail.receivedMessages
+        assertThat(received).hasSize(1)
+        val message = received[0]
+        assertThat(message.subject).isEqualTo("Reset your Plugwerk password")
+        // Seeded en row carries both bodies → multipart/alternative.
+        assertThat(message.contentType).startsWith("multipart/")
+        val baos = java.io.ByteArrayOutputStream()
+        message.writeTo(baos)
+        val raw = baos.toString()
+        // Plaintext body. Note: MIME transports plaintext bodies as
+        // quoted-printable, which escapes `=` to `=3D`. So the URL appears
+        // as `?token=3Dabc` in the raw stream — assert on the prefix that
+        // sidesteps this encoding wart.
+        assertThat(raw).contains("Hello alice,")
+        assertThat(raw).contains("https://app.plugwerk.test/reset?token")
+        // HTML body anchor text from the seeded en variant. Quoted-printable
+        // soft-wraps lines at column ~76 (`Reset my =\r\npassword`), so test
+        // for a fragment that survives any line-wrap position.
+        assertThat(raw).contains("Reset my")
+        assertThat(raw).contains("multipart/alternative")
     }
 
     @Test
@@ -154,7 +213,7 @@ class SmtpEmailIT {
         val result = mailService.sendMail(
             to = "ignored@example.test",
             subject = "Should not arrive",
-            body = "Body",
+            bodyPlain = "Body",
         )
 
         assertThat(result).isEqualTo(MailService.SendResult.Disabled)

@@ -78,19 +78,25 @@ class UserSettingUserIdFkMigrationIT {
     }
 
     /**
-     * Apply EVERYTHING then roll back the changesets in [stopBeforeFile] —
-     * mirrors the pattern from `IdentityHubSplitMigrationIT` and is safe
-     * because 0019 only touches `user_setting`, which `runLiquibaseUpdate`
+     * Apply EVERYTHING then roll back every changeset from [stopBeforeFile]
+     * onward — mirrors the pattern from `IdentityHubSplitMigrationIT` and is
+     * safe because 0019 only touches `user_setting`, which `runLiquibaseUpdate`
      * later re-applies cleanly.
+     *
+     * Note: `liquibase.rollback(N, "")` rolls back the last N changesets
+     * *globally*, not the last N from the target file. So we compute N as
+     * `(total changesets) - (index of first target changeset)` to stay
+     * correct as new migrations are added after the target.
      */
     private fun runLiquibaseUpTo(conn: Connection, stopBeforeFile: String) {
         val database = DatabaseFactory.getInstance().findCorrectDatabaseImplementation(JdbcConnection(conn))
         Liquibase("db/changelog/db.changelog-master.yaml", ClassLoaderResourceAccessor(), database).use { liquibase ->
             liquibase.update(Contexts(), LabelExpression())
-            val changesetCount = liquibase.databaseChangeLog.changeSets
-                .count { it.filePath.endsWith(stopBeforeFile) }
-            check(changesetCount > 0) { "no changesets found in $stopBeforeFile" }
-            liquibase.rollback(changesetCount, "")
+            val changesets = liquibase.databaseChangeLog.changeSets
+            val firstIdx = changesets.indexOfFirst { it.filePath.endsWith(stopBeforeFile) }
+            check(firstIdx >= 0) { "no changesets found in $stopBeforeFile" }
+            val rollbackCount = changesets.size - firstIdx
+            liquibase.rollback(rollbackCount, "")
         }
     }
 

@@ -51,6 +51,7 @@ dependencies {
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.mail)
+    implementation(libs.jmustache)
     implementation(libs.jackson.module.kotlin)
     implementation(libs.spring.boot.starter.liquibase)
     implementation(libs.bucket4j.core)
