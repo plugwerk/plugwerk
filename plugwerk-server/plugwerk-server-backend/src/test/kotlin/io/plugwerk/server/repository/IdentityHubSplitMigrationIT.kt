@@ -93,8 +93,14 @@ class IdentityHubSplitMigrationIT {
      *
      * Liquibase has no first-class "run up to but not including this changeset"
      * primitive, so we use the rollback-on-update-to-target pattern: apply
-     * EVERYTHING, then rollback all changesets defined in 0017's file. The
-     * resulting state is identical to "applied through 0016".
+     * EVERYTHING, then roll back every changeset from [stopBeforeFile] onward
+     * (the target file plus all later migrations). The resulting state is
+     * identical to "applied through the file just before [stopBeforeFile]".
+     *
+     * Note: `liquibase.rollback(N, "")` rolls back the last N applied
+     * changesets *globally*, not the last N from the target file. So we
+     * compute N as `(total changesets) - (index of first target changeset)`,
+     * which stays correct as new migrations are added after the target.
      */
     private fun runLiquibaseUpTo(conn: Connection, stopBeforeFile: String) {
         val database = DatabaseFactory.getInstance().findCorrectDatabaseImplementation(JdbcConnection(conn))
@@ -104,15 +110,11 @@ class IdentityHubSplitMigrationIT {
             database,
         ).use { liquibase ->
             liquibase.update(Contexts(), LabelExpression())
-            // Roll back everything declared in the file we want to "skip".
-            // Counting the changesets and using rollbackCount keeps the test
-            // resilient if more 0017 changesets are added later — count is
-            // computed from the parsed changelog.
-            val changesetCount = liquibase.databaseChangeLog
-                .changeSets
-                .count { it.filePath.endsWith(stopBeforeFile) }
-            check(changesetCount > 0) { "no changesets found in $stopBeforeFile" }
-            liquibase.rollback(changesetCount, "")
+            val changesets = liquibase.databaseChangeLog.changeSets
+            val firstIdx = changesets.indexOfFirst { it.filePath.endsWith(stopBeforeFile) }
+            check(firstIdx >= 0) { "no changesets found in $stopBeforeFile" }
+            val rollbackCount = changesets.size - firstIdx
+            liquibase.rollback(rollbackCount, "")
         }
     }
 
