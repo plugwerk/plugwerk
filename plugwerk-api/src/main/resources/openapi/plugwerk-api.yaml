@@ -117,6 +117,16 @@ tags:
 
       A refresh-cookie endpoint exists at `/api/v1/auth/refresh` but is not modelled in this
       spec because it returns `Set-Cookie`, which the OpenAPI generator does not represent.
+  - name: AuthRegistration
+    description: |
+      Public self-registration flow (#420). Available only when the operator
+      has enabled `auth.self_registration_enabled`; the endpoints return 404
+      otherwise so a locked-down deployment never advertises that the
+      registration surface exists at all. Split into its own tag so the
+      generated `AuthRegistrationApi` interface and the
+      `AuthRegistrationController` implementation can co-exist alongside
+      the existing `AuthApi` / `AuthController` pair without ambiguous
+      handler mappings on the shared `Auth` interface.
   - name: Namespaces
     description: |
       Create and list namespaces.
@@ -305,7 +315,7 @@ paths:
   /auth/register:
     post:
       tags:
-        - Auth
+        - AuthRegistration
       summary: Self-register a new account (when enabled by the operator)
       description: |
         Creates a new local user account. Available only when the operator
@@ -363,7 +373,7 @@ paths:
   /auth/verify-email:
     get:
       tags:
-        - Auth
+        - AuthRegistration
       summary: Consume an email-verification token
       description: |
         Validates the single-use token sent to the user's address during

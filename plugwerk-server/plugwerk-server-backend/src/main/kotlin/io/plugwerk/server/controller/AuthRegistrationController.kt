@@ -18,6 +18,7 @@
  */
 package io.plugwerk.server.controller
 
+import io.plugwerk.api.AuthRegistrationApi
 import io.plugwerk.api.model.RegisterRequest
 import io.plugwerk.api.model.RegisterResponse
 import io.plugwerk.api.model.VerifyEmailResponse
@@ -30,15 +31,10 @@ import io.plugwerk.server.service.auth.EmailVerificationTokenService
 import io.plugwerk.server.service.mail.MailService
 import io.plugwerk.server.service.mail.MailTemplate
 import io.plugwerk.server.service.settings.ApplicationSettingsService
-import jakarta.validation.Valid
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
 import java.time.Duration
@@ -68,12 +64,11 @@ class AuthRegistrationController(
     private val mailService: MailService,
     private val rateLimitService: RegisterRateLimitService,
     private val plugwerkProperties: PlugwerkProperties,
-) {
+) : AuthRegistrationApi {
 
     private val log = LoggerFactory.getLogger(AuthRegistrationController::class.java)
 
-    @PostMapping("/auth/register")
-    fun register(@Valid @RequestBody registerRequest: RegisterRequest): ResponseEntity<RegisterResponse> {
+    override fun register(registerRequest: RegisterRequest): ResponseEntity<RegisterResponse> {
         if (!settings.selfRegistrationEnabled()) {
             // 404 (not 403) because the feature is meant to be invisible
             // when off — same shape as a route that simply doesn't exist.
@@ -158,8 +153,7 @@ class AuthRegistrationController(
         return uniformSuccessResponse(verificationRequired)
     }
 
-    @GetMapping("/auth/verify-email")
-    fun verifyEmail(@RequestParam("token") token: String): ResponseEntity<VerifyEmailResponse> {
+    override fun verifyEmail(token: String): ResponseEntity<VerifyEmailResponse> {
         if (!settings.selfRegistrationEnabled()) {
             // Same disguise as /register — operators who turned the flow
             // off don't want stale verification links to leak that the
