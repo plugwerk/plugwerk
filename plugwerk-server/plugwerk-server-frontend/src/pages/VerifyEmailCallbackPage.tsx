@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box, Button, CircularProgress, Link, Typography } from "@mui/material";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import {
@@ -63,9 +63,20 @@ export function VerifyEmailCallbackPage() {
     token ? "loading" : "missing",
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Single-fire guard against React StrictMode's double-effect in dev: the
+  // verify endpoint is single-use, so the second mount would otherwise see
+  // its sibling already consumed the token and report "already used".
+  // useRef survives the dev-only re-invocation (state is preserved across
+  // StrictMode's remount of the same component instance) but resets on a
+  // real navigation away. Production gets the same belt-and-suspenders.
+  // Note: this does NOT defend against link-preview prefetchers (Outlook
+  // safe-link, Slack/Teams) — those hit the URL before the user does and
+  // would still burn the token. Future fix: 2-step UI with explicit POST.
+  const fired = useRef(false);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || fired.current) return;
+    fired.current = true;
     let cancelled = false;
     void (async () => {
       try {
