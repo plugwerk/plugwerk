@@ -41,7 +41,7 @@ export function VerifyEmailPendingPage() {
   return (
     <AuthCard
       title="Check your inbox"
-      subtitle="We sent you a verification link"
+      subtitle="If the address is new, we just sent a verification link"
     >
       <Box
         sx={{
@@ -70,14 +70,14 @@ export function VerifyEmailPendingPage() {
         <Typography variant="body1">
           {email ? (
             <>
-              We sent a verification link to{" "}
+              If{" "}
               <Box component="strong" sx={{ fontWeight: 600 }}>
                 {email}
-              </Box>
-              .
+              </Box>{" "}
+              isn&apos;t already registered, a verification link is on its way.
             </>
           ) : (
-            "We sent a verification link to the address you provided."
+            "If the address you provided isn't already registered, a verification link is on its way."
           )}
         </Typography>
         <Typography variant="body2" color="text.secondary">
@@ -85,8 +85,16 @@ export function VerifyEmailPendingPage() {
           in 24 hours.
         </Typography>
         <Typography variant="caption" color="text.disabled" sx={{ mt: 1 }}>
-          Didn&apos;t get the email? Check your spam folder, or contact your
-          administrator if the address looks wrong.
+          No email? Check your spam folder. If the address is already in use,
+          no new email is sent — try{" "}
+          <Box component="strong" sx={{ fontWeight: 600 }}>
+            signing in
+          </Box>{" "}
+          or use{" "}
+          <Box component="strong" sx={{ fontWeight: 600 }}>
+            forgot password
+          </Box>
+          .
         </Typography>
       </Box>
       <Box sx={{ textAlign: "center", mt: 2 }}>

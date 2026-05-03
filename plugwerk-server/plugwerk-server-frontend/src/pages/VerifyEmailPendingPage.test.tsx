@@ -65,4 +65,18 @@ describe("VerifyEmailPendingPage", () => {
     renderAt();
     expect(screen.getByText(/the address you provided/i)).toBeInTheDocument();
   });
+
+  it("uses anti-enumeration-safe copy that doesn't promise an email was sent", () => {
+    renderAt({ email: "alice@example.com" });
+    // Anti-enumeration: the controller silently swallows username/email
+    // collisions and returns the same response shape as a successful
+    // registration. The UI must therefore not assert that an email was
+    // actually sent — both branches need to fit one truthful sentence.
+    expect(
+      screen.getByText(/isn't already registered/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/if the address is already in use/i),
+    ).toBeInTheDocument();
+  });
 });
