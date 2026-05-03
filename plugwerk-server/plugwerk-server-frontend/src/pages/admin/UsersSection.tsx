@@ -148,10 +148,22 @@ export function UsersSection() {
           <Typography variant="body2" fontWeight={500}>
             {user.displayName}
           </Typography>
-          {user.username && user.username !== user.displayName && (
+          {user.source === "EXTERNAL" && user.providerName ? (
+            // EXTERNAL: provider name disambiguates two same-named users from
+            // different IdPs (e.g. a Google "Alice" and a Keycloak "Alice").
+            // Same priority as the namespace member picker (#412) — provider
+            // wins over username because for OIDC the username is just the
+            // IdP-assigned subject claim and rarely useful at a glance.
             <Typography variant="caption" color="text.secondary">
-              ({user.username})
+              ({user.providerName})
             </Typography>
+          ) : (
+            user.username &&
+            user.username !== user.displayName && (
+              <Typography variant="caption" color="text.secondary">
+                ({user.username})
+              </Typography>
+            )
           )}
           {user.isSuperadmin && (
             <Chip
