@@ -98,16 +98,60 @@ describe("EmailTemplatesListPage", () => {
     expect(screen.getByText("Custom subject for reset")).toBeInTheDocument();
   });
 
-  it("shows 'Customised' chip only on rows with source=DATABASE", () => {
+  it("shows 'Edited <when> by <who>' on overrides and 'Factory default' on others", () => {
+    useEmailTemplatesStore.setState({
+      templates: [
+        template({
+          key: "auth.password_reset",
+          source: MailTemplateResponseSourceEnum.Database,
+          subject: "Custom subject for reset",
+          // Pin a fixed timestamp so the relative-time formatter renders
+          // a deterministic suffix regardless of when the test runs.
+          updatedAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+          updatedBy: "admin",
+        }),
+        template({
+          key: "auth.registration_verification",
+          source: MailTemplateResponseSourceEnum.Default,
+          subject: "Verify your account",
+        }),
+      ],
+      loaded: true,
+      loading: false,
+      saving: false,
+      error: null,
+    });
     renderWithRouterAt(
       <EmailTemplatesListPage />,
       "/admin/email/templates",
       "/admin/email/templates",
     );
 
-    const chips = screen.getAllByText("Customised");
-    // Only the first (overridden) row carries the chip.
-    expect(chips).toHaveLength(1);
+    expect(screen.getByText(/^Edited 3d ago by admin$/)).toBeInTheDocument();
+    expect(screen.getByText("Factory default")).toBeInTheDocument();
+  });
+
+  it("omits 'by <who>' when updatedBy is missing", () => {
+    useEmailTemplatesStore.setState({
+      templates: [
+        template({
+          source: MailTemplateResponseSourceEnum.Database,
+          updatedAt: new Date(Date.now() - 86_400_000).toISOString(),
+          updatedBy: undefined,
+        }),
+      ],
+      loaded: true,
+      loading: false,
+      saving: false,
+      error: null,
+    });
+    renderWithRouterAt(
+      <EmailTemplatesListPage />,
+      "/admin/email/templates",
+      "/admin/email/templates",
+    );
+
+    expect(screen.getByText(/^Edited 1d ago$/)).toBeInTheDocument();
   });
 
   it("calls store.load() on first mount when not yet loaded", async () => {

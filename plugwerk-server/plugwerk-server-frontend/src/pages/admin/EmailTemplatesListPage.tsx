@@ -20,7 +20,6 @@ import { useEffect } from "react";
 import {
   Alert,
   Box,
-  Chip,
   CircularProgress,
   Stack,
   Typography,
@@ -34,16 +33,18 @@ import { useUiStore } from "../../stores/uiStore";
 import { tokens } from "../../theme/tokens";
 import type { MailTemplateResponse } from "../../api/generated/model/mail-template-response";
 import { MailTemplateResponseSourceEnum } from "../../api/generated/model/mail-template-response";
+import { formatRelativeTime } from "../../utils/formatDateTime";
 
 /**
  * List view for the `/admin/email/templates` admin area (#438).
  *
  * The registry is closed — this page never renders an "add template" CTA.
  * Each row is a navigable, full-width press target (touch-friendly, also
- * keyboard-accessible via `role="button"`). The Customised chip is the
- * only signal of override state; rows that fall through to enum defaults
- * stay quiet and unlabelled, mirroring the editorial principle of "noise
- * only when there's something to say".
+ * keyboard-accessible via `role="button"`). Edit history (`Edited X ago by
+ * <user>`) replaces the previous opaque `Customised` chip — rows on the
+ * factory default get a muted `Factory default` caption for symmetry. Both
+ * carry the same audit information the backend already returns, just made
+ * visible.
  */
 export function EmailTemplatesListPage() {
   const navigate = useNavigate();
@@ -117,7 +118,7 @@ function TemplateRow({ template, onClick }: TemplateRowProps) {
       aria-label={`Edit ${template.friendlyName} template`}
       sx={{
         display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) auto auto",
+        gridTemplateColumns: "minmax(0, 1fr) auto",
         alignItems: "center",
         columnGap: 3,
         rowGap: 1,
@@ -172,6 +173,7 @@ function TemplateRow({ template, onClick }: TemplateRowProps) {
           color="text.secondary"
           sx={{
             ml: 3.5,
+            mb: 0.5,
             overflow: "hidden",
             textOverflow: "ellipsis",
             display: "-webkit-box",
@@ -181,22 +183,12 @@ function TemplateRow({ template, onClick }: TemplateRowProps) {
         >
           {template.subject}
         </Typography>
-      </Box>
-
-      {isCustomised ? (
-        <Chip
-          label="Customised"
-          size="small"
-          sx={{
-            bgcolor: tokens.badge.tag.bg,
-            color: tokens.badge.tag.text,
-            fontWeight: 600,
-            letterSpacing: 0.2,
-          }}
+        <EditAttribution
+          isCustomised={isCustomised}
+          updatedAt={template.updatedAt}
+          updatedBy={template.updatedBy}
         />
-      ) : (
-        <Box sx={{ width: 0 }} />
-      )}
+      </Box>
 
       <Box
         className="row-arrow"
@@ -210,5 +202,68 @@ function TemplateRow({ template, onClick }: TemplateRowProps) {
         <ChevronRight size={18} />
       </Box>
     </Box>
+  );
+}
+
+interface EditAttributionProps {
+  isCustomised: boolean;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+/**
+ * Caption that replaces the previous "Customised" chip.
+ *
+ * - Override row → `Edited 2 days ago by admin`, primary-tinted so the row
+ *   reads as deliberate work
+ * - Default row → `Factory default`, muted so the page surfaces only what
+ *   needs attention
+ *
+ * `updatedBy` may be absent (older rows pre-#438, or a row written via a
+ * future automation) — the "by" clause is omitted then rather than printing
+ * the awkward `by undefined`.
+ */
+function EditAttribution({
+  isCustomised,
+  updatedAt,
+  updatedBy,
+}: EditAttributionProps) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+
+  if (!isCustomised) {
+    return (
+      <Typography
+        variant="caption"
+        sx={{
+          ml: 3.5,
+          color: "text.disabled",
+          fontStyle: "italic",
+          letterSpacing: 0.2,
+        }}
+      >
+        Factory default
+      </Typography>
+    );
+  }
+
+  const when = updatedAt ? formatRelativeTime(updatedAt) : null;
+  const who = updatedBy?.trim();
+  const fragments: string[] = ["Edited"];
+  if (when && when !== "—") fragments.push(when);
+  if (who) fragments.push(`by ${who}`);
+
+  return (
+    <Typography
+      variant="caption"
+      sx={{
+        ml: 3.5,
+        color: isDark ? tokens.color.primaryLight : tokens.color.primaryDark,
+        fontWeight: 500,
+        letterSpacing: 0.2,
+      }}
+    >
+      {fragments.join(" ")}
+    </Typography>
   );
 }

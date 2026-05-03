@@ -38,6 +38,7 @@ import {
   alpha,
   useTheme,
 } from "@mui/material";
+import { formatRelativeTime } from "../../utils/formatDateTime";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -312,28 +313,9 @@ export function EmailTemplateEditPage() {
         >
           All templates
         </Button>
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={1.5}
-          flexWrap="wrap"
-          rowGap={1}
-        >
-          <Typography variant="h2" sx={{ lineHeight: 1.1 }}>
-            {template.friendlyName}
-          </Typography>
-          {isCustomised && (
-            <Chip
-              label="Customised"
-              size="small"
-              sx={{
-                bgcolor: tokens.badge.tag.bg,
-                color: tokens.badge.tag.text,
-                fontWeight: 600,
-              }}
-            />
-          )}
-        </Stack>
+        <Typography variant="h2" sx={{ lineHeight: 1.1 }}>
+          {template.friendlyName}
+        </Typography>
         <Typography
           variant="caption"
           color="text.secondary"
@@ -345,6 +327,11 @@ export function EmailTemplateEditPage() {
         >
           {template.key} · {template.locale}
         </Typography>
+        <EditAttribution
+          isCustomised={isCustomised}
+          updatedAt={template.updatedAt}
+          updatedBy={template.updatedBy}
+        />
       </Box>
 
       <PlaceholderReference
@@ -732,6 +719,65 @@ function DefaultDiff({ label, value, monospace, multiline }: DefaultDiffProps) {
         </Box>
       </Collapse>
     </Box>
+  );
+}
+
+interface EditAttributionProps {
+  isCustomised: boolean;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+/**
+ * Inline audit caption: `Edited 2 days ago by admin` for overrides,
+ * `Factory default` (muted) for un-customised templates. Replaces the
+ * earlier opaque `Customised` chip — same audit data the API already
+ * returns, just made visible.
+ */
+function EditAttribution({
+  isCustomised,
+  updatedAt,
+  updatedBy,
+}: EditAttributionProps) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+
+  if (!isCustomised) {
+    return (
+      <Typography
+        variant="caption"
+        sx={{
+          display: "block",
+          mt: 0.75,
+          color: "text.disabled",
+          fontStyle: "italic",
+          letterSpacing: 0.2,
+        }}
+      >
+        Factory default
+      </Typography>
+    );
+  }
+
+  const when = updatedAt ? formatRelativeTime(updatedAt) : null;
+  const who = updatedBy?.trim();
+  const fragments: string[] = ["Edited"];
+  if (when && when !== "—") fragments.push(when);
+  if (who) fragments.push(`by ${who}`);
+
+  return (
+    <Typography
+      variant="caption"
+      sx={{
+        display: "block",
+        mt: 0.75,
+        color: isDark ? tokens.color.primaryLight : tokens.color.primaryDark,
+        fontWeight: 500,
+        letterSpacing: 0.2,
+      }}
+    >
+      {fragments.join(" ")}
+    </Typography>
   );
 }
 
