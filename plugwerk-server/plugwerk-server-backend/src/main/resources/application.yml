@@ -55,6 +55,12 @@ plugwerk:
       root: ${PLUGWERK_STORAGE_ROOT:/var/plugwerk/artifacts}
   server:
     base-url: ${PLUGWERK_BASE_URL:http://localhost:8080}
+    # Frontend base URL for browser-facing links emitted by the server (e.g. the
+    # verification link in #420 self-registration emails). Defaults to base-url
+    # because the bundled-SPA deployment serves both from the same origin. Override
+    # in local dev where Vite runs on a different port:
+    #   PLUGWERK_WEB_BASE_URL=http://localhost:5173
+    web-base-url: ${PLUGWERK_WEB_BASE_URL:}
     # CORS configuration. See ADR-0021.
     # Default allowed-origins is empty = same-origin-only, which matches the bundled-frontend
     # deployment model. Add origins only if the frontend is deployed separately from the backend.

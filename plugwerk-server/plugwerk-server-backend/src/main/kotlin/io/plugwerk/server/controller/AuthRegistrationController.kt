@@ -182,7 +182,11 @@ class AuthRegistrationController(
     }
 
     private fun buildVerificationLink(rawToken: String): String {
-        val base = plugwerkProperties.server.baseUrl.trimEnd('/')
+        // The link is opened by a human in a browser, so it must point at the
+        // SPA — which in local dev lives on a different port than the API. The
+        // ServerProperties getter falls back to `baseUrl` when the operator
+        // hasn't overridden it, preserving same-origin production deployments.
+        val base = plugwerkProperties.server.effectiveWebBaseUrl().trimEnd('/')
         return "$base/verify-email?token=$rawToken"
     }
 
