@@ -256,6 +256,8 @@ paths:
                     - id: "keycloak-local"
                       name: "Keycloak Local"
                       loginUrl: "/oauth2/authorization/keycloak-local"
+                      iconKind: "OIDC"
+                  selfRegistrationEnabled: false
 
   /auth/login:
     post:
@@ -284,8 +286,12 @@ paths:
             schema:
               $ref: '#/components/schemas/LoginRequest'
             example:
-              username: admin
-              password: changeme
+              # Placeholder credentials — do NOT seed the bootstrap-default
+              # `admin / changeme` pair here, even though it works on a fresh
+              # install. Swagger UI's "Try it out" would otherwise auto-login
+              # as superadmin from the public docs page.
+              username: alice
+              password: your-strong-password
       responses:
         '200':
           description: Login successful — returns a JWT Bearer token
@@ -2254,13 +2260,11 @@ components:
           type: string
           minLength: 1
           description: The account username
-          example: admin
         password:
           type: string
           format: password
           minLength: 1
           description: The account password (transmitted over HTTPS, never stored in plain text)
-          example: changeme
       required:
         - username
         - password
@@ -2324,13 +2328,11 @@ components:
             When `true`, the user must change their password before accessing any resource.
             The frontend should redirect to the change-password page immediately after login.
             Always `false` for OIDC users (they have no Plugwerk-side password).
-          example: false
         isSuperadmin:
           type: boolean
           description: |
             When `true`, the user has global superadmin privileges.
             Used by the frontend to conditionally show admin UI elements.
-          example: false
       required:
         - accessToken
         - tokenType
@@ -2450,24 +2452,30 @@ components:
 
     ErrorResponse:
       type: object
-      description: Standard error response body returned for all 4xx and 5xx responses
+      description: |
+        Standard error response body returned for all 4xx and 5xx
+        responses. The `status`, `error`, and `message` fields vary by
+        endpoint and failure mode — schema-level examples would be
+        misleading because the same envelope is reused for everything
+        from `400 BAD_REQUEST` validation failures to `503 SERVICE_UNAVAILABLE`
+        infrastructure outages. Per-response `examples` blocks on
+        individual endpoints carry the realistic shape for that case.
       properties:
         status:
           type: integer
-          description: HTTP status code (mirrors the response status)
-          example: 404
+          description: HTTP status code (mirrors the response status).
         error:
           type: string
-          description: Short machine-readable error code (e.g. `NOT_FOUND`, `VALIDATION_ERROR`)
-          example: NOT_FOUND
+          description: |
+            Short machine-readable error code (e.g. `NOT_FOUND`,
+            `BAD_REQUEST`, `SERVICE_UNAVAILABLE`).
         message:
           type: string
-          description: Human-readable description of what went wrong
-          example: Plugin 'com.example.my-plugin' not found in namespace 'acme-core'
+          description: Human-readable description of what went wrong.
         timestamp:
           type: string
           format: date-time
-          description: ISO-8601 timestamp of when the error occurred
+          description: ISO-8601 timestamp of when the error occurred.
       required:
         - status
         - error
@@ -2889,14 +2897,18 @@ components:
 
     ReviewDecisionRequest:
       type: object
-      description: Optional comment to attach to an approve or reject decision
+      description: |
+        Optional comment to attach to an approve or reject decision. The
+        same schema is reused for both verdicts via `$ref` — the
+        per-endpoint examples on `POST /reviews/{releaseId}/approve` and
+        `POST /reviews/{releaseId}/reject` carry the contextually correct
+        sample comment for each verb.
       properties:
         comment:
           type: string
           description: |
             Human-readable comment explaining the decision. Strongly recommended for
             rejections so the publisher knows what needs to be fixed.
-          example: Approved after manual artifact verification.
 
     PluginPagedResponse:
       type: object
@@ -3572,12 +3584,11 @@ components:
                 and registered in Spring Security's OAuth2 client registry. Empty
                 when no provider has been activated. The frontend renders one
                 "Login with `<name>`" button per entry on the login page (issue #79).
+                The endpoint-level example on `GET /config` shows a representative
+                payload — the schema deliberately carries no example so it does
+                not drift behind newer `OidcProviderLoginInfo` fields.
               items:
                 $ref: '#/components/schemas/OidcProviderLoginInfo'
-              example:
-                - id: "keycloak-local"
-                  name: "Keycloak Local"
-                  loginUrl: "/oauth2/authorization/keycloak-local"
             selfRegistrationEnabled:
               type: boolean
               description: |
@@ -4048,7 +4059,7 @@ components:
           description: Map of setting key to effective value
           example:
             preferred_language: "en"
-            default_namespace: "acme-corp"
+            default_namespace: "acme-core"
             theme: "system"
       required:
         - settings
