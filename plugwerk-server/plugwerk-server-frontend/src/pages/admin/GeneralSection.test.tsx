@@ -73,6 +73,20 @@ const SAMPLE_SETTINGS: ApplicationSettingDto[] = [
     valueType: "BOOLEAN",
     description: "Master switch for download tracking.",
   }),
+  dto({
+    key: "auth.self_registration_enabled",
+    value: "false",
+    valueType: "BOOLEAN",
+    description:
+      "Master switch for the public /auth/register endpoint. When false the endpoint and the corresponding 'Sign up' link on the login page are hidden (404).",
+  }),
+  dto({
+    key: "auth.self_registration_email_verification_required",
+    value: "true",
+    valueType: "BOOLEAN",
+    description:
+      "When true (recommended) the new account stays disabled until the user clicks the link in the verification email.",
+  }),
 ];
 
 describe("GeneralSection", () => {
@@ -213,6 +227,67 @@ describe("GeneralSection", () => {
     expect(
       vi.mocked(apiConfig.adminSettingsApi.updateApplicationSettings),
     ).not.toHaveBeenCalled();
+  });
+
+  it("renders both self-registration toggles in the dedicated section", async () => {
+    vi.mocked(
+      apiConfig.adminSettingsApi.listApplicationSettings,
+    ).mockResolvedValue({
+      data: { settings: SAMPLE_SETTINGS },
+    } as never);
+
+    renderWithTheme(<GeneralSection />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Self-Registration")).toBeInTheDocument();
+    });
+    const enableToggle = screen.getByLabelText("Self Registration Enabled");
+    expect(enableToggle).not.toBeChecked();
+    const verifyToggle = screen.getByLabelText(
+      "Self Registration Email Verification Required",
+    );
+    expect(verifyToggle).toBeChecked();
+  });
+
+  it("sends the self-registration toggle change to updateApplicationSettings", async () => {
+    vi.mocked(
+      apiConfig.adminSettingsApi.listApplicationSettings,
+    ).mockResolvedValue({
+      data: { settings: SAMPLE_SETTINGS },
+    } as never);
+    vi.mocked(
+      apiConfig.adminSettingsApi.updateApplicationSettings,
+    ).mockResolvedValue({
+      data: {
+        settings: SAMPLE_SETTINGS.map((s) =>
+          s.key === "auth.self_registration_enabled"
+            ? { ...s, value: "true" }
+            : s,
+        ),
+      },
+    } as never);
+    const user = userEvent.setup();
+
+    renderWithTheme(<GeneralSection />);
+
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText("Self Registration Enabled"),
+      ).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByLabelText("Self Registration Enabled"));
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => {
+      expect(
+        vi.mocked(apiConfig.adminSettingsApi.updateApplicationSettings),
+      ).toHaveBeenCalledWith({
+        applicationSettingsUpdateRequest: {
+          settings: { "auth.self_registration_enabled": "true" },
+        },
+      });
+    });
   });
 
   it("renders a restart-pending alert when any setting has restartPending=true", async () => {
