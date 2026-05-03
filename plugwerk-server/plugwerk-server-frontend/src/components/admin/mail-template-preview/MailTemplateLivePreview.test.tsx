@@ -19,7 +19,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MailTemplatePreviewDrawer } from "./MailTemplatePreviewDrawer";
+import { MailTemplateLivePreview } from "./MailTemplateLivePreview";
 import { renderWithTheme } from "../../../test/renderWithTheme";
 import { useEmailTemplatesStore } from "../../../stores/emailTemplatesStore";
 import * as apiConfig from "../../../api/config";
@@ -68,7 +68,7 @@ function mockPreview(
   >);
 }
 
-describe("MailTemplatePreviewDrawer", () => {
+describe("MailTemplateLivePreview", () => {
   beforeEach(() => {
     useEmailTemplatesStore.setState({
       templates: [],
@@ -80,14 +80,11 @@ describe("MailTemplatePreviewDrawer", () => {
     vi.clearAllMocks();
   });
 
-  it("calls preview API on open and renders subject + plaintext body", async () => {
+  it("fires preview API on mount and reaches Live status", async () => {
     mockPreview();
     renderWithTheme(
-      <MailTemplatePreviewDrawer
-        open={true}
-        onClose={() => {}}
+      <MailTemplateLivePreview
         templateKey="auth.password_reset"
-        templateFriendlyName="Auth · Password Reset"
         draft={DRAFT}
         placeholders={["username", "resetLink", "expiresAtHuman"]}
       />,
@@ -105,12 +102,9 @@ describe("MailTemplatePreviewDrawer", () => {
         }),
       });
     });
-    // Header shows the rendered subject. The HTML tab is the default
-    // when an HTML body is present, so look in the iframe for HTML
-    // and switch to plain to verify the plaintext rendered text.
     await waitFor(() => {
       expect(
-        screen.getByText("Reset for Alice", { selector: "*" }),
+        screen.getByRole("status", { name: /Preview status: Live/i }),
       ).toBeInTheDocument();
     });
   });
@@ -118,11 +112,8 @@ describe("MailTemplatePreviewDrawer", () => {
   it("disables the HTML tab when the draft has no HTML body", async () => {
     mockPreview({ bodyHtml: null });
     renderWithTheme(
-      <MailTemplatePreviewDrawer
-        open={true}
-        onClose={() => {}}
+      <MailTemplateLivePreview
         templateKey="auth.password_reset"
-        templateFriendlyName="Auth · Password Reset"
         draft={{ ...DRAFT, bodyHtml: null }}
         placeholders={["username", "resetLink", "expiresAtHuman"]}
       />,
@@ -133,24 +124,17 @@ describe("MailTemplatePreviewDrawer", () => {
         apiConfig.adminEmailTemplatesApi.previewMailTemplate,
       ).toHaveBeenCalled();
     });
-    // MUI's Tab forwards `disabled` to the underlying ButtonBase as
-    // a real `disabled` attribute (not aria-disabled) — that's the
-    // assertion that matches MUI's implementation.
-    const htmlTab = screen.getByRole("tab", { name: "HTML" });
-    expect(htmlTab).toBeDisabled();
+    expect(screen.getByRole("tab", { name: "HTML" })).toBeDisabled();
   });
 
-  it("renders an inline error when the API rejects the draft", async () => {
+  it("surfaces the API error in an inline alert when the server rejects the draft", async () => {
     vi.mocked(
       apiConfig.adminEmailTemplatesApi.previewMailTemplate,
     ).mockRejectedValue(new Error("undocumented placeholder badVar"));
 
     renderWithTheme(
-      <MailTemplatePreviewDrawer
-        open={true}
-        onClose={() => {}}
+      <MailTemplateLivePreview
         templateKey="auth.password_reset"
-        templateFriendlyName="Auth · Password Reset"
         draft={DRAFT}
         placeholders={["username", "resetLink", "expiresAtHuman"]}
       />,
@@ -161,17 +145,17 @@ describe("MailTemplatePreviewDrawer", () => {
         /undocumented placeholder/,
       );
     });
+    expect(
+      screen.getByRole("status", { name: /Preview status: Error/i }),
+    ).toBeInTheDocument();
   });
 
-  it("expanding sample vars + clicking refresh re-runs preview with the edited overrides", async () => {
+  it("expanding sample vars + clicking Apply re-runs the preview with the edited overrides", async () => {
     const user = userEvent.setup();
     mockPreview();
     renderWithTheme(
-      <MailTemplatePreviewDrawer
-        open={true}
-        onClose={() => {}}
+      <MailTemplateLivePreview
         templateKey="auth.password_reset"
-        templateFriendlyName="Auth · Password Reset"
         draft={DRAFT}
         placeholders={["username", "resetLink", "expiresAtHuman"]}
       />,
@@ -183,14 +167,11 @@ describe("MailTemplatePreviewDrawer", () => {
       ).toHaveBeenCalledTimes(1);
     });
 
-    // Open the sample-vars panel and edit `username`.
     await user.click(screen.getByRole("button", { name: /Sample variables/i }));
     const usernameField = await screen.findByLabelText("{{username}}");
     await user.clear(usernameField);
     await user.type(usernameField, "Bob");
-    await user.click(
-      screen.getByRole("button", { name: /Refresh with these values/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /Apply variables/i }));
 
     await waitFor(() => {
       expect(
@@ -204,22 +185,27 @@ describe("MailTemplatePreviewDrawer", () => {
     });
   });
 
-  it("Close button fires onClose", async () => {
+  it("accordion variant collapses on header click and hides the body", async () => {
     const user = userEvent.setup();
-    const onClose = vi.fn();
     mockPreview();
     renderWithTheme(
-      <MailTemplatePreviewDrawer
-        open={true}
-        onClose={onClose}
+      <MailTemplateLivePreview
         templateKey="auth.password_reset"
-        templateFriendlyName="Auth · Password Reset"
         draft={DRAFT}
         placeholders={["username", "resetLink", "expiresAtHuman"]}
+        variant="accordion"
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: /Close preview/i }));
-    expect(onClose).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(
+        apiConfig.adminEmailTemplatesApi.previewMailTemplate,
+      ).toHaveBeenCalled();
+    });
+    // Toggle is the header itself.
+    const header = screen.getByRole("button", { name: /^Live preview/i });
+    expect(header).toHaveAttribute("aria-expanded", "true");
+    await user.click(header);
+    expect(header).toHaveAttribute("aria-expanded", "false");
   });
 });

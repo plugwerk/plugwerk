@@ -90,11 +90,12 @@ describe("EmailTemplateEditPage", () => {
     expect(plainEditor.textContent ?? "").toContain("Hello");
     expect(plainEditor.textContent ?? "").toContain("{{username}}");
     // Placeholder chips render with full {{name}} braces. There may be
-    // multiple matches (chip + decorated mustache token in the editor),
-    // so use getAllByText.
+    // multiple matches (chip + decorated mustache token in the editor +
+    // sample-vars form labels in the live preview footer), so use
+    // getAllByText for all of them.
     expect(screen.getAllByText("{{username}}").length).toBeGreaterThan(0);
     expect(screen.getAllByText("{{resetLink}}").length).toBeGreaterThan(0);
-    expect(screen.getByText("{{expiresAtHuman}}")).toBeInTheDocument();
+    expect(screen.getAllByText("{{expiresAtHuman}}").length).toBeGreaterThan(0);
   });
 
   it("renders a 404-style warning + back link when the registry key is unknown", () => {
@@ -183,7 +184,11 @@ describe("EmailTemplateEditPage", () => {
     // into the plaintext editor. We can't read CodeMirror's value via
     // .toHaveValue, so verify by triggering Save and inspecting the PUT
     // payload — that's the contract that actually matters.
-    await user.click(screen.getByText("{{expiresAtHuman}}"));
+    //
+    // Note: `{{expiresAtHuman}}` matches in two places (the chip and the
+    // live-preview sample-vars form label). The chip is the first match;
+    // grab it explicitly.
+    await user.click(screen.getAllByText("{{expiresAtHuman}}")[0]);
     await user.click(screen.getByRole("button", { name: /Save Changes/i }));
 
     await waitFor(() => {
@@ -199,8 +204,7 @@ describe("EmailTemplateEditPage", () => {
     });
   });
 
-  it("Preview button opens the drawer and triggers a preview API call with the current draft", async () => {
-    const user = userEvent.setup();
+  it("renders the live preview side-by-side and fires preview API on mount with the current draft", async () => {
     vi.mocked(
       apiConfig.adminEmailTemplatesApi.previewMailTemplate,
     ).mockResolvedValue({
@@ -219,8 +223,8 @@ describe("EmailTemplateEditPage", () => {
     >);
     renderAt();
 
-    await user.click(screen.getByRole("button", { name: /^Preview$/i }));
-
+    // The live preview panel mounts and immediately fires the preview
+    // request with the current draft — no Preview button to click.
     await waitFor(() => {
       expect(
         apiConfig.adminEmailTemplatesApi.previewMailTemplate,
@@ -233,6 +237,10 @@ describe("EmailTemplateEditPage", () => {
         }),
       });
     });
+    // Preview region is in the page from the start.
+    expect(
+      screen.getByRole("region", { name: /Mail template live preview/i }),
+    ).toBeInTheDocument();
   });
 
   it("Reset is disabled when the template is not customised", () => {

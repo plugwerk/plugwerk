@@ -36,6 +36,7 @@ import {
   TextField,
   Typography,
   alpha,
+  useMediaQuery,
   useTheme,
 } from "@mui/material";
 import { formatRelativeTime } from "../../utils/formatDateTime";
@@ -45,7 +46,6 @@ import {
   ChevronDown,
   ChevronUp,
   Code2,
-  Eye,
   FileText,
   RotateCcw,
   Variable,
@@ -57,7 +57,7 @@ import {
   MustacheCodeEditor,
   type MustacheCodeEditorHandle,
 } from "../../components/admin/mustache/MustacheCodeEditor";
-import { MailTemplatePreviewDrawer } from "../../components/admin/mail-template-preview/MailTemplatePreviewDrawer";
+import { MailTemplateLivePreview } from "../../components/admin/mail-template-preview/MailTemplateLivePreview";
 import { useEmailTemplatesStore } from "../../stores/emailTemplatesStore";
 import { useUiStore } from "../../stores/uiStore";
 import { tokens } from "../../theme/tokens";
@@ -116,6 +116,7 @@ function isDirty(draft: DraftState, template: MailTemplateResponse): boolean {
 export function EmailTemplateEditPage() {
   const params = useParams<{ key: string }>();
   const navigate = useNavigate();
+  const theme = useTheme();
   const templateKey = params.key ?? "";
 
   const templates = useEmailTemplatesStore((s) => s.templates);
@@ -135,7 +136,10 @@ export function EmailTemplateEditPage() {
   const [draft, setDraft] = useState<DraftState | null>(null);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [showHtmlEditor, setShowHtmlEditor] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  // Side-by-side on desktop, stacked accordion on tablet/mobile so the
+  // editor stays readable. Hook is here (above the early-return paths)
+  // because hook order must stay stable across renders.
+  const sideBySide = useMediaQuery(theme.breakpoints.up("md"));
 
   const subjectRef = useRef<HTMLInputElement>(null);
   const bodyPlainEditor = useRef<MustacheCodeEditorHandle | null>(null);
@@ -342,120 +346,157 @@ export function EmailTemplateEditPage() {
         onInsert={handleInsertPlaceholder}
       />
 
-      <Section
-        contentGap={1.5}
-        icon={<FileText size={18} />}
-        title="Subject"
-        description="Single-line message subject. Mustache variables resolve at send time."
+      {/*
+       * Two-column workspace on desktop (≥md): editor stack on the left,
+       * live preview on the right. The right column is sticky inside its
+       * cell so the preview stays in view while the operator scrolls
+       * through the editors. Below md the columns stack and the preview
+       * collapses into an accordion under the editors so it doesn't push
+       * the action bar off-screen on mobile.
+       */}
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "1fr",
+            md: "minmax(0, 1.35fr) minmax(0, 1fr)",
+          },
+          gap: 3,
+          alignItems: "start",
+        }}
       >
-        <TextField
-          size="small"
-          fullWidth
-          value={draft.subject}
-          onChange={(e) => setField("subject", e.target.value)}
-          onFocus={() => {
-            lastFocusedRef.current = "subject";
-          }}
-          inputRef={subjectRef}
-          disabled={saving}
-          inputProps={{ "aria-label": "Subject" }}
-          sx={{
-            "& .MuiInputBase-input": {
-              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-              fontSize: "0.9rem",
-            },
-          }}
-        />
-        <DefaultDiff label="Default subject" value={template.defaultSubject} />
-      </Section>
-
-      <Section
-        contentGap={1.5}
-        icon={<FileText size={18} />}
-        title="Plaintext body"
-        description="Always required. Sent as text/plain to mail clients without HTML support."
-      >
-        <MustacheCodeEditor
-          value={draft.bodyPlain}
-          onChange={(next) => setField("bodyPlain", next)}
-          placeholders={template.placeholders}
-          language="plain"
-          ariaLabel="Plaintext body"
-          minHeight="300px"
-          disabled={saving}
-          onFocus={() => {
-            lastFocusedRef.current = "bodyPlain";
-          }}
-          editorRef={bodyPlainEditor}
-        />
-        <DefaultDiff
-          label="Default plaintext body"
-          value={template.defaultBodyPlain}
-          monospace
-          multiline
-        />
-      </Section>
-
-      <Section
-        contentGap={1.5}
-        icon={<Code2 size={18} />}
-        title="HTML body"
-        description={
-          showHtmlEditor
-            ? "Optional. When set, sends multipart/alternative so HTML-capable clients render the rich version."
-            : "Optional. Toggle on to add an HTML alternative for HTML-capable clients."
-        }
-      >
-        <FormControlLabel
-          sx={{ mt: -0.5 }}
-          control={
-            <Switch
-              checked={showHtmlEditor}
-              onChange={(e) => {
-                const next = e.target.checked;
-                setShowHtmlEditor(next);
-                if (next && !draft.bodyHtml) {
-                  // Seed the editor with the enum default when adding HTML
-                  // for the first time — gives the admin a working starting
-                  // point rather than a blank canvas.
-                  setField("bodyHtml", template.defaultBodyHtml ?? "");
-                }
-                if (!next) {
-                  setField("bodyHtml", null);
-                }
+        <Stack spacing={3} sx={{ minWidth: 0 }}>
+          <Section
+            contentGap={1.5}
+            icon={<FileText size={18} />}
+            title="Subject"
+            description="Single-line message subject. Mustache variables resolve at send time."
+          >
+            <TextField
+              size="small"
+              fullWidth
+              value={draft.subject}
+              onChange={(e) => setField("subject", e.target.value)}
+              onFocus={() => {
+                lastFocusedRef.current = "subject";
               }}
+              inputRef={subjectRef}
               disabled={saving}
-              inputProps={{ "aria-label": "Add HTML alternative" }}
+              inputProps={{ "aria-label": "Subject" }}
+              sx={{
+                "& .MuiInputBase-input": {
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                  fontSize: "0.9rem",
+                },
+              }}
             />
-          }
-          label={showHtmlEditor ? "HTML alternative enabled" : "Plaintext only"}
-        />
-        <Collapse in={showHtmlEditor} timeout={200} unmountOnExit>
-          <Stack spacing={1.5} sx={{ mt: 1 }}>
+            <DefaultDiff
+              label="Default subject"
+              value={template.defaultSubject}
+            />
+          </Section>
+
+          <Section
+            contentGap={1.5}
+            icon={<FileText size={18} />}
+            title="Plaintext body"
+            description="Always required. Sent as text/plain to mail clients without HTML support."
+          >
             <MustacheCodeEditor
-              value={draft.bodyHtml ?? ""}
-              onChange={(next) => setField("bodyHtml", next)}
+              value={draft.bodyPlain}
+              onChange={(next) => setField("bodyPlain", next)}
               placeholders={template.placeholders}
-              language="html"
-              ariaLabel="HTML body"
-              minHeight="380px"
+              language="plain"
+              ariaLabel="Plaintext body"
+              minHeight="300px"
               disabled={saving}
               onFocus={() => {
-                lastFocusedRef.current = "bodyHtml";
+                lastFocusedRef.current = "bodyPlain";
               }}
-              editorRef={bodyHtmlEditor}
+              editorRef={bodyPlainEditor}
             />
-            {hasDefaultHtml && (
-              <DefaultDiff
-                label="Default HTML body"
-                value={template.defaultBodyHtml ?? ""}
-                monospace
-                multiline
-              />
-            )}
-          </Stack>
-        </Collapse>
-      </Section>
+            <DefaultDiff
+              label="Default plaintext body"
+              value={template.defaultBodyPlain}
+              monospace
+              multiline
+            />
+          </Section>
+
+          <Section
+            contentGap={1.5}
+            icon={<Code2 size={18} />}
+            title="HTML body"
+            description={
+              showHtmlEditor
+                ? "Optional. When set, sends multipart/alternative so HTML-capable clients render the rich version."
+                : "Optional. Toggle on to add an HTML alternative for HTML-capable clients."
+            }
+          >
+            <FormControlLabel
+              sx={{ mt: -0.5 }}
+              control={
+                <Switch
+                  checked={showHtmlEditor}
+                  onChange={(e) => {
+                    const next = e.target.checked;
+                    setShowHtmlEditor(next);
+                    if (next && !draft.bodyHtml) {
+                      // Seed the editor with the enum default when
+                      // adding HTML for the first time.
+                      setField("bodyHtml", template.defaultBodyHtml ?? "");
+                    }
+                    if (!next) {
+                      setField("bodyHtml", null);
+                    }
+                  }}
+                  disabled={saving}
+                  inputProps={{ "aria-label": "Add HTML alternative" }}
+                />
+              }
+              label={
+                showHtmlEditor ? "HTML alternative enabled" : "Plaintext only"
+              }
+            />
+            <Collapse in={showHtmlEditor} timeout={200} unmountOnExit>
+              <Stack spacing={1.5} sx={{ mt: 1 }}>
+                <MustacheCodeEditor
+                  value={draft.bodyHtml ?? ""}
+                  onChange={(next) => setField("bodyHtml", next)}
+                  placeholders={template.placeholders}
+                  language="html"
+                  ariaLabel="HTML body"
+                  minHeight="380px"
+                  disabled={saving}
+                  onFocus={() => {
+                    lastFocusedRef.current = "bodyHtml";
+                  }}
+                  editorRef={bodyHtmlEditor}
+                />
+                {hasDefaultHtml && (
+                  <DefaultDiff
+                    label="Default HTML body"
+                    value={template.defaultBodyHtml ?? ""}
+                    monospace
+                    multiline
+                  />
+                )}
+              </Stack>
+            </Collapse>
+          </Section>
+        </Stack>
+
+        <MailTemplateLivePreview
+          templateKey={template.key}
+          draft={{
+            subject: draft.subject,
+            bodyPlain: draft.bodyPlain,
+            bodyHtml: showHtmlEditor ? draft.bodyHtml : null,
+          }}
+          placeholders={template.placeholders}
+          variant={sideBySide ? "panel" : "accordion"}
+        />
+      </Box>
 
       <Box
         sx={{
@@ -478,14 +519,6 @@ export function EmailTemplateEditPage() {
         </Button>
         <Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
           <Button
-            variant="outlined"
-            startIcon={<Eye size={16} />}
-            onClick={() => setPreviewOpen(true)}
-            sx={{ borderRadius: tokens.radius.btn }}
-          >
-            Preview
-          </Button>
-          <Button
             variant="text"
             onClick={handleDiscard}
             disabled={!dirty || saving}
@@ -503,19 +536,6 @@ export function EmailTemplateEditPage() {
           </Button>
         </Box>
       </Box>
-
-      <MailTemplatePreviewDrawer
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
-        templateKey={template.key}
-        templateFriendlyName={template.friendlyName}
-        draft={{
-          subject: draft.subject,
-          bodyPlain: draft.bodyPlain,
-          bodyHtml: showHtmlEditor ? draft.bodyHtml : null,
-        }}
-        placeholders={template.placeholders}
-      />
 
       <ResetConfirmDialog
         open={resetDialogOpen}
