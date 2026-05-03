@@ -28,6 +28,8 @@ import io.plugwerk.server.security.RefreshRateLimitFilter
 import io.plugwerk.server.service.mail.MailTemplate
 import io.plugwerk.server.service.mail.MailTemplateService
 import io.plugwerk.server.service.mail.MailTemplateView
+import io.plugwerk.server.service.mail.PreviewResult
+import io.plugwerk.server.service.mail.RenderedMail
 import io.plugwerk.server.service.mail.TemplateSource
 import io.plugwerk.server.service.settings.ApplicationSettingsService
 import org.junit.jupiter.api.AfterEach
@@ -55,6 +57,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
 import java.time.OffsetDateTime
 
@@ -295,6 +298,117 @@ class AdminEmailTemplatesControllerTest {
 
         mockMvc.delete("/api/v1/admin/email/templates/auth.password_reset").andExpect {
             status { isNoContent() }
+        }
+    }
+
+    @Test
+    fun `POST preview returns rendered subject + bodies + sample vars used`() {
+        whenever(
+            templates.previewWith(
+                eq(MailTemplate.AUTH_PASSWORD_RESET),
+                any(),
+                any(),
+                anyOrNull(),
+                any(),
+            ),
+        ).thenReturn(
+            PreviewResult(
+                rendered = RenderedMail(
+                    subject = "Reset for Bob",
+                    bodyPlain = "Hi Bob, click https://example.com/r?t=xyz",
+                    bodyHtml = "<p>Hi Bob, <a href=\"https://example.com/r?t=xyz\">reset</a></p>",
+                ),
+                sampleVars = mapOf(
+                    "username" to "Bob",
+                    "resetLink" to "https://example.com/r?t=xyz",
+                    "expiresAtHuman" to "in 30 minutes",
+                ),
+            ),
+        )
+
+        mockMvc.post("/api/v1/admin/email/templates/auth.password_reset/preview") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "subject": "Reset for {{username}}",
+                  "bodyPlain": "Hi {{username}}, click {{resetLink}}",
+                  "bodyHtml": "<p>Hi {{username}}, <a href=\"{{resetLink}}\">reset</a></p>",
+                  "sampleVars": { "username": "Bob" }
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.subject") { value("Reset for Bob") }
+            jsonPath("$.bodyPlain") { value("Hi Bob, click https://example.com/r?t=xyz") }
+            jsonPath("$.bodyHtml") {
+                value("<p>Hi Bob, <a href=\"https://example.com/r?t=xyz\">reset</a></p>")
+            }
+            jsonPath("$.sampleVars.username") { value("Bob") }
+        }
+    }
+
+    @Test
+    fun `POST preview returns 400 when service rejects an undocumented placeholder`() {
+        whenever(
+            templates.previewWith(
+                eq(MailTemplate.AUTH_PASSWORD_RESET),
+                any(),
+                any(),
+                anyOrNull(),
+                any(),
+            ),
+        ).doThrow(IllegalArgumentException("Template references undocumented variables"))
+
+        mockMvc.post("/api/v1/admin/email/templates/auth.password_reset/preview") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"subject":"x","bodyPlain":"{{badVar}}"}"""
+        }.andExpect {
+            status { isBadRequest() }
+        }
+    }
+
+    @Test
+    fun `POST preview returns 404 for unknown registry key without touching the service`() {
+        mockMvc.post("/api/v1/admin/email/templates/unknown.key/preview") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"subject":"x","bodyPlain":"y"}"""
+        }.andExpect {
+            status { isNotFound() }
+        }
+        verify(templates, never()).previewWith(any(), any(), any(), anyOrNull(), any())
+    }
+
+    @Test
+    fun `POST preview accepts null bodyHtml and forwards it as-is`() {
+        whenever(
+            templates.previewWith(
+                eq(MailTemplate.AUTH_PASSWORD_RESET),
+                any(),
+                any(),
+                anyOrNull(),
+                any(),
+            ),
+        ).thenReturn(
+            PreviewResult(
+                rendered = RenderedMail(
+                    subject = "Reset",
+                    bodyPlain = "Hi Alice",
+                    bodyHtml = null,
+                ),
+                sampleVars = mapOf(
+                    "username" to "Alice",
+                    "resetLink" to "https://x",
+                    "expiresAtHuman" to "soon",
+                ),
+            ),
+        )
+
+        mockMvc.post("/api/v1/admin/email/templates/auth.password_reset/preview") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"subject":"Reset","bodyPlain":"Hi {{username}}","bodyHtml":null}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.bodyHtml") { value(null) }
         }
     }
 

@@ -45,6 +45,7 @@ import {
   ChevronDown,
   ChevronUp,
   Code2,
+  Eye,
   FileText,
   RotateCcw,
   Variable,
@@ -56,6 +57,7 @@ import {
   MustacheCodeEditor,
   type MustacheCodeEditorHandle,
 } from "../../components/admin/mustache/MustacheCodeEditor";
+import { MailTemplatePreviewDrawer } from "../../components/admin/mail-template-preview/MailTemplatePreviewDrawer";
 import { useEmailTemplatesStore } from "../../stores/emailTemplatesStore";
 import { useUiStore } from "../../stores/uiStore";
 import { tokens } from "../../theme/tokens";
@@ -133,6 +135,7 @@ export function EmailTemplateEditPage() {
   const [draft, setDraft] = useState<DraftState | null>(null);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [showHtmlEditor, setShowHtmlEditor] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const subjectRef = useRef<HTMLInputElement>(null);
   const bodyPlainEditor = useRef<MustacheCodeEditorHandle | null>(null);
@@ -475,6 +478,14 @@ export function EmailTemplateEditPage() {
         </Button>
         <Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
           <Button
+            variant="outlined"
+            startIcon={<Eye size={16} />}
+            onClick={() => setPreviewOpen(true)}
+            sx={{ borderRadius: tokens.radius.btn }}
+          >
+            Preview
+          </Button>
+          <Button
             variant="text"
             onClick={handleDiscard}
             disabled={!dirty || saving}
@@ -492,6 +503,19 @@ export function EmailTemplateEditPage() {
           </Button>
         </Box>
       </Box>
+
+      <MailTemplatePreviewDrawer
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        templateKey={template.key}
+        templateFriendlyName={template.friendlyName}
+        draft={{
+          subject: draft.subject,
+          bodyPlain: draft.bodyPlain,
+          bodyHtml: showHtmlEditor ? draft.bodyHtml : null,
+        }}
+        placeholders={template.placeholders}
+      />
 
       <ResetConfirmDialog
         open={resetDialogOpen}

@@ -262,6 +262,70 @@ class MailTemplateService(
         )
 
     /**
+     * Renders a draft directly without consulting the cache or DB (#438).
+     *
+     * Powers the admin "Preview" feature — the editor's in-flight subject /
+     * bodyPlain / bodyHtml strings come in unsaved, get the same placeholder
+     * validation as [update] (so a typo surfaces here too, not first when
+     * the admin clicks Save), and render with the same dual-compiler setup
+     * as production.
+     *
+     * Sample vars merge with [MailTemplate.previewSampleVars] as the base
+     * — the caller can override any subset (admin-edited preview values),
+     * missing keys fall back to the registry default. That keeps the
+     * "fresh open" preview meaningful without forcing the admin to fill in
+     * every variable before seeing anything.
+     *
+     * @throws IllegalArgumentException same surface as [update] — undocumented
+     *   placeholder, malformed Mustache syntax, blank required field.
+     */
+    fun previewWith(
+        template: MailTemplate,
+        subject: String,
+        bodyPlain: String,
+        bodyHtml: String?,
+        sampleVarsOverride: Map<String, String> = emptyMap(),
+    ): PreviewResult {
+        require(subject.isNotBlank()) { "subject must not be blank" }
+        require(bodyPlain.isNotBlank()) { "bodyPlain must not be blank" }
+        if (bodyHtml != null) {
+            require(bodyHtml.isNotBlank()) {
+                "bodyHtml must not be blank when provided (use null for plaintext-only)"
+            }
+        }
+
+        val errors = buildList {
+            addAll(validateReferences(template, "subject", subject, mustachePlain))
+            addAll(validateReferences(template, "bodyPlain", bodyPlain, mustachePlain))
+            if (bodyHtml != null) {
+                addAll(validateReferences(template, "bodyHtml", bodyHtml, mustacheHtml))
+            }
+        }
+        if (errors.isNotEmpty()) {
+            throw IllegalArgumentException(
+                "Template '${template.key}' references undocumented variables: " +
+                    "${errors.joinToString("; ")}. Allowed: ${template.placeholders}",
+            )
+        }
+
+        val effectiveVars: Map<String, String> = template.previewSampleVars + sampleVarsOverride
+
+        val rendered = try {
+            RenderedMail(
+                subject = mustachePlain.compile(subject).execute(effectiveVars),
+                bodyPlain = mustachePlain.compile(bodyPlain).execute(effectiveVars),
+                bodyHtml = bodyHtml?.let { mustacheHtml.compile(it).execute(effectiveVars) },
+            )
+        } catch (ex: MustacheException) {
+            throw IllegalArgumentException(
+                "Mustache failed to render preview for template '${template.key}': ${ex.message}",
+                ex,
+            )
+        }
+        return PreviewResult(rendered = rendered, sampleVars = effectiveVars)
+    }
+
+    /**
      * Renders a template against [vars] using the locale-fallback chain.
      *
      * Returns both the plaintext and (optionally) the HTML body. The HTML
@@ -435,6 +499,14 @@ class MailTemplateService(
  *   message instead of `multipart/alternative`.
  */
 data class RenderedMail(val subject: String, val bodyPlain: String, val bodyHtml: String?)
+
+/**
+ * Outcome of [MailTemplateService.previewWith] (#438): the rendered draft
+ * plus the actual variable map used. The map is surfaced so the admin UI
+ * can show "preview was rendered with these values" and let the operator
+ * tweak them for the next refresh.
+ */
+data class PreviewResult(val rendered: RenderedMail, val sampleVars: Map<String, String>)
 
 /** Origin of the variant returned by `findAll` / `findByKey` / `findByKeyAndLocale`. */
 enum class TemplateSource {

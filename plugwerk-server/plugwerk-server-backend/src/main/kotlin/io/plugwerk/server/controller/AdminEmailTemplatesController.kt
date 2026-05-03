@@ -20,6 +20,8 @@ package io.plugwerk.server.controller
 
 import io.plugwerk.api.AdminEmailTemplatesApi
 import io.plugwerk.api.model.MailTemplateListResponse
+import io.plugwerk.api.model.MailTemplatePreviewRequest
+import io.plugwerk.api.model.MailTemplatePreviewResponse
 import io.plugwerk.api.model.MailTemplateResponse
 import io.plugwerk.api.model.MailTemplateUpdateRequest
 import io.plugwerk.server.security.NamespaceAuthorizationService
@@ -97,6 +99,33 @@ class AdminEmailTemplatesController(
             updatedBy = principal,
         )
         return ResponseEntity.ok(view.toResponse(template))
+    }
+
+    @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
+    override fun previewMailTemplate(
+        key: String,
+        mailTemplatePreviewRequest: MailTemplatePreviewRequest,
+    ): ResponseEntity<MailTemplatePreviewResponse> {
+        requireSuperadmin()
+        val template = MailTemplate.byKey(key) ?: throw MailTemplateNotFoundException(key)
+        // Generated DTO types `sampleVars` as nullable; treat null as
+        // "no overrides" so the registry defaults apply unchanged.
+        val overrides = mailTemplatePreviewRequest.sampleVars ?: emptyMap()
+        val result = templates.previewWith(
+            template = template,
+            subject = mailTemplatePreviewRequest.subject,
+            bodyPlain = mailTemplatePreviewRequest.bodyPlain,
+            bodyHtml = mailTemplatePreviewRequest.bodyHtml,
+            sampleVarsOverride = overrides,
+        )
+        return ResponseEntity.ok(
+            MailTemplatePreviewResponse(
+                subject = result.rendered.subject,
+                bodyPlain = result.rendered.bodyPlain,
+                sampleVars = result.sampleVars,
+                bodyHtml = result.rendered.bodyHtml,
+            ),
+        )
     }
 
     @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")

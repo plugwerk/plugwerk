@@ -1892,6 +1892,53 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /admin/email/templates/{key}/preview:
+    post:
+      tags:
+        - AdminEmailTemplates
+      summary: Render a draft mail template with sample values
+      description: |
+        Renders the supplied draft (subject + bodyPlain + optional bodyHtml)
+        through the same Mustache pipeline as production sends, without
+        persisting anything. Sample variables default to the registry's
+        seeded demo values (`MailTemplate.previewSampleVars`); the caller
+        can override any subset to test specific scenarios — admin types
+        a new `username` value, refresh, see the preview update.
+
+        Returns 400 with the same diagnostics as `PUT` when the draft
+        references undocumented placeholders, has malformed Mustache
+        syntax, or has a blank required field. Requires superadmin (#438).
+      operationId: previewMailTemplate
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MailTemplateKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MailTemplatePreviewRequest'
+      responses:
+        '200':
+          description: Rendered preview + the sample variable map actually used
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MailTemplatePreviewResponse'
+        '400':
+          description: Validation failure (unknown placeholder, malformed Mustache, blank field)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
 components:
   parameters:
     NamespaceSlug:
@@ -3683,6 +3730,69 @@ components:
             $ref: '#/components/schemas/MailTemplateResponse'
       required:
         - templates
+
+    MailTemplatePreviewRequest:
+      type: object
+      description: |
+        Draft to render through the Mustache pipeline. `subject` and
+        `bodyPlain` are required (same as PUT); `bodyHtml` is optional —
+        omit or pass `null` to skip the HTML preview. `sampleVars`
+        overrides any subset of the registry-provided demo values; missing
+        keys fall back to the registry default.
+      properties:
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 255
+        bodyPlain:
+          type: string
+          minLength: 1
+        bodyHtml:
+          type: string
+          nullable: true
+        sampleVars:
+          type: object
+          additionalProperties:
+            type: string
+          description: |
+            Overrides for individual placeholder values, keyed by
+            placeholder name (without the `{{ }}` braces).
+          example:
+            username: "Bob"
+            resetLink: "https://example.com/r?t=xyz"
+      required:
+        - subject
+        - bodyPlain
+
+    MailTemplatePreviewResponse:
+      type: object
+      description: |
+        Rendered preview with the actual sample-variable map used. The map
+        echoes registry defaults merged with caller overrides so the UI
+        can pre-fill the editable sample-vars form on the next refresh.
+      properties:
+        subject:
+          type: string
+          description: Rendered subject line.
+        bodyPlain:
+          type: string
+          description: Rendered plaintext body.
+        bodyHtml:
+          type: string
+          nullable: true
+          description: Rendered HTML body, or `null` when no HTML draft was supplied.
+        sampleVars:
+          type: object
+          additionalProperties:
+            type: string
+          description: |
+            The variable map actually used to render this preview. Equal
+            to the registry's seeded demo values overlaid with any caller
+            overrides.
+      required:
+        - subject
+        - bodyPlain
+        - sampleVars
 
     MailTemplateUpdateRequest:
       type: object

@@ -19,6 +19,8 @@
 import axios from "axios";
 import { create } from "zustand";
 import { adminEmailTemplatesApi } from "../api/config";
+import type { MailTemplatePreviewRequest } from "../api/generated/model/mail-template-preview-request";
+import type { MailTemplatePreviewResponse } from "../api/generated/model/mail-template-preview-response";
 import type { MailTemplateResponse } from "../api/generated/model/mail-template-response";
 import type { MailTemplateUpdateRequest } from "../api/generated/model/mail-template-update-request";
 
@@ -34,6 +36,10 @@ interface EmailTemplatesState {
     request: MailTemplateUpdateRequest,
   ) => Promise<MailTemplateResponse>;
   reset: (key: string) => Promise<MailTemplateResponse>;
+  preview: (
+    key: string,
+    request: MailTemplatePreviewRequest,
+  ) => Promise<MailTemplatePreviewResponse>;
   clear: () => void;
 }
 
@@ -119,6 +125,17 @@ export const useEmailTemplatesStore = create<EmailTemplatesState>((set) => ({
       set({ saving: false, error: extractErrorMessage(err) });
       throw err;
     }
+  },
+
+  async preview(key, request) {
+    // No store-state mutation: preview is read-only and the response goes
+    // straight into the caller's local UI (drawer). Errors propagate so
+    // the caller can render them inline without a toast.
+    const response = await adminEmailTemplatesApi.previewMailTemplate({
+      key,
+      mailTemplatePreviewRequest: request,
+    });
+    return response.data;
   },
 
   clear() {

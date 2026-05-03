@@ -28,6 +28,7 @@ vi.mock("../api/config", () => ({
     getMailTemplate: vi.fn(),
     updateMailTemplate: vi.fn(),
     resetMailTemplate: vi.fn(),
+    previewMailTemplate: vi.fn(),
   },
 }));
 
@@ -147,6 +148,54 @@ describe("useEmailTemplatesStore", () => {
       }),
     ).rejects.toThrow("validation failed");
     expect(useEmailTemplatesStore.getState().error).toBe("validation failed");
+    expect(useEmailTemplatesStore.getState().saving).toBe(false);
+  });
+
+  it("preview() forwards the draft to the backend and returns the rendered response without mutating store state", async () => {
+    useEmailTemplatesStore.setState({
+      templates: [template()],
+      loaded: true,
+      loading: false,
+      saving: false,
+      error: null,
+    });
+    vi.mocked(
+      apiConfig.adminEmailTemplatesApi.previewMailTemplate,
+    ).mockResolvedValue({
+      data: {
+        subject: "Reset for Bob",
+        bodyPlain: "Hi Bob",
+        bodyHtml: "<p>Hi Bob</p>",
+        sampleVars: {
+          username: "Bob",
+          resetLink: "https://x",
+          expiresAtHuman: "soon",
+        },
+      },
+    } as unknown as Awaited<
+      ReturnType<typeof apiConfig.adminEmailTemplatesApi.previewMailTemplate>
+    >);
+
+    const result = await useEmailTemplatesStore
+      .getState()
+      .preview("auth.password_reset", {
+        subject: "Reset for {{username}}",
+        bodyPlain: "Hi {{username}}",
+        bodyHtml: "<p>Hi {{username}}</p>",
+        sampleVars: { username: "Bob" },
+      });
+
+    expect(result.subject).toBe("Reset for Bob");
+    expect(
+      apiConfig.adminEmailTemplatesApi.previewMailTemplate,
+    ).toHaveBeenCalledWith({
+      key: "auth.password_reset",
+      mailTemplatePreviewRequest: expect.objectContaining({
+        sampleVars: { username: "Bob" },
+      }),
+    });
+    // Store templates list untouched by preview.
+    expect(useEmailTemplatesStore.getState().templates).toHaveLength(1);
     expect(useEmailTemplatesStore.getState().saving).toBe(false);
   });
 

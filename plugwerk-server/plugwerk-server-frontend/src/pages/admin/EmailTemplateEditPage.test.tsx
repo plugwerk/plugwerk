@@ -33,6 +33,7 @@ vi.mock("../../api/config", () => ({
     getMailTemplate: vi.fn(),
     updateMailTemplate: vi.fn(),
     resetMailTemplate: vi.fn(),
+    previewMailTemplate: vi.fn(),
   },
 }));
 
@@ -195,6 +196,42 @@ describe("EmailTemplateEditPage", () => {
           }),
         }),
       );
+    });
+  });
+
+  it("Preview button opens the drawer and triggers a preview API call with the current draft", async () => {
+    const user = userEvent.setup();
+    vi.mocked(
+      apiConfig.adminEmailTemplatesApi.previewMailTemplate,
+    ).mockResolvedValue({
+      data: {
+        subject: "Reset for Alice",
+        bodyPlain: "Hi Alice",
+        bodyHtml: "<p>Hi Alice</p>",
+        sampleVars: {
+          username: "Alice",
+          resetLink: "https://x",
+          expiresAtHuman: "soon",
+        },
+      },
+    } as unknown as Awaited<
+      ReturnType<typeof apiConfig.adminEmailTemplatesApi.previewMailTemplate>
+    >);
+    renderAt();
+
+    await user.click(screen.getByRole("button", { name: /^Preview$/i }));
+
+    await waitFor(() => {
+      expect(
+        apiConfig.adminEmailTemplatesApi.previewMailTemplate,
+      ).toHaveBeenCalledWith({
+        key: TEMPLATE.key,
+        mailTemplatePreviewRequest: expect.objectContaining({
+          subject: TEMPLATE.subject,
+          bodyPlain: TEMPLATE.bodyPlain,
+          bodyHtml: TEMPLATE.bodyHtml,
+        }),
+      });
     });
   });
 
