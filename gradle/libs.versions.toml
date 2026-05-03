@@ -23,6 +23,7 @@ yasson = "3.0.4"
 bucket4j = "8.18.0"
 caffeine = "3.2.3"
 greenmail = "2.1.6"
+jmustache = "1.16"
 spotless = "8.4.0"
 cyclonedx = "3.2.4"
 
@@ -78,6 +79,9 @@ jakarta-annotation-api = { module = "jakarta.annotation:jakarta.annotation-api",
 # Rate Limiting
 bucket4j-core = { module = "com.bucket4j:bucket4j_jdk17-core", version.ref = "bucket4j" }
 caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
+
+# Email template rendering (#436) — logic-less Mustache, safe for admin-edited content
+jmustache = { module = "com.samskivert:jmustache", version.ref = "jmustache" }
 
 # Logging
 # SemVer
