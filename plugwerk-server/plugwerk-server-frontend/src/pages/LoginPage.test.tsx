@@ -22,6 +22,7 @@ import userEvent from "@testing-library/user-event";
 import { renderWithRouter } from "../test/renderWithTheme";
 import { LoginPage } from "./LoginPage";
 import { useAuthStore } from "../stores/authStore";
+import { useConfigStore } from "../stores/configStore";
 
 describe("LoginPage", () => {
   beforeEach(() => {
@@ -126,5 +127,30 @@ describe("LoginPage", () => {
     expect(screen.getByRole("alert")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /close/i }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("hides the Sign-up link when self-registration is disabled in /config (default)", () => {
+    // configStore default has selfRegistrationEnabled = false; the link
+    // must not render so locked-down deployments don't even hint at the
+    // /register route existing.
+    useConfigStore.setState({
+      selfRegistrationEnabled: false,
+      loaded: true,
+    } as never);
+    renderWithRouter(<LoginPage />);
+    expect(
+      screen.queryByRole("link", { name: /sign up/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the Sign-up link only when /config exposes selfRegistrationEnabled = true (#420)", () => {
+    useConfigStore.setState({
+      selfRegistrationEnabled: true,
+      loaded: true,
+    } as never);
+    renderWithRouter(<LoginPage />);
+    const signUp = screen.getByRole("link", { name: /sign up/i });
+    expect(signUp).toBeInTheDocument();
+    expect(signUp).toHaveAttribute("href", "/register");
   });
 });

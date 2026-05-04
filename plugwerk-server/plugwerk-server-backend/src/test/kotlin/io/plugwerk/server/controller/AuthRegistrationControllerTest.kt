@@ -195,6 +195,42 @@ class AuthRegistrationControllerTest {
     }
 
     @Test
+    fun `POST register builds verificationLink against webBaseUrl when set, falls back to baseUrl otherwise`() {
+        whenever(plugwerkProperties.server).thenReturn(
+            PlugwerkProperties.ServerProperties(
+                baseUrl = "http://localhost:8080",
+                webBaseUrl = "http://localhost:5173",
+            ),
+        )
+        val user = stubUser()
+        whenever(userService.createSelfRegistered(any(), any(), any(), anyOrNull(), eq(false)))
+            .thenReturn(user)
+        whenever(tokenService.issue(user)).thenReturn(
+            IssuedToken(
+                rawToken = "vite-token",
+                expiresAt = OffsetDateTime.now().plusHours(24),
+            ),
+        )
+        whenever(mailService.sendMailFromTemplate(any(), any(), any(), anyOrNull()))
+            .thenReturn(MailService.SendResult.Sent)
+
+        mockMvc.post("/api/v1/auth/register") {
+            contentType = MediaType.APPLICATION_JSON
+            content = registerBody
+        }.andExpect { status { isOk() } }
+
+        verify(mailService).sendMailFromTemplate(
+            any(),
+            any(),
+            argThat {
+                this["verificationLink"].toString() ==
+                    "http://localhost:5173/verify-email?token=vite-token"
+            },
+            anyOrNull(),
+        )
+    }
+
+    @Test
     fun `POST register with verification disabled creates an enabled user and skips the email`() {
         whenever(settings.selfRegistrationEmailVerificationRequired()).thenReturn(false)
         val user = stubUser().also { it.enabled = true }

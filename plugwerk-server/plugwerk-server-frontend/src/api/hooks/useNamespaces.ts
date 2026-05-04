@@ -19,6 +19,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { namespacesApi } from "../config";
 import type { NamespaceSummary } from "../generated/model";
+import { useAuthStore } from "../../stores/authStore";
 
 /** TanStack Query key roots (ADR-0028 / #276). */
 export const namespacesKeys = {
@@ -33,12 +34,20 @@ export const namespacesKeys = {
  * Shared cache — multiple consumers hit the API once per `staleTime` window.
  */
 export function useNamespaces() {
+  // Gate the request on authentication: the endpoint is authenticated, and
+  // TopBar (which calls this hook) renders on public auth routes too. Firing
+  // unconditionally produces a 401 → axios refresh-and-retry → refresh
+  // failure → forced redirect to /login, which silently kicks the user off
+  // pages like /verify-email before they finish loading.
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isHydrating = useAuthStore((s) => s.isHydrating);
   return useQuery<NamespaceSummary[]>({
     queryKey: namespacesKeys.list(),
     queryFn: async () => {
       const response = await namespacesApi.listNamespaces();
       return response.data;
     },
+    enabled: isAuthenticated && !isHydrating,
   });
 }
 

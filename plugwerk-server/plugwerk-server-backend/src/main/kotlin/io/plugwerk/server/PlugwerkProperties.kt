@@ -135,8 +135,26 @@ data class PlugwerkProperties(
      */
     data class ServerProperties(
         val baseUrl: String = "http://localhost:8080",
+        val webBaseUrl: String? = null,
         @field:Valid val cors: CorsProperties = CorsProperties(),
     ) {
+        /**
+         * Base URL of the user-facing web frontend, without a trailing slash. Used when
+         * the server emits links that the recipient is expected to open in a browser
+         * (e.g. the verification link in self-registration emails for #420).
+         *
+         * In production deployments the SPA is bundled into the server JAR and served
+         * from the same origin as the REST API, so the frontend lives at exactly
+         * [baseUrl] — leave [webBaseUrl] unset and the getter falls back to it.
+         *
+         * In local development the Vite dev server serves the SPA on a different port
+         * (typically `http://localhost:5173`) while the backend listens on `:8080`. Set
+         * `plugwerk.server.web-base-url=http://localhost:5173` (or
+         * `PLUGWERK_WEB_BASE_URL`) so emailed links point at the dev server, not the
+         * backend's static-resource handler which doesn't know the React routes.
+         */
+        fun effectiveWebBaseUrl(): String = webBaseUrl?.takeIf { it.isNotBlank() } ?: baseUrl
+
         /**
          * CORS configuration (`plugwerk.server.cors.*`). See [ADR-0021](../../../../../../../../docs/adrs/0021-cors-same-origin-default.md).
          *

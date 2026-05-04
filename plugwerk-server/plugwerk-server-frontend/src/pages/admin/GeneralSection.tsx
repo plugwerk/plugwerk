@@ -33,7 +33,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Activity, Globe, Upload } from "lucide-react";
+import { Activity, Globe, Upload, UserPlus } from "lucide-react";
 import { TimezoneSelect } from "../../components/common/TimezoneSelect";
 import type { ApplicationSettingDto } from "../../api/generated/model/application-setting-dto";
 import { Section } from "../../components/common/Section";
@@ -411,6 +411,17 @@ export function GeneralSection() {
           {renderField("tracking.capture_ip")}
           {renderField("tracking.anonymize_ip")}
           {renderField("tracking.capture_user_agent")}
+        </Section>
+
+        {/* Self-Registration */}
+        <Section
+          contentGap={2.5}
+          icon={<UserPlus size={18} />}
+          title="Self-Registration"
+          description="Allow visitors to create their own accounts via /register"
+        >
+          {renderField("auth.self_registration_enabled")}
+          {renderField("auth.self_registration_email_verification_required")}
         </Section>
       </Box>
 

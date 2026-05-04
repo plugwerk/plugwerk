@@ -27,6 +27,8 @@ import { CatalogPage } from "../pages/CatalogPage";
 import { PluginDetailPage } from "../pages/PluginDetailPage";
 import { LoginPage } from "../pages/LoginPage";
 import { RegisterPage } from "../pages/RegisterPage";
+import { VerifyEmailPendingPage } from "../pages/VerifyEmailPendingPage";
+import { VerifyEmailCallbackPage } from "../pages/VerifyEmailCallbackPage";
 import { ForgotPasswordPage } from "../pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "../pages/ResetPasswordPage";
 import { AdminSettingsPage } from "../pages/AdminSettingsPage";
@@ -267,6 +269,15 @@ export const router = createBrowserRouter([
       { path: "api-docs", element: <ApiDocsPage /> },
       { path: "login", element: <LoginPage /> },
       { path: "register", element: <RegisterPage /> },
+      // /onboarding/verify-email — waiting state shown after a
+      // successful registration with verification on (#420).
+      {
+        path: "onboarding/verify-email",
+        element: <VerifyEmailPendingPage />,
+      },
+      // /verify-email — token-callback opened from the link in the
+      // verification email; reads ?token=… and calls the backend.
+      { path: "verify-email", element: <VerifyEmailCallbackPage /> },
       { path: "forgot-password", element: <ForgotPasswordPage /> },
       { path: "reset-password", element: <ResetPasswordPage /> },
       { path: "403", element: <Error403Page /> },

@@ -53,6 +53,7 @@ describe("TopBar", () => {
       accessToken: "tok",
       username: "alice",
       isAuthenticated: true,
+      isHydrating: false,
       namespace: "acme",
     });
     useUiStore.setState({ themeMode: "light", toasts: [], searchQuery: "" });

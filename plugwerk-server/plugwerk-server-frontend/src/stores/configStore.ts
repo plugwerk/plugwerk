@@ -90,6 +90,14 @@ interface ConfigState {
   readonly defaultTimezone: string;
   /** OIDC providers currently enabled by the operator. Empty when none. */
   readonly oidcProviders: readonly OidcProviderLoginInfo[];
+  /**
+   * Whether the operator has enabled the public self-registration flow
+   * (#420). The login page renders the "Don't have an account? Sign up"
+   * link conditionally on this; the backend enforces the gate
+   * independently — flipping this client-side cannot bypass the
+   * controller's 404 disguise.
+   */
+  readonly selfRegistrationEnabled: boolean;
   readonly loaded: boolean;
   /**
    * Fetches `/api/v1/config`. Skips the request when the store is already
@@ -107,6 +115,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   maxFileSizeMb: 100,
   defaultTimezone: "UTC",
   oidcProviders: [],
+  selfRegistrationEnabled: false,
   loaded: false,
 
   async fetchConfig(options) {
@@ -125,10 +134,17 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
             ? res.data.general.defaultTimezone
             : "UTC",
         oidcProviders: parseOidcProviders(res.data?.auth?.oidcProviders),
+        selfRegistrationEnabled:
+          res.data?.auth?.selfRegistrationEnabled === true,
         loaded: true,
       });
     } catch {
-      set({ version: "unknown", oidcProviders: [], loaded: true });
+      set({
+        version: "unknown",
+        oidcProviders: [],
+        selfRegistrationEnabled: false,
+        loaded: true,
+      });
     }
   },
 }));

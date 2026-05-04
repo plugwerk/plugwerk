@@ -17,7 +17,7 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useLocation } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -26,6 +26,7 @@ import {
   Divider,
   IconButton,
   InputAdornment,
+  Link,
   TextField,
   Tooltip,
   Typography,
@@ -41,6 +42,9 @@ export function LoginPage() {
   const { login } = useAuthStore();
   const fetchConfig = useConfigStore((s) => s.fetchConfig);
   const oidcProviders = useConfigStore((s) => s.oidcProviders);
+  const selfRegistrationEnabled = useConfigStore(
+    (s) => s.selfRegistrationEnabled,
+  );
   const navigate = useNavigate();
   const location = useLocation();
   const from = new URLSearchParams(location.search).get("from") ?? "/";
@@ -179,6 +183,26 @@ export function LoginPage() {
         >
           {loading ? "Signing in…" : "Sign In"}
         </Button>
+        {selfRegistrationEnabled && (
+          // Rendered conditionally on the public /config flag (#420). The
+          // backend independently 404s POST /auth/register when the flag is
+          // off, so flipping this client-side cannot bypass the gate.
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ textAlign: "center" }}
+          >
+            Don&apos;t have an account?{" "}
+            <Link
+              component={RouterLink}
+              to="/register"
+              underline="hover"
+              fontWeight={600}
+            >
+              Sign up
+            </Link>
+          </Typography>
+        )}
       </Box>
 
       {oidcProviders.length > 0 && (
