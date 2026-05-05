@@ -50,6 +50,7 @@ class ConfigController(
             auth = ServerConfigResponseAuth(
                 oidcProviders = enabledOidcProviderLoginInfo(),
                 selfRegistrationEnabled = settingsService.selfRegistrationEnabled(),
+                passwordResetEnabled = settingsService.passwordResetEnabled(),
             ),
         ),
     )

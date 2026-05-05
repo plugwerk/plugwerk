@@ -25,6 +25,7 @@ import io.plugwerk.server.security.ChangePasswordRateLimitFilter
 import io.plugwerk.server.security.LoginRateLimitFilter
 import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
 import io.plugwerk.server.security.PasswordChangeRequiredFilter
+import io.plugwerk.server.security.PasswordResetRateLimitFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.security.RateLimitResult
 import io.plugwerk.server.security.RefreshRateLimitFilter
@@ -73,6 +74,7 @@ import java.util.UUID
         ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [ChangePasswordRateLimitFilter::class]),
         ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [LoginRateLimitFilter::class]),
         ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [RegisterRateLimitFilter::class]),
+        ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [PasswordResetRateLimitFilter::class]),
         ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [RefreshRateLimitFilter::class]),
         ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [NamespaceAccessKeyAuthFilter::class]),
         ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = [PublicNamespaceFilter::class]),

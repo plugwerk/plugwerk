@@ -408,6 +408,94 @@ paths:
         '404':
           description: Self-registration is disabled on this server
 
+  /auth/forgot-password:
+    post:
+      tags:
+        - AuthPasswordReset
+      summary: Request a password-reset email (when enabled by the operator)
+      description: |
+        Sends a single-use, time-limited password-reset link to the
+        address registered for the supplied username or email. Available
+        only when the operator has enabled `auth.password_reset_enabled`;
+        returns 404 otherwise so the existence of the endpoint is not
+        advertised on locked-down deployments. Public — no authentication
+        required (#421).
+
+        Always returns **204 No Content** on the success path, regardless
+        of whether the supplied identifier matched anything. The legitimate
+        owner of an in-use address sees an inbox message; an unknown
+        identifier produces no signal at all. EXTERNAL (OIDC) users
+        likewise receive no email — they reset their password upstream
+        with their identity provider.
+
+        Rate-limited per client IP. Returns 503 with an operator-actionable
+        message when SMTP is not configured.
+      operationId: forgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '204':
+          description: Request accepted — if the account exists, a reset email is on its way
+        '400':
+          description: Malformed request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Password reset is disabled on this server
+        '429':
+          description: Too many forgot-password attempts — Retry-After header indicates the cool-off
+        '503':
+          description: Password reset requires email infrastructure that is not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/reset-password:
+    post:
+      tags:
+        - AuthPasswordReset
+      summary: Exchange a password-reset token for a new password
+      description: |
+        Validates the single-use token issued by `POST /forgot-password`
+        and, on success, persists the new BCrypt hash and revokes every
+        active session for the user (access tokens via
+        `passwordInvalidatedBefore`, refresh-token family via cookie
+        rotation). The same token cannot be redeemed twice. Returns 404
+        when password reset is disabled (same disguise as
+        `POST /auth/forgot-password`). Returns 400 when the token is
+        unknown, already consumed, or past its expiry. Public — no
+        authentication required (#421).
+
+        Rate-limited per client IP and per token hash to mitigate
+        brute-force attempts on a leaked link.
+      operationId: resetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '204':
+          description: Password updated and existing sessions revoked
+        '400':
+          description: Token is unknown / consumed / expired, or password fails strength rules
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Password reset is disabled on this server
+        '429':
+          description: Too many reset attempts — Retry-After header indicates the cool-off
+
   /namespaces:
     get:
       tags:
@@ -2262,6 +2350,48 @@ components:
       required:
         - status
 
+    ForgotPasswordRequest:
+      type: object
+      description: |
+        Self-service password-reset trigger payload (#421). Either a
+        username or an email address is acceptable; the server resolves
+        them against the same user table. EXTERNAL (OIDC) users get no
+        email — they reset upstream with their identity provider.
+      properties:
+        usernameOrEmail:
+          type: string
+          minLength: 1
+          maxLength: 254
+          description: Username or email address of the account whose password should be reset
+      required:
+        - usernameOrEmail
+
+    ResetPasswordRequest:
+      type: object
+      description: |
+        Exchanges a password-reset token (delivered by email) for a new
+        password (#421). The token is single-use; on success every
+        active session for the user is revoked.
+      properties:
+        token:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: The opaque token from the reset link
+        newPassword:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 256
+          description: |
+            Plaintext password — same minimum length (12) as the
+            `POST /admin/users` and `POST /auth/register` flows. Future
+            strength checks (zxcvbn, banned-passwords) will land in the
+            shared validation layer.
+      required:
+        - token
+        - newPassword
+
     LoginRequest:
       type: object
       description: Credentials for password-based login
@@ -3608,9 +3738,20 @@ components:
                 backend enforces the gate independently — flipping this on the
                 client cannot bypass the controller check.
               example: false
+            passwordResetEnabled:
+              type: boolean
+              description: |
+                Whether the operator has enabled the public forgot-password
+                flow (#421). The login page conditionally renders the
+                "Forgot password?" link when this is true. The backend
+                enforces the gate independently — flipping this on the
+                client cannot bypass the controller checks on
+                `/auth/forgot-password` and `/auth/reset-password`.
+              example: false
           required:
             - oidcProviders
             - selfRegistrationEnabled
+            - passwordResetEnabled
       required:
         - version
         - upload

@@ -392,6 +392,7 @@ data class PlugwerkProperties(
             val windowSeconds: Long = 60,
             val changePassword: ChangePasswordRateLimitProperties = ChangePasswordRateLimitProperties(),
             val register: RegisterRateLimitProperties = RegisterRateLimitProperties(),
+            val passwordReset: PasswordResetRateLimitProperties = PasswordResetRateLimitProperties(),
         )
 
         /**
@@ -440,6 +441,41 @@ data class PlugwerkProperties(
             val ipWindowSeconds: Long = 60,
             val emailMaxAttempts: Int = 5,
             val emailWindowSeconds: Long = 3600,
+        )
+
+        /**
+         * Two-bucket rate limiting for the password-reset flow (#421).
+         *
+         * Two attack surfaces with different shapes:
+         *   - `POST /auth/forgot-password` (IP-keyed): mail-bombing a known
+         *     user by repeatedly requesting reset links. We deliberately do
+         *     **not** key by username/email — that would create a timing
+         *     oracle (existing accounts run out faster than non-existing
+         *     ones, leaking enumeration).
+         *   - `POST /auth/reset-password` (token-keyed): brute-forcing a
+         *     leaked link before its TTL elapses. Keyed by SHA-256 of the
+         *     submitted token so the cap follows the link, not the IP.
+         *
+         * @property ipMaxAttempts IP-keyed cap per [ipWindowSeconds] across
+         *   both endpoints. Conservative by default — five attempts is
+         *   plenty for a real user who fat-fingered their email.
+         *   Environment variable: `PLUGWERK_AUTH_RATE_LIMIT_PASSWORD_RESET_IP_MAX_ATTEMPTS`
+         * @property ipWindowSeconds IP rate-limit window in seconds.
+         *   Environment variable: `PLUGWERK_AUTH_RATE_LIMIT_PASSWORD_RESET_IP_WINDOW_SECONDS`
+         * @property tokenMaxAttempts Cap per token-hash per
+         *   [tokenWindowSeconds]. The default of 10 means an attacker who
+         *   somehow obtained a leaked link cannot iterate ten failed
+         *   reset-password POSTs against it within the hour — long before
+         *   the link's own expiry kicks in.
+         *   Environment variable: `PLUGWERK_AUTH_RATE_LIMIT_PASSWORD_RESET_TOKEN_MAX_ATTEMPTS`
+         * @property tokenWindowSeconds Token rate-limit window in seconds.
+         *   Environment variable: `PLUGWERK_AUTH_RATE_LIMIT_PASSWORD_RESET_TOKEN_WINDOW_SECONDS`
+         */
+        data class PasswordResetRateLimitProperties(
+            val ipMaxAttempts: Int = 5,
+            val ipWindowSeconds: Long = 900,
+            val tokenMaxAttempts: Int = 10,
+            val tokenWindowSeconds: Long = 3600,
         )
 
         /**

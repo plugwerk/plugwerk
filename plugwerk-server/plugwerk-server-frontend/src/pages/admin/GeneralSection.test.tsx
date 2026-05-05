@@ -87,6 +87,22 @@ const SAMPLE_SETTINGS: ApplicationSettingDto[] = [
     description:
       "When true (recommended) the new account stays disabled until the user clicks the link in the verification email.",
   }),
+  dto({
+    key: "auth.password_reset_enabled",
+    value: "false",
+    valueType: "BOOLEAN",
+    description:
+      "Master switch for the public /auth/forgot-password and /auth/reset-password endpoints. When false the endpoints and the corresponding 'Forgot password?' link on the login page are hidden (404).",
+  }),
+  dto({
+    key: "auth.password_reset_token_ttl_minutes",
+    value: "60",
+    valueType: "INTEGER",
+    minInt: 5,
+    maxInt: 1440,
+    description:
+      "How long a password-reset link stays valid, in minutes. Range 5..1440.",
+  }),
 ];
 
 describe("GeneralSection", () => {
@@ -288,6 +304,24 @@ describe("GeneralSection", () => {
         },
       });
     });
+  });
+
+  it("renders both password-reset settings in the dedicated section (#421)", async () => {
+    vi.mocked(
+      apiConfig.adminSettingsApi.listApplicationSettings,
+    ).mockResolvedValue({
+      data: { settings: SAMPLE_SETTINGS },
+    } as never);
+
+    renderWithTheme(<GeneralSection />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Password Reset")).toBeInTheDocument();
+    });
+    const enableToggle = screen.getByLabelText("Password Reset Enabled");
+    expect(enableToggle).not.toBeChecked();
+    const ttlInput = screen.getByLabelText("Password Reset Token Ttl Minutes");
+    expect(ttlInput).toHaveValue(60);
   });
 
   it("renders a restart-pending alert when any setting has restartPending=true", async () => {

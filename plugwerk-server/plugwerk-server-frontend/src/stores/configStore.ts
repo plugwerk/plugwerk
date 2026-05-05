@@ -98,6 +98,15 @@ interface ConfigState {
    * controller's 404 disguise.
    */
   readonly selfRegistrationEnabled: boolean;
+  /**
+   * Whether the operator has enabled the public forgot-password flow
+   * (#421). The login page renders the "Forgot password?" link only
+   * when this is true; visiting `/forgot-password` or `/reset-password`
+   * directly with the setting off yields a NotFound shell. The backend
+   * 404s both endpoints in that state, so flipping this client-side
+   * cannot bypass the gate.
+   */
+  readonly passwordResetEnabled: boolean;
   readonly loaded: boolean;
   /**
    * Fetches `/api/v1/config`. Skips the request when the store is already
@@ -116,6 +125,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   defaultTimezone: "UTC",
   oidcProviders: [],
   selfRegistrationEnabled: false,
+  passwordResetEnabled: false,
   loaded: false,
 
   async fetchConfig(options) {
@@ -136,6 +146,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
         oidcProviders: parseOidcProviders(res.data?.auth?.oidcProviders),
         selfRegistrationEnabled:
           res.data?.auth?.selfRegistrationEnabled === true,
+        passwordResetEnabled: res.data?.auth?.passwordResetEnabled === true,
         loaded: true,
       });
     } catch {
@@ -143,6 +154,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
         version: "unknown",
         oidcProviders: [],
         selfRegistrationEnabled: false,
+        passwordResetEnabled: false,
         loaded: true,
       });
     }

@@ -214,6 +214,20 @@ class ApplicationSettingsService(
     fun selfRegistrationEmailVerificationRequired(): Boolean =
         getRaw(ApplicationSettingKey.AUTH_SELF_REGISTRATION_EMAIL_VERIFICATION_REQUIRED).toBooleanStrict()
 
+    // ---- Password reset (#421) ---------------------------------------------
+
+    /** Master switch: surface the public forgot-password / reset-password endpoints at all? */
+    fun passwordResetEnabled(): Boolean = getRaw(ApplicationSettingKey.AUTH_PASSWORD_RESET_ENABLED).toBooleanStrict()
+
+    /**
+     * How long an issued reset link stays valid, in minutes. Operator-tunable
+     * 5..1440 (enforced by the enum's minInt/maxInt) — defaults to 60.
+     */
+    fun passwordResetTokenTtlMinutes(): Int =
+        getRaw(ApplicationSettingKey.AUTH_PASSWORD_RESET_TOKEN_TTL_MINUTES).toIntOrNull()
+            ?.coerceIn(5, 1440)
+            ?: ApplicationSettingKey.AUTH_PASSWORD_RESET_TOKEN_TTL_MINUTES.defaultValue.toInt()
+
     // ------------------------------------------------------------------------
 
     /**

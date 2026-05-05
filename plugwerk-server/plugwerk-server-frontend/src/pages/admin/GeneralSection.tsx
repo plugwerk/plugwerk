@@ -33,7 +33,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Activity, Globe, Upload, UserPlus } from "lucide-react";
+import { Activity, Globe, KeyRound, Upload, UserPlus } from "lucide-react";
 import { TimezoneSelect } from "../../components/common/TimezoneSelect";
 import type { ApplicationSettingDto } from "../../api/generated/model/application-setting-dto";
 import { Section } from "../../components/common/Section";
@@ -422,6 +422,17 @@ export function GeneralSection() {
         >
           {renderField("auth.self_registration_enabled")}
           {renderField("auth.self_registration_email_verification_required")}
+        </Section>
+
+        {/* Password Reset */}
+        <Section
+          contentGap={2.5}
+          icon={<KeyRound size={18} />}
+          title="Password Reset"
+          description="Self-service forgot-password flow at /forgot-password"
+        >
+          {renderField("auth.password_reset_enabled")}
+          {renderField("auth.password_reset_token_ttl_minutes")}
         </Section>
       </Box>
 

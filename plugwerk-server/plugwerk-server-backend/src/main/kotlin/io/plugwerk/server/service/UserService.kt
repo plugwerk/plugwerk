@@ -162,6 +162,31 @@ class UserService(
         return saved
     }
 
+    /**
+     * Self-service variant of [resetPassword] for the forgot-password flow (#421).
+     *
+     * The user has just chosen a new password themselves via the reset link in
+     * their email, so unlike the admin-driven [resetPassword] we **do not** flip
+     * `passwordChangeRequired` — forcing them to change it again at next login
+     * would be nonsensical.
+     *
+     * `revokeAllForUser` is still called so any sessions an attacker might have
+     * obtained from the old password go dead immediately. The caller is
+     * additionally expected to revoke the refresh-token family — see issue #421
+     * for the full session-invalidation contract.
+     */
+    fun applyPasswordReset(id: UUID, newPassword: String): UserEntity {
+        val user = findById(id)
+        require(user.isInternal()) {
+            "Cannot reset password on OIDC-sourced user — credentials live with the upstream provider"
+        }
+        user.passwordHash = hashPassword(newPassword)
+        user.passwordChangeRequired = false
+        val saved = userRepository.save(user)
+        tokenRevocationService.revokeAllForUser(id)
+        return saved
+    }
+
     fun delete(id: UUID) {
         val user = findById(id)
         if (user.isSuperadmin) throw ForbiddenException("The superadmin account cannot be deleted")

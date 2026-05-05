@@ -125,4 +125,44 @@ class UserServiceTest {
         assertThatThrownBy { service.bumpLastLogin(java.util.UUID.randomUUID()) }
             .isInstanceOf(EntityNotFoundException::class.java)
     }
+
+    @Test
+    fun `applyPasswordReset rehashes the password and leaves passwordChangeRequired false (#421)`() {
+        val created = service.create("hank", "hank@example.com", "old-password-1234")
+
+        val updated = service.applyPasswordReset(requireNotNull(created.id), "new-password-1234")
+
+        assertThat(updated.passwordChangeRequired).isFalse()
+        // Hash actually changed and is BCrypt-shaped (the format check is what
+        // distinguishes "we ran the encoder" from "we stored plaintext", which
+        // is the security-relevant property here).
+        assertThat(updated.passwordHash).startsWith("\$2a\$")
+        assertThat(updated.passwordHash).isNotEqualTo(created.passwordHash)
+    }
+
+    @Test
+    fun `applyPasswordReset bumps passwordInvalidatedBefore so all existing sessions are revoked (#421)`() {
+        val created = service.create("ivan", "ivan@example.com", "old-password-1234")
+        assertThat(created.passwordInvalidatedBefore).isNull()
+
+        service.applyPasswordReset(requireNotNull(created.id), "new-password-1234")
+
+        val reloaded = userRepository.findById(requireNotNull(created.id)).orElseThrow()
+        assertThat(reloaded.passwordInvalidatedBefore).isNotNull()
+    }
+
+    @Test
+    fun `applyPasswordReset rejects EXTERNAL OIDC users — credentials live with the provider (#421)`() {
+        val internal = service.create("jane", "jane@example.com", "any-password-1234")
+        // Force the row to look EXTERNAL by mutating + re-saving. We don't go
+        // through OidcIdentityService here because the assertion is purely
+        // about UserService's branch on `user.isInternal()`.
+        internal.source = io.plugwerk.server.domain.UserSource.EXTERNAL
+        userRepository.save(internal)
+
+        assertThatThrownBy {
+            service.applyPasswordReset(requireNotNull(internal.id), "new-password-1234")
+        }.isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("OIDC-sourced")
+    }
 }

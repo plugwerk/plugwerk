@@ -24,6 +24,7 @@ import { AdminEmailTemplatesApi } from "./generated/api/admin-email-templates-ap
 import { AdminSettingsApi } from "./generated/api/admin-settings-api";
 import { AdminUsersApi } from "./generated/api/admin-users-api";
 import { AuthApi } from "./generated/api/auth-api";
+import { AuthPasswordResetApi } from "./generated/api/auth-password-reset-api";
 import { AuthRegistrationApi } from "./generated/api/auth-registration-api";
 import { CatalogApi } from "./generated/api/catalog-api";
 import { ManagementApi } from "./generated/api/management-api";
@@ -150,6 +151,11 @@ export const adminEmailTemplatesApi = new AdminEmailTemplatesApi(
 );
 export const authApi = new AuthApi(apiConfig, BASE_PATH, axiosInstance);
 export const authRegistrationApi = new AuthRegistrationApi(
+  apiConfig,
+  BASE_PATH,
+  axiosInstance,
+);
+export const authPasswordResetApi = new AuthPasswordResetApi(
   apiConfig,
   BASE_PATH,
   axiosInstance,

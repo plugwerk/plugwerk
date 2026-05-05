@@ -36,6 +36,7 @@ import io.plugwerk.server.service.PluginNotFoundException
 import io.plugwerk.server.service.ReleaseAlreadyExistsException
 import io.plugwerk.server.service.ReleaseNotFoundException
 import io.plugwerk.server.service.UnauthorizedException
+import io.plugwerk.server.service.auth.InvalidPasswordResetTokenException
 import io.plugwerk.server.service.auth.InvalidVerificationTokenException
 import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
@@ -163,6 +164,18 @@ class GlobalExceptionHandler {
     @ExceptionHandler(InvalidVerificationTokenException::class)
     fun handleInvalidVerificationToken(ex: InvalidVerificationTokenException): ResponseEntity<ErrorResponse> =
         errorResponse(HttpStatus.BAD_REQUEST, ex.message ?: "Verification token is invalid")
+
+    /**
+     * Password-reset token failed validation (#421). Mapped to 400 with
+     * the specific reason ("invalid", "expired", "already used") so the
+     * reset-password page can show actionable copy. Same shape as the
+     * verification-token handler above — separate Exception type only so
+     * future flow-specific behaviour (different status codes, different
+     * audit hooks) can branch cleanly.
+     */
+    @ExceptionHandler(InvalidPasswordResetTokenException::class)
+    fun handleInvalidPasswordResetToken(ex: InvalidPasswordResetTokenException): ResponseEntity<ErrorResponse> =
+        errorResponse(HttpStatus.BAD_REQUEST, ex.message ?: "Password-reset token is invalid")
 
     /**
      * Honour the status code carried inside any [ResponseStatusException]

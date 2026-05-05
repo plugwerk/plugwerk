@@ -203,6 +203,28 @@ enum class ApplicationSettingKey(
         valueType = SettingValueType.BOOLEAN,
         defaultValue = "true",
     ),
+
+    // ---- Password reset (#421) ---------------------------------------------
+    // Off by default — operators of private deployments never see the
+    // /forgot-password and /reset-password endpoints, both 404 with the
+    // same disguise as registration. The TTL-minutes setting controls
+    // how long an issued reset link stays valid; shorter narrows the
+    // window in which a stolen email can be replayed against the
+    // account, longer is more forgiving for users who don't check
+    // their inbox right away.
+
+    AUTH_PASSWORD_RESET_ENABLED(
+        key = "auth.password_reset_enabled",
+        valueType = SettingValueType.BOOLEAN,
+        defaultValue = "false",
+    ),
+    AUTH_PASSWORD_RESET_TOKEN_TTL_MINUTES(
+        key = "auth.password_reset_token_ttl_minutes",
+        valueType = SettingValueType.INTEGER,
+        defaultValue = "60",
+        minInt = 5,
+        maxInt = 1440,
+    ),
     ;
 
     /**
