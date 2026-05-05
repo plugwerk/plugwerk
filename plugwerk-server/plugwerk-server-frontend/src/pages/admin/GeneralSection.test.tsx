@@ -320,9 +320,7 @@ describe("GeneralSection", () => {
     });
     const enableToggle = screen.getByLabelText("Password Reset Enabled");
     expect(enableToggle).not.toBeChecked();
-    const ttlInput = screen.getByLabelText(
-      "Password Reset Token Ttl Minutes",
-    );
+    const ttlInput = screen.getByLabelText("Password Reset Token Ttl Minutes");
     expect(ttlInput).toHaveValue(60);
   });
 
