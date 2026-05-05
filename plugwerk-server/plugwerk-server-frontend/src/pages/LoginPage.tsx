@@ -45,6 +45,7 @@ export function LoginPage() {
   const selfRegistrationEnabled = useConfigStore(
     (s) => s.selfRegistrationEnabled,
   );
+  const passwordResetEnabled = useConfigStore((s) => s.passwordResetEnabled);
   const navigate = useNavigate();
   const location = useLocation();
   const from = new URLSearchParams(location.search).get("from") ?? "/";
@@ -167,6 +168,23 @@ export function LoginPage() {
             },
           }}
         />
+        {passwordResetEnabled && (
+          // Same gating pattern as the Sign-up link: rendered only when the
+          // operator has switched the feature on (#421). The backend 404s
+          // /auth/forgot-password and /auth/reset-password independently,
+          // so flipping this client-side cannot bypass the gate.
+          <Box sx={{ mt: -1, textAlign: "right" }}>
+            <Link
+              component={RouterLink}
+              to="/forgot-password"
+              underline="hover"
+              variant="body2"
+              color="text.secondary"
+            >
+              Forgot password?
+            </Link>
+          </Box>
+        )}
         <Button
           type="submit"
           variant="contained"
