@@ -18,11 +18,52 @@
  */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, TextField, Button, Alert } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  IconButton,
+  InputAdornment,
+  TextField,
+  Tooltip,
+} from "@mui/material";
+import { Eye, EyeOff } from "lucide-react";
 import axios from "axios";
 import { AuthCard } from "../components/auth/AuthCard";
 import { authApi } from "../api/config";
 import { useAuthStore } from "../stores/authStore";
+
+interface PasswordVisibilityAdornmentProps {
+  visible: boolean;
+  onToggle: () => void;
+}
+
+function PasswordVisibilityAdornment({
+  visible,
+  onToggle,
+}: PasswordVisibilityAdornmentProps) {
+  // Same eye-toggle pattern used by LoginPage / ResetPasswordPage so the
+  // three auth surfaces stay visually consistent (issue #405 follow-up).
+  // onMouseDown.preventDefault keeps the field focused when the button is
+  // clicked — without it, MUI's TextField loses the cursor mid-type.
+  return (
+    <InputAdornment position="end">
+      <Tooltip title={visible ? "Hide password" : "Show password"}>
+        <IconButton
+          onClick={onToggle}
+          onMouseDown={(e) => e.preventDefault()}
+          aria-label={visible ? "Hide password" : "Show password"}
+          aria-pressed={visible}
+          edge="end"
+          size="small"
+        >
+          {visible ? <EyeOff size={16} /> : <Eye size={16} />}
+        </IconButton>
+      </Tooltip>
+    </InputAdornment>
+  );
+}
 
 function parseError(err: unknown): string {
   if (axios.isAxiosError(err) && err.response?.status === 429) {
@@ -43,6 +84,9 @@ export function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -99,32 +143,62 @@ export function ChangePasswordPage() {
       >
         <TextField
           label="Current Password"
-          type="password"
+          type={showCurrent ? "text" : "password"}
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
           required
           size="small"
           autoComplete="current-password"
           autoFocus
+          slotProps={{
+            input: {
+              endAdornment: (
+                <PasswordVisibilityAdornment
+                  visible={showCurrent}
+                  onToggle={() => setShowCurrent((v) => !v)}
+                />
+              ),
+            },
+          }}
         />
         <TextField
           label="New Password"
-          type="password"
+          type={showNew ? "text" : "password"}
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           required
           size="small"
           autoComplete="new-password"
           helperText="At least 12 characters"
+          slotProps={{
+            input: {
+              endAdornment: (
+                <PasswordVisibilityAdornment
+                  visible={showNew}
+                  onToggle={() => setShowNew((v) => !v)}
+                />
+              ),
+            },
+          }}
         />
         <TextField
           label="Confirm New Password"
-          type="password"
+          type={showConfirm ? "text" : "password"}
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           required
           size="small"
           autoComplete="new-password"
+          slotProps={{
+            input: {
+              endAdornment: (
+                <PasswordVisibilityAdornment
+                  visible={showConfirm}
+                  onToggle={() => setShowConfirm((v) => !v)}
+                />
+              ),
+            },
+          }}
         />
         <Button
           type="submit"
@@ -132,6 +206,11 @@ export function ChangePasswordPage() {
           size="large"
           disabled={loading}
           fullWidth
+          // Reserve the spinner slot in the start position so the button
+          // width does not jitter on click — same pattern as LoginPage.
+          startIcon={
+            loading ? <CircularProgress size={16} color="inherit" /> : undefined
+          }
         >
           {loading ? "Saving…" : "Set New Password"}
         </Button>
