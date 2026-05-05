@@ -25,11 +25,11 @@ import io.plugwerk.server.security.ChangePasswordRateLimitFilter
 import io.plugwerk.server.security.LoginRateLimitFilter
 import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
 import io.plugwerk.server.security.PasswordChangeRequiredFilter
+import io.plugwerk.server.security.PasswordResetRateLimitFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.security.RateLimitResult
 import io.plugwerk.server.security.RefreshRateLimitFilter
 import io.plugwerk.server.security.RegisterRateLimitFilter
-import io.plugwerk.server.security.PasswordResetRateLimitFilter
 import io.plugwerk.server.security.RegisterRateLimitService
 import io.plugwerk.server.service.ConflictException
 import io.plugwerk.server.service.UserService

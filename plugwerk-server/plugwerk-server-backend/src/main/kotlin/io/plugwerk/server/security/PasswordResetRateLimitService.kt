@@ -33,10 +33,7 @@ import java.security.MessageDigest
  * bucket so a leaked link cannot be brute-forced for its TTL window.
  */
 @Component
-class PasswordResetRateLimitService(
-    private val bucketService: BucketRateLimitService,
-    props: PlugwerkProperties,
-) {
+class PasswordResetRateLimitService(private val bucketService: BucketRateLimitService, props: PlugwerkProperties) {
     private val ipMaxAttempts = props.auth.rateLimit.passwordReset.ipMaxAttempts
     private val ipWindowSeconds = props.auth.rateLimit.passwordReset.ipWindowSeconds
     private val tokenMaxAttempts = props.auth.rateLimit.passwordReset.tokenMaxAttempts

@@ -25,10 +25,10 @@ import io.plugwerk.server.security.ChangePasswordRateLimitFilter
 import io.plugwerk.server.security.LoginRateLimitFilter
 import io.plugwerk.server.security.NamespaceAccessKeyAuthFilter
 import io.plugwerk.server.security.PasswordChangeRequiredFilter
+import io.plugwerk.server.security.PasswordResetRateLimitFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.security.RefreshRateLimitFilter
 import io.plugwerk.server.security.RegisterRateLimitFilter
-import io.plugwerk.server.security.PasswordResetRateLimitFilter
 import io.plugwerk.server.service.VersionProvider
 import io.plugwerk.server.service.settings.ApplicationSettingsService
 import org.junit.jupiter.api.Test

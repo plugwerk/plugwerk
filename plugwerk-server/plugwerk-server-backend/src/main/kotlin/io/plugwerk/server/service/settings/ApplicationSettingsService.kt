@@ -217,8 +217,7 @@ class ApplicationSettingsService(
     // ---- Password reset (#421) ---------------------------------------------
 
     /** Master switch: surface the public forgot-password / reset-password endpoints at all? */
-    fun passwordResetEnabled(): Boolean =
-        getRaw(ApplicationSettingKey.AUTH_PASSWORD_RESET_ENABLED).toBooleanStrict()
+    fun passwordResetEnabled(): Boolean = getRaw(ApplicationSettingKey.AUTH_PASSWORD_RESET_ENABLED).toBooleanStrict()
 
     /**
      * How long an issued reset link stays valid, in minutes. Operator-tunable
