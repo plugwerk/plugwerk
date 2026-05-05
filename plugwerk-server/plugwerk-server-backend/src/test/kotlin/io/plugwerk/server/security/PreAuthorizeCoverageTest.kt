@@ -70,6 +70,16 @@ class PreAuthorizeCoverageTest {
         // is invisible on locked-down deployments. Rate-limited per IP and
         // per email (RegisterRateLimitFilter + RegisterRateLimitService).
         "AuthRegistrationController.register",
+        // AuthPasswordResetController.forgotPassword — public forgot-password (#421).
+        // Gated at the controller-body level by ApplicationSettings + 404 disguise;
+        // anti-enumeration response is a uniform 204 across all branches.
+        // IP-keyed rate-limit in PasswordResetRateLimitFilter.
+        "AuthPasswordResetController.forgotPassword",
+        // AuthPasswordResetController.resetPassword — public reset-password (#421).
+        // Gated by the same 404 disguise. Authorization is "presented a valid
+        // single-use token", which is exactly the security model.
+        // Token-keyed rate-limit fires inside the controller, IP-keyed in the filter.
+        "AuthPasswordResetController.resetPassword",
         // UpdateCheckController.checkForUpdates — intentionally public: PF4J client plugins
         // submit their installed-plugin list (no secrets) and the server answers with
         // available updates. Anonymous callers are allowed by design (see

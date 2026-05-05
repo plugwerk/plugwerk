@@ -57,6 +57,24 @@ interface UserRepository : JpaRepository<UserEntity, UUID> {
     fun findAllByEnabled(enabled: Boolean): List<UserEntity>
 
     /**
+     * Username-or-email lookup scoped to a single [source]. Used by the
+     * password-reset flow (#421): the user can submit either their
+     * username or their email and we look both up against the same row,
+     * but only INTERNAL accounts are eligible (EXTERNAL ones reset
+     * upstream with their identity provider). Email match is
+     * case-insensitive to align with the storage normalisation done in
+     * `UserService.normalizeEmail`.
+     */
+    @Query(
+        "SELECT u FROM UserEntity u WHERE u.source = :source AND " +
+            "(u.username = :input OR LOWER(u.email) = LOWER(:input))",
+    )
+    fun findByUsernameOrEmailAndSource(
+        @Param("input") input: String,
+        @Param("source") source: UserSource,
+    ): Optional<UserEntity>
+
+    /**
      * Bulk-disable users. Used by `OidcProviderService.delete` when a provider
      * is being removed (Politik C from issue #351): disable rather than
      * cascade-delete so the audit trail survives.

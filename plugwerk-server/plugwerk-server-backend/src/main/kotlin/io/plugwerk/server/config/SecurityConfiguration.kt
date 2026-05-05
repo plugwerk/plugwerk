@@ -28,6 +28,7 @@ import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.security.OidcLoginSuccessHandler
 import io.plugwerk.server.security.OidcProviderRegistry
 import io.plugwerk.server.security.PasswordChangeRequiredFilter
+import io.plugwerk.server.security.PasswordResetRateLimitFilter
 import io.plugwerk.server.security.PromptAwareOAuth2AuthorizationRequestResolver
 import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.security.RefreshRateLimitFilter
@@ -67,6 +68,7 @@ import java.security.MessageDigest
 class SecurityConfiguration(
     private val loginRateLimitFilter: LoginRateLimitFilter,
     private val registerRateLimitFilter: RegisterRateLimitFilter,
+    private val passwordResetRateLimitFilter: PasswordResetRateLimitFilter,
     private val refreshRateLimitFilter: RefreshRateLimitFilter,
     private val changePasswordRateLimitFilter: ChangePasswordRateLimitFilter,
     private val apiKeyAuthFilter: NamespaceAccessKeyAuthFilter,
@@ -402,6 +404,10 @@ class SecurityConfiguration(
             // RegisterRateLimitFilter protects /api/v1/auth/register from bulk account creation (#420).
             // Email-keyed second bucket runs inside the controller after body parsing.
             .addFilterAfter(registerRateLimitFilter, LoginRateLimitFilter::class.java)
+            // PasswordResetRateLimitFilter protects /api/v1/auth/forgot-password and
+            // /api/v1/auth/reset-password from brute-force / mail-bombing (#421).
+            // Token-keyed second bucket runs inside the controller after body parsing.
+            .addFilterAfter(passwordResetRateLimitFilter, RegisterRateLimitFilter::class.java)
             // RefreshRateLimitFilter protects /api/v1/auth/refresh from DoS/spam (ADR-0027).
             .addFilterAfter(refreshRateLimitFilter, LoginRateLimitFilter::class.java)
             // PublicNamespaceFilter runs next — sets AnonymousAuth for public namespace GETs
