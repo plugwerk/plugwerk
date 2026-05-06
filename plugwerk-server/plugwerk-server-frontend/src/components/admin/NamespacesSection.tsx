@@ -74,7 +74,9 @@ export function NamespacesSection() {
       key: "slug",
       header: "Slug",
       render: (ns) => (
-        <Typography variant="body2" fontWeight={500}>
+        <Typography variant="body2" sx={{
+          fontWeight: 500
+        }}>
           {ns.slug}
         </Typography>
       ),
@@ -83,7 +85,9 @@ export function NamespacesSection() {
       key: "name",
       header: "Name",
       render: (ns) => (
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           {ns.name || "\u2014"}
         </Typography>
       ),
@@ -134,13 +138,14 @@ export function NamespacesSection() {
           Create Namespace
         </Button>
       </Box>
-
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
           <CircularProgress size={24} />
         </Box>
       ) : namespaces.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           No namespaces found.
         </Typography>
       ) : (
@@ -151,14 +156,12 @@ export function NamespacesSection() {
           columns={namespaceCols}
         />
       )}
-
       <CreateNamespaceDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={handleCreated}
         onError={(msg) => addToast({ message: msg, type: "error" })}
       />
-
       <DeleteNamespaceDialog
         namespace={deleteTarget}
         onClose={() => setDeleteTarget(null)}

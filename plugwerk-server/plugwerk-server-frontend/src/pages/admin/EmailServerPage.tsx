@@ -368,7 +368,6 @@ export function EmailServerPage() {
           }}
         />
       </Section>
-
       <Section
         contentGap={2.5}
         icon={<User size={18} />}
@@ -404,7 +403,6 @@ export function EmailServerPage() {
           inputProps={{ "aria-label": "From name" }}
         />
       </Section>
-
       <Section
         contentGap={2.5}
         icon={<Mail size={18} />}
@@ -465,7 +463,9 @@ export function EmailServerPage() {
           </Button>
         </Box>
         {!enabledValue && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             Enable SMTP and save your changes before sending a test message.
           </Typography>
         )}
@@ -479,7 +479,6 @@ export function EmailServerPage() {
           </Alert>
         )}
       </Section>
-
       <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
         <Button
           variant="text"

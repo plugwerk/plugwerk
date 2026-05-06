@@ -316,13 +316,12 @@ export function MembersSection({ slug }: { slug: string }) {
           >
             <Typography
               variant="body2"
-              fontWeight={500}
               sx={{
+                fontWeight: 500,
                 whiteSpace: "nowrap",
                 overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
+                textOverflow: "ellipsis"
+              }}>
               {member.displayName}
             </Typography>
             {secondary && (
@@ -341,12 +340,11 @@ export function MembersSection({ slug }: { slug: string }) {
                 </Box>
                 <Typography
                   variant="caption"
-                  color="text.secondary"
                   sx={{
+                    color: "text.secondary",
                     flexShrink: 0,
-                    whiteSpace: "nowrap",
-                  }}
-                >
+                    whiteSpace: "nowrap"
+                  }}>
                   {secondary}
                 </Typography>
               </>
@@ -381,7 +379,9 @@ export function MembersSection({ slug }: { slug: string }) {
       key: "created",
       header: "Created",
       render: (member) => (
-        <Typography variant="caption" color="text.disabled">
+        <Typography variant="caption" sx={{
+          color: "text.disabled"
+        }}>
           <Timestamp date={member.createdAt} />
         </Typography>
       ),
@@ -420,13 +420,14 @@ export function MembersSection({ slug }: { slug: string }) {
           Add Members
         </Button>
       </Box>
-
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
           <CircularProgress size={24} />
         </Box>
       ) : members.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           No members found.
         </Typography>
       ) : (
@@ -437,7 +438,6 @@ export function MembersSection({ slug }: { slug: string }) {
           ariaLabel="Namespace members"
         />
       )}
-
       <AppDialog
         open={addOpen}
         onClose={() => {

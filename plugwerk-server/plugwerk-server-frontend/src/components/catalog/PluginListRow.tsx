@@ -95,10 +95,11 @@ export const PluginListRow = memo(function PluginListRow({
       >
         <Puzzle size={20} />
       </Box>
-
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-          <Typography variant="body2" fontWeight={600} noWrap>
+          <Typography variant="body2" noWrap sx={{
+            fontWeight: 600
+          }}>
             {plugin.name}
           </Typography>
           {isDraftOnly && (
@@ -116,10 +117,14 @@ export const PluginListRow = memo(function PluginListRow({
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           {plugin.provider && (
             <>
-              <Typography variant="caption" color="text.disabled">
+              <Typography variant="caption" sx={{
+                color: "text.disabled"
+              }}>
                 by {plugin.provider}
               </Typography>
-              <Typography variant="caption" color="text.disabled">
+              <Typography variant="caption" sx={{
+                color: "text.disabled"
+              }}>
                 ·
               </Typography>
             </>
@@ -127,7 +132,6 @@ export const PluginListRow = memo(function PluginListRow({
           <CopyablePluginId pluginId={plugin.pluginId} />
         </Box>
       </Box>
-
       {/* Tags */}
       {plugin.tags && plugin.tags.length > 0 && (
         <Box sx={{ display: "flex", gap: 0.5, flexShrink: 0 }}>
@@ -138,7 +142,6 @@ export const PluginListRow = memo(function PluginListRow({
           ))}
         </Box>
       )}
-
       {/* Quick download */}
       {downloadUrl && (
         <ActionIconButton
@@ -154,7 +157,6 @@ export const PluginListRow = memo(function PluginListRow({
           }}
         />
       )}
-
       <Box
         sx={{ display: "flex", gap: 2, color: "text.disabled", flexShrink: 0 }}
       >

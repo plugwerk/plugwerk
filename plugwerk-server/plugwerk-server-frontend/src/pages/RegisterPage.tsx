@@ -180,7 +180,9 @@ export function RegisterPage() {
         title="Registration unavailable"
         subtitle="Self-registration is not enabled on this server."
       >
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           Contact your administrator to request an account.
         </Typography>
         <Box sx={{ textAlign: "center", mt: 1 }}>
@@ -188,7 +190,9 @@ export function RegisterPage() {
             component={RouterLink}
             to="/login"
             underline="hover"
-            fontWeight={600}
+            sx={{
+              fontWeight: 600
+            }}
           >
             Back to login
           </Link>
@@ -289,9 +293,10 @@ export function RegisterPage() {
       </Box>
       <Typography
         variant="caption"
-        color="text.disabled"
-        sx={{ textAlign: "center" }}
-      >
+        sx={{
+          color: "text.disabled",
+          textAlign: "center"
+        }}>
         Already have an account?{" "}
         <Link
           component={RouterLink}

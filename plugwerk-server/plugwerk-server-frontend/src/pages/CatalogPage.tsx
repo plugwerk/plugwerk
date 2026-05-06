@@ -176,8 +176,10 @@ export function CatalogPage() {
           {!loading && (
             <Typography
               variant="caption"
-              color="text.primary"
               aria-live="polite"
+              sx={{
+                color: "text.primary"
+              }}
             >
               {totalElements} plugins
             </Typography>

@@ -113,10 +113,14 @@ export function ReviewsSection() {
       header: "Plugin",
       render: (item) => (
         <>
-          <Typography variant="body2" fontWeight={500}>
+          <Typography variant="body2" sx={{
+            fontWeight: 500
+          }}>
             {item.pluginName}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {item.pluginId}
           </Typography>
         </>
@@ -126,7 +130,9 @@ export function ReviewsSection() {
       key: "namespace",
       header: "Namespace",
       render: () => (
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           {namespace}
         </Typography>
       ),
@@ -140,7 +146,9 @@ export function ReviewsSection() {
       key: "submitted",
       header: "Submitted",
       render: (item) => (
-        <Typography variant="caption" color="text.disabled">
+        <Typography variant="caption" sx={{
+          color: "text.disabled"
+        }}>
           <Timestamp date={item.submittedAt} />
         </Typography>
       ),
@@ -177,13 +185,14 @@ export function ReviewsSection() {
         </Typography>
         <Divider sx={{ mb: 3 }} />
       </Box>
-
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
           <CircularProgress size={24} />
         </Box>
       ) : items.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           No releases awaiting review.
         </Typography>
       ) : (

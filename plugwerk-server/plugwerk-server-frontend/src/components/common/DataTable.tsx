@@ -48,7 +48,12 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   if (rows.length === 0 && emptyMessage) {
     return (
-      <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          py: 3
+        }}>
         {emptyMessage}
       </Typography>
     );

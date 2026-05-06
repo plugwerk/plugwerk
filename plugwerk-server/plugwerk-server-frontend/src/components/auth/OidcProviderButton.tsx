@@ -97,19 +97,19 @@ function ProviderAccountSwitchAffordance({ provider }: AffordanceProps) {
         href={provider.accountPickerLoginUrl}
         variant="caption"
         underline="hover"
-        color="text.secondary"
         aria-label={`Sign in with a different ${provider.name} account`}
         sx={{
+          color: "text.secondary",
+
           // Same `text.secondary` colour as the GitHub-hint host link
           // below, including on hover — keeps both affordances visually
           // identical so the difference between "click me" and "this is
           // here for context" lives in the wording, not the colour.
           fontWeight: 500,
-          "&:hover": { color: "text.secondary" },
-        }}
-      >
-        Use a different account
-      </Link>
+
+          "&:hover": { color: "text.secondary" }
+        }}>Use a different account
+              </Link>
     );
   }
   if (provider.accountSwitchHintUrl) {
@@ -122,10 +122,11 @@ function ProviderAccountSwitchAffordance({ provider }: AffordanceProps) {
     return (
       <Typography
         variant="caption"
-        color="text.secondary"
-        sx={{ textAlign: "center", lineHeight: 1.4 }}
-      >
-        To switch accounts, sign out at{" "}
+        sx={{
+          color: "text.secondary",
+          textAlign: "center",
+          lineHeight: 1.4
+        }}>To switch accounts, sign out at{" "}
         <Link
           component="a"
           href={provider.accountSwitchHintUrl}
@@ -136,9 +137,8 @@ function ProviderAccountSwitchAffordance({ provider }: AffordanceProps) {
           sx={{ fontFamily: "monospace" }}
         >
           {hintHost}
-        </Link>{" "}
-        first.
-      </Typography>
+        </Link>{" "}first.
+              </Typography>
     );
   }
   return null;

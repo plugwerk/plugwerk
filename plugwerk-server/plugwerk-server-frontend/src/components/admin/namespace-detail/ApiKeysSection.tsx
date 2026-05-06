@@ -151,11 +151,15 @@ export function ApiKeysSection({ slug }: { slug: string }) {
       header: "Expires",
       render: (key) =>
         key.expiresAt ? (
-          <Typography variant="caption" color="text.disabled">
+          <Typography variant="caption" sx={{
+            color: "text.disabled"
+          }}>
             <Timestamp date={key.expiresAt} />
           </Typography>
         ) : (
-          <Typography variant="caption" color="text.disabled">
+          <Typography variant="caption" sx={{
+            color: "text.disabled"
+          }}>
             Never
           </Typography>
         ),
@@ -164,7 +168,9 @@ export function ApiKeysSection({ slug }: { slug: string }) {
       key: "created",
       header: "Created",
       render: (key) => (
-        <Typography variant="caption" color="text.disabled">
+        <Typography variant="caption" sx={{
+          color: "text.disabled"
+        }}>
           <Timestamp date={key.createdAt} />
         </Typography>
       ),
@@ -188,7 +194,12 @@ export function ApiKeysSection({ slug }: { slug: string }) {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.secondary",
+            flex: 1
+          }}>
           API keys provide programmatic access for CI/CD pipelines and the SDK.
           The key is shown only once after creation.
         </Typography>
@@ -202,7 +213,6 @@ export function ApiKeysSection({ slug }: { slug: string }) {
           Generate Key
         </Button>
       </Box>
-
       {newKey && (
         <Alert
           severity="success"
@@ -225,13 +235,14 @@ export function ApiKeysSection({ slug }: { slug: string }) {
           </Typography>
         </Alert>
       )}
-
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
           <CircularProgress size={24} />
         </Box>
       ) : keys.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           No API keys configured.
         </Typography>
       ) : (
@@ -243,7 +254,6 @@ export function ApiKeysSection({ slug }: { slug: string }) {
           rowSx={(key) => (key.revoked ? { opacity: 0.5 } : undefined)}
         />
       )}
-
       <AppDialog
         open={createOpen}
         onClose={() => {

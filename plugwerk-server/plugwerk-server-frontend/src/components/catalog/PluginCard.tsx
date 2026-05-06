@@ -124,15 +124,14 @@ export const PluginCard = memo(function PluginCard({
                 <Typography
                   ref={nameRef}
                   variant="body1"
-                  fontWeight={600}
                   sx={{
+                    fontWeight: 600,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
                     flex: 1,
-                    minWidth: 0,
-                  }}
-                >
+                    minWidth: 0
+                  }}>
                   {plugin.name}
                 </Typography>
               </Tooltip>
@@ -157,14 +156,13 @@ export const PluginCard = memo(function PluginCard({
                 <Typography
                   ref={providerRef}
                   variant="caption"
-                  color="text.disabled"
                   sx={{
+                    color: "text.disabled",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
-                    minWidth: 0,
-                  }}
-                >
+                    minWidth: 0
+                  }}>
                   {plugin.provider ? `by ${plugin.provider}` : ""}
                 </Typography>
               </Tooltip>
@@ -182,15 +180,14 @@ export const PluginCard = memo(function PluginCard({
             <Typography
               ref={descRef}
               variant="body2"
-              color="text.secondary"
               sx={{
+                color: "text.secondary",
                 display: "-webkit-box",
                 WebkitLineClamp: 2,
                 WebkitBoxOrient: "vertical",
                 overflow: "hidden",
-                lineHeight: 1.6,
-              }}
-            >
+                lineHeight: 1.6
+              }}>
               {plugin.description}
             </Typography>
           </Tooltip>

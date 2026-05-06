@@ -124,25 +124,27 @@ export function MailTemplatePreviewPane({
     >
       <Stack
         direction="row"
-        alignItems="center"
         spacing={1}
         sx={{
+          alignItems: "center",
           px: 1.5,
           py: 0.5,
           minHeight: 36,
           borderBottom: "1px solid",
           borderColor: "divider",
+
           background: isDark
             ? alpha("#ffffff", 0.04)
-            : alpha(tokens.color.gray20, 0.4),
-        }}
-      >
+            : alpha(tokens.color.gray20, 0.4)
+        }}>
         <Stack
           direction="row"
-          alignItems="center"
           spacing={0.75}
-          sx={{ flex: 1, minWidth: 0 }}
-        >
+          sx={{
+            alignItems: "center",
+            flex: 1,
+            minWidth: 0
+          }}>
           <Typography
             variant="caption"
             sx={{
@@ -166,7 +168,9 @@ export function MailTemplatePreviewPane({
               onClick={(e) => setVarsAnchor(e.currentTarget)}
               sx={{ borderRadius: tokens.radius.btn }}
             >
-              <Stack direction="row" alignItems="center" spacing={0.375}>
+              <Stack direction="row" spacing={0.375} sx={{
+                alignItems: "center"
+              }}>
                 <Variable size={13} />
                 <Typography
                   variant="caption"
@@ -197,7 +201,6 @@ export function MailTemplatePreviewPane({
           </span>
         </Tooltip>
       </Stack>
-
       <Popover
         open={Boolean(varsAnchor)}
         anchorEl={varsAnchor}
@@ -217,7 +220,12 @@ export function MailTemplatePreviewPane({
           },
         }}
       >
-        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.25 }}>
+        <Typography
+          variant="subtitle2"
+          sx={{
+            fontWeight: 600,
+            mb: 1.25
+          }}>
           Sample variables
         </Typography>
         <Stack spacing={1.25}>
@@ -248,13 +256,15 @@ export function MailTemplatePreviewPane({
         </Stack>
         <Typography
           variant="caption"
-          color="text.secondary"
-          sx={{ display: "block", mt: 1.5, fontStyle: "italic" }}
-        >
+          sx={{
+            color: "text.secondary",
+            display: "block",
+            mt: 1.5,
+            fontStyle: "italic"
+          }}>
           Changes apply automatically after a short pause.
         </Typography>
       </Popover>
-
       <Box sx={{ flex: 1, minHeight: 0, position: "relative" }}>
         {showError ? (
           <Box sx={{ p: 1.5 }}>
@@ -354,9 +364,12 @@ function StatusBadge({ status }: StatusBadgeProps): ReactNode {
   return (
     <Stack
       direction="row"
-      alignItems="center"
       spacing={0.5}
+      role="status"
+      aria-live="polite"
+      aria-label={`Preview status: ${meta.label}`}
       sx={{
+        alignItems: "center",
         px: 0.875,
         py: 0.125,
         borderRadius: 999,
@@ -367,12 +380,8 @@ function StatusBadge({ status }: StatusBadgeProps): ReactNode {
         letterSpacing: 0.5,
         textTransform: "uppercase",
         userSelect: "none",
-        flexShrink: 0,
-      }}
-      role="status"
-      aria-live="polite"
-      aria-label={`Preview status: ${meta.label}`}
-    >
+        flexShrink: 0
+      }}>
       <Box
         sx={{
           display: "flex",

@@ -207,7 +207,9 @@ export function OidcProvidersSection() {
       key: "name",
       header: "Name",
       render: (provider) => (
-        <Typography variant="body2" fontWeight={500}>
+        <Typography variant="body2" sx={{
+          fontWeight: 500
+        }}>
           {provider.name}
         </Typography>
       ),
@@ -229,11 +231,15 @@ export function OidcProvidersSection() {
       header: "Issuer / Client ID",
       render: (provider) =>
         provider.issuerUri ? (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {provider.issuerUri}
           </Typography>
         ) : (
-          <Typography variant="caption" color="text.disabled">
+          <Typography variant="caption" sx={{
+            color: "text.disabled"
+          }}>
             {provider.clientId}
           </Typography>
         ),
@@ -296,13 +302,14 @@ export function OidcProvidersSection() {
           Add Provider
         </Button>
       </Box>
-
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
           <CircularProgress size={24} />
         </Box>
       ) : providers.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           No OIDC providers configured.
         </Typography>
       ) : (
@@ -313,7 +320,6 @@ export function OidcProvidersSection() {
           ariaLabel="OIDC providers"
         />
       )}
-
       <OidcProviderFormDialog
         open={createOpen}
         mode="create"
@@ -322,7 +328,6 @@ export function OidcProvidersSection() {
           handleCreate(payload as OidcProviderCreateRequest)
         }
       />
-
       <OidcProviderFormDialog
         open={editingProvider !== null}
         mode="edit"

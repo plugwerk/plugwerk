@@ -145,7 +145,9 @@ export function UsersSection() {
             flexWrap: "wrap",
           }}
         >
-          <Typography variant="body2" fontWeight={500}>
+          <Typography variant="body2" sx={{
+            fontWeight: 500
+          }}>
             {user.displayName}
           </Typography>
           {user.source === "EXTERNAL" && user.providerName ? (
@@ -154,13 +156,16 @@ export function UsersSection() {
             // Same priority as the namespace member picker (#412) — provider
             // wins over username because for OIDC the username is just the
             // IdP-assigned subject claim and rarely useful at a glance.
-            <Typography variant="caption" color="text.secondary">
-              ({user.providerName})
-            </Typography>
+            (<Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>({user.providerName})
+                          </Typography>)
           ) : (
             user.username &&
             user.username !== user.displayName && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 ({user.username})
               </Typography>
             )
@@ -201,7 +206,9 @@ export function UsersSection() {
       key: "email",
       header: "Email",
       render: (user) => (
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           {user.email}
         </Typography>
       ),
@@ -221,7 +228,9 @@ export function UsersSection() {
       key: "created",
       header: "Created",
       render: (user) => (
-        <Typography variant="caption" color="text.disabled">
+        <Typography variant="caption" sx={{
+          color: "text.disabled"
+        }}>
           <Timestamp date={user.createdAt} />
         </Typography>
       ),
@@ -230,7 +239,9 @@ export function UsersSection() {
       key: "lastLogin",
       header: "Last login",
       render: (user) => (
-        <Typography variant="caption" color="text.disabled">
+        <Typography variant="caption" sx={{
+          color: "text.disabled"
+        }}>
           <Timestamp date={user.lastLoginAt} variant="relative" />
         </Typography>
       ),
@@ -288,13 +299,14 @@ export function UsersSection() {
           Add User
         </Button>
       </Box>
-
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
           <CircularProgress size={24} />
         </Box>
       ) : users.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           No users found.
         </Typography>
       ) : (
@@ -305,7 +317,6 @@ export function UsersSection() {
           ariaLabel="Users"
         />
       )}
-
       <AppDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
@@ -347,7 +358,6 @@ export function UsersSection() {
           />
         </Box>
       </AppDialog>
-
       <ConfirmDeleteDialog
         open={!!deleteTarget}
         title="Delete User"

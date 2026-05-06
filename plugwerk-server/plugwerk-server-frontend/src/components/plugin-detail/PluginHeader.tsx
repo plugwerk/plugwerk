@@ -136,7 +136,6 @@ export function PluginHeader({
       >
         <Puzzle size={48} />
       </Box>
-
       {/* Plugin info */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box
@@ -165,7 +164,9 @@ export function PluginHeader({
         </Box>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-          <Typography variant="caption" color="text.disabled">
+          <Typography variant="caption" sx={{
+            color: "text.disabled"
+          }}>
             by{" "}
             <strong style={{ color: "inherit" }}>
               {plugin.provider ?? namespace}
@@ -251,7 +252,6 @@ export function PluginHeader({
           </Box>
         )}
       </Box>
-
       {/* Actions */}
       <Box
         sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}

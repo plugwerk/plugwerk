@@ -113,7 +113,6 @@ export function UploadModal() {
           {error}
         </Alert>
       )}
-
       <Box
         {...getRootProps()}
         sx={{
@@ -142,17 +141,20 @@ export function UploadModal() {
           }}
         >
           <UploadCloud size={36} color={tokens.color.gray40} />
-          <Typography variant="body2" fontWeight={600}>
+          <Typography variant="body2" sx={{
+            fontWeight: 600
+          }}>
             {isDragActive
               ? "Drop the files here…"
               : "Drag & drop .jar or .zip files here"}
           </Typography>
-          <Typography variant="caption" color="text.disabled">
+          <Typography variant="caption" sx={{
+            color: "text.disabled"
+          }}>
             or click to browse · Max. {maxFileSizeMb} MB per file
           </Typography>
         </Box>
       </Box>
-
       {/* Selected file list */}
       {files.length > 0 && (
         <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 0.5 }}>
@@ -174,21 +176,21 @@ export function UploadModal() {
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography
                   variant="body2"
-                  fontWeight={500}
                   sx={{
+                    fontWeight: 500,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+                    whiteSpace: "nowrap"
+                  }}>
                   {file.name}
                 </Typography>
               </Box>
               <Typography
                 variant="caption"
-                color="text.disabled"
-                sx={{ flexShrink: 0 }}
-              >
+                sx={{
+                  color: "text.disabled",
+                  flexShrink: 0
+                }}>
                 {(file.size / 1024 / 1024).toFixed(2)} MB
               </Typography>
               <IconButton

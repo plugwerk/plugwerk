@@ -115,7 +115,6 @@ export function AppDialog({
           <X size={18} />
         </IconButton>
       </DialogTitle>
-
       {/* ── Content ── */}
       <DialogContent
         sx={{
@@ -133,15 +132,15 @@ export function AppDialog({
         {description && (
           <Typography
             variant="body2"
-            color="text.secondary"
-            sx={{ mb: children ? 2.5 : 0 }}
-          >
+            sx={{
+              color: "text.secondary",
+              mb: children ? 2.5 : 0
+            }}>
             {description}
           </Typography>
         )}
         {children}
       </DialogContent>
-
       {/* ── Footer ── */}
       {!hideActions && (
         <DialogActions>

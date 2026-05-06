@@ -101,7 +101,9 @@ export function VerifyEmailCallbackPage() {
         title="No verification token"
         subtitle="The link is missing the required `?token=…` parameter."
       >
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           Open the link from your verification email instead. If you no longer
           have the email, register again to receive a new one.
         </Typography>
@@ -110,7 +112,9 @@ export function VerifyEmailCallbackPage() {
             component={RouterLink}
             to="/register"
             underline="hover"
-            fontWeight={600}
+            sx={{
+              fontWeight: 600
+            }}
           >
             Register
           </Link>
@@ -213,11 +217,15 @@ export function VerifyEmailCallbackPage() {
         >
           <AlertCircle size={28} />
         </Box>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {errorMessage ??
             "The verification link could not be processed. It may have expired or already been used."}
         </Typography>
-        <Typography variant="caption" color="text.disabled">
+        <Typography variant="caption" sx={{
+          color: "text.disabled"
+        }}>
           Register again to request a fresh verification email.
         </Typography>
       </Box>
@@ -234,7 +242,9 @@ export function VerifyEmailCallbackPage() {
           component={RouterLink}
           to="/register"
           underline="hover"
-          fontWeight={600}
+          sx={{
+            fontWeight: 600
+          }}
         >
           Register
         </Link>
@@ -242,7 +252,9 @@ export function VerifyEmailCallbackPage() {
           component={RouterLink}
           to="/login"
           underline="hover"
-          color="text.secondary"
+          sx={{
+            color: "text.secondary"
+          }}
         >
           Back to login
         </Link>
