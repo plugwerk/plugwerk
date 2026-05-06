@@ -252,7 +252,7 @@ export function OidcProvidersSection() {
           checked={provider.enabled}
           size="small"
           onChange={() => handleToggleEnabled(provider)}
-          inputProps={{ "aria-label": `Toggle ${provider.name}` }}
+          slotProps={{ input: { "aria-label": `Toggle ${provider.name}` } }}
         />
       ),
     },

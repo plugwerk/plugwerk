@@ -255,7 +255,7 @@ export function UsersSection() {
           size="small"
           onChange={() => handleToggleEnabled(user)}
           disabled={user.isSuperadmin}
-          inputProps={{ "aria-label": `Toggle ${user.displayName}` }}
+          slotProps={{ input: { "aria-label": `Toggle ${user.displayName}` } }}
         />
       ),
     },

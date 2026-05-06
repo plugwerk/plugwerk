@@ -201,7 +201,7 @@ export function GeneralSection() {
                   handleFieldChange(key, e.target.checked ? "true" : "false")
                 }
                 disabled={saving}
-                inputProps={{ "aria-label": label }}
+                slotProps={{ input: { "aria-label": label } }}
               />
             }
             label={label}
