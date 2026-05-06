@@ -248,8 +248,8 @@ export function ResetPasswordPage() {
             fieldErrors.newPassword ??
             `Minimum ${PASSWORD_MIN_LENGTH} characters.`
           }
-          inputProps={{ "aria-label": "New Password" }}
           slotProps={{
+            htmlInput: { "aria-label": "New Password" },
             input: {
               endAdornment: (
                 <InputAdornment position="end">
@@ -279,8 +279,8 @@ export function ResetPasswordPage() {
           disabled={submitting}
           error={Boolean(fieldErrors.confirmPassword)}
           helperText={fieldErrors.confirmPassword}
-          inputProps={{ "aria-label": "Confirm Password" }}
           slotProps={{
+            htmlInput: { "aria-label": "Confirm Password" },
             input: {
               endAdornment: (
                 <InputAdornment position="end">

@@ -224,7 +224,7 @@ export function RegisterPage() {
           disabled={submitting}
           error={Boolean(fieldErrors.username)}
           helperText={fieldErrors.username}
-          inputProps={{ "aria-label": "Username" }}
+          slotProps={{ htmlInput: { "aria-label": "Username" } }}
         />
         <TextField
           label="Email"
@@ -237,7 +237,7 @@ export function RegisterPage() {
           disabled={submitting}
           error={Boolean(fieldErrors.email)}
           helperText={fieldErrors.email}
-          inputProps={{ "aria-label": "Email" }}
+          slotProps={{ htmlInput: { "aria-label": "Email" } }}
         />
         <TextField
           label="Password"
@@ -252,8 +252,8 @@ export function RegisterPage() {
           helperText={
             fieldErrors.password ?? `Minimum ${PASSWORD_MIN_LENGTH} characters.`
           }
-          inputProps={{ "aria-label": "Password" }}
           slotProps={{
+            htmlInput: { "aria-label": "Password" },
             input: {
               endAdornment: (
                 <InputAdornment position="end">

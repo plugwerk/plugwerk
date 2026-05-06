@@ -306,10 +306,12 @@ export function GeneralSection() {
             error={Boolean(error)}
             helperText={helperText}
             disabled={saving}
-            inputProps={{
-              min: setting.minInt,
-              max: setting.maxInt,
-              "aria-label": label,
+            slotProps={{
+              htmlInput: {
+                min: setting.minInt,
+                max: setting.maxInt,
+                "aria-label": label,
+              },
             }}
             sx={{ maxWidth: 320 }}
           />
@@ -336,7 +338,7 @@ export function GeneralSection() {
         error={Boolean(error)}
         helperText={helperText}
         disabled={saving}
-        inputProps={{ "aria-label": label }}
+        slotProps={{ htmlInput: { "aria-label": label } }}
         sx={{ maxWidth: 480 }}
       />
     );

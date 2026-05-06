@@ -396,7 +396,7 @@ export function EmailTemplateEditPage() {
             }}
             inputRef={subjectRef}
             disabled={saving}
-            inputProps={{ "aria-label": "Subject" }}
+            slotProps={{ htmlInput: { "aria-label": "Subject" } }}
             sx={{
               height: "100%",
               "& .MuiOutlinedInput-root": { height: "100%" },
@@ -496,7 +496,7 @@ export function EmailTemplateEditPage() {
                 }
               }}
               disabled={saving}
-              inputProps={{ "aria-label": "Add HTML alternative" }}
+              slotProps={{ input: { "aria-label": "Add HTML alternative" } }}
             />
           }
           label={showHtmlEditor ? "HTML alternative enabled" : "Plaintext only"}
@@ -878,8 +878,10 @@ function ResetConfirmDialog({
       open={open}
       onClose={onClose}
       aria-labelledby="reset-template-title"
-      PaperProps={{
-        sx: { borderRadius: tokens.radius.dialog, maxWidth: 480 },
+      slotProps={{
+        paper: {
+          sx: { borderRadius: tokens.radius.dialog, maxWidth: 480 },
+        },
       }}
     >
       <DialogTitle

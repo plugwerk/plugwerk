@@ -231,7 +231,7 @@ export function ForgotPasswordPage() {
           value={usernameOrEmail}
           onChange={(e) => setUsernameOrEmail(e.target.value)}
           disabled={submitting}
-          inputProps={{ "aria-label": "Username or email" }}
+          slotProps={{ htmlInput: { "aria-label": "Username or email" } }}
         />
         <Button
           type="submit"

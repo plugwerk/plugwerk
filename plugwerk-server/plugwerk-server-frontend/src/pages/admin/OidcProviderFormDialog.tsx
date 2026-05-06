@@ -636,7 +636,7 @@ export function OidcProviderFormDialog({
               size="small"
               error={visibleError("name") !== null}
               helperText={visibleError("name") ?? "Shown on the login page."}
-              inputProps={{ maxLength: 255 }}
+              slotProps={{ htmlInput: { maxLength: 255 } }}
               // Deliberately no `autoFocus`. Combining `autoFocus` with MUI's
               // Dialog focus-trap caused the input to fire `onBlur` immediately
               // after mount (focus enters the input, then the trap relocates
@@ -663,7 +663,7 @@ export function OidcProviderFormDialog({
               size="small"
               error={visibleError("clientId") !== null}
               helperText={visibleError("clientId") ?? undefined}
-              inputProps={{ maxLength: 255 }}
+              slotProps={{ htmlInput: { maxLength: 255 } }}
             />
 
             {clientIdChanged && (
