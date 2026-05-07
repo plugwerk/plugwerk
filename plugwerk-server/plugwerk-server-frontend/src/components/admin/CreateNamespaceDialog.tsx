@@ -233,7 +233,12 @@ export function CreateNamespaceDialog({
             label={
               <Box>
                 <Typography variant="body2">Public Catalog</Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "text.secondary",
+                  }}
+                >
                   Allow unauthenticated users to browse the plugin catalog.
                 </Typography>
               </Box>
@@ -251,7 +256,12 @@ export function CreateNamespaceDialog({
             label={
               <Box>
                 <Typography variant="body2">Auto-Approve Releases</Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "text.secondary",
+                  }}
+                >
                   Uploaded releases are published immediately without manual
                   review.
                 </Typography>

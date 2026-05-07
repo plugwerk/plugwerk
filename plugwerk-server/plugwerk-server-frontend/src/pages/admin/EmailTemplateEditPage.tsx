@@ -343,8 +343,8 @@ export function EmailTemplateEditPage() {
         </Typography>
         <Typography
           variant="caption"
-          color="text.secondary"
           sx={{
+            color: "text.secondary",
             fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
             display: "block",
             mt: 0.5,
@@ -358,12 +358,10 @@ export function EmailTemplateEditPage() {
           updatedBy={template.updatedBy}
         />
       </Box>
-
       <PlaceholderReference
         placeholders={template.placeholders}
         onInsert={handleInsertPlaceholder}
       />
-
       {/*
        * Each body section pairs its editor with a preview pane in a
        * 2-column row (md+) so what the operator types and what gets sent
@@ -399,7 +397,7 @@ export function EmailTemplateEditPage() {
             }}
             inputRef={subjectRef}
             disabled={saving}
-            inputProps={{ "aria-label": "Subject" }}
+            slotProps={{ htmlInput: { "aria-label": "Subject" } }}
             sx={{
               height: "100%",
               "& .MuiOutlinedInput-root": { height: "100%" },
@@ -424,7 +422,6 @@ export function EmailTemplateEditPage() {
         </Box>
         <DefaultDiff label="Default subject" value={template.defaultSubject} />
       </Section>
-
       <Section
         contentGap={1.5}
         icon={<FileText size={18} />}
@@ -472,7 +469,6 @@ export function EmailTemplateEditPage() {
           multiline
         />
       </Section>
-
       <Section
         contentGap={1.5}
         icon={<Code2 size={18} />}
@@ -501,7 +497,7 @@ export function EmailTemplateEditPage() {
                 }
               }}
               disabled={saving}
-              inputProps={{ "aria-label": "Add HTML alternative" }}
+              slotProps={{ input: { "aria-label": "Add HTML alternative" } }}
             />
           }
           label={showHtmlEditor ? "HTML alternative enabled" : "Plaintext only"}
@@ -553,7 +549,6 @@ export function EmailTemplateEditPage() {
           </Stack>
         </Collapse>
       </Section>
-
       <Box
         sx={{
           display: "flex",
@@ -592,7 +587,6 @@ export function EmailTemplateEditPage() {
           </Button>
         </Box>
       </Box>
-
       <ResetConfirmDialog
         open={resetDialogOpen}
         templateName={template.friendlyName}
@@ -631,8 +625,10 @@ function PlaceholderReference({
       <Stack
         direction="row"
         spacing={1.5}
-        alignItems="flex-start"
-        flexWrap="wrap"
+        sx={{
+          alignItems: "flex-start",
+          flexWrap: "wrap",
+        }}
       >
         <Box
           sx={{
@@ -658,7 +654,12 @@ function PlaceholderReference({
           >
             Available variables
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+            }}
+          >
             Click a chip to insert{" "}
             <Box
               component="code"
@@ -689,9 +690,11 @@ function PlaceholderReference({
             <Stack
               direction="row"
               spacing={0.75}
-              flexWrap="wrap"
-              rowGap={0.75}
-              sx={{ mt: 1.5 }}
+              sx={{
+                flexWrap: "wrap",
+                rowGap: 0.75,
+                mt: 1.5,
+              }}
             >
               {placeholders.map((name) => (
                 <Chip
@@ -725,8 +728,12 @@ function PlaceholderReference({
           ) : (
             <Typography
               variant="caption"
-              color="text.secondary"
-              sx={{ mt: 1.5, display: "block", fontStyle: "italic" }}
+              sx={{
+                color: "text.secondary",
+                mt: 1.5,
+                display: "block",
+                fontStyle: "italic",
+              }}
             >
               This template takes no variables.
             </Typography>
@@ -878,8 +885,10 @@ function ResetConfirmDialog({
       open={open}
       onClose={onClose}
       aria-labelledby="reset-template-title"
-      PaperProps={{
-        sx: { borderRadius: tokens.radius.dialog, maxWidth: 480 },
+      slotProps={{
+        paper: {
+          sx: { borderRadius: tokens.radius.dialog, maxWidth: 480 },
+        },
       }}
     >
       <DialogTitle

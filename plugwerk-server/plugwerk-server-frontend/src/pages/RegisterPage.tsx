@@ -180,7 +180,12 @@ export function RegisterPage() {
         title="Registration unavailable"
         subtitle="Self-registration is not enabled on this server."
       >
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+          }}
+        >
           Contact your administrator to request an account.
         </Typography>
         <Box sx={{ textAlign: "center", mt: 1 }}>
@@ -188,7 +193,9 @@ export function RegisterPage() {
             component={RouterLink}
             to="/login"
             underline="hover"
-            fontWeight={600}
+            sx={{
+              fontWeight: 600,
+            }}
           >
             Back to login
           </Link>
@@ -220,7 +227,7 @@ export function RegisterPage() {
           disabled={submitting}
           error={Boolean(fieldErrors.username)}
           helperText={fieldErrors.username}
-          inputProps={{ "aria-label": "Username" }}
+          slotProps={{ htmlInput: { "aria-label": "Username" } }}
         />
         <TextField
           label="Email"
@@ -233,7 +240,7 @@ export function RegisterPage() {
           disabled={submitting}
           error={Boolean(fieldErrors.email)}
           helperText={fieldErrors.email}
-          inputProps={{ "aria-label": "Email" }}
+          slotProps={{ htmlInput: { "aria-label": "Email" } }}
         />
         <TextField
           label="Password"
@@ -248,8 +255,8 @@ export function RegisterPage() {
           helperText={
             fieldErrors.password ?? `Minimum ${PASSWORD_MIN_LENGTH} characters.`
           }
-          inputProps={{ "aria-label": "Password" }}
           slotProps={{
+            htmlInput: { "aria-label": "Password" },
             input: {
               endAdornment: (
                 <InputAdornment position="end">
@@ -289,8 +296,10 @@ export function RegisterPage() {
       </Box>
       <Typography
         variant="caption"
-        color="text.disabled"
-        sx={{ textAlign: "center" }}
+        sx={{
+          color: "text.disabled",
+          textAlign: "center",
+        }}
       >
         Already have an account?{" "}
         <Link

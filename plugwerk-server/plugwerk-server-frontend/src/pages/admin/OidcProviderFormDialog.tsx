@@ -636,7 +636,7 @@ export function OidcProviderFormDialog({
               size="small"
               error={visibleError("name") !== null}
               helperText={visibleError("name") ?? "Shown on the login page."}
-              inputProps={{ maxLength: 255 }}
+              slotProps={{ htmlInput: { maxLength: 255 } }}
               // Deliberately no `autoFocus`. Combining `autoFocus` with MUI's
               // Dialog focus-trap caused the input to fire `onBlur` immediately
               // after mount (focus enters the input, then the trap relocates
@@ -663,7 +663,7 @@ export function OidcProviderFormDialog({
               size="small"
               error={visibleError("clientId") !== null}
               helperText={visibleError("clientId") ?? undefined}
-              inputProps={{ maxLength: 255 }}
+              slotProps={{ htmlInput: { maxLength: 255 } }}
             />
 
             {clientIdChanged && (
@@ -712,7 +712,13 @@ export function OidcProviderFormDialog({
           {/* ── Section: Protocol ── */}
           <FormSection title="Protocol">
             {issuerRequired && (
-              <Stack direction="row" spacing={1} alignItems="flex-start">
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{
+                  alignItems: "flex-start",
+                }}
+              >
                 <TextField
                   label="Issuer URI"
                   value={issuerUri}
@@ -994,7 +1000,12 @@ function CreateSuccessStep({ provider }: CreateSuccessStepProps) {
           Plugwerk side: complete
         </Typography>
       </Box>
-      <Typography variant="body2" color="text.secondary">
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+        }}
+      >
         Your provider is registered and disabled. Once the upstream callback URL
         is set up, enable the provider from the providers list to start
         accepting logins.
@@ -1150,8 +1161,11 @@ function FormSection({ title, children }: FormSectionProps) {
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <Typography
         variant="overline"
-        color="text.secondary"
-        sx={{ letterSpacing: 0.6, lineHeight: 1 }}
+        sx={{
+          color: "text.secondary",
+          letterSpacing: 0.6,
+          lineHeight: 1,
+        }}
       >
         {title}
       </Typography>

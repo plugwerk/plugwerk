@@ -276,7 +276,7 @@ export function EmailServerPage() {
           disabled={saving}
           placeholder="smtp.example.com"
           sx={{ maxWidth: 480 }}
-          inputProps={{ "aria-label": "Host" }}
+          slotProps={{ htmlInput: { "aria-label": "Host" } }}
         />
         <TextField
           label="Port"
@@ -289,7 +289,9 @@ export function EmailServerPage() {
             fieldErrors["smtp.port"] ?? byKey.get("smtp.port")?.description
           }
           disabled={saving}
-          inputProps={{ min: 1, max: 65535, "aria-label": "Port" }}
+          slotProps={{
+            htmlInput: { min: 1, max: 65535, "aria-label": "Port" },
+          }}
           sx={{ maxWidth: 200 }}
         />
         <FormControl
@@ -337,7 +339,7 @@ export function EmailServerPage() {
           }
           disabled={saving}
           sx={{ maxWidth: 480 }}
-          inputProps={{ "aria-label": "Username" }}
+          slotProps={{ htmlInput: { "aria-label": "Username" } }}
         />
         <TextField
           label="Password"
@@ -351,24 +353,27 @@ export function EmailServerPage() {
           }
           disabled={saving}
           sx={{ maxWidth: 480 }}
-          inputProps={{ "aria-label": "Password" }}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  onClick={() => setShowPassword((v) => !v)}
-                  edge="end"
-                  size="small"
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </IconButton>
-              </InputAdornment>
-            ),
+          slotProps={{
+            htmlInput: { "aria-label": "Password" },
+            input: {
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                    onClick={() => setShowPassword((v) => !v)}
+                    edge="end"
+                    size="small"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            },
           }}
         />
       </Section>
-
       <Section
         contentGap={2.5}
         icon={<User size={18} />}
@@ -391,7 +396,7 @@ export function EmailServerPage() {
           disabled={saving}
           placeholder="noreply@example.com"
           sx={{ maxWidth: 480 }}
-          inputProps={{ "aria-label": "From address" }}
+          slotProps={{ htmlInput: { "aria-label": "From address" } }}
         />
         <TextField
           label="From name"
@@ -401,10 +406,9 @@ export function EmailServerPage() {
           helperText={byKey.get("smtp.from_name")?.description}
           disabled={saving}
           sx={{ maxWidth: 480 }}
-          inputProps={{ "aria-label": "From name" }}
+          slotProps={{ htmlInput: { "aria-label": "From name" } }}
         />
       </Section>
-
       <Section
         contentGap={2.5}
         icon={<Mail size={18} />}
@@ -423,7 +427,7 @@ export function EmailServerPage() {
                   )
                 }
                 disabled={saving}
-                inputProps={{ "aria-label": "SMTP enabled" }}
+                slotProps={{ input: { "aria-label": "SMTP enabled" } }}
               />
             }
             label="SMTP enabled"
@@ -450,7 +454,7 @@ export function EmailServerPage() {
             onChange={(e) => setTestTarget(e.target.value)}
             disabled={testing}
             sx={{ maxWidth: 360, flex: 1 }}
-            inputProps={{ "aria-label": "Test recipient" }}
+            slotProps={{ htmlInput: { "aria-label": "Test recipient" } }}
           />
           <Button
             variant="outlined"
@@ -465,7 +469,12 @@ export function EmailServerPage() {
           </Button>
         </Box>
         {!enabledValue && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+            }}
+          >
             Enable SMTP and save your changes before sending a test message.
           </Typography>
         )}
@@ -479,7 +488,6 @@ export function EmailServerPage() {
           </Alert>
         )}
       </Section>
-
       <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
         <Button
           variant="text"

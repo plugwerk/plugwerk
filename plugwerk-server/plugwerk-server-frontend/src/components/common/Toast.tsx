@@ -68,8 +68,10 @@ function ToastItem({ toast }: { toast: ToastItem }) {
           {toast.title && (
             <Typography
               variant="body2"
-              fontWeight={600}
-              sx={{ lineHeight: 1.4 }}
+              sx={{
+                fontWeight: 600,
+                lineHeight: 1.4,
+              }}
             >
               {toast.title}
             </Typography>
@@ -77,8 +79,11 @@ function ToastItem({ toast }: { toast: ToastItem }) {
           {toast.message && (
             <Typography
               variant="body2"
-              color="text.secondary"
-              sx={{ lineHeight: 1.4, mt: toast.title ? 0.25 : 0 }}
+              sx={{
+                color: "text.secondary",
+                lineHeight: 1.4,
+                mt: toast.title ? 0.25 : 0,
+              }}
             >
               {toast.message}
             </Typography>
