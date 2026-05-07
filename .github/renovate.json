@@ -105,13 +105,6 @@
       "description": "npm major updates — one PR per package (no grouping). Bundling unrelated majors caused PR #394 to ship a broken lockfile because typescript-eslint v8 still pinned eslint <10 while the group already advanced eslint to 10. Per-package PRs let each major be reviewed and merged independently of incompatible peers.",
       "matchManagers": ["npm"],
       "matchUpdateTypes": ["major"]
-    },
-    {
-      "description": "Mute @mui/material major bumps during the v7→v9 migration tracked in #456. The bot opened PR #453 against v9 and produced 62 type errors; the migration is being done deliberately on chore/456-mui-v9 with manual codemods + visual QA. Remove this rule once the migration ships so future v9.x majors flow normally.",
-      "matchManagers": ["npm"],
-      "matchPackageNames": ["@mui/material"],
-      "matchUpdateTypes": ["major"],
-      "enabled": false
     }
   ]
 }
