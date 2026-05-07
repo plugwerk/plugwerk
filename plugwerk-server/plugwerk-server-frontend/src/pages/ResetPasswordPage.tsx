@@ -168,9 +168,12 @@ export function ResetPasswordPage() {
         title="Password reset unavailable"
         subtitle="Self-service password reset is not enabled on this server."
       >
-        <Typography variant="body2" sx={{
-          color: "text.secondary"
-        }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+          }}
+        >
           Contact your administrator to have your password reset.
         </Typography>
         <Box sx={{ textAlign: "center", mt: 1 }}>
@@ -179,7 +182,7 @@ export function ResetPasswordPage() {
             to="/login"
             underline="hover"
             sx={{
-              fontWeight: 600
+              fontWeight: 600,
             }}
           >
             Back to login
@@ -195,9 +198,12 @@ export function ResetPasswordPage() {
         title="No reset token"
         subtitle="The link is missing the required `?token=…` parameter."
       >
-        <Typography variant="body2" sx={{
-          color: "text.secondary"
-        }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+          }}
+        >
           Open the link from your reset email instead. If you no longer have the
           email, request a new reset link.
         </Typography>
@@ -207,7 +213,7 @@ export function ResetPasswordPage() {
             to="/forgot-password"
             underline="hover"
             sx={{
-              fontWeight: 600
+              fontWeight: 600,
             }}
           >
             Request a new link
@@ -322,8 +328,9 @@ export function ResetPasswordPage() {
         variant="caption"
         sx={{
           color: "text.disabled",
-          textAlign: "center"
-        }}>
+          textAlign: "center",
+        }}
+      >
         Remembered after all?{" "}
         <Link
           component={RouterLink}

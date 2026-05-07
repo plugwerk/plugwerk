@@ -35,10 +35,14 @@ export function DependenciesTab({ release, namespace }: DependenciesTabProps) {
 
   if (deps.length === 0) {
     return (
-      <Typography variant="body2" sx={{
-        color: "text.secondary"
-      }}>This plugin has no dependencies.
-              </Typography>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+        }}
+      >
+        This plugin has no dependencies.
+      </Typography>
     );
   }
 
@@ -72,8 +76,9 @@ export function DependenciesTab({ release, namespace }: DependenciesTabProps) {
         variant="body2"
         sx={{
           color: "text.disabled",
-          mb: 2
-        }}>
+          mb: 2,
+        }}
+      >
         Required plugins that must be installed alongside this plugin.
       </Typography>
       <Box sx={{ overflowX: "auto" }}>

@@ -56,9 +56,12 @@ export function PaginationBar({
       }}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <Typography variant="caption" sx={{
-          color: "text.primary"
-        }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.primary",
+          }}
+        >
           Show:
         </Typography>
         <FilterSelect
@@ -82,9 +85,12 @@ export function PaginationBar({
         color="primary"
         aria-label="Pagination"
       />
-      <Typography variant="caption" sx={{
-        color: "text.primary"
-      }}>
+      <Typography
+        variant="caption"
+        sx={{
+          color: "text.primary",
+        }}
+      >
         Showing {start}–{end} of {totalElements}
       </Typography>
     </Box>

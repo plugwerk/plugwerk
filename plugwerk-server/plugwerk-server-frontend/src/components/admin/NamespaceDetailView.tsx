@@ -143,9 +143,12 @@ export function NamespaceDetailView() {
         <Typography variant="h2" sx={{ mb: 0.5 }}>
           {slug}
         </Typography>
-        <Typography variant="body2" sx={{
-          color: "text.secondary"
-        }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+          }}
+        >
           Manage namespace settings, members, and API keys.
         </Typography>
       </Box>

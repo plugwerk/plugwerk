@@ -172,19 +172,19 @@ export function LoginPage() {
           // operator has switched the feature on (#421). The backend 404s
           // /auth/forgot-password and /auth/reset-password independently,
           // so flipping this client-side cannot bypass the gate.
-          (<Box sx={{ mt: -1, textAlign: "right" }}>
+          <Box sx={{ mt: -1, textAlign: "right" }}>
             <Link
               component={RouterLink}
               to="/forgot-password"
               underline="hover"
               variant="body2"
               sx={{
-                color: "text.secondary"
+                color: "text.secondary",
               }}
             >
               Forgot password?
             </Link>
-          </Box>)
+          </Box>
         )}
         <Button
           type="submit"
@@ -206,31 +206,36 @@ export function LoginPage() {
           // Rendered conditionally on the public /config flag (#420). The
           // backend independently 404s POST /auth/register when the flag is
           // off, so flipping this client-side cannot bypass the gate.
-          (<Typography
+          <Typography
             variant="body2"
             sx={{
               color: "text.secondary",
-              textAlign: "center"
-            }}>Don't have an account?{" "}
+              textAlign: "center",
+            }}
+          >
+            Don't have an account?{" "}
             <Link
               component={RouterLink}
               to="/register"
               underline="hover"
               sx={{
-                fontWeight: 600
+                fontWeight: 600,
               }}
             >
               Sign up
             </Link>
-          </Typography>)
+          </Typography>
         )}
       </Box>
       {oidcProviders.length > 0 && (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
           <Divider>
-            <Typography variant="caption" sx={{
-              color: "text.secondary"
-            }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: "text.secondary",
+              }}
+            >
               or
             </Typography>
           </Divider>

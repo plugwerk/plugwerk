@@ -154,9 +154,13 @@ export function ProviderCallbackInstructions({
         bgcolor: isSuccess ? "rgba(46, 125, 50, 0.06)" : "rgba(0, 0, 0, 0.02)",
       }}
     >
-      <Stack direction="row" spacing={1} sx={{
-        alignItems: "baseline"
-      }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: "baseline",
+        }}
+      >
         <Typography
           variant="overline"
           sx={{
@@ -168,15 +172,22 @@ export function ProviderCallbackInstructions({
         >
           Callback URL
         </Typography>
-        <Typography variant="caption" sx={{
-          color: "text.secondary"
-        }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.secondary",
+          }}
+        >
           register this at your provider
         </Typography>
       </Stack>
-      <Stack direction="row" spacing={1} sx={{
-        alignItems: "stretch"
-      }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: "stretch",
+        }}
+      >
         <Box
           component="code"
           tabIndex={0}
@@ -241,8 +252,9 @@ export function ProviderCallbackInstructions({
         sx={{
           alignItems: { xs: "flex-start", sm: "center" },
           justifyContent: "space-between",
-          mt: 0.25
-        }}>
+          mt: 0.25,
+        }}
+      >
         <Box sx={{ minWidth: 0 }}>
           <Typography variant="body2" sx={{ lineHeight: 1.45 }}>
             <Typography

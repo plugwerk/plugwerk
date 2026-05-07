@@ -46,9 +46,12 @@ export function EmailLayout() {
         <Typography variant="h2" gutterBottom>
           Email
         </Typography>
-        <Typography variant="body2" sx={{
-          color: "text.secondary"
-        }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+          }}
+        >
           SMTP server and outgoing email configuration. Changes take effect
           immediately — no server restart required.
         </Typography>

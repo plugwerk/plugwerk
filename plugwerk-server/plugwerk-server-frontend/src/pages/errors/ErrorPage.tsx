@@ -65,9 +65,12 @@ export function ErrorPage({
             {code}
           </Typography>
           <Typography variant="h2">{title}</Typography>
-          <Typography variant="body1" sx={{
-            color: "text.secondary"
-          }}>
+          <Typography
+            variant="body1"
+            sx={{
+              color: "text.secondary",
+            }}
+          >
             {message}
           </Typography>
           <Button component={Link} to="/" variant="contained">

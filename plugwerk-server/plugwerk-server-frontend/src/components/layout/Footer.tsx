@@ -51,14 +51,20 @@ export function Footer() {
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Typography variant="body2" sx={{
-            fontWeight: 700
-          }}>
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 700,
+            }}
+          >
             Plugwerk
           </Typography>
-          <Typography variant="caption" sx={{
-            color: "text.disabled"
-          }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.disabled",
+            }}
+          >
             v{version}
           </Typography>
         </Box>

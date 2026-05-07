@@ -164,9 +164,12 @@ export function PluginHeader({
         </Box>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-          <Typography variant="caption" sx={{
-            color: "text.disabled"
-          }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.disabled",
+            }}
+          >
             by{" "}
             <strong style={{ color: "inherit" }}>
               {plugin.provider ?? namespace}

@@ -135,16 +135,18 @@ export function MailTemplatePreviewPane({
 
           background: isDark
             ? alpha("#ffffff", 0.04)
-            : alpha(tokens.color.gray20, 0.4)
-        }}>
+            : alpha(tokens.color.gray20, 0.4),
+        }}
+      >
         <Stack
           direction="row"
           spacing={0.75}
           sx={{
             alignItems: "center",
             flex: 1,
-            minWidth: 0
-          }}>
+            minWidth: 0,
+          }}
+        >
           <Typography
             variant="caption"
             sx={{
@@ -168,9 +170,13 @@ export function MailTemplatePreviewPane({
               onClick={(e) => setVarsAnchor(e.currentTarget)}
               sx={{ borderRadius: tokens.radius.btn }}
             >
-              <Stack direction="row" spacing={0.375} sx={{
-                alignItems: "center"
-              }}>
+              <Stack
+                direction="row"
+                spacing={0.375}
+                sx={{
+                  alignItems: "center",
+                }}
+              >
                 <Variable size={13} />
                 <Typography
                   variant="caption"
@@ -224,8 +230,9 @@ export function MailTemplatePreviewPane({
           variant="subtitle2"
           sx={{
             fontWeight: 600,
-            mb: 1.25
-          }}>
+            mb: 1.25,
+          }}
+        >
           Sample variables
         </Typography>
         <Stack spacing={1.25}>
@@ -260,8 +267,9 @@ export function MailTemplatePreviewPane({
             color: "text.secondary",
             display: "block",
             mt: 1.5,
-            fontStyle: "italic"
-          }}>
+            fontStyle: "italic",
+          }}
+        >
           Changes apply automatically after a short pause.
         </Typography>
       </Popover>
@@ -380,8 +388,9 @@ function StatusBadge({ status }: StatusBadgeProps): ReactNode {
         letterSpacing: 0.5,
         textTransform: "uppercase",
         userSelect: "none",
-        flexShrink: 0
-      }}>
+        flexShrink: 0,
+      }}
+    >
       <Box
         sx={{
           display: "flex",

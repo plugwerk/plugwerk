@@ -74,8 +74,9 @@ function InfoRow({ label, value, copyable = false }: InfoRowProps) {
           color: "text.secondary",
           minWidth: 80,
           flexShrink: 0,
-          fontWeight: 500
-        }}>
+          fontWeight: 500,
+        }}
+      >
         {label}
       </Typography>
       <Typography variant="body2">{value}</Typography>
@@ -158,8 +159,9 @@ export function ProfileSettingsPage() {
           variant="body2"
           sx={{
             color: "text.secondary",
-            mb: 4
-          }}>
+            mb: 4,
+          }}
+        >
           Manage your account preferences and workspace configuration.
         </Typography>
 

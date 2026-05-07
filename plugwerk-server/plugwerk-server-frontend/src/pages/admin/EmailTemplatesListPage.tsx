@@ -149,8 +149,9 @@ function TemplateRow({ template, onClick }: TemplateRowProps) {
           spacing={1.5}
           sx={{
             alignItems: "center",
-            mb: 0.5
-          }}>
+            mb: 0.5,
+          }}
+        >
           <Box sx={{ color: "text.secondary", display: "flex" }}>
             <FileText size={16} />
           </Box>
@@ -158,8 +159,9 @@ function TemplateRow({ template, onClick }: TemplateRowProps) {
             variant="subtitle1"
             sx={{
               fontWeight: 600,
-              lineHeight: 1.2
-            }}>
+              lineHeight: 1.2,
+            }}
+          >
             {template.friendlyName}
           </Typography>
         </Stack>
@@ -170,8 +172,9 @@ function TemplateRow({ template, onClick }: TemplateRowProps) {
             fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
             display: "block",
             mb: 0.75,
-            ml: 3.5
-          }}>
+            ml: 3.5,
+          }}
+        >
           {template.key}
         </Typography>
         <Typography
@@ -184,8 +187,9 @@ function TemplateRow({ template, onClick }: TemplateRowProps) {
             textOverflow: "ellipsis",
             display: "-webkit-box",
             WebkitLineClamp: 1,
-            WebkitBoxOrient: "vertical"
-          }}>
+            WebkitBoxOrient: "vertical",
+          }}
+        >
           {template.subject}
         </Typography>
         <EditAttribution

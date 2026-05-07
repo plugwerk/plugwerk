@@ -134,8 +134,9 @@ export function AppDialog({
             variant="body2"
             sx={{
               color: "text.secondary",
-              mb: children ? 2.5 : 0
-            }}>
+              mb: children ? 2.5 : 0,
+            }}
+          >
             {description}
           </Typography>
         )}

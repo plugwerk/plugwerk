@@ -63,8 +63,9 @@ export function OnboardingPage() {
                 color: "text.secondary",
                 mb: 4,
                 maxWidth: 420,
-                mx: "auto"
-              }}>
+                mx: "auto",
+              }}
+            >
               No namespaces have been created yet. Create your first namespace
               to start publishing and managing plugins.
             </Typography>
@@ -83,8 +84,9 @@ export function OnboardingPage() {
               sx={{
                 color: "text.disabled",
                 display: "block",
-                mt: 3
-              }}>
+                mt: 3,
+              }}
+            >
               A namespace groups your plugins and controls who can access them.
             </Typography>
 
@@ -102,8 +104,9 @@ export function OnboardingPage() {
               color: "text.secondary",
               mb: 4,
               maxWidth: 460,
-              mx: "auto"
-            }}>
+              mx: "auto",
+            }}
+          >
             You don't have access to any namespace yet. Ask a Plugwerk
             administrator to add you to one.
           </Typography>

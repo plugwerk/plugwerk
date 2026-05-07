@@ -80,9 +80,12 @@ export function VerifyEmailPendingPage() {
             "If the address you provided isn't already registered, a verification link is on its way."
           )}
         </Typography>
-        <Typography variant="body2" sx={{
-          color: "text.secondary"
-        }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+          }}
+        >
           Click the link in the email to activate your account. The link expires
           in 24 hours.
         </Typography>
@@ -90,8 +93,9 @@ export function VerifyEmailPendingPage() {
           variant="caption"
           sx={{
             color: "text.disabled",
-            mt: 1
-          }}>
+            mt: 1,
+          }}
+        >
           No email? Check your spam folder. If the address is already in use, no
           new email is sent — try{" "}
           <Box component="strong" sx={{ fontWeight: 600 }}>
@@ -110,7 +114,7 @@ export function VerifyEmailPendingPage() {
           to="/login"
           underline="hover"
           sx={{
-            fontWeight: 600
+            fontWeight: 600,
           }}
         >
           Back to login

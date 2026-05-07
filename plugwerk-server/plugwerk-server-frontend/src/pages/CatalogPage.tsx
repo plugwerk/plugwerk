@@ -178,7 +178,7 @@ export function CatalogPage() {
               variant="caption"
               aria-live="polite"
               sx={{
-                color: "text.primary"
+                color: "text.primary",
               }}
             >
               {totalElements} plugins

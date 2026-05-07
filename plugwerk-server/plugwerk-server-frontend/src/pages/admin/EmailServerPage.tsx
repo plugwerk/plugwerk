@@ -289,7 +289,9 @@ export function EmailServerPage() {
             fieldErrors["smtp.port"] ?? byKey.get("smtp.port")?.description
           }
           disabled={saving}
-          slotProps={{ htmlInput: { min: 1, max: 65535, "aria-label": "Port" } }}
+          slotProps={{
+            htmlInput: { min: 1, max: 65535, "aria-label": "Port" },
+          }}
           sx={{ maxWidth: 200 }}
         />
         <FormControl
@@ -467,9 +469,12 @@ export function EmailServerPage() {
           </Button>
         </Box>
         {!enabledValue && (
-          <Typography variant="caption" sx={{
-            color: "text.secondary"
-          }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+            }}
+          >
             Enable SMTP and save your changes before sending a test message.
           </Typography>
         )}

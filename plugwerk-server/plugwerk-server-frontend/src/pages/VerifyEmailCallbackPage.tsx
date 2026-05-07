@@ -101,9 +101,12 @@ export function VerifyEmailCallbackPage() {
         title="No verification token"
         subtitle="The link is missing the required `?token=…` parameter."
       >
-        <Typography variant="body2" sx={{
-          color: "text.secondary"
-        }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+          }}
+        >
           Open the link from your verification email instead. If you no longer
           have the email, register again to receive a new one.
         </Typography>
@@ -113,7 +116,7 @@ export function VerifyEmailCallbackPage() {
             to="/register"
             underline="hover"
             sx={{
-              fontWeight: 600
+              fontWeight: 600,
             }}
           >
             Register
@@ -217,15 +220,21 @@ export function VerifyEmailCallbackPage() {
         >
           <AlertCircle size={28} />
         </Box>
-        <Typography variant="body2" sx={{
-          color: "text.secondary"
-        }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+          }}
+        >
           {errorMessage ??
             "The verification link could not be processed. It may have expired or already been used."}
         </Typography>
-        <Typography variant="caption" sx={{
-          color: "text.disabled"
-        }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.disabled",
+          }}
+        >
           Register again to request a fresh verification email.
         </Typography>
       </Box>
@@ -243,7 +252,7 @@ export function VerifyEmailCallbackPage() {
           to="/register"
           underline="hover"
           sx={{
-            fontWeight: 600
+            fontWeight: 600,
           }}
         >
           Register
@@ -253,7 +262,7 @@ export function VerifyEmailCallbackPage() {
           to="/login"
           underline="hover"
           sx={{
-            color: "text.secondary"
+            color: "text.secondary",
           }}
         >
           Back to login

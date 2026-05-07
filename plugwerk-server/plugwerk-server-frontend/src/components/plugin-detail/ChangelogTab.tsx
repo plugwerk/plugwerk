@@ -33,10 +33,14 @@ export function ChangelogTab({ releases }: ChangelogTabProps) {
 
   if (withChangelog.length === 0) {
     return (
-      <Typography variant="body2" sx={{
-        color: "text.secondary"
-      }}>No changelog available. Add release notes when publishing a new version.
-              </Typography>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+        }}
+      >
+        No changelog available. Add release notes when publishing a new version.
+      </Typography>
     );
   }
 

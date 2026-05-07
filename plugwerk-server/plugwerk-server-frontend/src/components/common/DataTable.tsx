@@ -52,8 +52,9 @@ export function DataTable<T>({
         variant="body2"
         sx={{
           color: "text.secondary",
-          py: 3
-        }}>
+          py: 3,
+        }}
+      >
         {emptyMessage}
       </Typography>
     );

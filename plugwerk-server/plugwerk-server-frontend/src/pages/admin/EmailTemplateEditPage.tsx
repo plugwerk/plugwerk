@@ -347,8 +347,9 @@ export function EmailTemplateEditPage() {
             color: "text.secondary",
             fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
             display: "block",
-            mt: 0.5
-          }}>
+            mt: 0.5,
+          }}
+        >
           {template.key} · {template.locale}
         </Typography>
         <EditAttribution
@@ -626,8 +627,9 @@ function PlaceholderReference({
         spacing={1.5}
         sx={{
           alignItems: "flex-start",
-          flexWrap: "wrap"
-        }}>
+          flexWrap: "wrap",
+        }}
+      >
         <Box
           sx={{
             color: isDark
@@ -652,9 +654,12 @@ function PlaceholderReference({
           >
             Available variables
           </Typography>
-          <Typography variant="caption" sx={{
-            color: "text.secondary"
-          }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+            }}
+          >
             Click a chip to insert{" "}
             <Box
               component="code"
@@ -688,8 +693,9 @@ function PlaceholderReference({
               sx={{
                 flexWrap: "wrap",
                 rowGap: 0.75,
-                mt: 1.5
-              }}>
+                mt: 1.5,
+              }}
+            >
               {placeholders.map((name) => (
                 <Chip
                   key={name}
@@ -726,8 +732,9 @@ function PlaceholderReference({
                 color: "text.secondary",
                 mt: 1.5,
                 display: "block",
-                fontStyle: "italic"
-              }}>
+                fontStyle: "italic",
+              }}
+            >
               This template takes no variables.
             </Typography>
           )}

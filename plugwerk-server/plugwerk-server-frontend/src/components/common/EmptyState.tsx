@@ -59,17 +59,21 @@ export function EmptyState({
         <path d="M20 26h12M26 20v12" />
         <path d="M44 10 l4-4 M10 44 l-4 4" opacity="0.4" />
       </Box>
-      <Typography variant="h3" sx={{
-        color: "text.primary"
-      }}>
+      <Typography
+        variant="h3"
+        sx={{
+          color: "text.primary",
+        }}
+      >
         {title}
       </Typography>
       <Typography
         variant="body1"
         sx={{
           color: "text.secondary",
-          maxWidth: 400
-        }}>
+          maxWidth: 400,
+        }}
+      >
         {message}
       </Typography>
       {actionLabel && onAction && (

@@ -130,8 +130,9 @@ export const PluginCard = memo(function PluginCard({
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
                     flex: 1,
-                    minWidth: 0
-                  }}>
+                    minWidth: 0,
+                  }}
+                >
                   {plugin.name}
                 </Typography>
               </Tooltip>
@@ -161,8 +162,9 @@ export const PluginCard = memo(function PluginCard({
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
-                    minWidth: 0
-                  }}>
+                    minWidth: 0,
+                  }}
+                >
                   {plugin.provider ? `by ${plugin.provider}` : ""}
                 </Typography>
               </Tooltip>
@@ -186,8 +188,9 @@ export const PluginCard = memo(function PluginCard({
                 WebkitLineClamp: 2,
                 WebkitBoxOrient: "vertical",
                 overflow: "hidden",
-                lineHeight: 1.6
-              }}>
+                lineHeight: 1.6,
+              }}
+            >
               {plugin.description}
             </Typography>
           </Tooltip>

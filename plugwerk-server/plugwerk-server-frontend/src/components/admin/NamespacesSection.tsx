@@ -74,9 +74,12 @@ export function NamespacesSection() {
       key: "slug",
       header: "Slug",
       render: (ns) => (
-        <Typography variant="body2" sx={{
-          fontWeight: 500
-        }}>
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 500,
+          }}
+        >
           {ns.slug}
         </Typography>
       ),
@@ -85,9 +88,12 @@ export function NamespacesSection() {
       key: "name",
       header: "Name",
       render: (ns) => (
-        <Typography variant="caption" sx={{
-          color: "text.secondary"
-        }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.secondary",
+          }}
+        >
           {ns.name || "\u2014"}
         </Typography>
       ),
@@ -143,9 +149,12 @@ export function NamespacesSection() {
           <CircularProgress size={24} />
         </Box>
       ) : namespaces.length === 0 ? (
-        <Typography variant="body2" sx={{
-          color: "text.secondary"
-        }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+          }}
+        >
           No namespaces found.
         </Typography>
       ) : (

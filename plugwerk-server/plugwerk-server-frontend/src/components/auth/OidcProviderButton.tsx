@@ -107,9 +107,11 @@ function ProviderAccountSwitchAffordance({ provider }: AffordanceProps) {
           // here for context" lives in the wording, not the colour.
           fontWeight: 500,
 
-          "&:hover": { color: "text.secondary" }
-        }}>Use a different account
-              </Link>
+          "&:hover": { color: "text.secondary" },
+        }}
+      >
+        Use a different account
+      </Link>
     );
   }
   if (provider.accountSwitchHintUrl) {
@@ -125,8 +127,10 @@ function ProviderAccountSwitchAffordance({ provider }: AffordanceProps) {
         sx={{
           color: "text.secondary",
           textAlign: "center",
-          lineHeight: 1.4
-        }}>To switch accounts, sign out at{" "}
+          lineHeight: 1.4,
+        }}
+      >
+        To switch accounts, sign out at{" "}
         <Link
           component="a"
           href={provider.accountSwitchHintUrl}
@@ -137,8 +141,9 @@ function ProviderAccountSwitchAffordance({ provider }: AffordanceProps) {
           sx={{ fontFamily: "monospace" }}
         >
           {hintHost}
-        </Link>{" "}first.
-              </Typography>
+        </Link>{" "}
+        first.
+      </Typography>
     );
   }
   return null;

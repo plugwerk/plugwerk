@@ -207,9 +207,12 @@ export function OidcProvidersSection() {
       key: "name",
       header: "Name",
       render: (provider) => (
-        <Typography variant="body2" sx={{
-          fontWeight: 500
-        }}>
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 500,
+          }}
+        >
           {provider.name}
         </Typography>
       ),
@@ -231,15 +234,21 @@ export function OidcProvidersSection() {
       header: "Issuer / Client ID",
       render: (provider) =>
         provider.issuerUri ? (
-          <Typography variant="caption" sx={{
-            color: "text.secondary"
-          }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+            }}
+          >
             {provider.issuerUri}
           </Typography>
         ) : (
-          <Typography variant="caption" sx={{
-            color: "text.disabled"
-          }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.disabled",
+            }}
+          >
             {provider.clientId}
           </Typography>
         ),
@@ -307,9 +316,12 @@ export function OidcProvidersSection() {
           <CircularProgress size={24} />
         </Box>
       ) : providers.length === 0 ? (
-        <Typography variant="body2" sx={{
-          color: "text.secondary"
-        }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+          }}
+        >
           No OIDC providers configured.
         </Typography>
       ) : (

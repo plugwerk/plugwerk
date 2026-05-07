@@ -102,8 +102,9 @@ function EntryRow({ entry }: { entry: FileUploadEntry }) {
             sx={{
               color: "text.secondary",
               flexShrink: 0,
-              fontVariantNumeric: "tabular-nums"
-            }}>
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
             {entry.progress}%
           </Typography>
         )}
@@ -222,8 +223,9 @@ export function UploadProgressPanel() {
               variant="body2"
               sx={{
                 fontWeight: 600,
-                lineHeight: 1.3
-              }}>
+                lineHeight: 1.3,
+              }}
+            >
               {headerText}
             </Typography>
             {isComplete && failedCount > 0 && (

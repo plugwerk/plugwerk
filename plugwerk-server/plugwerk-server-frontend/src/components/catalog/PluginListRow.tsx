@@ -97,9 +97,13 @@ export const PluginListRow = memo(function PluginListRow({
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-          <Typography variant="body2" noWrap sx={{
-            fontWeight: 600
-          }}>
+          <Typography
+            variant="body2"
+            noWrap
+            sx={{
+              fontWeight: 600,
+            }}
+          >
             {plugin.name}
           </Typography>
           {isDraftOnly && (
@@ -117,14 +121,20 @@ export const PluginListRow = memo(function PluginListRow({
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           {plugin.provider && (
             <>
-              <Typography variant="caption" sx={{
-                color: "text.disabled"
-              }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.disabled",
+                }}
+              >
                 by {plugin.provider}
               </Typography>
-              <Typography variant="caption" sx={{
-                color: "text.disabled"
-              }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.disabled",
+                }}
+              >
                 ·
               </Typography>
             </>

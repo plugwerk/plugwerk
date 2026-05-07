@@ -70,8 +70,9 @@ function ToastItem({ toast }: { toast: ToastItem }) {
               variant="body2"
               sx={{
                 fontWeight: 600,
-                lineHeight: 1.4
-              }}>
+                lineHeight: 1.4,
+              }}
+            >
               {toast.title}
             </Typography>
           )}
@@ -81,8 +82,9 @@ function ToastItem({ toast }: { toast: ToastItem }) {
               sx={{
                 color: "text.secondary",
                 lineHeight: 1.4,
-                mt: toast.title ? 0.25 : 0
-              }}>
+                mt: toast.title ? 0.25 : 0,
+              }}
+            >
               {toast.message}
             </Typography>
           )}

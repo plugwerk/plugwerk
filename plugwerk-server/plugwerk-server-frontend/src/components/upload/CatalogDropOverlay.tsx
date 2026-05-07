@@ -68,13 +68,17 @@ export function CatalogDropOverlay({ visible }: CatalogDropOverlayProps) {
             variant="h5"
             sx={{
               fontWeight: 600,
-              color: "text.primary"
-            }}>
+              color: "text.primary",
+            }}
+          >
             Drop .jar or .zip files to upload
           </Typography>
-          <Typography variant="body2" sx={{
-            color: "text.secondary"
-          }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+            }}
+          >
             Files will be uploaded immediately
           </Typography>
         </Box>

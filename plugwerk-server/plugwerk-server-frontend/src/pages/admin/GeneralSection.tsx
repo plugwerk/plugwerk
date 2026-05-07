@@ -369,8 +369,9 @@ export function GeneralSection() {
           variant="body2"
           sx={{
             color: "text.secondary",
-            mb: 1
-          }}>
+            mb: 1,
+          }}
+        >
           These settings are stored in the database and apply to all users.
         </Typography>
       </Box>

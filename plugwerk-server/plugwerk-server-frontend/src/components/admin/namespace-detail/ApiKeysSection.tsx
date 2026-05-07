@@ -151,15 +151,21 @@ export function ApiKeysSection({ slug }: { slug: string }) {
       header: "Expires",
       render: (key) =>
         key.expiresAt ? (
-          <Typography variant="caption" sx={{
-            color: "text.disabled"
-          }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.disabled",
+            }}
+          >
             <Timestamp date={key.expiresAt} />
           </Typography>
         ) : (
-          <Typography variant="caption" sx={{
-            color: "text.disabled"
-          }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.disabled",
+            }}
+          >
             Never
           </Typography>
         ),
@@ -168,9 +174,12 @@ export function ApiKeysSection({ slug }: { slug: string }) {
       key: "created",
       header: "Created",
       render: (key) => (
-        <Typography variant="caption" sx={{
-          color: "text.disabled"
-        }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.disabled",
+          }}
+        >
           <Timestamp date={key.createdAt} />
         </Typography>
       ),
@@ -198,8 +207,9 @@ export function ApiKeysSection({ slug }: { slug: string }) {
           variant="caption"
           sx={{
             color: "text.secondary",
-            flex: 1
-          }}>
+            flex: 1,
+          }}
+        >
           API keys provide programmatic access for CI/CD pipelines and the SDK.
           The key is shown only once after creation.
         </Typography>
@@ -240,9 +250,12 @@ export function ApiKeysSection({ slug }: { slug: string }) {
           <CircularProgress size={24} />
         </Box>
       ) : keys.length === 0 ? (
-        <Typography variant="body2" sx={{
-          color: "text.secondary"
-        }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+          }}
+        >
           No API keys configured.
         </Typography>
       ) : (
