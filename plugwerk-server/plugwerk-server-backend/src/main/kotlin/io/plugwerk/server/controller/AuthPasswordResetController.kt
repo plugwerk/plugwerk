@@ -198,6 +198,7 @@ class AuthPasswordResetController(
                 "username" to user.displayName,
                 "resetLink" to resetLink,
                 "expiresAtHuman" to expiresAtHuman,
+                "siteName" to settings.siteName(),
             ),
         )
         if (send !is MailService.SendResult.Sent) {

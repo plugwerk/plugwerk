@@ -97,12 +97,7 @@ internal object EmailLayoutBuilder {
      *   `mail_template.body_html` or returned from
      *   `MailTemplate.defaultBodyHtmlTemplate`.
      */
-    fun wrap(
-        contentHtml: String,
-        ctaUrl: String?,
-        ctaText: String?,
-        footerLine2: String,
-    ): String {
+    fun wrap(contentHtml: String, ctaUrl: String?, ctaText: String?, footerLine2: String): String {
         val cta = if (ctaUrl != null && ctaText != null) renderCta(ctaUrl, ctaText) else ""
         return """<!doctype html>
 <html lang="en">

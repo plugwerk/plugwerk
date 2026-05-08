@@ -126,6 +126,7 @@ class AuthRegistrationController(
                     "username" to user.displayName,
                     "verificationLink" to verificationLink,
                     "expiresAtHuman" to expiresAtHuman,
+                    "siteName" to settings.siteName(),
                 ),
             )
             if (send !is MailService.SendResult.Sent) {
