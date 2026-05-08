@@ -163,6 +163,7 @@ class SmtpEmailIT {
                 "username" to "alice",
                 "resetLink" to "https://app.plugwerk.test/reset?token=abc",
                 "expiresAtHuman" to "in 30 minutes",
+                "siteName" to "marketplace.example.test",
             ),
         )
 
@@ -180,12 +181,13 @@ class SmtpEmailIT {
         // quoted-printable, which escapes `=` to `=3D`. So the URL appears
         // as `?token=3Dabc` in the raw stream — assert on the prefix that
         // sidesteps this encoding wart.
-        assertThat(raw).contains("Hello alice,")
+        assertThat(raw).contains("Hi alice,")
         assertThat(raw).contains("https://app.plugwerk.test/reset?token")
-        // HTML body anchor text from the seeded en variant. Quoted-printable
-        // soft-wraps lines at column ~76 (`Reset my =\r\npassword`), so test
-        // for a fragment that survives any line-wrap position.
-        assertThat(raw).contains("Reset my")
+        // HTML body CTA text from the seeded en variant after #449's
+        // editorial polish. Quoted-printable soft-wraps lines at column
+        // ~76 so we assert on a short fragment that survives any wrap
+        // position.
+        assertThat(raw).contains("Reset password")
         assertThat(raw).contains("multipart/alternative")
     }
 
