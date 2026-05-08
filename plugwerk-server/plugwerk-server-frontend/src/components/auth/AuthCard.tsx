@@ -70,7 +70,13 @@ export function AuthCard({ title, subtitle, children }: AuthCardProps) {
             // `text.secondary` (not `text.disabled`) — the subtitle is
             // information, not a placeholder. Disabled grey reads as
             // "this field is unavailable" on form-heavy surfaces.
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mt: 0.5,
+              }}
+            >
               {subtitle}
             </Typography>
           )}

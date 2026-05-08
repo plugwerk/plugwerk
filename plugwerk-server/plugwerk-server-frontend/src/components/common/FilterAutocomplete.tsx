@@ -53,12 +53,18 @@ export function FilterAutocomplete({
           placeholder={placeholder}
           aria-label={ariaLabel}
           slotProps={{
+            // Preserve every slot Autocomplete injects via params.slotProps —
+            // critically `htmlInput` (carries the input ref + ARIA wiring
+            // from useAutocomplete; v8 routed this through `InputProps`,
+            // v9 split it off into its own slot). Spreading `{...params}`
+            // above does not reach this nested object once we override
+            // `slotProps`, so we rebuild it explicitly here.
             input: {
-              ...params.InputProps,
+              ...params.slotProps.input,
               endAdornment: (
                 <>
                   {loading && <CircularProgress color="inherit" size={16} />}
-                  {params.InputProps.endAdornment}
+                  {params.slotProps.input.endAdornment}
                 </>
               ),
               sx: {
@@ -77,6 +83,8 @@ export function FilterAutocomplete({
                 },
               },
             },
+            htmlInput: params.slotProps.htmlInput,
+            inputLabel: params.slotProps.inputLabel,
           }}
         />
       )}

@@ -46,12 +46,16 @@ export function EmailLayout() {
         <Typography variant="h2" gutterBottom>
           Email
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+          }}
+        >
           SMTP server and outgoing email configuration. Changes take effect
           immediately — no server restart required.
         </Typography>
       </Box>
-
       <Tabs
         value={activeTab}
         onChange={(_, value: string) => navigate(`/admin/email/${value}`)}
@@ -62,7 +66,6 @@ export function EmailLayout() {
           <Tab key={tab.path} label={tab.label} value={tab.path} />
         ))}
       </Tabs>
-
       <Outlet />
     </Box>
   );

@@ -107,7 +107,6 @@ export function LoginPage() {
           {error}
         </Alert>
       )}
-
       <Box
         component="form"
         onSubmit={handleSubmit}
@@ -179,7 +178,9 @@ export function LoginPage() {
               to="/forgot-password"
               underline="hover"
               variant="body2"
-              color="text.secondary"
+              sx={{
+                color: "text.secondary",
+              }}
             >
               Forgot password?
             </Link>
@@ -207,26 +208,34 @@ export function LoginPage() {
           // off, so flipping this client-side cannot bypass the gate.
           <Typography
             variant="body2"
-            color="text.secondary"
-            sx={{ textAlign: "center" }}
+            sx={{
+              color: "text.secondary",
+              textAlign: "center",
+            }}
           >
-            Don&apos;t have an account?{" "}
+            Don't have an account?{" "}
             <Link
               component={RouterLink}
               to="/register"
               underline="hover"
-              fontWeight={600}
+              sx={{
+                fontWeight: 600,
+              }}
             >
               Sign up
             </Link>
           </Typography>
         )}
       </Box>
-
       {oidcProviders.length > 0 && (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
           <Divider>
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: "text.secondary",
+              }}
+            >
               or
             </Typography>
           </Divider>

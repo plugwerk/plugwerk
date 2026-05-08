@@ -201,7 +201,7 @@ export function GeneralSection() {
                   handleFieldChange(key, e.target.checked ? "true" : "false")
                 }
                 disabled={saving}
-                inputProps={{ "aria-label": label }}
+                slotProps={{ input: { "aria-label": label } }}
               />
             }
             label={label}
@@ -306,10 +306,12 @@ export function GeneralSection() {
             error={Boolean(error)}
             helperText={helperText}
             disabled={saving}
-            inputProps={{
-              min: setting.minInt,
-              max: setting.maxInt,
-              "aria-label": label,
+            slotProps={{
+              htmlInput: {
+                min: setting.minInt,
+                max: setting.maxInt,
+                "aria-label": label,
+              },
             }}
             sx={{ maxWidth: 320 }}
           />
@@ -336,7 +338,7 @@ export function GeneralSection() {
         error={Boolean(error)}
         helperText={helperText}
         disabled={saving}
-        inputProps={{ "aria-label": label }}
+        slotProps={{ htmlInput: { "aria-label": label } }}
         sx={{ maxWidth: 480 }}
       />
     );
@@ -363,11 +365,16 @@ export function GeneralSection() {
         <Typography variant="h2" gutterBottom>
           General Settings
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            mb: 1,
+          }}
+        >
           These settings are stored in the database and apply to all users.
         </Typography>
       </Box>
-
       {restartPendingKeys.length > 0 && (
         <Alert severity="warning" role="alert">
           The following setting
@@ -376,7 +383,6 @@ export function GeneralSection() {
           <strong>{restartPendingKeys.join(", ")}</strong>
         </Alert>
       )}
-
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
         {/* General */}
         <Section
@@ -435,7 +441,6 @@ export function GeneralSection() {
           {renderField("auth.password_reset_token_ttl_minutes")}
         </Section>
       </Box>
-
       <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
         <Button
           variant="text"

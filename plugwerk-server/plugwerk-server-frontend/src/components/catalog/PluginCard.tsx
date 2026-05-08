@@ -124,8 +124,8 @@ export const PluginCard = memo(function PluginCard({
                 <Typography
                   ref={nameRef}
                   variant="body1"
-                  fontWeight={600}
                   sx={{
+                    fontWeight: 600,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
@@ -157,8 +157,8 @@ export const PluginCard = memo(function PluginCard({
                 <Typography
                   ref={providerRef}
                   variant="caption"
-                  color="text.disabled"
                   sx={{
+                    color: "text.disabled",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
@@ -182,8 +182,8 @@ export const PluginCard = memo(function PluginCard({
             <Typography
               ref={descRef}
               variant="body2"
-              color="text.secondary"
               sx={{
+                color: "text.secondary",
                 display: "-webkit-box",
                 WebkitLineClamp: 2,
                 WebkitBoxOrient: "vertical",

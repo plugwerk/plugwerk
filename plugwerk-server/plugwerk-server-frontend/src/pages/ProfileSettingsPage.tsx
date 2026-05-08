@@ -70,8 +70,12 @@ function InfoRow({ label, value, copyable = false }: InfoRowProps) {
     <Box sx={{ display: "flex", alignItems: "center", gap: 2, py: 0.75 }}>
       <Typography
         variant="caption"
-        color="text.secondary"
-        sx={{ minWidth: 80, flexShrink: 0, fontWeight: 500 }}
+        sx={{
+          color: "text.secondary",
+          minWidth: 80,
+          flexShrink: 0,
+          fontWeight: 500,
+        }}
       >
         {label}
       </Typography>
@@ -151,7 +155,13 @@ export function ProfileSettingsPage() {
         <Typography variant="h1" sx={{ mb: 0.5 }}>
           Profile Settings
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            mb: 4,
+          }}
+        >
           Manage your account preferences and workspace configuration.
         </Typography>
 

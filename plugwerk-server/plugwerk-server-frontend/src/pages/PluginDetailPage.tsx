@@ -163,7 +163,13 @@ export function PluginDetailPage() {
             style={{ color: "var(--mui-palette-text-disabled)" }}
             aria-hidden="true"
           />
-          <Typography variant="body2" color="text.primary" aria-current="page">
+          <Typography
+            variant="body2"
+            aria-current="page"
+            sx={{
+              color: "text.primary",
+            }}
+          >
             {plugin.name}
           </Typography>
         </Box>
@@ -278,7 +284,6 @@ export function PluginDetailPage() {
           ))}
         </Box>
       </Container>
-
       <ConfirmDeleteDialog
         open={showDeletePlugin}
         title="Delete Plugin"

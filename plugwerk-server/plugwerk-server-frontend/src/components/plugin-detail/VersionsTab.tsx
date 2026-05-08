@@ -50,7 +50,12 @@ function CopyableSha256({ value }: { value?: string }) {
 
   if (!value)
     return (
-      <Typography variant="caption" color="text.disabled">
+      <Typography
+        variant="caption"
+        sx={{
+          color: "text.disabled",
+        }}
+      >
         —
       </Typography>
     );
@@ -272,7 +277,12 @@ export function VersionsTab({
       key: "uploaded",
       header: "Uploaded",
       render: (rel) => (
-        <Typography variant="caption" color="text.disabled">
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.disabled",
+          }}
+        >
           <Timestamp date={rel.createdAt} />
         </Typography>
       ),
@@ -290,7 +300,12 @@ export function VersionsTab({
       key: "format",
       header: "Format",
       render: (rel) => (
-        <Typography variant="caption" color="text.disabled">
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.disabled",
+          }}
+        >
           .{rel.fileFormat ?? "jar"}
         </Typography>
       ),
@@ -300,7 +315,12 @@ export function VersionsTab({
       header: "Size",
       align: "right",
       render: (rel) => (
-        <Typography variant="caption" color="text.disabled">
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.disabled",
+          }}
+        >
           {rel.artifactSize ? formatFileSize(rel.artifactSize) : "—"}
         </Typography>
       ),
@@ -316,7 +336,12 @@ export function VersionsTab({
       align: "right",
       render: (rel) => (
         <Tooltip title={formatCountFull(rel.downloadCount)} placement="left">
-          <Typography variant="caption" color="text.disabled">
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.disabled",
+            }}
+          >
             {formatCount(rel.downloadCount)}
           </Typography>
         </Tooltip>

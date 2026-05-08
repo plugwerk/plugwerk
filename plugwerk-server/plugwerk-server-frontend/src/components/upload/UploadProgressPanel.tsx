@@ -99,14 +99,16 @@ function EntryRow({ entry }: { entry: FileUploadEntry }) {
         {(entry.status === "uploading" || entry.status === "pending") && (
           <Typography
             variant="caption"
-            color="text.secondary"
-            sx={{ flexShrink: 0, fontVariantNumeric: "tabular-nums" }}
+            sx={{
+              color: "text.secondary",
+              flexShrink: 0,
+              fontVariantNumeric: "tabular-nums",
+            }}
           >
             {entry.progress}%
           </Typography>
         )}
       </Box>
-
       {entry.status === "uploading" && (
         <LinearProgress
           variant="determinate"
@@ -114,7 +116,6 @@ function EntryRow({ entry }: { entry: FileUploadEntry }) {
           sx={{ mt: 0.75, height: 3, borderRadius: tokens.radius.btn }}
         />
       )}
-
       {entry.status === "failed" && entry.errorMessage && (
         <Typography
           variant="caption"
@@ -220,8 +221,10 @@ export function UploadProgressPanel() {
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
               variant="body2"
-              fontWeight={600}
-              sx={{ lineHeight: 1.3 }}
+              sx={{
+                fontWeight: 600,
+                lineHeight: 1.3,
+              }}
             >
               {headerText}
             </Typography>

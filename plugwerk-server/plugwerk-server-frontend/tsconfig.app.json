@@ -6,6 +6,12 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
+    // TS6 no longer auto-injects every installed `@types/*` package — the
+    // resolution scope must be declared explicitly. We need `node` because
+    // the OpenAPI-generated client imports `URL` from 'url' and the vitest
+    // setup uses `global`. Vite's own client types stay loaded via the
+    // triple-slash reference in `src/vite-env.d.ts`.
+    "types": ["node"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",

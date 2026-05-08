@@ -61,11 +61,21 @@ export function Section({
       >
         <Box sx={{ color: "text.secondary", display: "flex" }}>{icon}</Box>
         <Box>
-          <Typography variant="subtitle1" fontWeight={600}>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontWeight: 600,
+            }}
+          >
             {title}
           </Typography>
           {description && (
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              sx={{
+                color: "text.secondary",
+              }}
+            >
               {description}
             </Typography>
           )}

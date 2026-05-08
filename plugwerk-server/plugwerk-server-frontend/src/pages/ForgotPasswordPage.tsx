@@ -118,7 +118,12 @@ export function ForgotPasswordPage() {
         title="Password reset unavailable"
         subtitle="Self-service password reset is not enabled on this server."
       >
-        <Typography variant="body2" color="text.secondary">
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+          }}
+        >
           Contact your administrator to have your password reset.
         </Typography>
         <Box sx={{ textAlign: "center", mt: 1 }}>
@@ -126,7 +131,9 @@ export function ForgotPasswordPage() {
             component={RouterLink}
             to="/login"
             underline="hover"
-            fontWeight={600}
+            sx={{
+              fontWeight: 600,
+            }}
           >
             Back to login
           </Link>
@@ -169,11 +176,22 @@ export function ForgotPasswordPage() {
             If an account exists for that username or email, a reset link is on
             its way.
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+            }}
+          >
             Click the link in the email to set a new password. The link expires
             after a short while; request a new one if it's stale.
           </Typography>
-          <Typography variant="caption" color="text.disabled" sx={{ mt: 1 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.disabled",
+              mt: 1,
+            }}
+          >
             No email? Check your spam folder. If the address you supplied isn't
             registered, no message is sent — verify the spelling or contact your
             administrator.
@@ -184,7 +202,9 @@ export function ForgotPasswordPage() {
             component={RouterLink}
             to="/login"
             underline="hover"
-            fontWeight={600}
+            sx={{
+              fontWeight: 600,
+            }}
           >
             Back to login
           </Link>
@@ -218,7 +238,7 @@ export function ForgotPasswordPage() {
           value={usernameOrEmail}
           onChange={(e) => setUsernameOrEmail(e.target.value)}
           disabled={submitting}
-          inputProps={{ "aria-label": "Username or email" }}
+          slotProps={{ htmlInput: { "aria-label": "Username or email" } }}
         />
         <Button
           type="submit"
@@ -237,8 +257,10 @@ export function ForgotPasswordPage() {
       </Box>
       <Typography
         variant="caption"
-        color="text.disabled"
-        sx={{ textAlign: "center" }}
+        sx={{
+          color: "text.disabled",
+          textAlign: "center",
+        }}
       >
         Remember your password?{" "}
         <Link
