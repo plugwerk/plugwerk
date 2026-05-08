@@ -105,6 +105,12 @@
       "description": "npm major updates — one PR per package (no grouping). Bundling unrelated majors caused PR #394 to ship a broken lockfile because typescript-eslint v8 still pinned eslint <10 while the group already advanced eslint to 10. Per-package PRs let each major be reviewed and merged independently of incompatible peers.",
       "matchManagers": ["npm"],
       "matchUpdateTypes": ["major"]
+    },
+    {
+      "description": "Pin npm dependency versions exactly (no ^/~ ranges). Plugwerk is an application, not a library — every CI build, every Docker image, and every dev clone should resolve to the identical bytes. Pinning keeps `package.json` and `package-lock.json` honest about what's actually in production, makes 'works for me' debugging much easier, and turns every patch into an explicit Renovate PR with a real changelog instead of a silent lockfile drift. Pin applies to `dependencies` and `devDependencies` only — peer-deps and bundled-deps keep their ranges so library authors who consume our types still get flexibility. Gradle keeps its existing version catalog (gradle/libs.versions.toml is pinned by construction).",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["dependencies", "devDependencies"],
+      "rangeStrategy": "pin"
     }
   ]
 }
