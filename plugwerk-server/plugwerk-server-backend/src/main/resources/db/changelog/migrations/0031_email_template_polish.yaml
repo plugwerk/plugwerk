@@ -1,0 +1,237 @@
+# Refresh the seeded HTML bodies for the two transactional auth templates
+# to the editorial-minimal Carbon-Blue layout produced by
+# EmailLayoutBuilder (#449). The plain-text bodies are refreshed in the
+# same changeset to keep wording in sync.
+#
+# Operator-customised templates are intentionally NOT overwritten:
+# the WHERE clauses match only on the marker phrase from the original
+# 0026 seed ("color: #666; font-size: 0.9em"). Operators who edited
+# the templates through the admin UI (#438) keep their version; Plugwerk
+# instances still on the bare 0026 seed get the polished layout.
+#
+# Adds the {{siteName}} placeholder, supplied at send time by
+# AuthRegistrationController and AuthPasswordResetController via
+# ApplicationSettingsService.siteName(). The backend's strict-mode
+# Mustache renderer therefore requires every caller of these two
+# templates to set the new var — guarded by MailTemplate.placeholders
+# enforcement plus MailTemplateServiceTest.
+#
+# Rollback strategy: each changeset declares a no-op SQL rollback
+# rather than a plain "empty" marker. The LiquibaseRollbackIT test
+# requires every changeset to be rollback-capable, but rolling back
+# a content polish to the verbatim 0026 default would inline ~70
+# lines of HTML twice. Plugwerk treats the 0031 body as the new
+# canonical default — operators who really want to revert can
+# either run the 0026 INSERT manually or restore from a backup.
+databaseChangeLog:
+  - changeSet:
+      id: 0031-update-auth-registration-verification-template
+      author: plugwerk
+      changes:
+        - update:
+            tableName: mail_template
+            columns:
+              - column:
+                  name: body_html
+                  value: |
+                    <!doctype html>
+                    <html lang="en">
+                    <head>
+                      <meta charset="utf-8">
+                      <meta name="viewport" content="width=device-width, initial-scale=1">
+                      <meta name="color-scheme" content="light dark">
+                      <meta name="supported-color-schemes" content="light dark">
+                      <title>Plugwerk</title>
+                      <style>
+                        @media (prefers-color-scheme: dark) {
+                          body, .pw-page { background-color: #1E1E1E !important; }
+                          .pw-card { background-color: #262626 !important; border-color: #393939 !important; }
+                          .pw-card-body, .pw-wordmark { color: #FFFFFF !important; }
+                          .pw-footer { color: #A8A8A8 !important; }
+                          .pw-fallback-link { color: #4589FF !important; }
+                        }
+                      </style>
+                    </head>
+                    <body class="pw-page" style="margin:0;padding:32px 16px;background-color:#F4F4F4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                          <td align="center">
+                            <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;max-width:600px;">
+                              <tr>
+                                <td style="padding:0 4px 24px;">
+                                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                    <tr>
+                                      <td class="pw-wordmark" style="padding:0 0 6px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:22px;font-weight:700;letter-spacing:-0.01em;color:#161616;">Plugwerk</td>
+                                    </tr>
+                                    <tr>
+                                      <td style="height:2px;line-height:2px;font-size:0;background-color:#0F62FE;">&nbsp;</td>
+                                    </tr>
+                                  </table>
+                                </td>
+                              </tr>
+                            </table>
+                            <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="pw-card" style="margin:0 auto;max-width:600px;background-color:#FFFFFF;border:1px solid #E0E0E0;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.08);overflow:hidden;">
+                              <tr>
+                                <td width="4" class="pw-accent" style="width:4px;background-color:#0F62FE;line-height:0;font-size:0;">&nbsp;</td>
+                                <td class="pw-card-body" style="padding:32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.6;color:#161616;">
+                    <p style="margin:0 0 16px;">Hi {{username}},</p>
+                    <p style="margin:0 0 16px;">Please verify your email address to finish setting up your Plugwerk account. This link expires {{expiresAtHuman}}.</p>
+                    <p style="margin:24px 0 8px;font-size:13px;color:#6F6F6F;">If the button doesn't work, paste this link into your browser:</p>
+                    <p style="margin:0;font-size:13px;word-break:break-all;"><a href="{{verificationLink}}" class="pw-fallback-link" style="color:#0F62FE;text-decoration:underline;">{{verificationLink}}</a></p>
+                    <p style="margin:24px 0 0;font-size:13px;color:#6F6F6F;">If you didn't create an account, you can safely ignore this message.</p>
+                    
+                                  <table role="presentation" border="0" cellspacing="0" cellpadding="0" style="margin:24px 0 0;">
+                                    <tr>
+                                      <td align="left" bgcolor="#0F62FE" style="border-radius:6px;">
+                                        <a href="{{verificationLink}}" target="_blank" class="pw-cta" style="display:inline-block;padding:12px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;font-weight:600;line-height:1;color:#FFFFFF;text-decoration:none;border-radius:6px;">Verify email</a>
+                                      </td>
+                                    </tr>
+                                  </table>
+                                </td>
+                              </tr>
+                            </table>
+                            <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="margin:24px auto 0;max-width:600px;">
+                              <tr>
+                                <td class="pw-footer" style="padding:0 4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;line-height:1.5;color:#6F6F6F;">
+                                  Sent by Plugwerk &middot; {{siteName}}<br>
+                                  You're receiving this because you registered for Plugwerk.
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+                    </body>
+                    </html>
+              - column:
+                  name: body_plain
+                  value: |
+                    Hi {{username}},
+
+                    Please verify your email address to finish setting up your Plugwerk
+                    account. This link expires {{expiresAtHuman}}.
+
+                    {{verificationLink}}
+
+                    If you didn't create an account, you can safely ignore this message.
+
+                    —
+                    Sent by Plugwerk · {{siteName}}
+                    You're receiving this because you registered for Plugwerk.
+              - column:
+                  name: updated_at
+                  valueComputed: now()
+              - column:
+                  name: updated_by
+                  value: liquibase-0031
+            where: "template_key = 'auth.registration_verification' AND locale = 'en' AND body_html LIKE '%color: #666; font-size: 0.9em%'"
+      rollback:
+        - sql:
+            sql: "SELECT 1"
+
+  - changeSet:
+      id: 0031-update-auth-password-reset-template
+      author: plugwerk
+      changes:
+        - update:
+            tableName: mail_template
+            columns:
+              - column:
+                  name: body_html
+                  value: |
+                    <!doctype html>
+                    <html lang="en">
+                    <head>
+                      <meta charset="utf-8">
+                      <meta name="viewport" content="width=device-width, initial-scale=1">
+                      <meta name="color-scheme" content="light dark">
+                      <meta name="supported-color-schemes" content="light dark">
+                      <title>Plugwerk</title>
+                      <style>
+                        @media (prefers-color-scheme: dark) {
+                          body, .pw-page { background-color: #1E1E1E !important; }
+                          .pw-card { background-color: #262626 !important; border-color: #393939 !important; }
+                          .pw-card-body, .pw-wordmark { color: #FFFFFF !important; }
+                          .pw-footer { color: #A8A8A8 !important; }
+                          .pw-fallback-link { color: #4589FF !important; }
+                        }
+                      </style>
+                    </head>
+                    <body class="pw-page" style="margin:0;padding:32px 16px;background-color:#F4F4F4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                          <td align="center">
+                            <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;max-width:600px;">
+                              <tr>
+                                <td style="padding:0 4px 24px;">
+                                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                    <tr>
+                                      <td class="pw-wordmark" style="padding:0 0 6px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:22px;font-weight:700;letter-spacing:-0.01em;color:#161616;">Plugwerk</td>
+                                    </tr>
+                                    <tr>
+                                      <td style="height:2px;line-height:2px;font-size:0;background-color:#0F62FE;">&nbsp;</td>
+                                    </tr>
+                                  </table>
+                                </td>
+                              </tr>
+                            </table>
+                            <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="pw-card" style="margin:0 auto;max-width:600px;background-color:#FFFFFF;border:1px solid #E0E0E0;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.08);overflow:hidden;">
+                              <tr>
+                                <td width="4" class="pw-accent" style="width:4px;background-color:#0F62FE;line-height:0;font-size:0;">&nbsp;</td>
+                                <td class="pw-card-body" style="padding:32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.6;color:#161616;">
+                    <p style="margin:0 0 16px;">Hi {{username}},</p>
+                    <p style="margin:0 0 16px;">We received a request to reset the password on your Plugwerk account. Click the button below to choose a new one — this link is valid {{expiresAtHuman}}.</p>
+                    <p style="margin:24px 0 8px;font-size:13px;color:#6F6F6F;">If the button doesn't work, paste this link into your browser:</p>
+                    <p style="margin:0;font-size:13px;word-break:break-all;"><a href="{{resetLink}}" class="pw-fallback-link" style="color:#0F62FE;text-decoration:underline;">{{resetLink}}</a></p>
+                    <p style="margin:24px 0 0;font-size:13px;color:#6F6F6F;">If you didn't request a password reset, you can safely ignore this message; your existing password remains active.</p>
+                    
+                                  <table role="presentation" border="0" cellspacing="0" cellpadding="0" style="margin:24px 0 0;">
+                                    <tr>
+                                      <td align="left" bgcolor="#0F62FE" style="border-radius:6px;">
+                                        <a href="{{resetLink}}" target="_blank" class="pw-cta" style="display:inline-block;padding:12px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;font-weight:600;line-height:1;color:#FFFFFF;text-decoration:none;border-radius:6px;">Reset password</a>
+                                      </td>
+                                    </tr>
+                                  </table>
+                                </td>
+                              </tr>
+                            </table>
+                            <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="margin:24px auto 0;max-width:600px;">
+                              <tr>
+                                <td class="pw-footer" style="padding:0 4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;line-height:1.5;color:#6F6F6F;">
+                                  Sent by Plugwerk &middot; {{siteName}}<br>
+                                  You're receiving this because someone requested a password reset on Plugwerk.
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+                    </body>
+                    </html>
+              - column:
+                  name: body_plain
+                  value: |
+                    Hi {{username}},
+
+                    We received a request to reset the password on your Plugwerk account.
+                    Click the link below to choose a new one — this link is valid
+                    {{expiresAtHuman}}.
+
+                    {{resetLink}}
+
+                    If you didn't request a password reset, you can safely ignore this
+                    message; your existing password remains active.
+
+                    —
+                    Sent by Plugwerk · {{siteName}}
+                    You're receiving this because someone requested a password reset on Plugwerk.
+              - column:
+                  name: updated_at
+                  valueComputed: now()
+              - column:
+                  name: updated_by
+                  value: liquibase-0031
+            where: "template_key = 'auth.password_reset' AND locale = 'en' AND body_html LIKE '%color: #666; font-size: 0.9em%'"
+      rollback:
+        - sql:
+            sql: "SELECT 1"

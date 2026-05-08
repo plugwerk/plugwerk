@@ -112,35 +112,37 @@ enum class MailTemplate(
         key = "auth.registration_verification",
         defaultSubject = "Verify your Plugwerk account",
         defaultBodyPlainTemplate = """
-            Hello {{username}},
+            Hi {{username}},
 
-            Welcome to Plugwerk! Please verify your email address by visiting the
-            link below — the link is valid {{expiresAtHuman}}.
+            Please verify your email address to finish setting up your Plugwerk
+            account. This link expires {{expiresAtHuman}}.
 
             {{verificationLink}}
 
-            If you did not create an account, you can safely ignore this message.
+            If you didn't create an account, you can safely ignore this message.
+
+            —
+            Sent by Plugwerk · {{siteName}}
+            You're receiving this because you registered for Plugwerk.
         """.trimIndent(),
-        defaultBodyHtmlTemplate = """
-            <!DOCTYPE html>
-            <html>
-              <body>
-                <p>Hello {{username}},</p>
-                <p>Welcome to Plugwerk! Please verify your email address by clicking
-                  the link below — it is valid {{expiresAtHuman}}.</p>
-                <p><a href="{{verificationLink}}">Verify my email</a></p>
-                <p>If the button does not work, paste this URL into your browser:<br>
-                  <a href="{{verificationLink}}">{{verificationLink}}</a></p>
-                <p style="color: #666; font-size: 0.9em;">If you did not create an account,
-                  you can safely ignore this message.</p>
-              </body>
-            </html>
-        """.trimIndent(),
-        placeholders = setOf("username", "verificationLink", "expiresAtHuman"),
+        defaultBodyHtmlTemplate = EmailLayoutBuilder.wrap(
+            contentHtml = """
+              <p style="margin:0 0 16px;">Hi {{username}},</p>
+              <p style="margin:0 0 16px;">Please verify your email address to finish setting up your Plugwerk account. This link expires {{expiresAtHuman}}.</p>
+              <p style="margin:24px 0 8px;font-size:13px;color:#6F6F6F;">If the button doesn't work, paste this link into your browser:</p>
+              <p style="margin:0;font-size:13px;word-break:break-all;"><a href="{{verificationLink}}" class="pw-fallback-link" style="color:#0F62FE;text-decoration:underline;">{{verificationLink}}</a></p>
+              <p style="margin:24px 0 0;font-size:13px;color:#6F6F6F;">If you didn't create an account, you can safely ignore this message.</p>
+            """.trimIndent(),
+            ctaUrl = "{{verificationLink}}",
+            ctaText = "Verify email",
+            footerLine2 = "You're receiving this because you registered for Plugwerk.",
+        ),
+        placeholders = setOf("username", "verificationLink", "expiresAtHuman", "siteName"),
         previewSampleVars = mapOf(
             "username" to "Alice",
             "verificationLink" to "https://app.plugwerk.test/verify?token=demo-token-123",
             "expiresAtHuman" to "in 24 hours",
+            "siteName" to "marketplace.plugwerk.test",
         ),
     ),
 
@@ -152,38 +154,39 @@ enum class MailTemplate(
         key = "auth.password_reset",
         defaultSubject = "Reset your Plugwerk password",
         defaultBodyPlainTemplate = """
-            Hello {{username}},
+            Hi {{username}},
 
-            We received a request to reset the password for your Plugwerk account.
-            Click the link below to set a new password — it is valid {{expiresAtHuman}}.
+            We received a request to reset the password on your Plugwerk account.
+            Click the link below to choose a new one — this link is valid
+            {{expiresAtHuman}}.
 
             {{resetLink}}
 
-            If you did not request a password reset, you can safely ignore this
-            message — your existing password remains active.
+            If you didn't request a password reset, you can safely ignore this
+            message; your existing password remains active.
+
+            —
+            Sent by Plugwerk · {{siteName}}
+            You're receiving this because someone requested a password reset on Plugwerk.
         """.trimIndent(),
-        defaultBodyHtmlTemplate = """
-            <!DOCTYPE html>
-            <html>
-              <body>
-                <p>Hello {{username}},</p>
-                <p>We received a request to reset the password for your Plugwerk
-                  account. Click the link below to set a new password — it is valid
-                  {{expiresAtHuman}}.</p>
-                <p><a href="{{resetLink}}">Reset my password</a></p>
-                <p>If the button does not work, paste this URL into your browser:<br>
-                  <a href="{{resetLink}}">{{resetLink}}</a></p>
-                <p style="color: #666; font-size: 0.9em;">If you did not request a
-                  password reset, you can safely ignore this message — your existing
-                  password remains active.</p>
-              </body>
-            </html>
-        """.trimIndent(),
-        placeholders = setOf("username", "resetLink", "expiresAtHuman"),
+        defaultBodyHtmlTemplate = EmailLayoutBuilder.wrap(
+            contentHtml = """
+              <p style="margin:0 0 16px;">Hi {{username}},</p>
+              <p style="margin:0 0 16px;">We received a request to reset the password on your Plugwerk account. Click the button below to choose a new one — this link is valid {{expiresAtHuman}}.</p>
+              <p style="margin:24px 0 8px;font-size:13px;color:#6F6F6F;">If the button doesn't work, paste this link into your browser:</p>
+              <p style="margin:0;font-size:13px;word-break:break-all;"><a href="{{resetLink}}" class="pw-fallback-link" style="color:#0F62FE;text-decoration:underline;">{{resetLink}}</a></p>
+              <p style="margin:24px 0 0;font-size:13px;color:#6F6F6F;">If you didn't request a password reset, you can safely ignore this message; your existing password remains active.</p>
+            """.trimIndent(),
+            ctaUrl = "{{resetLink}}",
+            ctaText = "Reset password",
+            footerLine2 = "You're receiving this because someone requested a password reset on Plugwerk.",
+        ),
+        placeholders = setOf("username", "resetLink", "expiresAtHuman", "siteName"),
         previewSampleVars = mapOf(
             "username" to "Alice",
             "resetLink" to "https://app.plugwerk.test/reset?token=demo-token-123",
             "expiresAtHuman" to "in 30 minutes",
+            "siteName" to "marketplace.plugwerk.test",
         ),
     ),
     ;

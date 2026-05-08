@@ -68,17 +68,27 @@ class MailTemplateServiceTest {
     fun `render falls through enum default when no row exists for any locale`() {
         val rendered = service.render(
             MailTemplate.AUTH_PASSWORD_RESET,
-            mapOf("username" to "alice", "resetLink" to "https://x", "expiresAtHuman" to "in 30 minutes"),
+            mapOf(
+                "username" to "alice",
+                "resetLink" to "https://x",
+                "expiresAtHuman" to "in 30 minutes",
+                "siteName" to "marketplace.example.test",
+            ),
         )
 
         assertThat(rendered.subject).isEqualTo("Reset your Plugwerk password")
-        assertThat(rendered.bodyPlain).contains("Hello alice,")
+        assertThat(rendered.bodyPlain).contains("Hi alice,")
         assertThat(rendered.bodyPlain).contains("https://x")
         assertThat(rendered.bodyPlain).contains("in 30 minutes")
         // Enum default for AUTH_PASSWORD_RESET ships an HTML body too —
-        // render must materialise it.
+        // render must materialise it. Post-#449 the body is the
+        // editorial-minimal Carbon-Blue layout, asserted by class hooks
+        // rather than tag shape because the literal markup is large and
+        // would make these assertions brittle.
         assertThat(rendered.bodyHtml).isNotNull()
-        assertThat(rendered.bodyHtml).contains("<a href=\"https://x\">Reset my password</a>")
+        assertThat(rendered.bodyHtml).contains(">Reset password<")
+        assertThat(rendered.bodyHtml).contains("https://x")
+        assertThat(rendered.bodyHtml).contains("class=\"pw-card\"")
     }
 
     @Test
@@ -153,7 +163,15 @@ class MailTemplateServiceTest {
         assertThatThrownBy {
             service.render(
                 MailTemplate.AUTH_PASSWORD_RESET,
-                mapOf("username" to "alice", "expiresAtHuman" to "in 30 minutes"),
+                // Deliberately omits resetLink. Strict mode raises on the
+                // first missing var jmustache encounters; siteName is also
+                // declared but provided to keep the assertion pointed at
+                // the actual missing-content case.
+                mapOf(
+                    "username" to "alice",
+                    "expiresAtHuman" to "in 30 minutes",
+                    "siteName" to "marketplace.example.test",
+                ),
             )
         }
             .isInstanceOf(IllegalArgumentException::class.java)
@@ -347,5 +365,110 @@ class MailTemplateServiceTest {
 
         assertThat(variants).hasSize(2)
         assertThat(variants.map { it.locale }).containsExactlyInAnyOrder("en", "de")
+    }
+
+    // -----------------------------------------------------------------------
+    // Issue #449 — editorial-minimal Carbon-Blue layout guarantees.
+    //
+    // These tests pin the brand promises the EmailLayoutBuilder makes when
+    // its output is rendered through MailTemplateService against the enum
+    // defaults. They are deliberately targeted at small, stable
+    // identifiers (`pw-card`, `pw-accent`, `>Verify email<`) rather than
+    // full-markup snapshots — copy and spacing details may shift in
+    // future polish passes without breaking the brand contract.
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `registration verification mail renders the editorial layout chrome`() {
+        val rendered = service.render(
+            MailTemplate.AUTH_REGISTRATION_VERIFICATION,
+            mapOf(
+                "username" to "alice",
+                "verificationLink" to "https://app.plugwerk.test/verify?token=t",
+                "expiresAtHuman" to "in 24 hours",
+                "siteName" to "marketplace.example.test",
+            ),
+        )
+
+        val html = rendered.bodyHtml ?: error("HTML body must be present for AUTH_REGISTRATION_VERIFICATION")
+        // Wordmark, accent gestures, card chrome.
+        assertThat(html).contains(">Plugwerk<")
+        assertThat(html).contains("class=\"pw-card\"")
+        assertThat(html).contains("class=\"pw-accent\"")
+        // Single CTA ("Verify email") and the user's link both present.
+        // The link's `=` is hex-escaped to `&#x3D;` by jmustache (same
+        // posture documented in the auto-escapes test); we assert only
+        // on the path components so the test stays valid regardless of
+        // jmustache's escape-table internals.
+        assertThat(html).contains(">Verify email<")
+        assertThat(html).contains("https://app.plugwerk.test/verify?token")
+        // Footer carries the rendered siteName.
+        assertThat(html).contains("Sent by Plugwerk")
+        assertThat(html).contains("marketplace.example.test")
+        // Anti-template guarantee: no logo image, no gradient.
+        assertThat(html).doesNotContain("<img")
+        assertThat(html).doesNotContain("linear-gradient")
+    }
+
+    @Test
+    fun `password reset mail renders the editorial layout chrome`() {
+        val rendered = service.render(
+            MailTemplate.AUTH_PASSWORD_RESET,
+            mapOf(
+                "username" to "alice",
+                "resetLink" to "https://app.plugwerk.test/reset?token=t",
+                "expiresAtHuman" to "in 30 minutes",
+                "siteName" to "marketplace.example.test",
+            ),
+        )
+
+        val html = rendered.bodyHtml ?: error("HTML body must be present for AUTH_PASSWORD_RESET")
+        assertThat(html).contains(">Plugwerk<")
+        assertThat(html).contains("class=\"pw-card\"")
+        assertThat(html).contains(">Reset password<")
+        // See the comment on the registration-verification test: jmustache
+        // hex-escapes `=` so we assert only on the path prefix.
+        assertThat(html).contains("https://app.plugwerk.test/reset?token")
+        assertThat(html).contains("marketplace.example.test")
+    }
+
+    @Test
+    fun `enum default html embeds the dark-mode media query so Apple Mail and iOS render correctly`() {
+        // The dark-mode block lives in a static <style> inside the layout —
+        // it survives Mustache rendering verbatim because there are no
+        // {{vars}} inside the @media rule. Asserting the marker string here
+        // catches a future refactor that accidentally inlines everything
+        // (Outlook desktop ignores @media, but Apple Mail and iOS need it).
+        val rendered = service.render(
+            MailTemplate.AUTH_REGISTRATION_VERIFICATION,
+            mapOf(
+                "username" to "alice",
+                "verificationLink" to "https://x",
+                "expiresAtHuman" to "in 24 hours",
+                "siteName" to "marketplace.example.test",
+            ),
+        )
+
+        assertThat(rendered.bodyHtml).contains("@media (prefers-color-scheme: dark)")
+        assertThat(rendered.bodyHtml).contains("background-color: #262626 !important")
+    }
+
+    @Test
+    fun `siteName is a required placeholder — strict mode catches a caller that forgets to set it`() {
+        assertThatThrownBy {
+            service.render(
+                MailTemplate.AUTH_PASSWORD_RESET,
+                mapOf(
+                    "username" to "alice",
+                    "resetLink" to "https://x",
+                    "expiresAtHuman" to "in 30 minutes",
+                    // siteName intentionally omitted — every caller must
+                    // wire it through (AuthRegistrationController +
+                    // AuthPasswordResetController already do).
+                ),
+            )
+        }
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("siteName")
     }
 }
