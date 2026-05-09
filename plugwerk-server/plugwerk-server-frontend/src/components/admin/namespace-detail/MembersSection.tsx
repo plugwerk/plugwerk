@@ -16,7 +16,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useDebouncedValue } from "../../../hooks/useDebouncedValue";
 import {
   Box,
   Typography,
@@ -29,7 +30,6 @@ import {
   InputLabel,
   Autocomplete,
   TextField,
-  createFilterOptions,
 } from "@mui/material";
 import { Plus, Trash2 } from "lucide-react";
 import { AppDialog } from "../../common/AppDialog";
@@ -94,15 +94,6 @@ function buildUserOptionLabel(user: UserDto): string {
   return user.displayName;
 }
 
-/**
- * Autocomplete filter that matches the user's typed query against
- * `displayName` + `username` only — never the visible label, which carries
- * the decorative provider-name suffix for EXTERNAL users (issue #412).
- */
-const filterUserOptions = createFilterOptions<UserOption>({
-  stringify: (option) => option.searchKey,
-});
-
 export function MembersSection({ slug }: { slug: string }) {
   const addToast = useUiStore((s) => s.addToast);
   const queryClient = useQueryClient();
@@ -120,6 +111,15 @@ export function MembersSection({ slug }: { slug: string }) {
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  // Debounce 250ms so a fast typist does not fan out one request per
+  // keystroke. The min-length gate (2 chars) is below in the effect.
+  const [debouncedSearch] = useDebouncedValue(searchInput, 250);
+  // Cancel in-flight requests when the user keeps typing — without this a
+  // slow `q="al"` response can land after the fast `q="alice"` response
+  // and ghost-replace the correct results.
+  const searchAbortRef = useRef<AbortController | null>(null);
 
   const loadMembers = useCallback(async () => {
     setLoading(true);
@@ -138,20 +138,31 @@ export function MembersSection({ slug }: { slug: string }) {
   }, [loadMembers]);
 
   useEffect(() => {
-    if (!addOpen) return;
+    if (!addOpen) {
+      // Reset state when the dialog closes so a re-open starts fresh —
+      // avoids showing stale results from a previous session.
+      setSearchInput("");
+      setUserOptions([]);
+      return;
+    }
     async function loadUsers() {
+      // Cancel any prior in-flight request. Latest-wins semantics.
+      searchAbortRef.current?.abort();
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
+
+      // Empty / 1-char input: still fetch the first page so the picker is
+      // usable on initial open without typing. Server-side search kicks in
+      // at >= 2 chars to avoid noisy result sets from single letters.
+      const q =
+        debouncedSearch.trim().length >= 2 ? debouncedSearch.trim() : undefined;
+      setSearchLoading(true);
       try {
-        // Pagination on /admin/users became mandatory in #485. The
-        // add-member dropdown wants every eligible candidate at once for
-        // client-side search, so we ask for the maximum page size (100)
-        // until a dedicated server-side user-search endpoint exists.
-        // TODO(#492): replace with the dedicated /admin/users/search
-        // endpoint once it lands. The 100-cap holds for current
-        // deployments; #492 tracks the proper fix.
-        const res = await adminUsersApi.listUsers({
-          enabled: true,
-          size: 100,
-        });
+        const res = await adminUsersApi.listUsers(
+          { enabled: true, q, size: 50 },
+          { signal: controller.signal },
+        );
+        if (controller.signal.aborted) return;
         const existing = new Set(members.map((m) => m.userId));
         setUserOptions(
           res.data.content
@@ -162,12 +173,24 @@ export function MembersSection({ slug }: { slug: string }) {
               searchKey: `${u.displayName} ${u.username ?? ""}`.trim(),
             })),
         );
-      } catch {
-        setUserOptions([]);
+      } catch (err) {
+        // axios cancels surface as `CanceledError` (or `AbortError` on
+        // older runtimes). Either is silent — only real failures should
+        // empty the option list.
+        const isCancel =
+          (err as { code?: string })?.code === "ERR_CANCELED" ||
+          (err as { name?: string })?.name === "AbortError" ||
+          (err as { name?: string })?.name === "CanceledError";
+        if (!isCancel) setUserOptions([]);
+      } finally {
+        if (!controller.signal.aborted) setSearchLoading(false);
       }
     }
     loadUsers();
-  }, [addOpen, members]);
+    return () => {
+      searchAbortRef.current?.abort();
+    };
+  }, [addOpen, debouncedSearch, members]);
 
   function invalidateRoleCache() {
     // A role change for the current user must be reflected in every
@@ -481,9 +504,16 @@ export function MembersSection({ slug }: { slug: string }) {
             options={userOptions}
             value={newUsers}
             onChange={(_, value) => setNewUsers(value)}
+            inputValue={searchInput}
+            onInputChange={(_, value) => setSearchInput(value)}
             getOptionLabel={(option) => option.label}
             isOptionEqualToValue={(a, b) => a.userId === b.userId}
-            filterOptions={filterUserOptions}
+            // Server-side search (#492). Identity filter so MUI does NOT
+            // re-filter the already-server-filtered options — a default
+            // client-side filter would drop legitimate hits whose label
+            // does not literally match the input string.
+            filterOptions={(x) => x}
+            loading={searchLoading}
             // Keep the option list open after a selection so picking
             // multiple users in a row stays a single fluid interaction.
             disableCloseOnSelect

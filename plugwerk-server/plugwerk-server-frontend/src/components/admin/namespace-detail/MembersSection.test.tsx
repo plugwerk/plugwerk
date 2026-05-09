@@ -235,23 +235,34 @@ describe("MembersSection — add-member user picker (issue #412)", () => {
   it("Autocomplete free-text search does NOT match the provider-name suffix", async () => {
     // Issue #412 invariant: the provider hint is decorative. Typing the
     // provider name must not surface every user from that provider.
-    vi.mocked(apiConfig.adminUsersApi.listUsers).mockResolvedValue({
-      data: pagedUsers([
-        userDto({
-          displayName: "Alice Schmidt",
-          source: "EXTERNAL",
-          username: undefined,
-          providerName: "Google",
-        }),
-        userDto({
-          displayName: "Diana Prince",
-          source: "INTERNAL",
-          username: "diana",
-        }),
-      ]),
-    } as unknown as Awaited<
-      ReturnType<typeof apiConfig.adminUsersApi.listUsers>
-    >);
+    //
+    // After #492 search runs server-side, so this is now a contract on
+    // the SERVER's behaviour, not the client filter: the request goes out
+    // with `q="Google"`, and the server (which only matches against
+    // username/displayName/email) returns an empty page. The mock
+    // simulates that by branching on `q`.
+    const alice = userDto({
+      displayName: "Alice Schmidt",
+      source: "EXTERNAL",
+      username: undefined,
+      providerName: "Google",
+    });
+    const diana = userDto({
+      displayName: "Diana Prince",
+      source: "INTERNAL",
+      username: "diana",
+    });
+    vi.mocked(apiConfig.adminUsersApi.listUsers).mockImplementation((req) => {
+      const q = (req as { q?: string } | undefined)?.q;
+      // The server only matches username/displayName/email — `Google` lives
+      // in `providerName`, not in any searchable column, so the search
+      // must come back empty. Without a query, the picker still wants the
+      // initial browse list.
+      const content = q?.toLowerCase().includes("google") ? [] : [alice, diana];
+      return Promise.resolve({
+        data: pagedUsers(content),
+      }) as unknown as ReturnType<typeof apiConfig.adminUsersApi.listUsers>;
+    });
 
     renderWithTheme(<MembersSection slug="ns-1" />);
     const { user, dialog } = await openAddMemberDialog();
@@ -260,9 +271,8 @@ describe("MembersSection — add-member user picker (issue #412)", () => {
     await user.click(input);
     await user.type(input, "Google");
 
-    // If the filter were leaking the provider suffix, Alice would still
-    // appear. The createFilterOptions stringify only sees displayName +
-    // username, so "Google" matches nothing.
+    // Server returned empty for "Google" → Alice does not appear in the
+    // picker even though her decorative label contains the word.
     await waitFor(() => {
       expect(
         screen.queryByText("Alice Schmidt (Google)"),

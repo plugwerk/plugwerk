@@ -165,4 +165,96 @@ class UserServiceTest {
         }.isInstanceOf(IllegalArgumentException::class.java)
             .hasMessageContaining("OIDC-sourced")
     }
+
+    // ---- Text search (#492) -----------------------------------------------
+
+    @Test
+    fun `search returns the unfiltered page when q is blank or null`() {
+        // q=null and q="   " must behave identically to no search at all —
+        // routes to findAll/findAllByEnabled directly, no LIKE query.
+        repeat(3) { i -> service.create("user-$i", "user-$i@example.com", "password12345") }
+
+        val nullQ = service.search(q = null, enabled = null, pageable = pageRequest())
+        val blankQ = service.search(q = "   ", enabled = null, pageable = pageRequest())
+
+        assertThat(nullQ.totalElements).isEqualTo(3)
+        assertThat(blankQ.totalElements).isEqualTo(3)
+    }
+
+    @Test
+    fun `search matches case-insensitively across username, displayName, and email`() {
+        // One user per searchable field. Each match query must hit exactly
+        // the user whose corresponding field contains the substring.
+        service.create("alice", "alice@example.com", "password12345", displayName = "Alice")
+        service.create("admin", "bob@example.com", "password12345", displayName = "Bob Builder")
+        service.create("carol", "carol+plugwerk@example.com", "password12345", displayName = "Carol")
+
+        // Hits username only (and case-insensitively).
+        val byUsername = service.search(q = "ALI", enabled = null, pageable = pageRequest())
+        assertThat(byUsername.content.map { it.username }).containsExactly("alice")
+
+        // Hits displayName only — `Bob Builder` is the displayName of the
+        // `admin` user, so the username column does not match `Builder`.
+        val byDisplayName = service.search(q = "builder", enabled = null, pageable = pageRequest())
+        assertThat(byDisplayName.content.map { it.username }).containsExactly("admin")
+
+        // Hits email only — `+plugwerk` is in the email of `carol` and not
+        // in their username or displayName.
+        val byEmail = service.search(q = "+plugwerk", enabled = null, pageable = pageRequest())
+        assertThat(byEmail.content.map { it.username }).containsExactly("carol")
+    }
+
+    @Test
+    fun `search combines q with enabled filter`() {
+        // Two users contain "test" in the username; one is enabled, one
+        // disabled. q + enabled=true returns only the enabled match.
+        val enabled = service.create("test-enabled", "te@example.com", "password12345")
+        val disabled = service.create("test-disabled", "td@example.com", "password12345")
+        // Disable one through the entity directly.
+        disabled.enabled = false
+        userRepository.save(disabled)
+
+        val onlyEnabled = service.search(q = "test", enabled = true, pageable = pageRequest())
+
+        assertThat(onlyEnabled.content.map { it.id })
+            .containsExactly(requireNotNull(enabled.id))
+    }
+
+    @Test
+    fun `search escapes SQL wildcard chars in q so percent and underscore are literal`() {
+        // Three users whose names contain literal SQL wildcards. A search
+        // for "100%" must match only the literal `100%user` row, not the
+        // `alice` row (which would match if `%` were treated as a wildcard).
+        service.create("alice", "alice@example.com", "password12345")
+        service.create("a_b", "a_b@example.com", "password12345")
+        // The literal "%" cannot live in a username (validation blocks it).
+        // Use displayName to carry the wildcard for this test.
+        val pctUser = service.create("pctuser", "pct@example.com", "password12345", displayName = "100%user")
+
+        val pct = service.search(q = "100%", enabled = null, pageable = pageRequest())
+        assertThat(pct.content.map { it.id }).containsExactly(requireNotNull(pctUser.id))
+
+        val underscore = service.search(q = "_", enabled = null, pageable = pageRequest())
+        assertThat(underscore.content.map { it.username }).containsExactly("a_b")
+    }
+
+    @Test
+    fun `search handles a result set larger than 100 users (issue #492 reproduce)`() {
+        // The 100-cap notnagel that #492 removes assumed nobody would
+        // exceed 100 users. Seed 150 and assert that searches actually
+        // reach users at indices 100+.
+        repeat(150) { i ->
+            service.create("user-${"%03d".format(i)}", "u$i@example.com", "password12345")
+        }
+
+        // user-149 lives well past index 100. Without server-side search
+        // (the old client-side filter on the first 100 results) it would
+        // be invisible. The pagination return path proves it is reachable.
+        val tail = service.search(q = "user-149", enabled = null, pageable = pageRequest())
+
+        assertThat(tail.totalElements).isEqualTo(1)
+        assertThat(tail.content.single().username).isEqualTo("user-149")
+    }
+
+    private fun pageRequest() = org.springframework.data.domain.PageRequest.of(0, 50)
 }

@@ -1358,6 +1358,21 @@ paths:
           description: Filter by enabled state. When omitted, every user matching the page is returned.
           schema:
             type: boolean
+        - name: q
+          in: query
+          required: false
+          description: |
+            Case-insensitive substring search across `username`, `displayName`,
+            and `email` (OR-joined). SQL wildcard characters (`%`, `_`, `\`)
+            in the input are escaped and matched literally. Empty or omitted
+            means "no text filter" — the unfiltered page is returned. Combines
+            with `enabled`, `page`, `size`, `sort`. Introduced in #492 to
+            replace the client-side 100-cap notnagel in the namespace
+            member-add picker.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
         - $ref: '#/components/parameters/PageQuery'
         - $ref: '#/components/parameters/SizeQuery'
         - name: sort

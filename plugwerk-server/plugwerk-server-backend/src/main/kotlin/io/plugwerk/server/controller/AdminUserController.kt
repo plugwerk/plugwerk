@@ -55,7 +55,13 @@ class AdminUserController(
     private val log = LoggerFactory.getLogger(AdminUserController::class.java)
 
     @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
-    override fun listUsers(enabled: Boolean?, page: Int, size: Int, sort: String): ResponseEntity<UserPagedResponse> {
+    override fun listUsers(
+        enabled: Boolean?,
+        q: String?,
+        page: Int,
+        size: Int,
+        sort: String,
+    ): ResponseEntity<UserPagedResponse> {
         val auth = currentAuthentication()
         namespaceAuthorizationService.requireSuperadmin(auth)
 
@@ -66,11 +72,10 @@ class AdminUserController(
         // close to the call site for grep-ability.
         val pageable = parsePageable(page, size, sort)
 
-        val pageResult = if (enabled != null) {
-            userService.findAllByEnabled(enabled, pageable)
-        } else {
-            userService.findAll(pageable)
-        }
+        // userService.search routes to the unfiltered or enabled-filtered
+        // page when q is blank/null, so a single call covers all four
+        // (q, enabled) combinations without branching here. See #492.
+        val pageResult = userService.search(q, enabled, pageable)
         val pageContent = pageResult.content
 
         // Single batched lookup for the EXTERNAL subset's provider names so
