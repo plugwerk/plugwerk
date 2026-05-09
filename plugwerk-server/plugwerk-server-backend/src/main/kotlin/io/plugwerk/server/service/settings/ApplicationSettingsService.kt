@@ -27,6 +27,8 @@ import org.springframework.beans.factory.ObjectProvider
 import org.springframework.security.crypto.encrypt.TextEncryptor
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -268,15 +270,44 @@ class ApplicationSettingsService(
     }
 
     /**
-     * Persists a new value for [key] and refreshes the cache.
+     * Persists a new value for [key] and schedules a cache refresh + listener
+     * notification for after the enclosing transaction commits.
      *
-     * For PASSWORD-typed keys the [rawValue] is encrypted at rest before being persisted.
-     * The masking sentinel `***` (which the Admin UI surfaces in GET responses) is treated
-     * as "no change" — writing it back does not re-encrypt random bytes as a password.
+     * For PASSWORD-typed keys the [rawValue] is encrypted at rest before being
+     * persisted. The masking sentinel `***` (which the Admin UI surfaces in GET
+     * responses) is treated as "no change" — writing it back does not
+     * re-encrypt random bytes as a password.
      *
-     * @throws IllegalArgumentException if [rawValue] fails [ApplicationSettingKey.validate].
-     * @throws IllegalStateException if [key] is PASSWORD-typed and no [TextEncryptor] is
-     *   available (Security autoconfiguration not loaded).
+     * **Cache + listener timing (#478).** `refreshCache()` and `notifyListeners()`
+     * are deferred until the `afterCommit` hook of the enclosing transaction,
+     * so a rollback (DB constraint, downstream exception, explicit
+     * `setRollbackOnly`, etc.) leaves both the in-memory cache and any listener
+     * side-effects (e.g. [io.plugwerk.server.service.mail.MailSenderProvider.invalidate])
+     * untouched. The cache therefore always reflects committed state and never
+     * drifts from the database.
+     *
+     * The return value is built directly from the saved entity, not read from
+     * the cache, because the cache is intentionally stale at the moment this
+     * method returns (it is refreshed in the post-commit hook). Callers see
+     * the value they just wrote, even though the cache catches up
+     * asynchronously a few microseconds later.
+     *
+     * If the method is invoked outside an active transaction (e.g. from a
+     * unit test that wires the service directly without the `@Transactional`
+     * proxy), the refresh + notify run synchronously as a fallback so test
+     * code does not have to know about the synchronization machinery.
+     *
+     * **Pattern note.** This is the codebase's first use of
+     * [TransactionSynchronizationManager]. If a future change adds many
+     * listeners with heavy work, consider migrating to
+     * `ApplicationEventPublisher` + `@TransactionalEventListener(phase = AFTER_COMMIT)`
+     * for better decoupling. For a single idempotent listener this hand-rolled
+     * approach is the smaller diff.
+     *
+     * @throws IllegalArgumentException if [rawValue] fails
+     *   [ApplicationSettingKey.validate].
+     * @throws IllegalStateException if [key] is PASSWORD-typed and no
+     *   [TextEncryptor] is available (Security autoconfiguration not loaded).
      */
     @Transactional
     fun update(key: ApplicationSettingKey, rawValue: String, updatedBy: String?): SettingSnapshot {
@@ -308,10 +339,62 @@ class ApplicationSettingsService(
             valueType = key.valueType,
             updatedBy = updatedBy,
         )
-        repository.save(entity)
-        refreshCache()
-        notifyListeners(key)
-        return listAll().first { it.key == key }
+        val saved = repository.save(entity)
+        scheduleCacheRefreshAfterCommit(key)
+        return mapEntityToSnapshot(key, saved)
+    }
+
+    /**
+     * Registers an `afterCommit` hook that refreshes the cache and notifies
+     * listeners. Falls back to running both synchronously when no transaction
+     * is active (test contexts where the `@Transactional` proxy is not in
+     * play). See `update()` kdoc for #478 background.
+     */
+    private fun scheduleCacheRefreshAfterCommit(key: ApplicationSettingKey) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                object : TransactionSynchronization {
+                    override fun afterCommit() {
+                        refreshCache()
+                        notifyListeners(key)
+                    }
+
+                    override fun afterCompletion(status: Int) {
+                        if (status == TransactionSynchronization.STATUS_ROLLED_BACK) {
+                            log.debug(
+                                "Settings update for key '{}' rolled back — cache and listeners untouched",
+                                key.key,
+                            )
+                        }
+                    }
+                },
+            )
+        } else {
+            // No active transaction (e.g. plain unit test without proxy).
+            // Behave as if commit happened immediately.
+            refreshCache()
+            notifyListeners(key)
+        }
+    }
+
+    /**
+     * Builds a [SettingSnapshot] directly from a freshly-saved entity,
+     * without going through the cache. Used by `update()` so the caller
+     * sees the value they just wrote even though the cache refresh is
+     * deferred to `afterCommit` (#478).
+     */
+    private fun mapEntityToSnapshot(key: ApplicationSettingKey, entity: ApplicationSettingEntity): SettingSnapshot {
+        val effective = entity.settingValue?.takeIf { it.isNotEmpty() } ?: key.defaultValue
+        val bootStored = if (::bootSnapshot.isInitialized) bootSnapshot[key.key] else null
+        val bootValue = bootStored?.rawValue?.takeIf { it.isNotEmpty() } ?: key.defaultValue
+        val restartPending = key.requiresRestart && bootValue != effective
+        return SettingSnapshot(
+            key = key,
+            value = effective,
+            description = entity.settingDesc,
+            source = SettingSource.DATABASE,
+            restartPending = restartPending,
+        )
     }
 
     private fun notifyListeners(key: ApplicationSettingKey) {
