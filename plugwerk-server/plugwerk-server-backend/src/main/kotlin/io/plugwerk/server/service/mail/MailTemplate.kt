@@ -189,6 +189,61 @@ enum class MailTemplate(
             "siteName" to "marketplace.plugwerk.test",
         ),
     ),
+
+    /**
+     * Admin-initiated password-reset email triggered from the Admin → Users
+     * surface (#450). Differs from [AUTH_PASSWORD_RESET] in two intentional
+     * ways:
+     *  - body copy makes the **admin-initiated** part obvious so a recipient
+     *    who did not request a reset themselves understands who triggered it,
+     *  - body explicitly states that every active session has been signed
+     *    out — operationally true and a reassurance signal in the case of a
+     *    suspected-compromise reset.
+     *
+     * Reuses the same `{{resetLink}}` placeholder shape as the public flow,
+     * so the existing `ResetPasswordPage.tsx` consumes the link unchanged.
+     */
+    AUTH_ADMIN_PASSWORD_RESET(
+        key = "auth.admin_password_reset",
+        defaultSubject = "An administrator reset your Plugwerk password",
+        defaultBodyPlainTemplate = """
+            Hi {{username}},
+
+            A Plugwerk administrator has initiated a password reset on your
+            account. Click the link below to choose a new password — the link
+            is valid {{expiresAtHuman}}.
+
+            {{resetLink}}
+
+            For your security, every active Plugwerk session on this account
+            has been signed out. You did not request this reset yourself; it
+            was triggered by a site administrator. If this was unexpected,
+            contact your administrator.
+
+            —
+            Sent by Plugwerk · {{siteName}}
+            You're receiving this because an administrator initiated a password reset on your account.
+        """.trimIndent(),
+        defaultBodyHtmlTemplate = EmailLayoutBuilder.wrap(
+            contentHtml = """
+              <p style="margin:0 0 16px;">Hi {{username}},</p>
+              <p style="margin:0 0 16px;">A Plugwerk administrator has initiated a password reset on your account. Click the button below to choose a new password — this link is valid {{expiresAtHuman}}.</p>
+              <p style="margin:24px 0 8px;font-size:13px;color:#6F6F6F;">If the button doesn't work, paste this link into your browser:</p>
+              <p style="margin:0;font-size:13px;word-break:break-all;"><a href="{{resetLink}}" class="pw-fallback-link" style="color:#0F62FE;text-decoration:underline;">{{resetLink}}</a></p>
+              <p style="margin:24px 0 0;font-size:13px;color:#6F6F6F;">For your security, every active Plugwerk session on this account has been signed out. If this was unexpected, contact your administrator.</p>
+            """.trimIndent(),
+            ctaUrl = "{{resetLink}}",
+            ctaText = "Choose new password",
+            footerLine2 = "You're receiving this because an administrator initiated a password reset on your account.",
+        ),
+        placeholders = setOf("username", "resetLink", "expiresAtHuman", "siteName"),
+        previewSampleVars = mapOf(
+            "username" to "Alice",
+            "resetLink" to "https://app.plugwerk.test/reset-password?token=demo-token-123",
+            "expiresAtHuman" to "in 30 minutes",
+            "siteName" to "marketplace.plugwerk.test",
+        ),
+    ),
     ;
 
     init {

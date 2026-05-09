@@ -61,3 +61,5 @@ databaseChangeLog:
       file: db/changelog/migrations/0030_add_password_reset_settings.yaml
   - include:
       file: db/changelog/migrations/0031_email_template_polish.yaml
+  - include:
+      file: db/changelog/migrations/0032_admin_password_reset_template.yaml

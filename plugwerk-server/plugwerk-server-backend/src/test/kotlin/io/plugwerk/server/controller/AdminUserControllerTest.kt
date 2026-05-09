@@ -94,6 +94,9 @@ class AdminUserControllerTest {
     @MockitoBean
     private lateinit var oidcIdentityRepository: io.plugwerk.server.repository.OidcIdentityRepository
 
+    @MockitoBean
+    private lateinit var adminPasswordResetService: io.plugwerk.server.service.auth.AdminPasswordResetService
+
     @BeforeEach
     fun setUp() {
         // Simulate an authenticated superadmin — requireSuperadmin mock does nothing by default
@@ -407,6 +410,122 @@ class AdminUserControllerTest {
             .whenever(namespaceAuthorizationService).requireSuperadmin(any())
 
         mockMvc.delete("/api/v1/admin/users/$userId").andExpect {
+            status { isForbidden() }
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // POST /admin/users/{userId}/reset-password — admin-initiated reset (#450)
+    // ------------------------------------------------------------------------
+
+    private val callerSuperadminId: UUID = UUID.fromString("aaaaaaaa-1111-1111-1111-111111111111")
+
+    /** Re-stamp the security context with a UUID principal so the controller's
+     *  `UUID.fromString(auth.name)` cast succeeds. Tests calling this method
+     *  use [callerSuperadminId] for the actor. */
+    private fun authenticateAsCallerSuperadmin() {
+        SecurityContextHolder.getContext().authentication =
+            UsernamePasswordAuthenticationToken(callerSuperadminId.toString(), null, emptyList())
+    }
+
+    @Test
+    fun `POST admin users reset-password returns 200 with emailSent=true on success`() {
+        authenticateAsCallerSuperadmin()
+        val targetUserId = UUID.fromString("bbbbbbbb-2222-2222-2222-222222222222")
+        val expiresAt = java.time.OffsetDateTime.parse("2026-05-09T13:00:00Z")
+        whenever(adminPasswordResetService.trigger(targetUserId, callerSuperadminId)).thenReturn(
+            io.plugwerk.server.service.auth.AdminPasswordResetService.Result(
+                tokenIssued = true,
+                emailSent = true,
+                expiresAt = expiresAt,
+                resetUrl = null,
+            ),
+        )
+
+        mockMvc.post("/api/v1/admin/users/$targetUserId/reset-password").andExpect {
+            status { isOk() }
+            jsonPath("$.tokenIssued") { value(true) }
+            jsonPath("$.emailSent") { value(true) }
+            jsonPath("$.expiresAt") { value("2026-05-09T13:00:00Z") }
+            jsonPath("$.resetUrl") { doesNotExist() }
+        }
+    }
+
+    @Test
+    fun `POST admin users reset-password returns 200 with resetUrl when SMTP disabled`() {
+        authenticateAsCallerSuperadmin()
+        val targetUserId = UUID.fromString("bbbbbbbb-2222-2222-2222-222222222222")
+        val expiresAt = java.time.OffsetDateTime.parse("2026-05-09T13:00:00Z")
+        whenever(adminPasswordResetService.trigger(targetUserId, callerSuperadminId)).thenReturn(
+            io.plugwerk.server.service.auth.AdminPasswordResetService.Result(
+                tokenIssued = true,
+                emailSent = false,
+                expiresAt = expiresAt,
+                resetUrl = "https://plugwerk.example.com/reset-password?token=raw",
+            ),
+        )
+
+        mockMvc.post("/api/v1/admin/users/$targetUserId/reset-password").andExpect {
+            status { isOk() }
+            jsonPath("$.tokenIssued") { value(true) }
+            jsonPath("$.emailSent") { value(false) }
+            jsonPath("$.resetUrl") { value("https://plugwerk.example.com/reset-password?token=raw") }
+        }
+    }
+
+    @Test
+    fun `POST admin users reset-password returns 400 on EXTERNAL user`() {
+        authenticateAsCallerSuperadmin()
+        val targetUserId = UUID.randomUUID()
+        whenever(adminPasswordResetService.trigger(targetUserId, callerSuperadminId)).thenThrow(
+            io.plugwerk.server.service.auth.ExternalUserResetNotAllowedException(
+                "Cannot reset password on OIDC users — credentials live with the upstream provider.",
+            ),
+        )
+
+        mockMvc.post("/api/v1/admin/users/$targetUserId/reset-password").andExpect {
+            status { isBadRequest() }
+            jsonPath("$.message") { value(org.hamcrest.Matchers.containsString("OIDC")) }
+        }
+    }
+
+    @Test
+    fun `POST admin users reset-password returns 400 on self-reset`() {
+        authenticateAsCallerSuperadmin()
+        // Same UUID for caller and target — controller's UUID parse + service self-reset check
+        // produce the same 400.
+        whenever(adminPasswordResetService.trigger(callerSuperadminId, callerSuperadminId)).thenThrow(
+            io.plugwerk.server.service.auth.SelfResetNotAllowedException(
+                "Use Profile → Change password to update your own password.",
+            ),
+        )
+
+        mockMvc.post("/api/v1/admin/users/$callerSuperadminId/reset-password").andExpect {
+            status { isBadRequest() }
+            jsonPath("$.message") { value(org.hamcrest.Matchers.containsString("Profile")) }
+        }
+    }
+
+    @Test
+    fun `POST admin users reset-password returns 404 when user not found`() {
+        authenticateAsCallerSuperadmin()
+        val targetUserId = UUID.randomUUID()
+        whenever(adminPasswordResetService.trigger(targetUserId, callerSuperadminId)).thenThrow(
+            io.plugwerk.server.service.EntityNotFoundException("User", targetUserId.toString()),
+        )
+
+        mockMvc.post("/api/v1/admin/users/$targetUserId/reset-password").andExpect {
+            status { isNotFound() }
+        }
+    }
+
+    @Test
+    fun `POST admin users reset-password returns 403 for non-superadmin`() {
+        authenticateAsCallerSuperadmin()
+        doThrow(ForbiddenException("Superadmin privileges required"))
+            .whenever(namespaceAuthorizationService).requireSuperadmin(any())
+
+        mockMvc.post("/api/v1/admin/users/${UUID.randomUUID()}/reset-password").andExpect {
             status { isForbidden() }
         }
     }

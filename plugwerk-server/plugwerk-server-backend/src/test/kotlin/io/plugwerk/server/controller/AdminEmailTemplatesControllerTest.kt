@@ -141,6 +141,8 @@ class AdminEmailTemplatesControllerTest {
             .thenReturn(overrideView(MailTemplate.AUTH_REGISTRATION_VERIFICATION))
         whenever(templates.findEffective(MailTemplate.AUTH_PASSWORD_RESET, "en"))
             .thenReturn(defaultView(MailTemplate.AUTH_PASSWORD_RESET))
+        whenever(templates.findEffective(MailTemplate.AUTH_ADMIN_PASSWORD_RESET, "en"))
+            .thenReturn(defaultView(MailTemplate.AUTH_ADMIN_PASSWORD_RESET))
 
         mockMvc.get("/api/v1/admin/email/templates").andExpect {
             status { isOk() }

@@ -125,6 +125,14 @@ class AdminUserEndpointAuthzTest : AbstractAuthorizationTest() {
             .andExpect(status().isNoContent)
     }
 
+    @ParameterizedTest(name = "POST /admin/users/[id]/reset-password {0}")
+    @MethodSource("superadminOnlyDeniedMatrix")
+    fun `admin reset-password denied for non-superadmins`(case: ActorExpectation) {
+        val userId = createEphemeralUser()
+        mockMvc.perform(post("/api/v1/admin/users/$userId/reset-password").actAs(case.actor))
+            .andExpect(status().`is`(case.expectedStatus))
+    }
+
     @Test
     fun `deleting user removes all namespace memberships`() {
         // Create a user and add them to both namespaces

@@ -30,6 +30,7 @@ import io.plugwerk.server.security.RateLimitResult
 import io.plugwerk.server.security.RefreshTokenCookieFactory
 import io.plugwerk.server.service.RefreshTokenService
 import io.plugwerk.server.service.UserService
+import io.plugwerk.server.service.auth.ExpiryFormatter
 import io.plugwerk.server.service.auth.PasswordResetTokenService
 import io.plugwerk.server.service.mail.MailService
 import io.plugwerk.server.service.mail.MailTemplate
@@ -41,9 +42,6 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
-import java.time.Duration
-import java.time.OffsetDateTime
-import java.time.format.DateTimeFormatter
 
 /**
  * Public endpoints for the opt-in self-service password-reset flow (#421).
@@ -190,7 +188,7 @@ class AuthPasswordResetController(
     private fun issueAndSend(user: UserEntity) {
         val issued = tokenService.issue(user)
         val resetLink = buildResetLink(issued.rawToken)
-        val expiresAtHuman = formatExpiry(issued.expiresAt)
+        val expiresAtHuman = ExpiryFormatter.formatHuman(issued.expiresAt)
         val send = mailService.sendMailFromTemplate(
             template = MailTemplate.AUTH_PASSWORD_RESET,
             to = user.email,
@@ -217,25 +215,5 @@ class AuthPasswordResetController(
         // bundled-SPA production deployments.
         val base = plugwerkProperties.server.effectiveWebBaseUrl().trimEnd('/')
         return "$base/reset-password?token=$rawToken"
-    }
-
-    /**
-     * "in 30 minutes" / "in 1 hours" for short windows, otherwise the
-     * absolute UTC timestamp. Matches the verification-email tone from
-     * `AuthRegistrationController.formatExpiry`.
-     */
-    private fun formatExpiry(expiresAt: OffsetDateTime): String {
-        val secondsLeft = Duration.between(OffsetDateTime.now(), expiresAt).seconds
-        return when {
-            secondsLeft <= 0 -> "now (link already expired)"
-            secondsLeft < 3600 -> "in ${(secondsLeft / 60).coerceAtLeast(1)} minutes"
-            secondsLeft < 86_400 -> "in ${(secondsLeft / 3600).coerceAtLeast(1)} hours"
-            else -> "on ${expiresAt.format(ABSOLUTE_FMT)}"
-        }
-    }
-
-    private companion object {
-        private val ABSOLUTE_FMT: DateTimeFormatter =
-            DateTimeFormatter.ofPattern("d MMM yyyy 'at' HH:mm 'UTC'")
     }
 }

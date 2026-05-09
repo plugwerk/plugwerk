@@ -27,16 +27,21 @@ import {
   Chip,
   Switch,
 } from "@mui/material";
-import { Plus, Shield, Trash2 } from "lucide-react";
+import { KeyRound, Plus, Shield, Trash2 } from "lucide-react";
 import { AppDialog } from "../../components/common/AppDialog";
 import { ConfirmDeleteDialog } from "../../components/common/ConfirmDeleteDialog";
 import { DataTable } from "../../components/common/DataTable";
 import type { DataColumn } from "../../components/common/DataTable";
 import { ActionIconButton } from "../../components/common/ActionIconButton";
 import { Timestamp } from "../../components/common/Timestamp";
+import { AdminResetLinkDialog } from "../../components/admin/AdminResetLinkDialog";
 import { adminUsersApi } from "../../api/config";
 import { useUiStore } from "../../stores/uiStore";
-import type { UserDto } from "../../api/generated/model";
+import { useAuthStore } from "../../stores/authStore";
+import type {
+  AdminPasswordResetResponse,
+  UserDto,
+} from "../../api/generated/model";
 
 export function UsersSection() {
   const [users, setUsers] = useState<UserDto[]>([]);
@@ -47,8 +52,15 @@ export function UsersSection() {
   const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const addToast = useUiStore((s) => s.addToast);
+  const currentUserId = useAuthStore((s) => s.userId);
   const [deleteTarget, setDeleteTarget] = useState<UserDto | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [resetTarget, setResetTarget] = useState<UserDto | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [resetLinkResult, setResetLinkResult] = useState<{
+    user: UserDto;
+    response: AdminPasswordResetResponse;
+  } | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -102,6 +114,49 @@ export function UsersSection() {
       });
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handleConfirmReset() {
+    if (!resetTarget) return;
+    setResetting(true);
+    try {
+      const res = await adminUsersApi.adminResetUserPassword({
+        userId: resetTarget.id,
+      });
+      const response: AdminPasswordResetResponse = res.data;
+      if (response.emailSent) {
+        addToast({
+          message: `Reset email sent to ${resetTarget.email}. All sessions revoked.`,
+          type: "success",
+        });
+        setResetTarget(null);
+      } else if (response.resetUrl) {
+        // SMTP unavailable — surface the link so the operator can deliver
+        // it out-of-band. The toast has a `warning` severity to differentiate
+        // from the happy-path "everything went fine" message.
+        addToast({
+          message: `Reset triggered for ${resetTarget.displayName}, but email could not be sent. Copy the link to deliver it manually.`,
+          type: "warning",
+        });
+        setResetLinkResult({ user: resetTarget, response });
+        setResetTarget(null);
+      } else {
+        // Defensive — server returned emailSent=false without a resetUrl;
+        // shouldn't happen by API contract but surface it cleanly.
+        addToast({
+          message: `Reset triggered for ${resetTarget.displayName}, but the email could not be sent and no fallback link was returned.`,
+          type: "error",
+        });
+        setResetTarget(null);
+      }
+    } catch {
+      addToast({
+        message: `Failed to reset password for ${resetTarget.displayName}.`,
+        type: "error",
+      });
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -282,15 +337,42 @@ export function UsersSection() {
       key: "actions",
       header: "",
       align: "right",
-      render: (user) => (
-        <ActionIconButton
-          icon={Trash2}
-          tooltip="Delete"
-          color="error"
-          onClick={() => setDeleteTarget(user)}
-          disabled={user.isSuperadmin}
-        />
-      ),
+      render: (user) => {
+        const isExternal = user.source === "EXTERNAL";
+        const isSelf = currentUserId !== null && user.id === currentUserId;
+        const resetTooltip = isExternal
+          ? `OIDC users reset upstream${
+              user.providerName ? ` with ${user.providerName}` : ""
+            }`
+          : isSelf
+            ? "Use Profile → Change password instead"
+            : !user.enabled
+              ? "Enable the user before resetting their password"
+              : "Reset password";
+        return (
+          <Box
+            sx={{
+              display: "inline-flex",
+              gap: 0.5,
+              justifyContent: "flex-end",
+            }}
+          >
+            <ActionIconButton
+              icon={KeyRound}
+              tooltip={resetTooltip}
+              onClick={() => setResetTarget(user)}
+              disabled={isExternal || isSelf || !user.enabled}
+            />
+            <ActionIconButton
+              icon={Trash2}
+              tooltip="Delete"
+              color="error"
+              onClick={() => setDeleteTarget(user)}
+              disabled={user.isSuperadmin}
+            />
+          </Box>
+        );
+      },
     },
   ];
 
@@ -393,6 +475,27 @@ export function UsersSection() {
         loading={deleting}
         actionLabel="Delete User"
       />
+      <AppDialog
+        open={!!resetTarget}
+        onClose={() => setResetTarget(null)}
+        title="Reset password"
+        description={
+          resetTarget
+            ? `Reset password for "${resetTarget.displayName}"? An email with a single-use reset link will be sent to ${resetTarget.email}. All existing sessions for this user will be revoked immediately, and the user will be required to choose a new password.`
+            : ""
+        }
+        actionLabel="Send reset link"
+        onAction={handleConfirmReset}
+        actionLoading={resetting}
+      />
+      {resetLinkResult && (
+        <AdminResetLinkDialog
+          open={true}
+          targetDisplayName={resetLinkResult.user.displayName}
+          resetUrl={resetLinkResult.response.resetUrl ?? ""}
+          onClose={() => setResetLinkResult(null)}
+        />
+      )}
     </Box>
   );
 }

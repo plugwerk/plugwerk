@@ -1461,6 +1461,69 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /admin/users/{userId}/reset-password:
+    post:
+      tags:
+        - AdminUsers
+      summary: Trigger an admin-initiated password reset
+      operationId: adminResetUserPassword
+      description: |
+        Issues a single-use password-reset token for the target INTERNAL
+        user, emails an admin-initiated reset link to the user's address,
+        and revokes every active session — both access tokens (via
+        `passwordInvalidatedBefore`) and the refresh-token family. Idempotent:
+        re-running supersedes the previous unconsumed token. Requires
+        superadmin privileges.
+
+        Bypasses the `auth.password_reset_enabled` operator gate that gates
+        the public forgot-password flow — admin-driven path is an
+        independent trust chain (#421 covered the public surface; #450
+        added this admin surface).
+
+        SMTP-disabled fallback: if the SMTP server is not configured the
+        endpoint still succeeds server-side (token is issued, sessions
+        revoked) and returns the reset URL in the response body so the
+        operator can deliver it out of band. The reset URL is omitted
+        from the response when the email was sent successfully.
+
+        Refusal cases (HTTP 400):
+          - target user is EXTERNAL (OIDC) — credentials are managed by the
+            upstream IdP,
+          - target user is the caller themselves — superadmins must use
+            `/auth/change-password` for self-service changes.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: |
+            Reset triggered. `tokenIssued` is always `true` on this path;
+            `emailSent` is `false` when SMTP is unconfigured or the send
+            failed, in which case `resetUrl` carries the link the
+            operator can deliver out of band.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminPasswordResetResponse'
+        '400':
+          description: Target user is EXTERNAL or the caller's own row
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /namespaces/{ns}/members/me:
     get:
       tags:
@@ -3272,6 +3335,49 @@ components:
           type: string
           minLength: 12
           nullable: true
+
+    AdminPasswordResetResponse:
+      type: object
+      description: |
+        Outcome of `POST /admin/users/{userId}/reset-password` (#450).
+
+        Server-side side effects (token issue, dual session revocation,
+        structured audit log) always happen on the success path. The
+        boolean fields tell the caller whether the user was reachable
+        through the normal email channel.
+      properties:
+        tokenIssued:
+          type: boolean
+          description: |
+            Always `true` on the 200 response. Surfaced for forward
+            compatibility — a future enhancement might return 200 with
+            `tokenIssued=false` if the operator turns off the admin-driven
+            reset flow per-deployment.
+        emailSent:
+          type: boolean
+          description: |
+            `true` when SMTP was configured and the mail provider accepted
+            the message; `false` when SMTP is disabled or the send failed
+            (server log carries the reason in the latter case).
+        expiresAt:
+          type: string
+          format: date-time
+          description: |
+            Absolute UTC timestamp at which the issued reset token expires.
+            Operators surfacing the link out-of-band can use this to tell
+            the user how long they have to act.
+        resetUrl:
+          type: string
+          nullable: true
+          description: |
+            Absolute reset URL (`{webBaseUrl}/reset-password?token=…`).
+            Populated only when `emailSent` is `false`, so the operator can
+            deliver the link out-of-band (Slack, phone, in-person). Omitted
+            on the happy path so the link does not appear in API logs.
+      required:
+        - tokenIssued
+        - emailSent
+        - expiresAt
 
     NamespaceMembershipDto:
       type: object
