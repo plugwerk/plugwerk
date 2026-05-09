@@ -43,12 +43,27 @@ class UpdateCheckService(
         val namespace = namespaceRepository.findBySlug(namespaceSlug)
             .orElseThrow { NamespaceNotFoundException(namespaceSlug) }
 
-        val updates = installed.mapNotNull { info ->
-            val plugin = pluginRepository.findByNamespaceAndPluginId(namespace, info.pluginId)
-                .orElse(null) ?: return@mapNotNull null
+        if (installed.isEmpty()) return UpdateCheckResponse(updates = emptyList())
 
-            val latestRelease = releaseRepository.findAllByPluginAndStatus(plugin, ReleaseStatus.PUBLISHED)
-                .maxWithOrNull(Comparator { a, b -> compareSemVer(a.version, b.version) })
+        // Two batch queries instead of 2×N per-plugin lookups (#480, ADR-0023):
+        //   1. Resolve all PluginEntities for the requested pluginIds in one statement.
+        //   2. Fetch every PUBLISHED release for those plugins in one JOIN-FETCH statement.
+        // The semver "latest" pick stays client-side because JPQL has no semver awareness.
+        val pluginIds = installed.map { it.pluginId }.distinct()
+        val pluginsById = pluginRepository
+            .findAllByNamespaceAndPluginIdIn(namespace, pluginIds)
+            .associateBy { it.pluginId }
+
+        if (pluginsById.isEmpty()) return UpdateCheckResponse(updates = emptyList())
+
+        val releasesByPluginId = releaseRepository
+            .findAllByPluginInAndStatus(pluginsById.values, ReleaseStatus.PUBLISHED)
+            .groupBy { it.plugin.pluginId }
+
+        val updates = installed.mapNotNull { info ->
+            pluginsById[info.pluginId] ?: return@mapNotNull null
+            val latestRelease = releasesByPluginId[info.pluginId]
+                ?.maxWithOrNull(Comparator { a, b -> compareSemVer(a.version, b.version) })
                 ?: return@mapNotNull null
 
             if (compareSemVer(latestRelease.version, info.currentVersion) > 0) {
