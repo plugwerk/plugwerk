@@ -135,18 +135,26 @@ class SecurityConfiguration(
     }
 
     /**
-     * AES-256-CBC text encryptor for OIDC provider client secrets stored in the database.
+     * AES-256-GCM text encryptor for OIDC provider client secrets and PASSWORD-typed
+     * application settings stored in the database.
+     *
+     * Uses Spring Security's `Encryptors.delux()`, which wraps `Encryptors.stronger()`
+     * (AES-256-GCM with a fresh random 16-byte IV per encryption) in a hex-encoding
+     * `TextEncryptor`. GCM provides AEAD — both confidentiality and integrity — and
+     * because every encryption produces a different ciphertext for the same plaintext,
+     * a database dump no longer leaks plaintext-equality between rows. See ADR-0033.
      *
      * [PlugwerkProperties.AuthProperties.encryptionKey] is a **password** fed to
-     * Spring Security's `Encryptors.text()`, which uses `PBKDF2WithHmacSHA1` to derive a
-     * 256-bit AES key. The password length controls PBKDF2 input entropy — it does **not**
-     * change the AES key size. See ADR-0022 for the full record of this contract and the
-     * migration procedure when the password is rotated.
+     * `PBKDF2WithHmacSHA1` to derive the 256-bit AES key. The password length controls
+     * PBKDF2 input entropy — it does **not** change the AES key size. See ADR-0022 for
+     * the original key-size record and the migration procedure when the password is
+     * rotated.
      *
-     * The salt is derived deterministically from the encryption key (SHA-256 of the key,
-     * first 8 bytes hex-encoded) so that it is unique per deployment but stable across
-     * restarts — existing encrypted values remain decryptable as long as the password
-     * does not change.
+     * The salt is derived deterministically from the encryption key (SHA-256 of the
+     * key, first 8 bytes hex-encoded) so that it is unique per deployment but stable
+     * across restarts — existing encrypted values remain decryptable as long as the
+     * password does not change. The per-deployment salt does NOT compromise GCM's
+     * security guarantees because GCM's per-encryption nonce is independently random.
      *
      * Environment variable: `PLUGWERK_AUTH_ENCRYPTION_KEY`
      */
@@ -156,7 +164,7 @@ class SecurityConfiguration(
             .digest(props.auth.encryptionKey.toByteArray())
             .take(8)
             .joinToString("") { "%02x".format(it) }
-        return Encryptors.text(props.auth.encryptionKey, salt)
+        return Encryptors.delux(props.auth.encryptionKey, salt)
     }
 
     companion object {
