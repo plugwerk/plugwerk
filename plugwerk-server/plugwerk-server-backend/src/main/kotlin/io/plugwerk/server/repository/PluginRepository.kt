@@ -39,10 +39,7 @@ interface PluginRepository : JpaRepository<PluginEntity, UUID> {
      * group the result by `plugin.pluginId` in memory. Replaces per-id loops in update-check
      * paths to keep the statement count constant in the size of the input.
      */
-    fun findAllByNamespaceAndPluginIdIn(
-        namespace: NamespaceEntity,
-        pluginIds: Collection<String>,
-    ): List<PluginEntity>
+    fun findAllByNamespaceAndPluginIdIn(namespace: NamespaceEntity, pluginIds: Collection<String>): List<PluginEntity>
 
     fun findAllByNamespace(namespace: NamespaceEntity): List<PluginEntity>
 
