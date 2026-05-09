@@ -51,6 +51,7 @@ class AdminUserController(
 
     private val log = LoggerFactory.getLogger(AdminUserController::class.java)
 
+    @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
     override fun listUsers(enabled: Boolean?): ResponseEntity<List<UserDto>> {
         val auth = currentAuthentication()
         namespaceAuthorizationService.requireSuperadmin(auth)

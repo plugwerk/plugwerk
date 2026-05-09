@@ -31,11 +31,13 @@ import io.plugwerk.server.security.PasswordResetRateLimitFilter
 import io.plugwerk.server.security.PublicNamespaceFilter
 import io.plugwerk.server.security.RefreshRateLimitFilter
 import io.plugwerk.server.security.RegisterRateLimitFilter
+import io.plugwerk.server.service.ForbiddenException
 import io.plugwerk.server.service.PluginReleaseService
 import io.plugwerk.server.service.ReleaseNotFoundException
 import io.plugwerk.spi.model.ReleaseStatus
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
@@ -119,6 +121,20 @@ class ReviewsControllerTest {
                 jsonPath("$") { isArray() }
                 jsonPath("$.length()") { value(0) }
             }
+    }
+
+    @Test
+    fun `GET pending reviews returns 403 for caller without ADMIN role (issue #487)`() {
+        // The list endpoint was hardened from MEMBER to ADMIN as part of the
+        // defense-in-depth sweep — see ReviewsController.listPendingReviews.
+        // Mocking requireRole to throw simulates a caller whose namespace role
+        // is below ADMIN (e.g. MEMBER, or no membership at all).
+        doThrow(ForbiddenException("ADMIN role required"))
+            .whenever(namespaceAuthorizationService).requireRole(eq("acme"), any(), any())
+
+        mockMvc.get("/api/v1/namespaces/acme/reviews/pending").andExpect {
+            status { isForbidden() }
+        }
     }
 
     @Test

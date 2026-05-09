@@ -85,13 +85,15 @@ class ReviewsEndpointAuthzTest : AbstractAuthorizationTest() {
 
     companion object {
 
-        // listPendingReviews requires MEMBER
+        // listPendingReviews requires ADMIN (hardened from MEMBER per #487 sweep —
+        // the MEMBER-can-see-but-only-ADMIN-can-act asymmetry was unintentional drift;
+        // approveRelease / rejectRelease have always required ADMIN).
         @JvmStatic
         fun listPendingMatrix(): Stream<NsActorExpectation> = Stream.of(
             NsActorExpectation(Actor.ANONYMOUS, NS1, 401),
             NsActorExpectation(Actor.SUPERADMIN, NS1, 200),
             NsActorExpectation(Actor.NS1_ADMIN, NS1, 200),
-            NsActorExpectation(Actor.NS1_MEMBER_NS2_RO, NS1, 200),
+            NsActorExpectation(Actor.NS1_MEMBER_NS2_RO, NS1, 403),
             NsActorExpectation(Actor.NS1_READ_ONLY, NS1, 403),
             NsActorExpectation(Actor.NS2_ADMIN, NS1, 403),
             NsActorExpectation(Actor.UNRELATED, NS1, 403),
