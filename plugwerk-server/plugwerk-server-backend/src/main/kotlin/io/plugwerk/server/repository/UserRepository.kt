@@ -59,6 +59,40 @@ interface UserRepository : JpaRepository<UserEntity, UUID> {
     fun findAllByEnabled(enabled: Boolean, pageable: Pageable): Page<UserEntity>
 
     /**
+     * Case-insensitive substring search across `username`, `displayName`,
+     * and `email` (OR-joined), optionally filtered by `enabled` (#492).
+     *
+     * The caller must escape SQL wildcard chars (`%`, `_`, `\`) in the raw
+     * input before assembling [pattern], and wrap the result with `%…%`. The
+     * `ESCAPE '\'` clause makes the backslash the escape character so a
+     * literal `100%user` query matches only the user containing `100%user`,
+     * not anything containing `100<anything>user`.
+     *
+     * `COALESCE(field, '')` is necessary because `displayName` and `email`
+     * are nullable on EXTERNAL identities; `LIKE` against `NULL` evaluates
+     * to `UNKNOWN` and would wipe out the entire OR chain for that row.
+     *
+     * Portability: tested against Postgres (production) and H2 (tests).
+     * `LOWER(...) LIKE LOWER(...)` is the canonical lower-case-fold pattern
+     * supported by both. `pg_trgm` GIN index would be the next step if
+     * sequential-scan latency becomes problematic — out of scope for #492.
+     */
+    @Query(
+        """
+        SELECT u FROM UserEntity u
+        WHERE (:enabled IS NULL OR u.enabled = :enabled)
+          AND (LOWER(u.username) LIKE LOWER(:pattern) ESCAPE '\'
+               OR LOWER(COALESCE(u.displayName, '')) LIKE LOWER(:pattern) ESCAPE '\'
+               OR LOWER(COALESCE(u.email, '')) LIKE LOWER(:pattern) ESCAPE '\')
+        """,
+    )
+    fun searchByText(
+        @Param("pattern") pattern: String,
+        @Param("enabled") enabled: Boolean?,
+        pageable: Pageable,
+    ): Page<UserEntity>
+
+    /**
      * Username-or-email lookup scoped to a single [source]. Used by the
      * password-reset flow (#421): the user can submit either their
      * username or their email and we look both up against the same row,

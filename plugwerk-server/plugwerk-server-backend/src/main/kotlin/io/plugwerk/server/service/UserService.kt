@@ -59,6 +59,35 @@ class UserService(
     fun findAllByEnabled(enabled: Boolean, pageable: Pageable): Page<UserEntity> =
         userRepository.findAllByEnabled(enabled, pageable)
 
+    /**
+     * Case-insensitive substring search over `username`, `displayName`,
+     * `email`, optionally filtered by [enabled] (#492).
+     *
+     * Empty/blank [q] short-circuits to the unfiltered list — same effect as
+     * not passing `q` at all. SQL wildcards (`%`, `_`, `\`) in the input are
+     * escaped before reaching the DB so a search for `"100%user"` matches the
+     * literal substring rather than treating `%` as "match anything". The
+     * escape order matters: backslash first, then the wildcards, otherwise
+     * the wildcard escapes would themselves be re-escaped.
+     */
+    @Transactional(readOnly = true)
+    fun search(q: String?, enabled: Boolean?, pageable: Pageable): Page<UserEntity> {
+        val trimmed = q?.trim()
+        if (trimmed.isNullOrEmpty()) {
+            return if (enabled != null) {
+                findAllByEnabled(enabled, pageable)
+            } else {
+                findAll(pageable)
+            }
+        }
+        val escaped = trimmed
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+        val pattern = "%$escaped%"
+        return userRepository.searchByText(pattern, enabled, pageable)
+    }
+
     @Transactional(readOnly = true)
     fun findById(id: UUID): UserEntity =
         userRepository.findById(id).orElseThrow { EntityNotFoundException("User", id.toString()) }

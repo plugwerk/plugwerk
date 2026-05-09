@@ -162,7 +162,7 @@ class AdminUserControllerTest {
     @Test
     fun `GET admin users returns paginated content`() {
         val user = stubUser()
-        whenever(userService.findAll(any())).thenReturn(pageOf(listOf(user)))
+        whenever(userService.search(eq(null), eq(null), any())).thenReturn(pageOf(listOf(user)))
 
         mockMvc.get("/api/v1/admin/users").andExpect {
             status { isOk() }
@@ -178,7 +178,7 @@ class AdminUserControllerTest {
     @Test
     fun `GET admin users with enabled=true returns only enabled users`() {
         val enabledUser = stubUser("alice", enabled = true)
-        whenever(userService.findAllByEnabled(eq(true), any())).thenReturn(pageOf(listOf(enabledUser)))
+        whenever(userService.search(eq(null), eq(true), any())).thenReturn(pageOf(listOf(enabledUser)))
 
         mockMvc.get("/api/v1/admin/users?enabled=true").andExpect {
             status { isOk() }
@@ -191,7 +191,7 @@ class AdminUserControllerTest {
     @Test
     fun `GET admin users with enabled=false returns only disabled users`() {
         val disabledUser = stubUser("bob", enabled = false)
-        whenever(userService.findAllByEnabled(eq(false), any())).thenReturn(pageOf(listOf(disabledUser)))
+        whenever(userService.search(eq(null), eq(false), any())).thenReturn(pageOf(listOf(disabledUser)))
 
         mockMvc.get("/api/v1/admin/users?enabled=false").andExpect {
             status { isOk() }
@@ -204,7 +204,7 @@ class AdminUserControllerTest {
     @Test
     fun `GET admin users without enabled param returns the unfiltered page`() {
         val users = listOf(stubUser("alice", enabled = true), stubUser("bob", enabled = false))
-        whenever(userService.findAll(any())).thenReturn(pageOf(users))
+        whenever(userService.search(eq(null), eq(null), any())).thenReturn(pageOf(users))
 
         mockMvc.get("/api/v1/admin/users").andExpect {
             status { isOk() }
@@ -214,7 +214,7 @@ class AdminUserControllerTest {
 
     @Test
     fun `GET admin users returns empty page when no users`() {
-        whenever(userService.findAll(any())).thenReturn(pageOf(emptyList()))
+        whenever(userService.search(eq(null), eq(null), any())).thenReturn(pageOf(emptyList()))
 
         mockMvc.get("/api/v1/admin/users").andExpect {
             status { isOk() }
@@ -231,7 +231,7 @@ class AdminUserControllerTest {
         // from different providers. The lookup is one batched call; this test
         // pins the wiring end-to-end (controller → repository → DTO).
         val external = stubExternalUser("Alice Schmidt")
-        whenever(userService.findAll(any())).thenReturn(pageOf(listOf(external)))
+        whenever(userService.search(eq(null), eq(null), any())).thenReturn(pageOf(listOf(external)))
         whenever(oidcIdentityRepository.findProviderNamesForUsers(listOf(external.id!!)))
             .thenReturn(listOf(providerProjection(external.id!!, "Company Keycloak")))
 
@@ -247,7 +247,7 @@ class AdminUserControllerTest {
         // INTERNAL users always return providerName = null. The controller
         // must NOT include their ids in the batched lookup.
         val internal = stubUser("alice")
-        whenever(userService.findAll(any())).thenReturn(pageOf(listOf(internal)))
+        whenever(userService.search(eq(null), eq(null), any())).thenReturn(pageOf(listOf(internal)))
 
         mockMvc.get("/api/v1/admin/users").andExpect {
             status { isOk() }
@@ -262,7 +262,7 @@ class AdminUserControllerTest {
         // Performance regression guard — passing an empty `IN (…)` collection
         // is a JDBC dialect minefield, and the round-trip is wasted anyway.
         // The controller short-circuits; this test locks that behaviour.
-        whenever(userService.findAll(any())).thenReturn(
+        whenever(userService.search(eq(null), eq(null), any())).thenReturn(
             pageOf(listOf(stubUser("alice"), stubUser("bob"))),
         )
 
@@ -282,7 +282,7 @@ class AdminUserControllerTest {
         // page metadata. Without pagination the response would be 200 items.
         val twentyUsers = (1..20).map { stubUser("user-$it") }
         val backingPage = PageImpl(twentyUsers, PageRequest.of(0, 20, Sort.by("username").ascending()), 200L)
-        whenever(userService.findAll(any())).thenReturn(backingPage)
+        whenever(userService.search(eq(null), eq(null), any())).thenReturn(backingPage)
 
         mockMvc.get("/api/v1/admin/users?page=0&size=20").andExpect {
             status { isOk() }
@@ -297,12 +297,12 @@ class AdminUserControllerTest {
     @Test
     fun `GET admin users with valid sort passes Sort to service and rejects invalid sort with 400`() {
         // Valid sort: passes through and ends up on the Pageable.
-        whenever(userService.findAll(any())).thenReturn(pageOf(emptyList()))
+        whenever(userService.search(eq(null), eq(null), any())).thenReturn(pageOf(emptyList()))
         mockMvc.get("/api/v1/admin/users?sort=email,desc").andExpect {
             status { isOk() }
         }
         val pageableCaptor = argumentCaptor<Pageable>()
-        verify(userService).findAll(pageableCaptor.capture())
+        verify(userService).search(eq(null), eq(null), pageableCaptor.capture())
         val sort = pageableCaptor.firstValue.sort.toList().single()
         assert(sort.property == "email")
         assert(sort.direction == Sort.Direction.DESC)
@@ -317,7 +317,7 @@ class AdminUserControllerTest {
 
     @Test
     fun `GET admin users combines enabled filter with custom page and size`() {
-        whenever(userService.findAllByEnabled(eq(false), any()))
+        whenever(userService.search(eq(null), eq(false), any()))
             .thenReturn(pageOf(emptyList()))
 
         mockMvc.get("/api/v1/admin/users?enabled=false&page=1&size=10").andExpect {
@@ -325,10 +325,39 @@ class AdminUserControllerTest {
         }
 
         val pageableCaptor = argumentCaptor<Pageable>()
-        verify(userService).findAllByEnabled(eq(false), pageableCaptor.capture())
+        verify(userService).search(eq(null), eq(false), pageableCaptor.capture())
         val captured = pageableCaptor.firstValue
         assert(captured.pageNumber == 1)
         assert(captured.pageSize == 10)
+    }
+
+    // ---- Text-search tests (#492) -----------------------------------------
+
+    @Test
+    fun `GET admin users with q passes the query string through to the service`() {
+        // The controller is a thin pass-through for q; routing decisions
+        // (escape, blank → unfiltered) live in UserService.search itself
+        // and are unit-tested at the service layer where they belong. The
+        // controller test confirms only that the parameter survives the
+        // wire boundary.
+        whenever(userService.search(eq("alice"), eq(null), any())).thenReturn(pageOf(emptyList()))
+
+        mockMvc.get("/api/v1/admin/users?q=alice").andExpect {
+            status { isOk() }
+        }
+
+        verify(userService).search(eq("alice"), eq(null), any())
+    }
+
+    @Test
+    fun `GET admin users combines q with enabled filter`() {
+        whenever(userService.search(eq("zoe"), eq(true), any())).thenReturn(pageOf(emptyList()))
+
+        mockMvc.get("/api/v1/admin/users?q=zoe&enabled=true").andExpect {
+            status { isOk() }
+        }
+
+        verify(userService).search(eq("zoe"), eq(true), any())
     }
 
     @Test
@@ -339,7 +368,9 @@ class AdminUserControllerTest {
         val internal = stubUser("admin")
         val externalA = stubExternalUser("Alice Schmidt")
         val externalB = stubExternalUser("Bob Jones")
-        whenever(userService.findAll(any())).thenReturn(pageOf(listOf(internal, externalA, externalB)))
+        whenever(
+            userService.search(eq(null), eq(null), any()),
+        ).thenReturn(pageOf(listOf(internal, externalA, externalB)))
         whenever(
             oidcIdentityRepository.findProviderNamesForUsers(
                 listOf(externalA.id!!, externalB.id!!),
