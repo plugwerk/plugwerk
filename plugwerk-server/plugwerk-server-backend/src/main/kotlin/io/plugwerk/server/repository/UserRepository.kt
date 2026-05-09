@@ -20,6 +20,8 @@ package io.plugwerk.server.repository
 
 import io.plugwerk.server.domain.UserEntity
 import io.plugwerk.server.domain.UserSource
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -54,7 +56,7 @@ interface UserRepository : JpaRepository<UserEntity, UUID> {
     )
     fun existsByEmailAndSourceIgnoreCase(@Param("email") email: String, @Param("source") source: UserSource): Boolean
 
-    fun findAllByEnabled(enabled: Boolean): List<UserEntity>
+    fun findAllByEnabled(enabled: Boolean, pageable: Pageable): Page<UserEntity>
 
     /**
      * Username-or-email lookup scoped to a single [source]. Used by the

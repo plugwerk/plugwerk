@@ -22,6 +22,7 @@ import io.plugwerk.api.AdminUsersApi
 import io.plugwerk.api.model.AdminPasswordResetResponse
 import io.plugwerk.api.model.UserCreateRequest
 import io.plugwerk.api.model.UserDto
+import io.plugwerk.api.model.UserPagedResponse
 import io.plugwerk.api.model.UserUpdateRequest
 import io.plugwerk.server.domain.UserEntity
 import io.plugwerk.server.domain.UserSource
@@ -31,6 +32,8 @@ import io.plugwerk.server.security.currentAuthentication
 import io.plugwerk.server.service.UserService
 import io.plugwerk.server.service.auth.AdminPasswordResetService
 import org.slf4j.LoggerFactory
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.RequestMapping
@@ -52,16 +55,30 @@ class AdminUserController(
     private val log = LoggerFactory.getLogger(AdminUserController::class.java)
 
     @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
-    override fun listUsers(enabled: Boolean?): ResponseEntity<List<UserDto>> {
+    override fun listUsers(enabled: Boolean?, page: Int, size: Int, sort: String): ResponseEntity<UserPagedResponse> {
         val auth = currentAuthentication()
         namespaceAuthorizationService.requireSuperadmin(auth)
-        val users = if (enabled != null) userService.findAllByEnabled(enabled) else userService.findAll()
+
+        // Sort string is also enforced by the OpenAPI regex pattern, but
+        // re-validate here so a hand-crafted request bypassing the generated
+        // controller still hits a 400 instead of an opaque Spring exception.
+        // The OpenAPI regex restricts the field set; this guard mirrors it
+        // close to the call site for grep-ability.
+        val pageable = parsePageable(page, size, sort)
+
+        val pageResult = if (enabled != null) {
+            userService.findAllByEnabled(enabled, pageable)
+        } else {
+            userService.findAll(pageable)
+        }
+        val pageContent = pageResult.content
+
         // Single batched lookup for the EXTERNAL subset's provider names so
         // the response payload (issue #412) stays one extra SQL query — never
         // N+1 — regardless of how many EXTERNAL users land on the page.
         // Empty subset short-circuits because some JDBC drivers reject an
         // empty `IN (…)` clause.
-        val externalUserIds = users.asSequence()
+        val externalUserIds = pageContent.asSequence()
             .filter { it.source == UserSource.EXTERNAL }
             .mapNotNull { it.id }
             .toList()
@@ -71,7 +88,49 @@ class AdminUserController(
             oidcIdentityRepository.findProviderNamesForUsers(externalUserIds)
                 .associate { it.userId to it.providerName }
         }
-        return ResponseEntity.ok(users.map { it.toDto(providerNames) })
+
+        return ResponseEntity.ok(
+            UserPagedResponse(
+                content = pageContent.map { it.toDto(providerNames) },
+                totalElements = pageResult.totalElements,
+                page = pageResult.number,
+                propertySize = pageResult.size,
+                totalPages = pageResult.totalPages,
+            ),
+        )
+    }
+
+    private fun parsePageable(page: Int, size: Int, sort: String): PageRequest {
+        // OpenAPI regex `^(username|email|createdAt|lastLoginAt),(asc|desc)$`
+        // already enforces the shape — split here is safe. Defensive guard
+        // included for direct callers that bypass the generated layer.
+        val (field, direction) = sort.split(",", limit = 2)
+            .takeIf { it.size == 2 }
+            ?: throw ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST,
+                "Invalid sort parameter: '$sort' (expected 'field,asc|desc')",
+            )
+        if (field !in ALLOWED_SORT_FIELDS) {
+            throw ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST,
+                "Sort field '$field' is not allowed (allowed: ${ALLOWED_SORT_FIELDS.joinToString()})",
+            )
+        }
+        val springDirection = when (direction.lowercase()) {
+            "asc" -> Sort.Direction.ASC
+
+            "desc" -> Sort.Direction.DESC
+
+            else -> throw ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST,
+                "Sort direction '$direction' is not allowed (allowed: asc, desc)",
+            )
+        }
+        return PageRequest.of(page, size, Sort.by(springDirection, field))
+    }
+
+    private companion object {
+        private val ALLOWED_SORT_FIELDS = setOf("username", "email", "createdAt", "lastLoginAt")
     }
 
     @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")

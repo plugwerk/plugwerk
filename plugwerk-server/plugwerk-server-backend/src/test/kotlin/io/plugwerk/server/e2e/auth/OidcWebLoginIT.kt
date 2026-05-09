@@ -135,8 +135,8 @@ class OidcWebLoginIT {
         // table cleans everything we touch.
         refreshTokenRepository.deleteAll()
         oidcIdentityRepository.deleteAll()
-        userRepository.findAllByEnabled(true)
-            .filter { it.source == UserSource.EXTERNAL }
+        userRepository.findAll()
+            .filter { it.enabled && it.source == UserSource.EXTERNAL }
             .forEach { userRepository.delete(it) }
         oidcProviderRepository.deleteAll()
 

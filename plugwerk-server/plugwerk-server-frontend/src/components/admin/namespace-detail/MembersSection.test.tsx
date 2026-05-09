@@ -50,6 +50,22 @@ function userDto(overrides: Partial<UserDto>): UserDto {
 }
 
 /**
+ * Wraps a list of users into the paged-response shape that listUsers returns
+ * after #485. The test bypasses strict typing via the `as unknown as` cast
+ * already in use throughout this file, so missing UserPagedResponse fields
+ * (none for this test's purposes) do not need to be filled in.
+ */
+function pagedUsers(users: UserDto[]) {
+  return {
+    content: users,
+    totalElements: users.length,
+    page: 0,
+    size: users.length,
+    totalPages: users.length === 0 ? 0 : 1,
+  };
+}
+
+/**
  * Opens the "Add Members" dialog and waits for the user-options effect to
  * fire. Returns both the userEvent instance and the dialog element.
  */
@@ -76,14 +92,14 @@ describe("MembersSection — add-member user picker (issue #412)", () => {
 
   it("renders EXTERNAL user with provider name in parentheses", async () => {
     vi.mocked(apiConfig.adminUsersApi.listUsers).mockResolvedValue({
-      data: [
+      data: pagedUsers([
         userDto({
           displayName: "Alice Schmidt",
           source: "EXTERNAL",
           username: undefined,
           providerName: "Company Keycloak",
         }),
-      ],
+      ]),
     } as unknown as Awaited<
       ReturnType<typeof apiConfig.adminUsersApi.listUsers>
     >);
@@ -105,14 +121,14 @@ describe("MembersSection — add-member user picker (issue #412)", () => {
     // missing by the time the API serialises. The dropdown still renders a
     // valid label rather than "Bob (undefined)".
     vi.mocked(apiConfig.adminUsersApi.listUsers).mockResolvedValue({
-      data: [
+      data: pagedUsers([
         userDto({
           displayName: "Bob Müller",
           source: "EXTERNAL",
           username: undefined,
           providerName: undefined,
         }),
-      ],
+      ]),
     } as unknown as Awaited<
       ReturnType<typeof apiConfig.adminUsersApi.listUsers>
     >);
@@ -128,13 +144,13 @@ describe("MembersSection — add-member user picker (issue #412)", () => {
 
   it("renders INTERNAL user with distinct username as 'displayName (username)' — existing behaviour", async () => {
     vi.mocked(apiConfig.adminUsersApi.listUsers).mockResolvedValue({
-      data: [
+      data: pagedUsers([
         userDto({
           displayName: "Charlie Admin",
           username: "charlie",
           source: "INTERNAL",
         }),
-      ],
+      ]),
     } as unknown as Awaited<
       ReturnType<typeof apiConfig.adminUsersApi.listUsers>
     >);
@@ -165,7 +181,7 @@ describe("MembersSection — add-member user picker (issue #412)", () => {
       username: "bob",
     });
     vi.mocked(apiConfig.adminUsersApi.listUsers).mockResolvedValue({
-      data: [alice, bob],
+      data: pagedUsers([alice, bob]),
     } as unknown as Awaited<
       ReturnType<typeof apiConfig.adminUsersApi.listUsers>
     >);
@@ -220,7 +236,7 @@ describe("MembersSection — add-member user picker (issue #412)", () => {
     // Issue #412 invariant: the provider hint is decorative. Typing the
     // provider name must not surface every user from that provider.
     vi.mocked(apiConfig.adminUsersApi.listUsers).mockResolvedValue({
-      data: [
+      data: pagedUsers([
         userDto({
           displayName: "Alice Schmidt",
           source: "EXTERNAL",
@@ -232,7 +248,7 @@ describe("MembersSection — add-member user picker (issue #412)", () => {
           source: "INTERNAL",
           username: "diana",
         }),
-      ],
+      ]),
     } as unknown as Awaited<
       ReturnType<typeof apiConfig.adminUsersApi.listUsers>
     >);
@@ -262,7 +278,7 @@ describe("MembersSection — members table (issue #412)", () => {
     // dialog in this block. Stub a quiet listUsers so the picker effect,
     // which fires only on dialog open, does not race anything.
     vi.mocked(apiConfig.adminUsersApi.listUsers).mockResolvedValue({
-      data: [],
+      data: pagedUsers([]),
     } as unknown as Awaited<
       ReturnType<typeof apiConfig.adminUsersApi.listUsers>
     >);
