@@ -45,6 +45,7 @@ class OidcProviderController(
     private val namespaceAuthorizationService: NamespaceAuthorizationService,
 ) : OidcProvidersApi {
 
+    @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
     override fun listOidcProviders(): ResponseEntity<List<OidcProviderDto>> {
         val auth = currentAuthentication()
         namespaceAuthorizationService.requireSuperadmin(auth)

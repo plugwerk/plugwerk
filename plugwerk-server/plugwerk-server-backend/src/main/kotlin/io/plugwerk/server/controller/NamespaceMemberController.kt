@@ -79,6 +79,7 @@ class NamespaceMemberController(
         return ResponseEntity.ok(NamespaceMembershipDto(role = member.role.toDto()))
     }
 
+    @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'ADMIN')")
     override fun listNamespaceMembers(ns: String): ResponseEntity<List<NamespaceMemberDto>> {
         namespaceAuthorizationService.requireRole(
             ns,

@@ -51,6 +51,7 @@ class AdminSettingsController(
     private val namespaceAuthorizationService: NamespaceAuthorizationService,
 ) : AdminSettingsApi {
 
+    @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
     override fun listApplicationSettings(): ResponseEntity<ApplicationSettingsResponse> {
         requireSuperadmin()
         return ResponseEntity.ok(buildResponse())

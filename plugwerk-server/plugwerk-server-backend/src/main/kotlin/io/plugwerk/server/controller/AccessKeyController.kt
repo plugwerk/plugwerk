@@ -41,6 +41,7 @@ class AccessKeyController(
     private val namespaceAuthorizationService: NamespaceAuthorizationService,
 ) : AccessKeysApi {
 
+    @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'ADMIN')")
     override fun listAccessKeys(ns: String): ResponseEntity<List<AccessKeyDto>> {
         namespaceAuthorizationService.requireRole(
             ns,

@@ -42,11 +42,12 @@ class ReviewsController(
     private val namespaceAuthorizationService: NamespaceAuthorizationService,
 ) : ReviewsApi {
 
+    @PreAuthorize("@namespaceAuthorizationService.hasRole(#ns, 'ADMIN')")
     override fun listPendingReviews(ns: String): ResponseEntity<List<ReviewItemDto>> {
         namespaceAuthorizationService.requireRole(
             ns,
             currentAuthentication(),
-            NamespaceRole.MEMBER,
+            NamespaceRole.ADMIN,
         )
         val pending = releaseService.findPendingByNamespace(ns).map { release ->
             ReviewItemDto(
