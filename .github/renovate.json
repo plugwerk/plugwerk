@@ -1,17 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended",
-    "helpers:pinGitHubActionDigests"
-  ],
-  "schedule": ["before 6am every weekday"],
-  "timezone": "Europe/Berlin",
-  "automerge": false,
-  "dependencyDashboard": true,
-  "dependencyDashboardTitle": "Renovate Dependency Dashboard",
-  "labels": ["chore"],
-  "prConcurrentLimit": 5,
-  "prHourlyLimit": 2,
+  "extends": ["github>plugwerk/.github"],
   "packageRules": [
     {
       "description": "Spring Boot starters, BOM, and dependency management plugin",
@@ -66,51 +55,10 @@
       "groupSlug": "gradle-wrapper"
     },
     {
-      "description": "GitHub Actions minor and patch SHA bumps (grouped). See ADR-0026.",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
-      "pinDigests": true,
-      "groupName": "GitHub Actions",
-      "groupSlug": "github-actions"
-    },
-    {
-      "description": "GitHub Actions major updates (separate PRs for deliberate review)",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["major"],
-      "pinDigests": true,
-      "groupName": "GitHub Actions major updates",
-      "groupSlug": "github-actions-major"
-    },
-    {
-      "description": "Dockerfile base-image digest updates (grouped). See ADR-0026.",
-      "matchManagers": ["dockerfile"],
-      "pinDigests": true,
-      "groupName": "Docker base images",
-      "groupSlug": "docker-base-images"
-    },
-    {
       "description": "Pin eclipse-temurin to Java 21.x. Plugwerk targets Java 21 (gradle/libs.versions.toml jvmToolchain(21), CI setup-java java-version: 21). Patch and minor bumps inside 21.x flow through; major bumps to 22/23/24/25 are ignored entirely. Remove this rule when the project intentionally moves to a new LTS.",
       "matchManagers": ["dockerfile"],
       "matchPackageNames": ["eclipse-temurin"],
       "allowedVersions": "/^21\\./"
-    },
-    {
-      "description": "npm minor and patch updates (grouped)",
-      "matchManagers": ["npm"],
-      "matchUpdateTypes": ["minor", "patch"],
-      "groupName": "npm dependencies",
-      "groupSlug": "npm-deps"
-    },
-    {
-      "description": "npm major updates — one PR per package (no grouping). Bundling unrelated majors caused PR #394 to ship a broken lockfile because typescript-eslint v8 still pinned eslint <10 while the group already advanced eslint to 10. Per-package PRs let each major be reviewed and merged independently of incompatible peers.",
-      "matchManagers": ["npm"],
-      "matchUpdateTypes": ["major"]
-    },
-    {
-      "description": "Pin npm dependency versions exactly (no ^/~ ranges). Plugwerk is an application, not a library — every CI build, every Docker image, and every dev clone should resolve to the identical bytes. Pinning keeps `package.json` and `package-lock.json` honest about what's actually in production, makes 'works for me' debugging much easier, and turns every patch into an explicit Renovate PR with a real changelog instead of a silent lockfile drift. Pin applies to `dependencies` and `devDependencies` only — peer-deps and bundled-deps keep their ranges so library authors who consume our types still get flexibility. Gradle keeps its existing version catalog (gradle/libs.versions.toml is pinned by construction).",
-      "matchManagers": ["npm"],
-      "matchDepTypes": ["dependencies", "devDependencies"],
-      "rangeStrategy": "pin"
     }
   ]
 }
