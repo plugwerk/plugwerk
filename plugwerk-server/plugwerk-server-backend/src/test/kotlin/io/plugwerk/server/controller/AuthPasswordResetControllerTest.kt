@@ -41,6 +41,7 @@ import io.plugwerk.server.service.auth.PasswordResetTokenService
 import io.plugwerk.server.service.mail.MailService
 import io.plugwerk.server.service.mail.MailTemplate
 import io.plugwerk.server.service.settings.ApplicationSettingsService
+import io.plugwerk.server.util.Sleeper
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -108,6 +109,8 @@ class AuthPasswordResetControllerTest {
 
     @MockitoBean private lateinit var plugwerkProperties: PlugwerkProperties
 
+    @MockitoBean private lateinit var sleeper: Sleeper
+
     @BeforeEach
     fun setUp() {
         SecurityContextHolder.getContext().authentication =
@@ -157,6 +160,10 @@ class AuthPasswordResetControllerTest {
         }
         verify(tokenService, never()).issue(any())
         verify(mailService, never()).sendMailFromTemplate(any(), any(), any(), anyOrNull())
+        // The disabled-feature 404 is intentionally OUTSIDE the
+        // anti-enumeration padding (#477) — operator-actionable, status
+        // code already differentiates it from the 204 path.
+        verify(sleeper, never()).sleep(any())
     }
 
     @Test
@@ -170,6 +177,8 @@ class AuthPasswordResetControllerTest {
             status { isServiceUnavailable() }
         }
         verify(tokenService, never()).issue(any())
+        // Same rationale as the 404 above: operator signal, not padded.
+        verify(sleeper, never()).sleep(any())
     }
 
     @Test
@@ -185,6 +194,10 @@ class AuthPasswordResetControllerTest {
         }
         verify(tokenService, never()).issue(any())
         verify(mailService, never()).sendMailFromTemplate(any(), any(), any(), anyOrNull())
+        // Constant-time padding (#477): the silenced no-match branch
+        // returns in single-digit ms, so the controller pads it up to the
+        // MIN_RESPONSE_MS floor via Sleeper to mask the existence signal.
+        verify(sleeper).sleep(argThat<Long> { this >= 0L })
     }
 
     @Test
@@ -200,6 +213,8 @@ class AuthPasswordResetControllerTest {
             status { isNoContent() }
         }
         verify(tokenService, never()).issue(any())
+        // Same constant-time padding (#477) as the no-match branch.
+        verify(sleeper).sleep(argThat<Long> { this >= 0L })
     }
 
     @Test
@@ -231,6 +246,10 @@ class AuthPasswordResetControllerTest {
             },
             anyOrNull(),
         )
+        // The happy path with a successful mail-send is also padded so a
+        // fast SMTP provider does not reveal account existence by being
+        // measurably faster than the silenced branches (#477).
+        verify(sleeper).sleep(argThat<Long> { this >= 0L })
     }
 
     @Test
@@ -250,6 +269,10 @@ class AuthPasswordResetControllerTest {
         }.andExpect {
             status { isNoContent() }
         }
+        // Mail-fail also runs through the constant-time padding so a
+        // fast-failing SMTP does not leak existence by collapsing the
+        // happy-path latency back to the silenced branches' speed (#477).
+        verify(sleeper).sleep(argThat<Long> { this >= 0L })
     }
 
     @Test

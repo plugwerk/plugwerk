@@ -35,6 +35,7 @@ import io.plugwerk.server.service.auth.PasswordResetTokenService
 import io.plugwerk.server.service.mail.MailService
 import io.plugwerk.server.service.mail.MailTemplate
 import io.plugwerk.server.service.settings.ApplicationSettingsService
+import io.plugwerk.server.util.Sleeper
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -69,6 +70,18 @@ import org.springframework.web.server.ResponseStatusException
  * Without the second revocation an attacker holding the refresh
  * cookie could keep harvesting fresh access tokens because
  * `/auth/refresh` does not consult `passwordInvalidatedBefore`.
+ *
+ * **Constant-time padding (#477).** Status-code uniformity alone is not
+ * enough: the silenced "no-such-user" branch returns in single-digit
+ * milliseconds while the happy path performs a DB insert plus an SMTP
+ * round-trip and sits in the 50–500 ms range. A network observer can
+ * tell the two apart by latency. `forgot-password` therefore pads every
+ * 204 branch up to [MIN_RESPONSE_MS] using the injected [Sleeper], so
+ * the wire-side timing is statistically indistinguishable. The
+ * `passwordResetEnabled`/`smtpEnabled` 404/503 branches are
+ * intentionally **not** padded — they are operator-actionable health
+ * signals, and their status code already differentiates them from the
+ * 204 path.
  */
 @RestController
 @RequestMapping("/api/v1")
@@ -82,6 +95,7 @@ class AuthPasswordResetController(
     private val refreshTokenService: RefreshTokenService,
     private val refreshTokenCookieFactory: RefreshTokenCookieFactory,
     private val plugwerkProperties: PlugwerkProperties,
+    private val sleeper: Sleeper,
 ) : AuthPasswordResetApi {
 
     private val log = LoggerFactory.getLogger(AuthPasswordResetController::class.java)
@@ -89,13 +103,16 @@ class AuthPasswordResetController(
     override fun forgotPassword(forgotPasswordRequest: ForgotPasswordRequest): ResponseEntity<Unit> {
         if (!settings.passwordResetEnabled()) {
             // 404 (not 403) so the feature is invisible when off — same
-            // disguise as the registration endpoint.
+            // disguise as the registration endpoint. Intentionally NOT padded
+            // (#477): operator-actionable health signal whose status code
+            // already differentiates it from the 204 path.
             throw ResponseStatusException(HttpStatus.NOT_FOUND)
         }
 
         // SMTP unconfigured → 503 even though that leaks "feature is on";
         // the operator hint outweighs the marginal enumeration risk and
-        // the issue spec explicitly asks for a 503 here.
+        // the issue spec explicitly asks for a 503 here. Also intentionally
+        // unpadded (#477) — same operator-signal rationale as the 404 above.
         if (!settings.smtpEnabled()) {
             throw ResponseStatusException(
                 HttpStatus.SERVICE_UNAVAILABLE,
@@ -103,6 +120,20 @@ class AuthPasswordResetController(
             )
         }
 
+        // From here on every branch returns 204. Constant-time padding
+        // (#477) ensures the wire-side latency does not give away which
+        // branch was taken.
+        val started = System.nanoTime()
+        try {
+            return decideForgotResponse(forgotPasswordRequest)
+        } finally {
+            val elapsedMs = (System.nanoTime() - started) / 1_000_000
+            val remaining = MIN_RESPONSE_MS - elapsedMs
+            sleeper.sleep(remaining)
+        }
+    }
+
+    private fun decideForgotResponse(forgotPasswordRequest: ForgotPasswordRequest): ResponseEntity<Unit> {
         val input = forgotPasswordRequest.usernameOrEmail.trim()
         val user = userRepository.findByUsernameOrEmailAndSource(input, UserSource.INTERNAL).orElse(null)
 
@@ -215,5 +246,20 @@ class AuthPasswordResetController(
         // bundled-SPA production deployments.
         val base = plugwerkProperties.server.effectiveWebBaseUrl().trimEnd('/')
         return "$base/reset-password?token=$rawToken"
+    }
+
+    private companion object {
+        /**
+         * Lower bound for the `forgot-password` 204 response time. Every
+         * 204 branch is padded to this floor via [Sleeper] so the
+         * silenced "no-such-user" path cannot be distinguished from the
+         * "user exists, mail sent" path by latency alone (#477).
+         *
+         * 800 ms balances anti-enumeration strength against UX cost: it
+         * comfortably masks a typical SMTP round-trip on most providers,
+         * while a legitimate user only feels a sub-second pause once
+         * per password-reset attempt.
+         */
+        private const val MIN_RESPONSE_MS = 800L
     }
 }
