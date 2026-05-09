@@ -26,6 +26,7 @@ import {
   CircularProgress,
   Chip,
   Switch,
+  TablePagination,
 } from "@mui/material";
 import { KeyRound, Plus, Shield, Trash2 } from "lucide-react";
 import { AppDialog } from "../../components/common/AppDialog";
@@ -43,8 +44,20 @@ import type {
   UserDto,
 } from "../../api/generated/model";
 
+// Default page size matches the OpenAPI SizeQuery default and the MUI
+// TablePagination convention. The 100 cap mirrors the backend SizeQuery
+// max so the dropdown cannot offer values the server would reject.
+const DEFAULT_PAGE_SIZE = 20;
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+const DEFAULT_SORT = "username,asc";
+
 export function UsersSection() {
   const [users, setUsers] = useState<UserDto[]>([]);
+  const [totalElements, setTotalElements] = useState(0);
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(DEFAULT_PAGE_SIZE);
+  const [sort] = useState(DEFAULT_SORT);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [username, setUsername] = useState("");
@@ -62,20 +75,28 @@ export function UsersSection() {
     response: AdminPasswordResetResponse;
   } | null>(null);
 
+  // Refetch on every page/size/sort change and after every mutation
+  // (refreshTrigger). Keeping the source of truth on the server side avoids
+  // the optimistic-cache bugs that the previous "mutate users array in place"
+  // code was prone to once the data set spans multiple pages.
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        const res = await adminUsersApi.listUsers();
-        setUsers(res.data);
+        const res = await adminUsersApi.listUsers({ page, size, sort });
+        setUsers(res.data.content);
+        setTotalElements(res.data.totalElements);
       } catch {
         setUsers([]);
+        setTotalElements(0);
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, []);
+  }, [page, size, sort, refreshTrigger]);
+
+  const refresh = () => setRefreshTrigger((n) => n + 1);
 
   async function handleToggleEnabled(user: UserDto) {
     try {
@@ -83,6 +104,8 @@ export function UsersSection() {
         userId: user.id,
         userUpdateRequest: { enabled: !user.enabled },
       });
+      // Optimistic local update is safe — the toggled row stays on the same
+      // page. A full refresh would just be wasted bytes.
       setUsers((prev) => prev.map((u) => (u.id === user.id ? res.data : u)));
       addToast({
         message: `User "${user.displayName}" ${res.data.enabled ? "enabled" : "disabled"}.`,
@@ -101,7 +124,10 @@ export function UsersSection() {
     setDeleting(true);
     try {
       await adminUsersApi.deleteUser({ userId: deleteTarget.id });
-      setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
+      // Refetch so the page metadata (totalElements/totalPages) stays
+      // consistent and the next page promotes a row into the slot we
+      // just freed. Local filter would leave a hole.
+      refresh();
       addToast({
         message: `User "${deleteTarget.displayName}" deleted.`,
         type: "success",
@@ -171,7 +197,9 @@ export function UsersSection() {
           password,
         },
       });
-      setUsers((prev) => [...prev, res.data]);
+      // Refetch to keep page metadata accurate and let the new user fall
+      // into the right slot per the active sort.
+      refresh();
       addToast({
         message: `User "${res.data.displayName}" created.`,
         type: "success",
@@ -404,7 +432,7 @@ export function UsersSection() {
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
           <CircularProgress size={24} />
         </Box>
-      ) : users.length === 0 ? (
+      ) : users.length === 0 && totalElements === 0 ? (
         <Typography
           variant="body2"
           sx={{
@@ -414,12 +442,28 @@ export function UsersSection() {
           No users found.
         </Typography>
       ) : (
-        <DataTable<UserDto>
-          columns={userColumns}
-          rows={users}
-          keyFn={(user) => user.id}
-          ariaLabel="Users"
-        />
+        <Box>
+          <DataTable<UserDto>
+            columns={userColumns}
+            rows={users}
+            keyFn={(user) => user.id}
+            ariaLabel="Users"
+          />
+          <TablePagination
+            component="div"
+            count={totalElements}
+            page={page}
+            onPageChange={(_event, newPage) => setPage(newPage)}
+            rowsPerPage={size}
+            onRowsPerPageChange={(event) => {
+              const newSize = parseInt(event.target.value, 10);
+              setSize(newSize);
+              setPage(0);
+            }}
+            rowsPerPageOptions={PAGE_SIZE_OPTIONS}
+            labelRowsPerPage="Users per page"
+          />
+        </Box>
       )}
       <AppDialog
         open={dialogOpen}

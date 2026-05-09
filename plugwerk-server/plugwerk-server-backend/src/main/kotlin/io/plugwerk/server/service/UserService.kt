@@ -22,6 +22,8 @@ import io.plugwerk.server.domain.UserEntity
 import io.plugwerk.server.domain.UserSource
 import io.plugwerk.server.repository.NamespaceMemberRepository
 import io.plugwerk.server.repository.UserRepository
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -38,11 +40,24 @@ class UserService(
     private val tokenRevocationService: TokenRevocationService,
 ) {
 
+    /**
+     * Returns one paginated page of users, ordered by the supplied [pageable]
+     * sort. Issue #485 made pagination mandatory on this path to keep the
+     * admin user-list endpoint bounded as the user base grows (LDAP/OIDC
+     * mass-provisioning). Callers that genuinely need every row at once
+     * should add a dedicated bulk-export entry point with explicit
+     * justification, not call this method with `Pageable.unpaged()`.
+     */
     @Transactional(readOnly = true)
-    fun findAll(): List<UserEntity> = userRepository.findAll()
+    fun findAll(pageable: Pageable): Page<UserEntity> = userRepository.findAll(pageable)
 
+    /**
+     * Paginated counterpart to [findAll] filtered by [enabled]. See [findAll]
+     * for the rationale on mandatory pagination.
+     */
     @Transactional(readOnly = true)
-    fun findAllByEnabled(enabled: Boolean): List<UserEntity> = userRepository.findAllByEnabled(enabled)
+    fun findAllByEnabled(enabled: Boolean, pageable: Pageable): Page<UserEntity> =
+        userRepository.findAllByEnabled(enabled, pageable)
 
     @Transactional(readOnly = true)
     fun findById(id: UUID): UserEntity =

@@ -141,10 +141,20 @@ export function MembersSection({ slug }: { slug: string }) {
     if (!addOpen) return;
     async function loadUsers() {
       try {
-        const res = await adminUsersApi.listUsers({ enabled: true });
+        // Pagination on /admin/users became mandatory in #485. The
+        // add-member dropdown wants every eligible candidate at once for
+        // client-side search, so we ask for the maximum page size (100)
+        // until a dedicated server-side user-search endpoint exists.
+        // TODO(#492): replace with the dedicated /admin/users/search
+        // endpoint once it lands. The 100-cap holds for current
+        // deployments; #492 tracks the proper fix.
+        const res = await adminUsersApi.listUsers({
+          enabled: true,
+          size: 100,
+        });
         const existing = new Set(members.map((m) => m.userId));
         setUserOptions(
-          res.data
+          res.data.content
             .filter((u) => !u.isSuperadmin && !existing.has(u.id))
             .map((u) => ({
               userId: u.id,

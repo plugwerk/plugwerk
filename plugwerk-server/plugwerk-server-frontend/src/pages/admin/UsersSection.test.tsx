@@ -102,7 +102,13 @@ describe("UsersSection — admin reset password (#450)", () => {
     vi.mocked(apiConfig.adminUsersApi.listUsers).mockReset();
     vi.mocked(apiConfig.adminUsersApi.adminResetUserPassword).mockReset();
     vi.mocked(apiConfig.adminUsersApi.listUsers).mockResolvedValue({
-      data: [aliceInternal, bobOidc, callerSelf, carolDisabled],
+      data: {
+        content: [aliceInternal, bobOidc, callerSelf, carolDisabled],
+        totalElements: 4,
+        page: 0,
+        size: 20,
+        totalPages: 1,
+      },
     } as never);
   });
 

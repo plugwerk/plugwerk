@@ -1339,8 +1339,15 @@ paths:
     get:
       tags:
         - AdminUsers
-      summary: List all users
-      description: Returns all registered users. Requires superadmin privileges.
+      summary: List users (paginated)
+      description: |
+        Returns a paginated page of registered users. Requires superadmin
+        privileges. Sortable by `username`, `email`, `createdAt`, or
+        `lastLoginAt`. Sorts by `username,asc` when omitted.
+
+        **Pagination is mandatory.** Issue #485 introduced the page wrapper to
+        protect against unbounded result-set loads as the user base grows
+        (LDAP/OIDC mass-provisioning). Default page size is 20, maximum 100.
       operationId: listUsers
       security:
         - BearerAuth: []
@@ -1348,18 +1355,32 @@ paths:
         - name: enabled
           in: query
           required: false
-          description: Filter by enabled state. When omitted, all users are returned.
+          description: Filter by enabled state. When omitted, every user matching the page is returned.
           schema:
             type: boolean
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/SizeQuery'
+        - name: sort
+          in: query
+          required: false
+          description: |
+            `<field>,<direction>` where field ∈ {`username`, `email`,
+            `createdAt`, `lastLoginAt`} and direction ∈ {`asc`, `desc`}.
+            Defaults to `username,asc`.
+          schema:
+            type: string
+            default: username,asc
+            pattern: '^(username|email|createdAt|lastLoginAt),(asc|desc)$'
+            maxLength: 32
       responses:
         '200':
-          description: List of all local users
+          description: Paginated page of users
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/UserDto'
+                $ref: '#/components/schemas/UserPagedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3175,6 +3196,38 @@ components:
           type: integer
           format: int64
           description: Total number of releases matching the query (across all pages)
+        page:
+          type: integer
+          format: int32
+          description: Current zero-based page index
+        size:
+          type: integer
+          format: int32
+          description: Number of items per page
+        totalPages:
+          type: integer
+          format: int32
+          description: Total number of pages
+      required:
+        - content
+        - totalElements
+        - page
+        - size
+        - totalPages
+
+    UserPagedResponse:
+      type: object
+      description: Paginated response containing a list of users
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserDto'
+          description: User entries on this page
+        totalElements:
+          type: integer
+          format: int64
+          description: Total number of users matching the query (across all pages)
         page:
           type: integer
           format: int32
