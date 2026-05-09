@@ -19,6 +19,7 @@
 package io.plugwerk.server.controller
 
 import io.plugwerk.api.AdminUsersApi
+import io.plugwerk.api.model.AdminPasswordResetResponse
 import io.plugwerk.api.model.UserCreateRequest
 import io.plugwerk.api.model.UserDto
 import io.plugwerk.api.model.UserUpdateRequest
@@ -28,10 +29,13 @@ import io.plugwerk.server.repository.OidcIdentityRepository
 import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.security.currentAuthentication
 import io.plugwerk.server.service.UserService
+import io.plugwerk.server.service.auth.AdminPasswordResetService
+import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.server.ResponseStatusException
 import java.net.URI
 import java.util.UUID
 
@@ -42,7 +46,10 @@ class AdminUserController(
     private val namespaceAuthorizationService: NamespaceAuthorizationService,
     private val namespaceMemberRepository: io.plugwerk.server.repository.NamespaceMemberRepository,
     private val oidcIdentityRepository: OidcIdentityRepository,
+    private val adminPasswordResetService: AdminPasswordResetService,
 ) : AdminUsersApi {
+
+    private val log = LoggerFactory.getLogger(AdminUserController::class.java)
 
     override fun listUsers(enabled: Boolean?): ResponseEntity<List<UserDto>> {
         val auth = currentAuthentication()
@@ -87,6 +94,52 @@ class AdminUserController(
         userUpdateRequest.enabled?.let { user = userService.setEnabled(userId, it) }
         userUpdateRequest.newPassword?.let { user = userService.resetPassword(userId, it) }
         return ResponseEntity.ok(user.toDto())
+    }
+
+    /**
+     * Admin-initiated password reset for a target user (#450).
+     *
+     * Issues a single-use reset token, emails the admin-initiated reset link,
+     * revokes every active session (access tokens + refresh-token family).
+     * On SMTP-disabled / mail-failure the link is returned in the response
+     * body so the operator can deliver it out-of-band.
+     *
+     * Bypasses `auth.password_reset_enabled` — admin is an independent trust
+     * chain (the `@PreAuthorize` on this method is the gate). Refusal cases
+     * (EXTERNAL user, self-reset) surface as HTTP 400 via
+     * [io.plugwerk.server.controller.GlobalExceptionHandler].
+     */
+    @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
+    override fun adminResetUserPassword(userId: UUID): ResponseEntity<AdminPasswordResetResponse> {
+        val auth = currentAuthentication()
+        namespaceAuthorizationService.requireSuperadmin(auth)
+        val actorId = parseAuthSubjectAsUuid(auth.name)
+        val result = adminPasswordResetService.trigger(targetUserId = userId, actorUserId = actorId)
+        return ResponseEntity.ok(
+            AdminPasswordResetResponse(
+                tokenIssued = result.tokenIssued,
+                emailSent = result.emailSent,
+                expiresAt = result.expiresAt,
+                resetUrl = result.resetUrl,
+            ),
+        )
+    }
+
+    /**
+     * The JWT principal is `plugwerk_user.id` (UUID) since the identity-hub
+     * split (#351 / ADR-0029). Defensive parse: if a future change introduces
+     * a non-UUID subject we want to fail loudly rather than silently miscompare
+     * against the target row.
+     */
+    private fun parseAuthSubjectAsUuid(subject: String): UUID = try {
+        UUID.fromString(subject)
+    } catch (ex: IllegalArgumentException) {
+        log.error("Cannot derive caller UUID from auth subject '{}'", subject, ex)
+        throw ResponseStatusException(
+            org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR,
+            "Cannot derive caller identity from authentication context",
+            ex,
+        )
     }
 
     @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")

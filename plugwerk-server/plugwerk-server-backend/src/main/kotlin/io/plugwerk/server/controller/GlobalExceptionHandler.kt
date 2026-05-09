@@ -36,8 +36,10 @@ import io.plugwerk.server.service.PluginNotFoundException
 import io.plugwerk.server.service.ReleaseAlreadyExistsException
 import io.plugwerk.server.service.ReleaseNotFoundException
 import io.plugwerk.server.service.UnauthorizedException
+import io.plugwerk.server.service.auth.ExternalUserResetNotAllowedException
 import io.plugwerk.server.service.auth.InvalidPasswordResetTokenException
 import io.plugwerk.server.service.auth.InvalidVerificationTokenException
+import io.plugwerk.server.service.auth.SelfResetNotAllowedException
 import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -176,6 +178,28 @@ class GlobalExceptionHandler {
     @ExceptionHandler(InvalidPasswordResetTokenException::class)
     fun handleInvalidPasswordResetToken(ex: InvalidPasswordResetTokenException): ResponseEntity<ErrorResponse> =
         errorResponse(HttpStatus.BAD_REQUEST, ex.message ?: "Password-reset token is invalid")
+
+    /**
+     * Admin-driven reset on the caller's own row (#450). Maps to 400 with the
+     * exception's actionable message ("Use Profile → Change password to update
+     * your own password.") so the Admin UI can surface it as an inline toast.
+     */
+    @ExceptionHandler(SelfResetNotAllowedException::class)
+    fun handleSelfReset(ex: SelfResetNotAllowedException): ResponseEntity<ErrorResponse> =
+        errorResponse(HttpStatus.BAD_REQUEST, ex.message ?: "Self-reset not permitted via admin endpoint")
+
+    /**
+     * Admin-driven reset on an EXTERNAL (OIDC) user (#450). Same 400 mapping
+     * as the existing [io.plugwerk.server.service.UserService.resetPassword]
+     * `require(user.isInternal())` path — the dedicated exception type lets
+     * the controller produce a stable, non-generic message.
+     */
+    @ExceptionHandler(ExternalUserResetNotAllowedException::class)
+    fun handleExternalUserReset(ex: ExternalUserResetNotAllowedException): ResponseEntity<ErrorResponse> =
+        errorResponse(
+            HttpStatus.BAD_REQUEST,
+            ex.message ?: "Cannot reset password on an OIDC user",
+        )
 
     /**
      * Honour the status code carried inside any [ResponseStatusException]
