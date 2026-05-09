@@ -1,0 +1,75 @@
+# Self-hosted Renovate via GitHub Actions.
+#
+# Why we run it ourselves instead of relying on Mend's hosted bot:
+#   - The hosted Free Plan iterates on its own opaque cadence (typically
+#     once per day) and does not expose run-history to repo collaborators.
+#     When a Dependency-Dashboard checkbox sits at `[x]` for hours with no
+#     visible bot tick, debugging that from the outside is impossible.
+#   - This workflow accepts `workflow_dispatch`, so any maintainer can
+#     trigger a run with `gh workflow run renovate.yml` and watch the logs
+#     in the Actions tab. Same Renovate binary, same `.github/renovate.json`
+#     configuration; only the trigger is local.
+#   - The cron mirrors the previous Mend cadence ("before 6am every
+#     weekday", in UTC because GitHub Actions cron is always UTC). The
+#     `schedule:` entry inside `renovate.json` still acts as a per-package
+#     filter — a workflow tick is the *opportunity* for Renovate to act,
+#     not an override of `before 6am every weekday` rules.
+#
+# Token: GITHUB_TOKEN works for read access (it's a regular Actions token),
+# but Renovate also writes branches and opens PRs, which the default token
+# can do scoped to this repo. No PAT or app-install required for a
+# single-repo setup. If we ever go multi-repo, swap to a GitHub App token.
+
+name: Renovate
+
+on:
+  schedule:
+    # Mon-Fri at 04:00 UTC (~05:00-06:00 CET/CEST). Matches the
+    # `schedule: ["before 6am every weekday"]` filter inside renovate.json
+    # so a tick that happens later in the day still cleanly skips most
+    # rules. Outside this window, runs only happen via workflow_dispatch.
+    - cron: "0 4 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        description: "Log level"
+        type: choice
+        default: "info"
+        options:
+          - info
+          - debug
+
+# Only one Renovate run at a time per branch — concurrent runs against the
+# same repository fight over branch creation and corrupt the dependency
+# dashboard. `cancel-in-progress: false` keeps a running job intact and
+# queues the new one rather than dropping it.
+concurrency:
+  group: renovate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # branch + push
+      pull-requests: write     # open + label PRs
+      issues: write            # update Dependency Dashboard issue (#376)
+    # Lift the workflow_dispatch input into an env var so the run-step
+    # never interpolates user-controlled (even via choice-whitelisted)
+    # input straight into a shell or YAML field — defensive practice
+    # that satisfies the GitHub-hardened-runners injection-prevention
+    # guidance even though `choice` already restricts the surface to
+    # two known values.
+    env:
+      RENOVATE_LOG_LEVEL: ${{ inputs.logLevel || 'info' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run Renovate
+        uses: renovatebot/github-action@v44.1.1
+        with:
+          configurationFile: .github/renovate.json
+          token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          LOG_LEVEL: ${{ env.RENOVATE_LOG_LEVEL }}
