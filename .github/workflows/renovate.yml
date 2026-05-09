@@ -1,33 +1,21 @@
-# Self-hosted Renovate via GitHub Actions.
+# Self-hosted Renovate trigger for this repo.
 #
-# Why we run it ourselves instead of relying on Mend's hosted bot:
-#   - The hosted Free Plan iterates on its own opaque cadence (typically
-#     once per day) and does not expose run-history to repo collaborators.
-#     When a Dependency-Dashboard checkbox sits at `[x]` for hours with no
-#     visible bot tick, debugging that from the outside is impossible.
-#   - This workflow accepts `workflow_dispatch`, so any maintainer can
-#     trigger a run with `gh workflow run renovate.yml` and watch the logs
-#     in the Actions tab. Same Renovate binary, same `.github/renovate.json`
-#     configuration; only the trigger is local.
-#   - The cron mirrors the previous Mend cadence ("before 6am every
-#     weekday", in UTC because GitHub Actions cron is always UTC). The
-#     `schedule:` entry inside `renovate.json` still acts as a per-package
-#     filter — a workflow tick is the *opportunity* for Renovate to act,
-#     not an override of `before 6am every weekday` rules.
+# This workflow defines the schedule and permissions, then delegates
+# the actual Renovate run to the org-wide reusable workflow at
+# plugwerk/.github/.github/workflows/renovate.yml. See ADR-0032 for
+# the rationale and ADR-0026 for the original SHA-pin policy that
+# still applies to the reusable side.
 #
-# Token: GITHUB_TOKEN works for read access (it's a regular Actions token),
-# but Renovate also writes branches and opens PRs, which the default token
-# can do scoped to this repo. No PAT or app-install required for a
-# single-repo setup. If we ever go multi-repo, swap to a GitHub App token.
+# Cron mirrors the previous direct-trigger cadence (Mon-Fri 04:00 UTC,
+# matching the `before 6am every weekday` schedule filter inside
+# .github/renovate.json). workflow_dispatch lets any maintainer
+# trigger an on-demand run from the Actions tab or via
+# `gh workflow run renovate.yml`.
 
 name: Renovate
 
 on:
   schedule:
-    # Mon-Fri at 04:00 UTC (~05:00-06:00 CET/CEST). Matches the
-    # `schedule: ["before 6am every weekday"]` filter inside renovate.json
-    # so a tick that happens later in the day still cleanly skips most
-    # rules. Outside this window, runs only happen via workflow_dispatch.
     - cron: "0 4 * * 1-5"
   workflow_dispatch:
     inputs:
@@ -39,37 +27,15 @@ on:
           - info
           - debug
 
-# Only one Renovate run at a time per branch — concurrent runs against the
-# same repository fight over branch creation and corrupt the dependency
-# dashboard. `cancel-in-progress: false` keeps a running job intact and
-# queues the new one rather than dropping it.
-concurrency:
-  group: renovate-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
   renovate:
-    runs-on: ubuntu-latest
+    uses: plugwerk/.github/.github/workflows/renovate.yml@main
+    # Permissions belong on the calling job, not on the reusable
+    # workflow. Each caller declares the minimum it needs; the
+    # reusable workflow inherits these for the duration of the call.
     permissions:
-      contents: write          # branch + push
-      pull-requests: write     # open + label PRs
-      issues: write            # update Dependency Dashboard issue (#376)
-    # Lift the workflow_dispatch input into an env var so the run-step
-    # never interpolates user-controlled (even via choice-whitelisted)
-    # input straight into a shell or YAML field — defensive practice
-    # that satisfies the GitHub-hardened-runners injection-prevention
-    # guidance even though `choice` already restricts the surface to
-    # two known values.
-    env:
-      RENOVATE_LOG_LEVEL: ${{ inputs.logLevel || 'info' }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - name: Run Renovate
-        uses: renovatebot/github-action@79dc0ba74dc3de28db0a7aeb1d0b95d5bf5fde2a # v46.1.13
-        with:
-          configurationFile: .github/renovate.json
-          token: ${{ secrets.GITHUB_TOKEN }}
-        env:
-          LOG_LEVEL: ${{ env.RENOVATE_LOG_LEVEL }}
+      contents: write       # branch + push
+      pull-requests: write  # open + label PRs
+      issues: write         # update Dependency Dashboard issue (#376)
+    with:
+      logLevel: ${{ inputs.logLevel || 'info' }}
