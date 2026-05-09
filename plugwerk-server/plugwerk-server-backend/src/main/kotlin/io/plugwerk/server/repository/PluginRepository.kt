@@ -33,6 +33,17 @@ interface PluginRepository : JpaRepository<PluginEntity, UUID> {
 
     fun findByNamespaceAndPluginId(namespace: NamespaceEntity, pluginId: String): Optional<PluginEntity>
 
+    /**
+     * Batch variant of [findByNamespaceAndPluginId] — returns every plugin in the namespace
+     * whose `pluginId` is in the given collection, in a single query. Callers typically
+     * group the result by `plugin.pluginId` in memory. Replaces per-id loops in update-check
+     * paths to keep the statement count constant in the size of the input.
+     */
+    fun findAllByNamespaceAndPluginIdIn(
+        namespace: NamespaceEntity,
+        pluginIds: Collection<String>,
+    ): List<PluginEntity>
+
     fun findAllByNamespace(namespace: NamespaceEntity): List<PluginEntity>
 
     fun findAllByNamespace(namespace: NamespaceEntity, pageable: Pageable): Page<PluginEntity>
