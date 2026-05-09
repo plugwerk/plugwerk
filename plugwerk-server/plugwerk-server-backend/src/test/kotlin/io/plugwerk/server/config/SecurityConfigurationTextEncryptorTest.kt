@@ -26,17 +26,28 @@ import org.mockito.kotlin.mock
 
 /**
  * Pins the round-trip contract for `SecurityConfiguration.textEncryptor()`.
- * Audit row SBS-003 / ADR-0022.
+ * Audit row SBS-003 / ADR-0022 / ADR-0033.
  *
- * The encryptor encrypts OIDC provider client secrets at rest via
- * Spring Security's `Encryptors.text()`, which derives an AES-256 key from the
- * supplied password with `PBKDF2WithHmacSHA1`. The tests below verify:
+ * The encryptor protects OIDC provider client secrets and PASSWORD-typed
+ * application settings at rest via Spring Security's `Encryptors.delux()`,
+ * which wraps `Encryptors.stronger()` (AES-256-GCM with a fresh random
+ * 16-byte nonce per encryption) in a hex-encoding `TextEncryptor`. The
+ * tests below verify:
  *
  * 1. A 16-char password (historical lower bound) round-trips successfully.
  * 2. A 32-char password (recommended length) round-trips successfully.
  * 3. Ciphertext produced with one password cannot be decrypted with another —
- *    this is the migration invariant that makes key rotation a re-enter-secrets
- *    operation, not an in-place upgrade.
+ *    this is the migration invariant documented in ADR-0022: rotating the
+ *    encryption key invalidates every existing `client_secret_encrypted` row,
+ *    which is why operators must re-enter each OIDC provider's client secret
+ *    through the admin UI after rotation.
+ * 4. Two encryptions of the same plaintext produce different ciphertexts —
+ *    GCM uses a fresh random nonce per call, so a database dump cannot leak
+ *    plaintext-equality between rows by comparing ciphertexts.
+ * 5. A tampered ciphertext is rejected on decrypt — GCM is AEAD and detects
+ *    any modification of the ciphertext or its associated data. This is the
+ *    integrity guarantee that the previous CBC-based `Encryptors.text()`
+ *    did not provide and is the primary reason for ADR-0033's migration.
  */
 class SecurityConfigurationTextEncryptorTest {
 
@@ -102,9 +113,10 @@ class SecurityConfigurationTextEncryptorTest {
 
     /**
      * Each `encrypt()` call must produce different ciphertext for the same plaintext.
-     * `AesBytesEncryptor` uses a random 16-byte IV per encryption, so two calls
-     * with the same plaintext must never emit identical output — otherwise
-     * equal ciphertexts would leak equal plaintexts.
+     * `AesBytesEncryptor` (in GCM mode, see ADR-0033) generates a fresh random
+     * 16-byte nonce per encryption, so two calls with the same plaintext must
+     * never emit identical output — otherwise equal ciphertexts would leak equal
+     * plaintexts to anyone with database read access.
      */
     @Test
     fun `same plaintext encrypts to different ciphertexts (random IV)`() {
@@ -117,5 +129,35 @@ class SecurityConfigurationTextEncryptorTest {
         assertThat(first).isNotEqualTo(second)
         assertThat(encryptor.decrypt(first)).isEqualTo(plaintext)
         assertThat(encryptor.decrypt(second)).isEqualTo(plaintext)
+    }
+
+    /**
+     * GCM's authenticated-encryption tag must reject any ciphertext that has
+     * been modified after encryption. This is the integrity property AES-CBC
+     * never had — under the previous `Encryptors.text()` (CBC mode without a
+     * MAC), a flipped bit decrypted to garbage instead of throwing, so the
+     * caller could not distinguish a corrupted row from a valid one and might
+     * silently feed garbage credentials to an OIDC provider. With GCM the
+     * decrypt call throws on tampering, surfacing the corruption clearly.
+     *
+     * The test flips one byte in the middle of the hex-encoded ciphertext;
+     * any single-byte modification anywhere in the ciphertext or in the GCM
+     * tag must invalidate the AEAD check.
+     */
+    @Test
+    fun `tampered ciphertext is rejected on decrypt (GCM AEAD integrity)`() {
+        val encryptor = buildSecurityConfig("k".repeat(32)).textEncryptor()
+        val plaintext = "oidc-client-secret-value"
+        val ciphertext = encryptor.encrypt(plaintext)
+
+        // Flip one byte (= two hex chars) somewhere in the middle. The exact
+        // offset does not matter as long as it is not a no-op; the GCM tag
+        // covers the entire ciphertext + nonce.
+        val mid = ciphertext.length / 2
+        val flippedChar = if (ciphertext[mid] == '0') '1' else '0'
+        val tampered = ciphertext.substring(0, mid) + flippedChar + ciphertext.substring(mid + 1)
+
+        assertThatThrownBy { encryptor.decrypt(tampered) }
+            .isInstanceOf(Exception::class.java)
     }
 }
