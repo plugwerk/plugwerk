@@ -62,6 +62,15 @@ class PluginDeletionTransaction(
      * single transaction, returning the artifact keys that the caller
      * must clean up from storage afterwards.
      *
+     * Releases (and their `download_event` rows) are removed by the
+     * `ON DELETE CASCADE` on `plugin_release.plugin_id` → `plugin.id`
+     * (initial schema migration `0001_initial_schema.yaml`). We only
+     * read the releases here to harvest their `artifactKey` values for
+     * the storage-cleanup phase; the actual row removal happens at the
+     * database level when `plugin` is deleted. `PluginEntity` has no
+     * reverse `@OneToMany` mapping for releases, so Hibernate does not
+     * fight the cascade with its own delete statements.
+     *
      * @throws PluginNotFoundException when no plugin with [pluginId]
      *   exists in the namespace identified by [namespaceSlug].
      */
@@ -70,9 +79,8 @@ class PluginDeletionTransaction(
         val namespace = namespaceService.findBySlug(namespaceSlug)
         val plugin = pluginRepository.findByNamespaceAndPluginId(namespace, pluginId)
             .orElseThrow { PluginNotFoundException(namespaceSlug, pluginId) }
-        val releases = releaseRepository.findAllByPluginOrderByCreatedAtDesc(plugin)
-        val artifactKeys = releases.map { it.artifactKey }
-        releases.forEach { releaseRepository.delete(it) }
+        val artifactKeys = releaseRepository.findAllByPluginOrderByCreatedAtDesc(plugin)
+            .map { it.artifactKey }
         pluginRepository.delete(plugin)
         return artifactKeys
     }
