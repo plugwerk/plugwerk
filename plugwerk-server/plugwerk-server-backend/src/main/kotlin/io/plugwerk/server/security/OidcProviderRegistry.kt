@@ -20,6 +20,7 @@ package io.plugwerk.server.security
 
 import io.plugwerk.server.domain.OidcProviderType
 import io.plugwerk.server.repository.OidcProviderRepository
+import io.plugwerk.server.security.url.OidcSsrfPolicy
 import org.slf4j.LoggerFactory
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.JwtDecoders
@@ -44,7 +45,10 @@ import java.util.concurrent.atomic.AtomicReference
  * [refresh] and [decoders] can be called concurrently without locking.
  */
 @Component
-class OidcProviderRegistry(private val oidcProviderRepository: OidcProviderRepository) {
+class OidcProviderRegistry(
+    private val oidcProviderRepository: OidcProviderRepository,
+    private val ssrfPolicy: OidcSsrfPolicy,
+) {
 
     private val log = LoggerFactory.getLogger(OidcProviderRegistry::class.java)
 
@@ -73,6 +77,11 @@ class OidcProviderRegistry(private val oidcProviderRepository: OidcProviderRepos
                         val issuerUri = requireNotNull(provider.issuerUri) {
                             "issuerUri is required for provider type ${provider.providerType}"
                         }
+                        // Defense-in-depth (#479): a saved private/loopback URI must not
+                        // reach Spring's static RestTemplate. Write-time guard already
+                        // rejects these in OidcProviderService, but legacy rows from
+                        // before the fix might exist — fail closed here too.
+                        ssrfPolicy.requirePublicHttpUri(issuerUri, "issuerUri", required = true)
                         JwtDecoders.fromIssuerLocation(issuerUri) as NimbusJwtDecoder
                     }
 
@@ -100,6 +109,7 @@ class OidcProviderRegistry(private val oidcProviderRepository: OidcProviderRepos
                                 "for resource-server use (browser-flow login still works) or set " +
                                 "jwkSetUri to enable JWT validation."
                         }
+                        ssrfPolicy.requirePublicHttpUri(jwkSetUri, "jwkSetUri", required = true)
                         NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build()
                     }
                 }

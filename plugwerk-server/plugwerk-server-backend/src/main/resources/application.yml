@@ -152,6 +152,33 @@ plugwerk:
       # Generate with: openssl rand -base64 32
       scrape-password: ${PLUGWERK_AUTH_ACTUATOR_SCRAPE_PASSWORD:}
 
+    oidc:
+      # SSRF guard for OIDC discovery and stored issuer/endpoint URIs (#479).
+      # Default: false → reject private/loopback/link-local/metadata hosts.
+      # Set to true ONLY for local dev against Keycloak / mock-oauth2-server
+      # bound to localhost. NEVER in production — a startup WARN is logged
+      # whenever this is true so an accidental flip is visible.
+      # Env: PLUGWERK_AUTH_OIDC_ALLOW_PRIVATE_DISCOVERY_URIS
+      allow-private-discovery-uris: ${PLUGWERK_AUTH_OIDC_ALLOW_PRIVATE_DISCOVERY_URIS:false}
+
+      # Comma-separated exact-match host blocklist. Empty (the default)
+      # means "use the hardcoded defaults": localhost, metadata.google.internal,
+      # metadata. Setting a non-empty list REPLACES the defaults entirely
+      # — operators with a legitimate `metadata` public host need to drop
+      # it from the override. Case-insensitive.
+      # Env: PLUGWERK_AUTH_OIDC_BLOCKED_HOST_NAMES
+      blocked-host-names: ${PLUGWERK_AUTH_OIDC_BLOCKED_HOST_NAMES:}
+
+      # Comma-separated suffix blocklist. Empty (the default) means "use
+      # the hardcoded defaults": .localhost, .local, .lan, .internal.
+      # Setting a non-empty list REPLACES the defaults entirely — drop the
+      # suffix from the override if your operator legitimately uses it.
+      # Suffixes without a leading `.` get one prepended automatically so
+      # `corp.example.com` matches `idp.corp.example.com` but not
+      # `evilcorp.example.com`. Case-insensitive.
+      # Env: PLUGWERK_AUTH_OIDC_BLOCKED_HOST_SUFFIXES
+      blocked-host-suffixes: ${PLUGWERK_AUTH_OIDC_BLOCKED_HOST_SUFFIXES:}
+
   # Upload and download-tracking settings were moved to the `application_setting` database
   # table in 1.0.0-alpha.2 (ADR-0016). The environment variables PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB,
   # PLUGWERK_TRACKING_ENABLED, PLUGWERK_TRACKING_CAPTURE_IP, PLUGWERK_TRACKING_ANONYMIZE_IP and

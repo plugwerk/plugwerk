@@ -16,3 +16,7 @@ plugwerk:
     rate-limit:
       max-attempts: 1000
       window-seconds: 3600
+    oidc:
+      # Integration tests run mock-oauth2-server on 127.0.0.1 — see
+      # application.yml for the production rationale (default false).
+      allow-private-discovery-uris: true

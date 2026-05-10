@@ -25,13 +25,12 @@ import io.plugwerk.server.repository.OidcProviderRepository
 import io.plugwerk.server.repository.UserRepository
 import io.plugwerk.server.security.DbClientRegistrationRepository
 import io.plugwerk.server.security.OidcProviderRegistry
+import io.plugwerk.server.security.url.OidcSsrfPolicy
 import org.slf4j.LoggerFactory
 import org.springframework.security.crypto.encrypt.TextEncryptor
 import org.springframework.security.oauth2.client.registration.ClientRegistrations
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.net.URI
-import java.net.URISyntaxException
 import java.util.UUID
 
 /**
@@ -83,9 +82,23 @@ class OidcProviderService(
     private val oidcIdentityRepository: OidcIdentityRepository,
     private val userRepository: UserRepository,
     private val textEncryptor: TextEncryptor,
+    private val ssrfPolicy: OidcSsrfPolicy,
 ) {
 
     private val log = LoggerFactory.getLogger(OidcProviderService::class.java)
+
+    private companion object {
+        /**
+         * Stable, opaque error message returned to callers on any discovery
+         * failure (#479). The detailed cause goes to `log.debug` /
+         * `log.warn` only — never the response body — so an SSRF probe
+         * cannot distinguish "rejected by SSRF guard" from "connection
+         * refused" from "malformed metadata".
+         */
+        const val DISCOVERY_FAILED_MESSAGE =
+            "OIDC discovery failed — verify the issuer URI is reachable and serves a valid " +
+                "/.well-known/openid-configuration document."
+    }
 
     /**
      * Rebuilds both registries that depend on the enabled-providers list:
@@ -122,6 +135,12 @@ class OidcProviderService(
         if (trimmed.isEmpty()) {
             return OidcDiscoveryOutcome(success = false, error = "issuerUri must not be blank")
         }
+        try {
+            ssrfPolicy.requirePublicHttpUri(trimmed, "issuerUri", required = true)
+        } catch (e: IllegalArgumentException) {
+            log.warn("OIDC discovery rejected for issuerUri={}: {}", trimmed, e.message)
+            return OidcDiscoveryOutcome(success = false, error = DISCOVERY_FAILED_MESSAGE)
+        }
         return try {
             val registration = ClientRegistrations.fromIssuerLocation(trimmed).build()
             val details = registration.providerDetails
@@ -134,10 +153,7 @@ class OidcProviderService(
             )
         } catch (e: Exception) {
             log.debug("OIDC discovery failed for issuerUri={}: {}", trimmed, e.message)
-            OidcDiscoveryOutcome(
-                success = false,
-                error = e.message ?: "discovery failed without a message",
-            )
+            OidcDiscoveryOutcome(success = false, error = DISCOVERY_FAILED_MESSAGE)
         }
     }
 
@@ -168,11 +184,22 @@ class OidcProviderService(
         // skip it, leaving the operator wondering why their new provider does
         // not appear on the login page.
         if (providerType == OidcProviderType.OAUTH2) {
-            requireValidHttpUri(authorizationUri, "authorizationUri", required = true)
-            requireValidHttpUri(tokenUri, "tokenUri", required = true)
-            requireValidHttpUri(userInfoUri, "userInfoUri", required = true)
-            requireValidHttpUri(jwkSetUri, "jwkSetUri", required = false)
+            ssrfPolicy.requirePublicHttpUri(authorizationUri, "authorizationUri", required = true)
+            ssrfPolicy.requirePublicHttpUri(tokenUri, "tokenUri", required = true)
+            ssrfPolicy.requirePublicHttpUri(userInfoUri, "userInfoUri", required = true)
+            ssrfPolicy.requirePublicHttpUri(jwkSetUri, "jwkSetUri", required = false)
         }
+        // OIDC + generic OAUTH2 alike: an issuerUri that ends up in the DB must
+        // pass the same SSRF gate as discoverEndpoints — otherwise an attacker
+        // who lands a write call (admin-account compromise, CSRF gap, etc.)
+        // could plant `http://169.254.169.254` and let the next refresh fetch
+        // it. Required for OIDC, optional for OAUTH2 (where the explicit four
+        // endpoint URIs above carry the discovery payload).
+        ssrfPolicy.requirePublicHttpUri(
+            issuerUri,
+            "issuerUri",
+            required = providerType == OidcProviderType.OIDC,
+        )
         val provider = oidcProviderRepository.save(
             OidcProviderEntity(
                 name = name,
@@ -192,28 +219,6 @@ class OidcProviderService(
             ),
         )
         return provider
-    }
-
-    /**
-     * Validates that [value] (when present, or always when [required]) parses as
-     * an http(s) URI. Mirrors the issuerUri rule used elsewhere — every URI
-     * field on an OIDC/OAuth2 provider must be a real URL the server can later
-     * hand to a browser or HTTP client without surprises.
-     */
-    private fun requireValidHttpUri(value: String?, fieldName: String, required: Boolean) {
-        val trimmed = value?.trim()
-        if (trimmed.isNullOrEmpty()) {
-            require(!required) { "$fieldName is required for provider type OAUTH2" }
-            return
-        }
-        val parsed = try {
-            URI(trimmed)
-        } catch (e: URISyntaxException) {
-            throw IllegalArgumentException("$fieldName is not a valid URI: ${e.message}")
-        }
-        require(parsed.scheme in setOf("http", "https")) {
-            "$fieldName must use http or https scheme"
-        }
     }
 
     /**
@@ -277,14 +282,7 @@ class OidcProviderService(
         patch.issuerUri?.let {
             val trimmed = it.trim()
             require(trimmed.isNotEmpty()) { "issuerUri must not be blank" }
-            val parsed = try {
-                URI(trimmed)
-            } catch (e: URISyntaxException) {
-                throw IllegalArgumentException("issuerUri is not a valid URI: ${e.message}")
-            }
-            require(parsed.scheme in setOf("http", "https")) {
-                "issuerUri must use http or https scheme"
-            }
+            ssrfPolicy.requirePublicHttpUri(trimmed, "issuerUri", required = true)
             provider.issuerUri = trimmed
         }
 
@@ -321,7 +319,7 @@ class OidcProviderService(
         patch.jwkSetUri?.let {
             val trimmed = it.trim()
             require(trimmed.isNotEmpty()) { "jwkSetUri must not be blank — to disable, omit the field" }
-            requireValidHttpUri(trimmed, "jwkSetUri", required = false)
+            ssrfPolicy.requirePublicHttpUri(trimmed, "jwkSetUri", required = false)
             provider.jwkSetUri = trimmed
         }
 
@@ -355,7 +353,7 @@ class OidcProviderService(
         require(provider.providerType == OidcProviderType.OAUTH2) {
             "$fieldName is only meaningful on OAUTH2 providers (this is a ${provider.providerType})"
         }
-        requireValidHttpUri(trimmed, fieldName, required = true)
+        ssrfPolicy.requirePublicHttpUri(trimmed, fieldName, required = true)
         setter(trimmed)
     }
 

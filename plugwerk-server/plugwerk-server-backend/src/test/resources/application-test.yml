@@ -12,3 +12,11 @@ spring:
         order_updates: true
   liquibase:
     enabled: false
+
+plugwerk:
+  auth:
+    oidc:
+      # Tests use mock-oauth2-server / Keycloak on 127.0.0.1 — relax SSRF
+      # guard so the discovery + refresh paths still work. Production
+      # default is false, see application.yml comment for the rationale.
+      allow-private-discovery-uris: true

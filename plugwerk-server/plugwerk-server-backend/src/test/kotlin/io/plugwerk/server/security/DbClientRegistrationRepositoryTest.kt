@@ -21,6 +21,7 @@ package io.plugwerk.server.security
 import io.plugwerk.server.domain.OidcProviderEntity
 import io.plugwerk.server.domain.OidcProviderType
 import io.plugwerk.server.repository.OidcProviderRepository
+import io.plugwerk.server.security.url.OidcSsrfPolicy
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -54,7 +55,12 @@ class DbClientRegistrationRepositoryTest {
     fun `findByRegistrationId returns null when no provider is enabled`() {
         whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(emptyList())
 
-        val repo = DbClientRegistrationRepository(oidcProviderRepository, textEncryptor)
+        val repo =
+            DbClientRegistrationRepository(
+                oidcProviderRepository,
+                textEncryptor,
+                OidcSsrfPolicy(allowPrivateDiscoveryUris = true),
+            )
 
         assertThat(repo.findByRegistrationId(UUID.randomUUID().toString())).isNull()
         assertThat(repo.iterator().hasNext()).isFalse()
@@ -83,7 +89,11 @@ class DbClientRegistrationRepositoryTest {
         // Construction must not throw (the runCatching wrapper catches network failures
         // — that's the offline-CI case — but the not-yet-implemented IllegalStateException
         // path is gone for GOOGLE).
-        DbClientRegistrationRepository(oidcProviderRepository, textEncryptor)
+        DbClientRegistrationRepository(
+            oidcProviderRepository,
+            textEncryptor,
+            OidcSsrfPolicy(allowPrivateDiscoveryUris = true),
+        )
     }
 
     @Test
@@ -100,7 +110,12 @@ class DbClientRegistrationRepositoryTest {
         )
         whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(github))
 
-        val repo = DbClientRegistrationRepository(oidcProviderRepository, textEncryptor)
+        val repo =
+            DbClientRegistrationRepository(
+                oidcProviderRepository,
+                textEncryptor,
+                OidcSsrfPolicy(allowPrivateDiscoveryUris = true),
+            )
         val registration = repo.findByRegistrationId(github.id.toString())
 
         assertThat(registration).isNotNull()
@@ -129,7 +144,12 @@ class DbClientRegistrationRepositoryTest {
         )
         whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(facebook))
 
-        val repo = DbClientRegistrationRepository(oidcProviderRepository, textEncryptor)
+        val repo =
+            DbClientRegistrationRepository(
+                oidcProviderRepository,
+                textEncryptor,
+                OidcSsrfPolicy(allowPrivateDiscoveryUris = true),
+            )
         val registration = repo.findByRegistrationId(facebook.id.toString())
 
         assertThat(registration).isNotNull()
@@ -163,7 +183,12 @@ class DbClientRegistrationRepositoryTest {
         )
         whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(generic))
 
-        val repo = DbClientRegistrationRepository(oidcProviderRepository, textEncryptor)
+        val repo =
+            DbClientRegistrationRepository(
+                oidcProviderRepository,
+                textEncryptor,
+                OidcSsrfPolicy(allowPrivateDiscoveryUris = true),
+            )
         val registration = repo.findByRegistrationId(generic.id.toString())
 
         assertThat(registration).isNotNull()
@@ -200,7 +225,12 @@ class DbClientRegistrationRepositoryTest {
         )
         whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(generic))
 
-        val repo = DbClientRegistrationRepository(oidcProviderRepository, textEncryptor)
+        val repo =
+            DbClientRegistrationRepository(
+                oidcProviderRepository,
+                textEncryptor,
+                OidcSsrfPolicy(allowPrivateDiscoveryUris = true),
+            )
         val registration = repo.findByRegistrationId(generic.id.toString())
 
         assertThat(registration!!.providerDetails.userInfoEndpoint.userNameAttributeName)
@@ -225,7 +255,12 @@ class DbClientRegistrationRepositoryTest {
         )
         whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(broken))
 
-        val repo = DbClientRegistrationRepository(oidcProviderRepository, textEncryptor)
+        val repo =
+            DbClientRegistrationRepository(
+                oidcProviderRepository,
+                textEncryptor,
+                OidcSsrfPolicy(allowPrivateDiscoveryUris = true),
+            )
 
         assertThat(repo.iterator().hasNext()).isFalse()
         assertThat(repo.findByRegistrationId(broken.id.toString())).isNull()
@@ -257,9 +292,43 @@ class DbClientRegistrationRepositoryTest {
         )
         whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(unreachableProvider))
 
-        val repo = DbClientRegistrationRepository(oidcProviderRepository, textEncryptor)
+        val repo =
+            DbClientRegistrationRepository(
+                oidcProviderRepository,
+                textEncryptor,
+                OidcSsrfPolicy(allowPrivateDiscoveryUris = true),
+            )
 
         assertThat(repo.iterator().hasNext()).isFalse()
         assertThat(repo.findByRegistrationId(unreachableProvider.id.toString())).isNull()
+    }
+
+    @Test
+    fun `provider with private issuerUri is skipped under production SSRF policy (#479)`() {
+        // Defense-in-depth: write-time guard already rejects private URIs in
+        // OidcProviderService.create/update, but legacy rows from before the
+        // fix could still carry one. With the SSRF policy in production mode
+        // (allowPrivateDiscoveryUris=false) the refresh path must skip the
+        // entry rather than letting Spring's static RestTemplate dial
+        // 169.254.169.254 every refresh.
+        val ssrfProvider = OidcProviderEntity(
+            id = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            name = "AWS Metadata Trap",
+            providerType = OidcProviderType.OIDC,
+            enabled = true,
+            clientId = "ignored",
+            clientSecretEncrypted = "{cipher}ignored",
+            issuerUri = "http://169.254.169.254/latest/meta-data/",
+        )
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(ssrfProvider))
+
+        val repo = DbClientRegistrationRepository(
+            oidcProviderRepository,
+            textEncryptor,
+            OidcSsrfPolicy(allowPrivateDiscoveryUris = false),
+        )
+
+        assertThat(repo.iterator().hasNext()).isFalse()
+        assertThat(repo.findByRegistrationId(ssrfProvider.id.toString())).isNull()
     }
 }
