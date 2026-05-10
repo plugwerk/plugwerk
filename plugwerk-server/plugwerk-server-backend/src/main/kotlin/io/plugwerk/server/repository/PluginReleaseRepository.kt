@@ -114,23 +114,45 @@ interface PluginReleaseRepository : JpaRepository<PluginReleaseEntity, UUID> {
     fun sumDownloadCountsByPluginIds(@Param("pluginIds") pluginIds: Collection<UUID>): List<Array<Any>>
 
     /**
-     * Returns the full latest published release entity per plugin for a given set of plugin IDs.
-     * Replaces the three individual queries for version, draft version, and artifact size.
-     * One DB round-trip for the entire page.
+     * Returns the latest PUBLISHED release per plugin for the given set of
+     * plugin IDs. One DB round-trip for the entire page.
+     *
+     * **Tiebreaker (#482)**: when two releases of the same plugin share the
+     * same `created_at` (rapid CI imports, batched API calls, or any other
+     * sub-millisecond burst that the JVM clock cannot resolve), we want a
+     * **deterministic** winner so the catalog shows the same "latest
+     * version" on every read. The previous JPQL formulation
+     * (`r.createdAt = (SELECT MAX(r2.createdAt) ...)`) returned **both**
+     * tied rows, and `associateBy { plugin.id }` at the call site collapsed
+     * them implementation-defined-last-wins. Catalog "latest" therefore
+     * flickered between versions on identical inputs.
+     *
+     * The window-function variant below partitions by `plugin_id`, sorts
+     * each partition by `created_at DESC, id DESC`, and keeps the first
+     * row. `id` is a UUIDv7 so it carries time-ordering past the
+     * timestamp's resolution — `id DESC` semantically continues "later
+     * wins" past the millisecond precision boundary.
+     *
+     * Native query because JPQL does not support window functions
+     * portably across Hibernate versions. Postgres (production) and H2 in
+     * default mode (tests) both implement `ROW_NUMBER() OVER (PARTITION BY)`
+     * to ANSI SQL spec; no DB-specific syntax escapes the wrapper.
      */
     @Query(
-        """
-        SELECT r
-        FROM PluginReleaseEntity r
-        WHERE r.plugin.id IN :pluginIds
-          AND r.status = io.plugwerk.spi.model.ReleaseStatus.PUBLISHED
-          AND r.createdAt = (
-            SELECT MAX(r2.createdAt)
-            FROM PluginReleaseEntity r2
-            WHERE r2.plugin.id = r.plugin.id
-              AND r2.status = io.plugwerk.spi.model.ReleaseStatus.PUBLISHED
-          )
+        value = """
+        SELECT pr.* FROM (
+          SELECT inner_pr.*,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY plugin_id
+                   ORDER BY created_at DESC, id DESC
+                 ) AS rn
+          FROM plugin_release inner_pr
+          WHERE inner_pr.plugin_id IN (:pluginIds)
+            AND inner_pr.status = 'PUBLISHED'
+        ) pr
+        WHERE pr.rn = 1
         """,
+        nativeQuery = true,
     )
     fun findLatestPublishedReleasesForPlugins(
         @Param("pluginIds") pluginIds: Collection<UUID>,
