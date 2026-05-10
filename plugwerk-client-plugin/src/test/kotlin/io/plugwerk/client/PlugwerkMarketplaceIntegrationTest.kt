@@ -17,6 +17,7 @@ package io.plugwerk.client
 
 import io.plugwerk.spi.PlugwerkConfig
 import io.plugwerk.spi.model.InstallResult
+import io.plugwerk.spi.model.InstalledPluginRef
 import io.plugwerk.spi.model.PluginStatus
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -139,7 +140,7 @@ class PlugwerkMarketplaceIntegrationTest {
                 .setResponseCode(200),
         )
 
-        val updates = marketplace.updateChecker().checkForUpdates(mapOf("plugin-a" to "1.0.0"))
+        val updates = marketplace.updateChecker().checkForUpdates(listOf(InstalledPluginRef("plugin-a", "1.0.0")))
 
         assertEquals(1, updates.size)
         assertEquals("plugin-a", updates[0].pluginId)

@@ -15,6 +15,7 @@
  */
 package io.plugwerk.spi.extension
 
+import io.plugwerk.spi.model.InstalledPluginRef
 import io.plugwerk.spi.model.UpdateInfo
 import org.pf4j.ExtensionPoint
 
@@ -30,7 +31,9 @@ import org.pf4j.ExtensionPoint
  * Kotlin:
  * ```kotlin
  * val checker = pluginManager.getExtensions(PlugwerkUpdateChecker::class.java).first()
- * val installed = pluginManager.plugins.associate { it.pluginId to it.descriptor.version }
+ * val installed = pluginManager.plugins.map {
+ *     InstalledPluginRef(it.pluginId, it.descriptor.version)
+ * }
  * val updates = checker.checkForUpdates(installed)
  * updates.forEach { println("Update available: ${it.pluginId} ${it.currentVersion} → ${it.availableVersion}") }
  * ```
@@ -38,8 +41,9 @@ import org.pf4j.ExtensionPoint
  * Java:
  * ```java
  * PlugwerkUpdateChecker checker = pluginManager.getExtensions(PlugwerkUpdateChecker.class).get(0);
- * Map<String, String> installed = pluginManager.getPlugins().stream()
- *     .collect(Collectors.toMap(p -> p.getPluginId(), p -> p.getDescriptor().getVersion()));
+ * List<InstalledPluginRef> installed = pluginManager.getPlugins().stream()
+ *     .map(p -> new InstalledPluginRef(p.getPluginId(), p.getDescriptor().getVersion()))
+ *     .toList();
  * List<UpdateInfo> updates = checker.checkForUpdates(installed);
  * updates.forEach(u -> System.out.println(
  *     "Update available: " + u.getPluginId() + " " + u.getCurrentVersion() + " → " + u.getAvailableVersion()));
@@ -55,18 +59,21 @@ interface PlugwerkUpdateChecker : ExtensionPoint {
      * with a higher SemVer than the installed version are reported.
      * Plugins in [installedPlugins] that are unknown to the server are silently ignored.
      *
-     * @param installedPlugins map of plugin ID → currently installed SemVer version string
-     *   (e.g. `mapOf("io.example.my-plugin" to "1.0.0")`)
+     * @param installedPlugins list of [InstalledPluginRef] entries, one per plugin
+     *   currently installed on the host (e.g.
+     *   `listOf(InstalledPluginRef("io.example.my-plugin", "1.0.0"))`).
+     *   Pre-#504 this took a `Map<String, String>` — see [InstalledPluginRef] for
+     *   the rationale behind the typed shape.
      * @return list of [UpdateInfo] entries, one per plugin that has a newer version available;
      *   empty list if everything is up-to-date
      */
-    fun checkForUpdates(installedPlugins: Map<String, String>): List<UpdateInfo>
+    fun checkForUpdates(installedPlugins: List<InstalledPluginRef>): List<UpdateInfo>
 
     /**
      * Returns all updates available in the marketplace regardless of what is locally installed.
      *
      * **Not yet implemented** — Phase 2 will add a dedicated server endpoint for this.
-     * Use [checkForUpdates] with a map of currently installed plugin IDs and versions instead.
+     * Use [checkForUpdates] with a list of [InstalledPluginRef] entries instead.
      *
      * @throws UnsupportedOperationException always, until Phase 2 is implemented
      */

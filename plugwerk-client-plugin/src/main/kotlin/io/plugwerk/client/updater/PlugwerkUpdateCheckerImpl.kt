@@ -22,15 +22,16 @@ import io.plugwerk.api.model.UpdateCheckResponse
 import io.plugwerk.client.PlugwerkClient
 import io.plugwerk.client.internal.toReleaseInfo
 import io.plugwerk.spi.extension.PlugwerkUpdateChecker
+import io.plugwerk.spi.model.InstalledPluginRef
 import io.plugwerk.spi.model.UpdateInfo
 
 /** HTTP-backed implementation of [PlugwerkUpdateChecker]. Calls the server's `/updates/check` endpoint. */
 internal class PlugwerkUpdateCheckerImpl(private val client: PlugwerkClient) : PlugwerkUpdateChecker {
-    override fun checkForUpdates(installedPlugins: Map<String, String>): List<UpdateInfo> {
+    override fun checkForUpdates(installedPlugins: List<InstalledPluginRef>): List<UpdateInfo> {
         if (installedPlugins.isEmpty()) return emptyList()
         val requestBody =
             UpdateCheckRequest(
-                plugins = installedPlugins.map { (id, version) -> InstalledPluginInfo(id, version) },
+                plugins = installedPlugins.map { InstalledPluginInfo(it.pluginId, it.version) },
             )
         return client.post<UpdateCheckResponse>("updates/check", requestBody).updates.map { it.toUpdateInfo() }
     }
