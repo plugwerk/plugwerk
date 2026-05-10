@@ -23,6 +23,7 @@ import io.plugwerk.descriptor.PlugwerkDescriptor
 import io.plugwerk.server.SharedPostgresContainer
 import io.plugwerk.server.repository.DownloadEventRepository
 import io.plugwerk.server.service.storage.ArtifactStorageService
+import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -100,6 +101,8 @@ class DownloadEventServiceIntegrationTest {
 
     @Autowired lateinit var descriptorResolver: DescriptorResolver
 
+    @Autowired lateinit var entityManager: EntityManager
+
     lateinit var testNamespace: io.plugwerk.server.domain.NamespaceEntity
 
     @BeforeEach
@@ -121,7 +124,7 @@ class DownloadEventServiceIntegrationTest {
         whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
         val release = releaseService.upload("dl-event-ns", ByteArrayInputStream(FAKE_JAR), FAKE_JAR.size.toLong())
 
-        downloadEventService.record(release, "10.20.30.40", "curl/7.88")
+        downloadEventService.record(release.id!!, "10.20.30.40", "curl/7.88")
 
         val events = downloadEventRepository.findAll()
         assertThat(events).hasSize(1)
@@ -132,13 +135,36 @@ class DownloadEventServiceIntegrationTest {
     }
 
     @Test
+    fun `record needs only the release id, not a managed entity (#484)`() {
+        // The post-#484 signature takes a UUID instead of the entity, so the
+        // REQUIRES_NEW transaction owned by record() resolves the FK target
+        // through PluginReleaseRepository.getReferenceById in its own
+        // persistence context. Brute-force-detach everything before the call
+        // (entityManager.clear) so any code path that secretly depended on
+        // the caller's managed-entity state would surface here as either an
+        // org.hibernate.PersistentObjectException or a missing-FK row.
+        val descriptor = PlugwerkDescriptor(id = "lockdown-plugin", version = "1.0.0", name = "Lockdown Plugin")
+        whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+        val releaseId = releaseService
+            .upload("dl-event-ns", ByteArrayInputStream(FAKE_JAR), FAKE_JAR.size.toLong())
+            .id!!
+        entityManager.clear()
+
+        downloadEventService.record(releaseId, "9.9.9.9", null)
+
+        val events = downloadEventRepository.findAll()
+        assertThat(events).hasSize(1)
+        assertThat(events[0].release.id).isEqualTo(releaseId)
+    }
+
+    @Test
     fun `cascade delete removes events when release is deleted`() {
         val descriptor = PlugwerkDescriptor(id = "cascade-plugin", version = "1.0.0", name = "Cascade Plugin")
         whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
         val release = releaseService.upload("dl-event-ns", ByteArrayInputStream(FAKE_JAR), FAKE_JAR.size.toLong())
 
-        downloadEventService.record(release, "1.2.3.4", null)
-        downloadEventService.record(release, "5.6.7.8", null)
+        downloadEventService.record(release.id!!, "1.2.3.4", null)
+        downloadEventService.record(release.id!!, "5.6.7.8", null)
         assertThat(downloadEventRepository.findAll()).hasSize(2)
 
         releaseService.delete("dl-event-ns", "cascade-plugin", "1.0.0")

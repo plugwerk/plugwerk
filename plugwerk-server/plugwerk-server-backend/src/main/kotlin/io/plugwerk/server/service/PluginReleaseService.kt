@@ -112,7 +112,11 @@ class PluginReleaseService(
         releaseRepository.incrementDownloadCount(
             requireNotNull(release.id) { "PluginRelease has no persisted id" },
         )
-        downloadEventService.record(release, clientIp, userAgent)
+        downloadEventService.record(
+            requireNotNull(release.id) { "PluginRelease has no persisted id" },
+            clientIp,
+            userAgent,
+        )
         return stream
     }
 

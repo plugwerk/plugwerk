@@ -23,6 +23,7 @@ import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.PluginEntity
 import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.repository.DownloadEventRepository
+import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.service.settings.ApplicationSettingsService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -32,21 +33,25 @@ import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.junit.jupiter.MockitoSettings
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.mockito.quality.Strictness
+import java.util.UUID
 
 @ExtendWith(MockitoExtension::class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class DownloadEventServiceTest {
 
     private lateinit var downloadEventRepository: DownloadEventRepository
+    private lateinit var releaseRepository: PluginReleaseRepository
     private lateinit var service: DownloadEventService
 
     private val namespace = NamespaceEntity(slug = "acme", name = "ACME Corp")
     private val plugin = PluginEntity(namespace = namespace, pluginId = "my-plugin", name = "My Plugin")
+    private val releaseId: UUID = UUID.randomUUID()
     private val release = PluginReleaseEntity(
         plugin = plugin,
         version = "1.0.0",
@@ -71,14 +76,17 @@ class DownloadEventServiceTest {
     @BeforeEach
     fun setUp() {
         downloadEventRepository = mock()
-        service = DownloadEventService(downloadEventRepository, buildSettings())
+        releaseRepository = mock {
+            on { getReferenceById(releaseId) } doReturn release
+        }
+        service = DownloadEventService(downloadEventRepository, releaseRepository, buildSettings())
     }
 
     @Test
     fun `record saves event when tracking is enabled`() {
         whenever(downloadEventRepository.save(any<DownloadEventEntity>())).thenAnswer { it.getArgument(0) }
 
-        service.record(release, "192.168.1.42", "Mozilla/5.0")
+        service.record(releaseId, "192.168.1.42", "Mozilla/5.0")
 
         val captor = argumentCaptor<DownloadEventEntity>()
         verify(downloadEventRepository).save(captor.capture())
@@ -89,9 +97,9 @@ class DownloadEventServiceTest {
 
     @Test
     fun `record does nothing when tracking is disabled`() {
-        service = DownloadEventService(downloadEventRepository, buildSettings(enabled = false))
+        service = DownloadEventService(downloadEventRepository, releaseRepository, buildSettings(enabled = false))
 
-        service.record(release, "192.168.1.42", "Mozilla/5.0")
+        service.record(releaseId, "192.168.1.42", "Mozilla/5.0")
 
         verify(downloadEventRepository, never()).save(any<DownloadEventEntity>())
     }
@@ -100,7 +108,7 @@ class DownloadEventServiceTest {
     fun `record anonymizes IPv4 to slash 24`() {
         whenever(downloadEventRepository.save(any<DownloadEventEntity>())).thenAnswer { it.getArgument(0) }
 
-        service.record(release, "10.20.30.40", null)
+        service.record(releaseId, "10.20.30.40", null)
 
         val captor = argumentCaptor<DownloadEventEntity>()
         verify(downloadEventRepository).save(captor.capture())
@@ -111,7 +119,7 @@ class DownloadEventServiceTest {
     fun `record anonymizes IPv6 to slash 48`() {
         whenever(downloadEventRepository.save(any<DownloadEventEntity>())).thenAnswer { it.getArgument(0) }
 
-        service.record(release, "2001:db8:85a3:1234:5678:abcd:ef01:2345", null)
+        service.record(releaseId, "2001:db8:85a3:1234:5678:abcd:ef01:2345", null)
 
         val captor = argumentCaptor<DownloadEventEntity>()
         verify(downloadEventRepository).save(captor.capture())
@@ -120,10 +128,10 @@ class DownloadEventServiceTest {
 
     @Test
     fun `record stores raw IP when anonymization is disabled`() {
-        service = DownloadEventService(downloadEventRepository, buildSettings(anonymizeIp = false))
+        service = DownloadEventService(downloadEventRepository, releaseRepository, buildSettings(anonymizeIp = false))
         whenever(downloadEventRepository.save(any<DownloadEventEntity>())).thenAnswer { it.getArgument(0) }
 
-        service.record(release, "192.168.1.42", null)
+        service.record(releaseId, "192.168.1.42", null)
 
         val captor = argumentCaptor<DownloadEventEntity>()
         verify(downloadEventRepository).save(captor.capture())
@@ -132,10 +140,10 @@ class DownloadEventServiceTest {
 
     @Test
     fun `record nullifies IP when captureIp is false`() {
-        service = DownloadEventService(downloadEventRepository, buildSettings(captureIp = false))
+        service = DownloadEventService(downloadEventRepository, releaseRepository, buildSettings(captureIp = false))
         whenever(downloadEventRepository.save(any<DownloadEventEntity>())).thenAnswer { it.getArgument(0) }
 
-        service.record(release, "192.168.1.42", "Mozilla/5.0")
+        service.record(releaseId, "192.168.1.42", "Mozilla/5.0")
 
         val captor = argumentCaptor<DownloadEventEntity>()
         verify(downloadEventRepository).save(captor.capture())
@@ -144,10 +152,11 @@ class DownloadEventServiceTest {
 
     @Test
     fun `record nullifies user agent when captureUserAgent is false`() {
-        service = DownloadEventService(downloadEventRepository, buildSettings(captureUserAgent = false))
+        service =
+            DownloadEventService(downloadEventRepository, releaseRepository, buildSettings(captureUserAgent = false))
         whenever(downloadEventRepository.save(any<DownloadEventEntity>())).thenAnswer { it.getArgument(0) }
 
-        service.record(release, null, "Mozilla/5.0")
+        service.record(releaseId, null, "Mozilla/5.0")
 
         val captor = argumentCaptor<DownloadEventEntity>()
         verify(downloadEventRepository).save(captor.capture())

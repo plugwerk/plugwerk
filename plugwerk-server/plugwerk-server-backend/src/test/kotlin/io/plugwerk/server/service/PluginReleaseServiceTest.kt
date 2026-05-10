@@ -336,7 +336,7 @@ class PluginReleaseServiceTest {
         releaseService.downloadArtifact("acme", "my-plugin", "1.0.0")
 
         verify(releaseRepository).incrementDownloadCount(releaseId)
-        verify(downloadEventService).record(release, null, null)
+        verify(downloadEventService).record(releaseId, null, null)
     }
 
     @Test
@@ -356,7 +356,7 @@ class PluginReleaseServiceTest {
 
         releaseService.downloadArtifact("acme", "my-plugin", "1.0.0", "10.0.0.1", "curl/7.88")
 
-        verify(downloadEventService).record(release, "10.0.0.1", "curl/7.88")
+        verify(downloadEventService).record(releaseId, "10.0.0.1", "curl/7.88")
     }
 
     @Test
