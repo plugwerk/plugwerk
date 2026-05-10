@@ -49,7 +49,9 @@ import kotlin.test.assertFailsWith
 @Import(
     PluginReleaseService::class,
     PluginService::class,
+    PluginDeletionTransaction::class,
     NamespaceService::class,
+    NamespaceDeletionTransaction::class,
     DownloadEventService::class,
     io.plugwerk.server.service.settings.ApplicationSettingsService::class,
     io.plugwerk.server.service.settings.UserSettingsService::class,

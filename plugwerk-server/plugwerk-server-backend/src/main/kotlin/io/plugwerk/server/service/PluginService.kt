@@ -25,10 +25,12 @@ import io.plugwerk.server.repository.PluginRepository
 import io.plugwerk.server.service.storage.ArtifactStorageService
 import io.plugwerk.spi.model.PluginStatus
 import io.plugwerk.spi.model.ReleaseStatus
+import org.slf4j.LoggerFactory
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 
 @Service
@@ -38,7 +40,10 @@ class PluginService(
     private val releaseRepository: PluginReleaseRepository,
     private val storageService: ArtifactStorageService,
     private val namespaceService: NamespaceService,
+    private val pluginDeletionTransaction: PluginDeletionTransaction,
 ) {
+
+    private val log = LoggerFactory.getLogger(PluginService::class.java)
 
     fun findByNamespaceAndPluginId(namespaceSlug: String, pluginId: String): PluginEntity {
         val namespace = namespaceService.findBySlug(namespaceSlug)
@@ -342,14 +347,52 @@ class PluginService(
             .sorted()
     }
 
-    @Transactional
+    /**
+     * Deletes a plugin and all its releases.
+     *
+     * Two-phase split (#481):
+     *
+     *   1. [PluginDeletionTransaction.deleteFromDb] runs in its own
+     *      `@Transactional` boundary, removes the plugin + releases from
+     *      the database, and returns the list of artifact keys that
+     *      need to be cleaned up from storage.
+     *   2. The storage cleanup runs **outside** any transaction. Each
+     *      key is attempted independently; failures are logged and the
+     *      loop continues so a single I/O hiccup does not leave the
+     *      remaining files orphaned.
+     *
+     * The DB is the source of truth. If the storage cleanup fails for
+     * a given key the artifact is leaked (orphaned) and an out-of-band
+     * reaper will need to clean it up — that future job is tracked
+     * separately. Crucially, an orphan is recoverable; a missing DB row
+     * for a still-existing artifact is not.
+     *
+     * `@Transactional(propagation = NOT_SUPPORTED)` documents and
+     * enforces that this method must NOT run inside a caller-provided
+     * transaction. If a future caller wraps this call in an outer
+     * `@Transactional`, Spring suspends that transaction for the
+     * duration of `delete` rather than letting it accidentally swallow
+     * the storage cleanup back into the original failure mode.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun delete(namespaceSlug: String, pluginId: String) {
-        val entity = findByNamespaceAndPluginId(namespaceSlug, pluginId)
-        val releases = releaseRepository.findAllByPluginOrderByCreatedAtDesc(entity)
-        releases.forEach { release ->
-            storageService.delete(release.artifactKey)
-            releaseRepository.delete(release)
+        val artifactKeys = pluginDeletionTransaction.deleteFromDb(namespaceSlug, pluginId)
+        deleteArtifactsBestEffort(artifactKeys, namespaceSlug, pluginId)
+    }
+
+    private fun deleteArtifactsBestEffort(keys: List<String>, namespaceSlug: String, pluginId: String) {
+        keys.forEach { key ->
+            try {
+                storageService.delete(key)
+            } catch (ex: Exception) {
+                log.warn(
+                    "Failed to delete artifact '{}' for plugin '{}' in namespace '{}': {}",
+                    key,
+                    pluginId,
+                    namespaceSlug,
+                    ex.message,
+                )
+            }
         }
-        pluginRepository.delete(entity)
     }
 }

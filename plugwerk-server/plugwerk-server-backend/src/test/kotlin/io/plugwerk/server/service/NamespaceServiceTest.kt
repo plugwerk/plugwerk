@@ -60,6 +60,9 @@ class NamespaceServiceTest {
     @Mock
     lateinit var userSettingsService: UserSettingsService
 
+    @Mock
+    lateinit var namespaceDeletionTransaction: NamespaceDeletionTransaction
+
     @InjectMocks
     lateinit var namespaceService: NamespaceService
 
@@ -119,86 +122,47 @@ class NamespaceServiceTest {
     }
 
     @Test
-    fun `delete removes storage artifacts and namespace`() {
-        val namespace = NamespaceEntity(slug = "to-delete", name = "Org")
-        whenever(namespaceRepository.findBySlug("to-delete")).thenReturn(Optional.of(namespace))
-
-        val plugin1 = PluginEntity(namespace = namespace, pluginId = "p1", name = "P1")
-        val plugin2 = PluginEntity(namespace = namespace, pluginId = "p2", name = "P2")
-        whenever(pluginRepository.findAllByNamespace(namespace)).thenReturn(listOf(plugin1, plugin2))
-
-        val release1 = PluginReleaseEntity(
-            plugin = plugin1,
-            version = "1.0.0",
-            artifactSha256 = "sha1",
-            artifactKey = "to-delete/p1/1.0.0.jar",
-            status = ReleaseStatus.PUBLISHED,
-        )
-        val release2 = PluginReleaseEntity(
-            plugin = plugin2,
-            version = "2.0.0",
-            artifactSha256 = "sha2",
-            artifactKey = "to-delete/p2/2.0.0.jar",
-            status = ReleaseStatus.PUBLISHED,
-        )
-        whenever(pluginReleaseRepository.findAllByPluginInOrderByCreatedAtDesc(listOf(plugin1, plugin2)))
-            .thenReturn(listOf(release1, release2))
+    fun `delete delegates to deletion-transaction and runs storage cleanup for returned keys (#481)`() {
+        // Phase-1 (DB) lives in NamespaceDeletionTransaction; the service is
+        // responsible for phase-2 (best-effort storage cleanup outside any TX).
+        whenever(namespaceDeletionTransaction.deleteFromDb("to-delete"))
+            .thenReturn(listOf("to-delete/p1/1.0.0.jar", "to-delete/p2/2.0.0.jar"))
 
         namespaceService.delete("to-delete")
 
+        verify(namespaceDeletionTransaction).deleteFromDb("to-delete")
         verify(storageService).delete("to-delete/p1/1.0.0.jar")
         verify(storageService).delete("to-delete/p2/2.0.0.jar")
-        verify(userSettingsService).clearDefaultNamespace("to-delete")
-        verify(namespaceRepository).delete(namespace)
     }
 
     @Test
-    fun `delete continues when storage deletion fails for individual artifacts`() {
-        val namespace = NamespaceEntity(slug = "ns", name = "Org")
-        whenever(namespaceRepository.findBySlug("ns")).thenReturn(Optional.of(namespace))
-
-        val plugin = PluginEntity(namespace = namespace, pluginId = "p1", name = "P1")
-        whenever(pluginRepository.findAllByNamespace(namespace)).thenReturn(listOf(plugin))
-
-        val release1 = PluginReleaseEntity(
-            plugin = plugin,
-            version = "1.0.0",
-            artifactSha256 = "sha1",
-            artifactKey = "ns/p1/1.0.0.jar",
-            status = ReleaseStatus.PUBLISHED,
-        )
-        val release2 = PluginReleaseEntity(
-            plugin = plugin,
-            version = "2.0.0",
-            artifactSha256 = "sha2",
-            artifactKey = "ns/p1/2.0.0.jar",
-            status = ReleaseStatus.PUBLISHED,
-        )
-        whenever(pluginReleaseRepository.findAllByPluginInOrderByCreatedAtDesc(listOf(plugin)))
-            .thenReturn(listOf(release1, release2))
+    fun `delete continues when storage deletion fails for individual artifacts (#481)`() {
+        whenever(namespaceDeletionTransaction.deleteFromDb("ns"))
+            .thenReturn(listOf("ns/p1/1.0.0.jar", "ns/p1/2.0.0.jar"))
         doThrow(RuntimeException("storage error")).whenever(storageService).delete(eq("ns/p1/1.0.0.jar"))
 
+        // Must not rethrow.
         namespaceService.delete("ns")
 
+        // Both keys attempted — failure on the first did not short-circuit.
         verify(storageService).delete("ns/p1/1.0.0.jar")
         verify(storageService).delete("ns/p1/2.0.0.jar")
-        verify(namespaceRepository).delete(namespace)
     }
 
     @Test
-    fun `delete works for namespace with no plugins`() {
-        val namespace = NamespaceEntity(slug = "empty", name = "Org")
-        whenever(namespaceRepository.findBySlug("empty")).thenReturn(Optional.of(namespace))
-        whenever(pluginRepository.findAllByNamespace(namespace)).thenReturn(emptyList())
+    fun `delete is a no-op for storage when deletion-transaction returns no keys (#481)`() {
+        whenever(namespaceDeletionTransaction.deleteFromDb("empty")).thenReturn(emptyList())
 
         namespaceService.delete("empty")
 
-        verify(namespaceRepository).delete(namespace)
+        verify(namespaceDeletionTransaction).deleteFromDb("empty")
+        verify(storageService, org.mockito.kotlin.never()).delete(org.mockito.kotlin.any())
     }
 
     @Test
-    fun `delete throws NamespaceNotFoundException when namespace missing`() {
-        whenever(namespaceRepository.findBySlug("missing")).thenReturn(Optional.empty())
+    fun `delete propagates NamespaceNotFoundException from deletion-transaction (#481)`() {
+        whenever(namespaceDeletionTransaction.deleteFromDb("missing"))
+            .thenThrow(NamespaceNotFoundException("missing"))
 
         assertFailsWith<NamespaceNotFoundException> {
             namespaceService.delete("missing")
