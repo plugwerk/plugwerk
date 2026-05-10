@@ -41,7 +41,9 @@ import kotlin.test.assertFailsWith
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import(
     PluginService::class,
+    PluginDeletionTransaction::class,
     NamespaceService::class,
+    NamespaceDeletionTransaction::class,
     io.plugwerk.server.service.settings.UserSettingsService::class,
 )
 @Tag("integration")
@@ -122,14 +124,8 @@ class PluginServiceIntegrationTest {
         assertThat(found.description).isEqualTo("New Desc")
     }
 
-    @Test
-    fun `delete removes plugin from database`() {
-        pluginService.create("plugin-int-ns", "del-plugin", "To Delete")
-
-        pluginService.delete("plugin-int-ns", "del-plugin")
-
-        assertFailsWith<PluginNotFoundException> {
-            pluginService.findByNamespaceAndPluginId("plugin-int-ns", "del-plugin")
-        }
-    }
+    // delete-tests live in PluginDeleteIT — they need @SpringBootTest because
+    // PluginService.delete is now @Transactional(propagation = NOT_SUPPORTED)
+    // (#481), which is structurally incompatible with @DataJpaTest's
+    // auto-test-transaction (the suspended TX would hide setUp-seeded data).
 }

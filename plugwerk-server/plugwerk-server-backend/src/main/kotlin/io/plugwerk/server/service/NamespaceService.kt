@@ -26,6 +26,7 @@ import io.plugwerk.server.service.settings.UserSettingsService
 import io.plugwerk.server.service.storage.ArtifactStorageService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 
 @Service
@@ -36,6 +37,7 @@ class NamespaceService(
     private val pluginReleaseRepository: PluginReleaseRepository,
     private val storageService: ArtifactStorageService,
     private val userSettingsService: UserSettingsService,
+    private val namespaceDeletionTransaction: NamespaceDeletionTransaction,
 ) {
 
     private val log = LoggerFactory.getLogger(NamespaceService::class.java)
@@ -81,27 +83,33 @@ class NamespaceService(
         return namespaceRepository.save(entity)
     }
 
-    @Transactional
+    /**
+     * Deletes a namespace and all its dependent rows. Two-phase split (#481):
+     * DB cleanup runs in [NamespaceDeletionTransaction.deleteFromDb] inside
+     * its own transaction, then storage cleanup runs *outside* any
+     * transaction as a best-effort log-and-continue loop.
+     *
+     * `@Transactional(propagation = NOT_SUPPORTED)` enforces and documents
+     * that this method must not run inside a caller-provided transaction —
+     * such an outer TX would re-extend its boundary to wrap the storage
+     * loop, recreating the original issue. See `PluginService.delete` for
+     * the same pattern and rationale.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun delete(slug: String) {
-        val entity = findBySlug(slug)
-        deleteStorageArtifacts(entity)
-        userSettingsService.clearDefaultNamespace(slug)
-        namespaceRepository.delete(entity)
+        val artifactKeys = namespaceDeletionTransaction.deleteFromDb(slug)
+        deleteArtifactsBestEffort(artifactKeys, slug)
     }
 
-    private fun deleteStorageArtifacts(namespace: NamespaceEntity) {
-        val plugins = pluginRepository.findAllByNamespace(namespace)
-        if (plugins.isEmpty()) return
-        val releases = pluginReleaseRepository.findAllByPluginInOrderByCreatedAtDesc(plugins)
-        for (release in releases) {
+    private fun deleteArtifactsBestEffort(keys: List<String>, slug: String) {
+        keys.forEach { key ->
             try {
-                storageService.delete(release.artifactKey)
+                storageService.delete(key)
             } catch (ex: Exception) {
                 log.warn(
-                    "Failed to delete artifact '{}' for plugin '{}' in namespace '{}': {}",
-                    release.artifactKey,
-                    release.plugin.pluginId,
-                    namespace.slug,
+                    "Failed to delete artifact '{}' for namespace '{}': {}",
+                    key,
+                    slug,
                     ex.message,
                 )
             }

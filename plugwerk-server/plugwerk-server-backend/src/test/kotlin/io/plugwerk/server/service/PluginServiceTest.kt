@@ -53,6 +53,9 @@ class PluginServiceTest {
     @Mock
     lateinit var namespaceService: NamespaceService
 
+    @Mock
+    lateinit var pluginDeletionTransaction: PluginDeletionTransaction
+
     @InjectMocks
     lateinit var pluginService: PluginService
 
@@ -144,42 +147,46 @@ class PluginServiceTest {
     }
 
     @Test
-    fun `delete removes plugin with no releases`() {
-        val plugin = PluginEntity(namespace = namespace, pluginId = "p1", name = "Plugin 1")
-        whenever(namespaceService.findBySlug("acme")).thenReturn(namespace)
-        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "p1")).thenReturn(Optional.of(plugin))
-        whenever(releaseRepository.findAllByPluginOrderByCreatedAtDesc(plugin)).thenReturn(emptyList())
+    fun `delete delegates DB cleanup to deletion-transaction and skips storage when no releases (#481)`() {
+        // Phase-1 of the two-phase delete (#481): the actual DB mutations live
+        // in PluginDeletionTransaction. Service-level test verifies the
+        // delegation: when the transaction returns an empty key list there is
+        // nothing for the storage best-effort loop to do.
+        whenever(pluginDeletionTransaction.deleteFromDb("acme", "p1")).thenReturn(emptyList())
 
         pluginService.delete("acme", "p1")
 
-        verify(pluginRepository).delete(plugin)
+        verify(pluginDeletionTransaction).deleteFromDb("acme", "p1")
+        verify(storageService, org.mockito.kotlin.never()).delete(org.mockito.kotlin.any())
     }
 
     @Test
-    fun `delete cascades to releases and artifacts`() {
-        val plugin = PluginEntity(namespace = namespace, pluginId = "p1", name = "Plugin 1")
-        val release1 = PluginReleaseEntity(
-            plugin = plugin,
-            version = "1.0.0",
-            artifactSha256 = "sha1",
-            artifactKey = "acme:p1:1.0.0:jar",
-        )
-        val release2 = PluginReleaseEntity(
-            plugin = plugin,
-            version = "2.0.0",
-            artifactSha256 = "sha2",
-            artifactKey = "acme:p1:2.0.0:jar",
-        )
-        whenever(namespaceService.findBySlug("acme")).thenReturn(namespace)
-        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "p1")).thenReturn(Optional.of(plugin))
-        whenever(releaseRepository.findAllByPluginOrderByCreatedAtDesc(plugin)).thenReturn(listOf(release1, release2))
+    fun `delete invokes storage cleanup for every key returned by the deletion-transaction (#481)`() {
+        // Phase-2: keys returned by the transaction get a best-effort
+        // storage.delete call each, outside any transaction (which the
+        // unit test cannot prove on its own — that invariant is owned
+        // by PluginDeleteIT).
+        whenever(pluginDeletionTransaction.deleteFromDb("acme", "p1"))
+            .thenReturn(listOf("acme:p1:1.0.0:jar", "acme:p1:2.0.0:jar"))
 
         pluginService.delete("acme", "p1")
 
         verify(storageService).delete("acme:p1:1.0.0:jar")
         verify(storageService).delete("acme:p1:2.0.0:jar")
-        verify(releaseRepository).delete(release1)
-        verify(releaseRepository).delete(release2)
-        verify(pluginRepository).delete(plugin)
+    }
+
+    @Test
+    fun `delete swallows storage failures and continues with remaining keys (#481)`() {
+        whenever(pluginDeletionTransaction.deleteFromDb("acme", "p1"))
+            .thenReturn(listOf("acme:p1:1.0.0:jar", "acme:p1:2.0.0:jar"))
+        whenever(storageService.delete("acme:p1:1.0.0:jar"))
+            .thenThrow(ArtifactStorageException("simulated"))
+
+        // Must not rethrow.
+        pluginService.delete("acme", "p1")
+
+        // Both keys were attempted — failure on the first did not short-circuit.
+        verify(storageService).delete("acme:p1:1.0.0:jar")
+        verify(storageService).delete("acme:p1:2.0.0:jar")
     }
 }
