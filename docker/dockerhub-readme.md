@@ -3,7 +3,7 @@
 **Plugwerk** is a self-hosted plugin marketplace for the [PF4J](https://pf4j.org/) ecosystem. It lets teams publish, version, and distribute Java/Kotlin plugins to their own applications without relying on a public registry.
 
 - 🏠 Source: https://github.com/plugwerk/plugwerk
-- 📘 Docs: https://plugwerk.io
+- 📘 Docs: https://www.plugwerk.io
 - 🐛 Issues: https://github.com/plugwerk/plugwerk/issues
 - 📦 GHCR mirror: `ghcr.io/plugwerk/plugwerk-server`
 
@@ -105,7 +105,7 @@ Open http://localhost:8080 and log in with `admin` / that value. You will be req
 | `PLUGWERK_SERVER_CORS_MAX_AGE` | no | `3600` | Preflight cache duration in seconds (0..86400) |
 | `JAVA_OPTS` | no | `-Xms256m -Xmx512m -XX:+UseG1GC` | JVM options |
 
-Full reference: https://plugwerk.io/server/configuration/
+Full reference: https://www.plugwerk.io/server/configuration/
 
 ## Persistent storage
 
@@ -166,9 +166,9 @@ See [ADR-0025](https://github.com/plugwerk/plugwerk/blob/main/docs/adrs/0025-act
 
 ## Deployment guides
 
-- [Docker Compose](https://plugwerk.io/server/deployment/#docker-compose-recommended)
-- [Standalone Docker](https://plugwerk.io/server/deployment/#standalone-docker-container)
-- [JAR execution (systemd, k8s, etc.)](https://plugwerk.io/server/deployment/#jar-execution)
+- [Docker Compose](https://www.plugwerk.io/server/deployment/#docker-compose-recommended)
+- [Standalone Docker](https://www.plugwerk.io/server/deployment/#standalone-docker-container)
+- [JAR execution (systemd, k8s, etc.)](https://www.plugwerk.io/server/deployment/#jar-execution)
 
 ## License
 
