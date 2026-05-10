@@ -25,6 +25,7 @@ import io.plugwerk.server.repository.OidcProviderRepository
 import io.plugwerk.server.repository.UserRepository
 import io.plugwerk.server.security.DbClientRegistrationRepository
 import io.plugwerk.server.security.OidcProviderRegistry
+import io.plugwerk.server.security.url.OidcSsrfPolicy
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -79,6 +80,8 @@ class OidcProviderServiceTest {
             on { encrypt(any()) } doAnswerReturn { "ENCRYPTED-${it.arguments[0]}" }
         }
 
+        // Default to the production policy (SSRF guard active). Tests that
+        // need the relaxed mode rebuild `service` with allowPrivate = true.
         service = OidcProviderService(
             oidcProviderRepository,
             oidcProviderRegistry,
@@ -86,6 +89,7 @@ class OidcProviderServiceTest {
             oidcIdentityRepository,
             userRepository,
             textEncryptor,
+            OidcSsrfPolicy(allowPrivateDiscoveryUris = false),
         )
     }
 
@@ -252,15 +256,17 @@ class OidcProviderServiceTest {
     }
 
     @Test
-    fun `discoverEndpoints returns failure outcome with error message for unreachable issuer`() {
-        // Port 1 is closed by convention — Spring's ClientRegistrations.fromIssuerLocation
-        // will fail with a connection / network error, which the service must surface as
-        // success=false rather than rethrowing. The UI uses this branch to render an
-        // operator-actionable hint.
-        val outcome = service.discoverEndpoints("http://localhost:1/realms/never")
+    fun `discoverEndpoints returns generic failure outcome for unreachable public issuer`() {
+        // example.invalid (RFC 2606) is reserved and DNS-fails fast — exercises
+        // the post-guard exception branch so we know SSRF rejection and
+        // connection-failure rejection both land on the same generic message.
+        val outcome = service.discoverEndpoints("https://example.invalid/realms/never")
 
         assertThat(outcome.success).isFalse()
-        assertThat(outcome.error).isNotBlank()
+        assertThat(outcome.error).isEqualTo(
+            "OIDC discovery failed — verify the issuer URI is reachable and serves a valid " +
+                "/.well-known/openid-configuration document.",
+        )
         assertThat(outcome.authorizationUri).isNull()
     }
 
@@ -270,6 +276,61 @@ class OidcProviderServiceTest {
 
         assertThat(outcome.success).isFalse()
         assertThat(outcome.error).contains("issuerUri")
+    }
+
+    @Test
+    fun `discoverEndpoints rejects AWS instance metadata with generic error (#479)`() {
+        val outcome = service.discoverEndpoints("http://169.254.169.254/.well-known/openid-configuration")
+
+        assertThat(outcome.success).isFalse()
+        assertThat(outcome.error)
+            .startsWith("OIDC discovery failed")
+            .doesNotContain("169.254")
+            .doesNotContain("private")
+    }
+
+    @Test
+    fun `discoverEndpoints rejects loopback with generic error (#479)`() {
+        val outcome = service.discoverEndpoints("http://127.0.0.1:6379/")
+
+        assertThat(outcome.success).isFalse()
+        assertThat(outcome.error).startsWith("OIDC discovery failed")
+    }
+
+    @Test
+    fun `discoverEndpoints rejects RFC1918 private host with generic error (#479)`() {
+        val outcome = service.discoverEndpoints("http://10.0.0.5/realms/internal")
+
+        assertThat(outcome.success).isFalse()
+        assertThat(outcome.error).startsWith("OIDC discovery failed")
+    }
+
+    @Test
+    fun `discoverEndpoints rejects localhost with generic error (#479)`() {
+        val outcome = service.discoverEndpoints("http://localhost/realms/dev")
+
+        assertThat(outcome.success).isFalse()
+        assertThat(outcome.error).startsWith("OIDC discovery failed")
+    }
+
+    @Test
+    fun `discoverEndpoints accepts localhost when escape hatch is on (#479)`() {
+        val relaxed = OidcProviderService(
+            oidcProviderRepository,
+            oidcProviderRegistry,
+            dbClientRegistrationRepository,
+            oidcIdentityRepository,
+            userRepository,
+            textEncryptor,
+            OidcSsrfPolicy(allowPrivateDiscoveryUris = true),
+        )
+        // The guard does not run, so the call falls through to Spring's
+        // ClientRegistrations and ultimately to the connection-failure branch
+        // (port 1 is convention-closed). Same generic error string either way.
+        val outcome = relaxed.discoverEndpoints("http://localhost:1/realms/dev")
+
+        assertThat(outcome.success).isFalse()
+        assertThat(outcome.error).startsWith("OIDC discovery failed")
     }
 }
 

@@ -94,6 +94,7 @@ import java.util.concurrent.atomic.AtomicReference
 class DbClientRegistrationRepository(
     private val oidcProviderRepository: OidcProviderRepository,
     private val textEncryptor: TextEncryptor,
+    private val ssrfPolicy: io.plugwerk.server.security.url.OidcSsrfPolicy,
 ) : ClientRegistrationRepository,
     Iterable<ClientRegistration> {
 
@@ -141,6 +142,9 @@ class DbClientRegistrationRepository(
                 val issuerUri = requireNotNull(provider.issuerUri) {
                     "issuerUri is required for provider type ${provider.providerType}"
                 }
+                // Defense-in-depth (#479): write-time guard already rejects private URIs
+                // in OidcProviderService, but legacy rows from before the fix might exist.
+                ssrfPolicy.requirePublicHttpUri(issuerUri, "issuerUri", required = true)
                 ClientRegistrations.fromIssuerLocation(issuerUri)
             }
 
@@ -192,6 +196,12 @@ class DbClientRegistrationRepository(
                 val userInfoUri = requireNotNull(provider.userInfoUri) {
                     "userInfoUri is required for provider type ${provider.providerType}"
                 }
+                // Defense-in-depth (#479): all three URIs are fetched at runtime
+                // (token / userinfo) or redirected-to (authorization). Legacy rows
+                // could carry private hosts that bypassed the write-time guard.
+                ssrfPolicy.requirePublicHttpUri(authorizationUri, "authorizationUri", required = true)
+                ssrfPolicy.requirePublicHttpUri(tokenUri, "tokenUri", required = true)
+                ssrfPolicy.requirePublicHttpUri(userInfoUri, "userInfoUri", required = true)
                 ClientRegistration.withRegistrationId(registrationId)
                     .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                     .redirectUri(DEFAULT_REDIRECT_URI_TEMPLATE)

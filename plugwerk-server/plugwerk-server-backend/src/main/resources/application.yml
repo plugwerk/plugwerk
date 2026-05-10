@@ -158,6 +158,16 @@ plugwerk:
   # PLUGWERK_TRACKING_CAPTURE_USER_AGENT are no longer read. Manage these values via the
   # Admin UI or the `PATCH /api/v1/admin/settings` endpoint.
 
+  security:
+    oidc:
+      # SSRF guard for OIDC discovery and stored issuer/endpoint URIs (#479).
+      # Default: false → reject private/loopback/link-local/metadata hosts.
+      # Set to true ONLY for local dev against Keycloak / mock-oauth2-server
+      # bound to localhost. NEVER in production — a startup WARN is logged
+      # whenever this is true so an accidental flip is visible.
+      # Env: PLUGWERK_SECURITY_OIDC_ALLOW_PRIVATE_DISCOVERY_URIS
+      allow-private-discovery-uris: ${PLUGWERK_SECURITY_OIDC_ALLOW_PRIVATE_DISCOVERY_URIS:false}
+
 server:
   port: 8080
 
