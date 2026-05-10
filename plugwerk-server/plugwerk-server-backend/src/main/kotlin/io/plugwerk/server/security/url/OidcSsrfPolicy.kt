@@ -30,8 +30,8 @@ import org.springframework.stereotype.Component
  * gate (rejects private/loopback/link-local/metadata).
  *
  * Dev/test profiles can set
- * `plugwerk.security.oidc.allow-private-discovery-uris=true`
- * (env: `PLUGWERK_SECURITY_OIDC_ALLOW_PRIVATE_DISCOVERY_URIS`) to allow
+ * `plugwerk.auth.oidc.allow-private-discovery-uris=true`
+ * (env: `PLUGWERK_AUTH_OIDC_ALLOW_PRIVATE_DISCOVERY_URIS`) to allow
  * Keycloak / mock-oauth2-server on localhost. A startup WARN is logged
  * whenever the escape hatch is enabled so an operator who flipped it
  * accidentally in production sees it in the log.
@@ -43,7 +43,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 class OidcSsrfPolicy(
-    @param:Value("\${plugwerk.security.oidc.allow-private-discovery-uris:false}")
+    @param:Value("\${plugwerk.auth.oidc.allow-private-discovery-uris:false}")
     val allowPrivateDiscoveryUris: Boolean = false,
 ) {
 
@@ -53,7 +53,7 @@ class OidcSsrfPolicy(
     fun warnIfRelaxed() {
         if (allowPrivateDiscoveryUris) {
             log.warn(
-                "plugwerk.security.oidc.allow-private-discovery-uris=true — OIDC SSRF guard is " +
+                "plugwerk.auth.oidc.allow-private-discovery-uris=true — OIDC SSRF guard is " +
                     "RELAXED. This is intended for local development against Keycloak or " +
                     "mock-oauth2-server only. NEVER set this in production.",
             )

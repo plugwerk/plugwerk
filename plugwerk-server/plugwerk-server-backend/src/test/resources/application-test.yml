@@ -14,7 +14,7 @@ spring:
     enabled: false
 
 plugwerk:
-  security:
+  auth:
     oidc:
       # Tests use mock-oauth2-server / Keycloak on 127.0.0.1 — relax SSRF
       # guard so the discovery + refresh paths still work. Production

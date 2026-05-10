@@ -49,7 +49,7 @@ object UriGuards {
     /**
      * Same syntax + scheme + non-blank-host checks as [requirePublicHttpUri]
      * but **without** the SSRF host-class guard. Use only behind an explicit
-     * dev/test escape hatch (#479: `plugwerk.security.oidc.allow-private-discovery-uris`).
+     * dev/test escape hatch (#479: `plugwerk.auth.oidc.allow-private-discovery-uris`).
      */
     fun requireHttpUri(value: String?, fieldName: String, required: Boolean) {
         parseHttpUriHostOrNull(value, fieldName, required)
