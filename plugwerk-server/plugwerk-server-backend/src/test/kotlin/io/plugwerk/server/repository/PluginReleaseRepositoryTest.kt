@@ -23,11 +23,14 @@ import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.PluginEntity
 import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.spi.model.ReleaseStatus
+import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.dao.DataIntegrityViolationException
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import kotlin.test.assertFailsWith
 
 open class PluginReleaseRepositoryTest : AbstractRepositoryTest() {
@@ -40,6 +43,9 @@ open class PluginReleaseRepositoryTest : AbstractRepositoryTest() {
 
     @Autowired
     lateinit var releaseRepository: PluginReleaseRepository
+
+    @Autowired
+    lateinit var entityManager: EntityManager
 
     lateinit var plugin: PluginEntity
 
@@ -188,6 +194,72 @@ open class PluginReleaseRepositoryTest : AbstractRepositoryTest() {
                 ),
             )
         }
+    }
+
+    @Test
+    fun `findLatestPublishedReleasesForPlugins is deterministic on createdAt ties (#482)`() {
+        // Two PUBLISHED releases of the same plugin with EXACTLY the same
+        // created_at. Pre-fix the query's correlated MAX(createdAt) subquery
+        // returned both rows; the caller's associateBy { plugin.id } collapsed
+        // them to a single map entry whose winner is implementation-defined
+        // (Hibernate iteration order without an ORDER BY). The catalog's
+        // "latest version" therefore flickered between versions on every
+        // query — a non-deterministic read, not a missing-plugin one as the
+        // original issue body claimed.
+        //
+        // Post-fix: ROW_NUMBER() OVER (PARTITION BY plugin_id ORDER BY
+        // created_at DESC, id DESC) breaks the tie deterministically using
+        // id as the secondary sort. UUIDv7 is time-ordered, so id-DESC
+        // semantically continues "later wins" past the timestamp resolution.
+        val r1 = releaseRepository.save(
+            PluginReleaseEntity(
+                plugin = plugin,
+                version = "1.0.0",
+                artifactSha256 = "sha1",
+                artifactKey = "release-ns/my-plugin/1.0.0",
+                status = ReleaseStatus.PUBLISHED,
+            ),
+        )
+        val r2 = releaseRepository.save(
+            PluginReleaseEntity(
+                plugin = plugin,
+                version = "1.0.1",
+                artifactSha256 = "sha2",
+                artifactKey = "release-ns/my-plugin/1.0.1",
+                status = ReleaseStatus.PUBLISHED,
+            ),
+        )
+
+        // Force identical created_at via native UPDATE — @CreationTimestamp
+        // does not let us set the value at save time. flush()+clear() so the
+        // following findLatestPublishedReleasesForPlugins sees the rewritten
+        // values, not the stale persistence-context cache.
+        val tieTimestamp = OffsetDateTime.parse("2026-05-10T12:00:00Z")
+            .withOffsetSameInstant(ZoneOffset.UTC)
+        entityManager.createNativeQuery(
+            "UPDATE plugin_release SET created_at = :ts WHERE id IN (:r1, :r2)",
+        )
+            .setParameter("ts", tieTimestamp)
+            .setParameter("r1", r1.id)
+            .setParameter("r2", r2.id)
+            .executeUpdate()
+        entityManager.flush()
+        entityManager.clear()
+
+        // Run the query 50 times and assert it always returns exactly one
+        // row, always with the same id. Without the tiebreaker the result
+        // is at the mercy of the underlying row order; the deterministic
+        // ORDER BY id DESC always picks the higher UUID.
+        val winners = (1..50).map {
+            val result = releaseRepository.findLatestPublishedReleasesForPlugins(listOf(plugin.id!!))
+            assertThat(result).hasSize(1)
+            result.single().id
+        }.distinct()
+
+        assertThat(winners).hasSize(1)
+        // UUIDv7 ids are time-ordered, so the later-saved release (r2) has
+        // the higher id and must win the tiebreaker.
+        assertThat(winners.single()).isEqualTo(r2.id)
     }
 
     @Test
