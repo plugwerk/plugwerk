@@ -17,6 +17,7 @@ package io.plugwerk.client.updater
 
 import io.plugwerk.client.PlugwerkClient
 import io.plugwerk.spi.PlugwerkConfig
+import io.plugwerk.spi.model.InstalledPluginRef
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.jupiter.api.AfterEach
@@ -66,7 +67,7 @@ class PlugwerkUpdateCheckerImplTest {
                 .setResponseCode(200),
         )
 
-        val updates = updateChecker.checkForUpdates(mapOf("my-plugin" to "1.0.0"))
+        val updates = updateChecker.checkForUpdates(listOf(InstalledPluginRef("my-plugin", "1.0.0")))
 
         assertEquals(1, updates.size)
         assertEquals("my-plugin", updates[0].pluginId)
@@ -79,7 +80,7 @@ class PlugwerkUpdateCheckerImplTest {
     fun `checkForUpdates sends POST to updates-check endpoint`() {
         server.enqueue(MockResponse().setBody("""{"updates":[]}""").setResponseCode(200))
 
-        updateChecker.checkForUpdates(mapOf("plugin-a" to "2.0.0"))
+        updateChecker.checkForUpdates(listOf(InstalledPluginRef("plugin-a", "2.0.0")))
 
         val request = server.takeRequest()
         assertTrue(request.path!!.contains("/updates/check")) { "Expected /updates/check in path: ${request.path}" }
@@ -89,7 +90,7 @@ class PlugwerkUpdateCheckerImplTest {
 
     @Test
     fun `checkForUpdates returns empty list for empty input`() {
-        val updates = updateChecker.checkForUpdates(emptyMap())
+        val updates = updateChecker.checkForUpdates(emptyList())
 
         assertTrue(updates.isEmpty())
         assertEquals(0, server.requestCount)

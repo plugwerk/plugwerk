@@ -34,7 +34,8 @@ import org.pf4j.ExtensionPoint
  * plugin.connect(config).use { marketplace ->
  *     val plugins = marketplace.catalog().listPlugins()
  *     marketplace.installer().install("io.example.my-plugin", "1.0.0")
- *     val updates = marketplace.updateChecker().checkForUpdates(installedVersions)
+ *     val installed = listOf(InstalledPluginRef("io.example.my-plugin", "1.0.0"))
+ *     val updates = marketplace.updateChecker().checkForUpdates(installed)
  * }
  * ```
  *
@@ -45,7 +46,8 @@ import org.pf4j.ExtensionPoint
  * try (PlugwerkMarketplace marketplace = plugin.connect(config)) {
  *     List<PluginInfo> plugins = marketplace.catalog().listPlugins();
  *     marketplace.installer().install("io.example.my-plugin", "1.0.0");
- *     Map<String, String> installed = Map.of("io.example.my-plugin", "1.0.0");
+ *     List<InstalledPluginRef> installed = List.of(
+ *         new InstalledPluginRef("io.example.my-plugin", "1.0.0"));
  *     List<UpdateInfo> updates = marketplace.updateChecker().checkForUpdates(installed);
  * }
  * ```

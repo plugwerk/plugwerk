@@ -36,7 +36,7 @@ Plugin Classloader (isolated)
 | `PlugwerkClient` | Low-level OkHttp HTTP client, namespace-scoped URL construction, auth headers |
 | `PlugwerkCatalogImpl` | `GET /plugins`, search, filtering — maps server DTOs to SPI models |
 | `PlugwerkInstallerImpl` | Verified download (SHA-256), `install` = download + PF4J `loadPlugin` + `startPlugin`, `uninstall` = `stopPlugin` + `unloadPlugin` + delete artifact (#424) |
-| `PlugwerkUpdateCheckerImpl` | `POST /updates/check` with installed version map |
+| `PlugwerkUpdateCheckerImpl` | `POST /updates/check` with the installed-plugins list |
 | `DtoMappers` | Converts `plugwerk-api-model` DTOs to `plugwerk-spi` model classes |
 
 ## Configuration
