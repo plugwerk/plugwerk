@@ -35,6 +35,7 @@ import org.mockito.kotlin.argThat
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.transaction.annotation.Transactional
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.time.Instant
@@ -194,6 +195,62 @@ class TokenRevocationServiceTest {
         service.cleanupExpired()
 
         verify(revokedTokenRepository).deleteExpiredBefore(any())
+    }
+
+    @Test
+    fun `isRevoked is annotated with Transactional readOnly true (#486)`() {
+        // Without the annotation isRevoked runs each repository call in its
+        // own auto-commit unit — two connection acquires per cache miss on
+        // every authenticated request. The annotation collapses both reads
+        // into one connection and adds isolation between them. Reflection
+        // assertion locks the contract so the annotation cannot quietly
+        // disappear during a future refactor.
+        val method = TokenRevocationService::class.java
+            .getDeclaredMethod("isRevoked", String::class.java, String::class.java, Instant::class.java)
+        val annotation = method.getAnnotation(Transactional::class.java)
+
+        assertThat(annotation)
+            .`as`("TokenRevocationService.isRevoked must be @Transactional (#486)")
+            .isNotNull
+        assertThat(annotation.readOnly)
+            .`as`("TokenRevocationService.isRevoked must be readOnly = true (#486)")
+            .isTrue()
+    }
+
+    @Test
+    fun `isRevoked still returns true for explicitly-revoked jti under read-only TX (#486 behavioural)`() {
+        // Pin the post-fix behaviour: even with readOnly = true the cache
+        // miss → DB lookup → cache put path still works. The cache.put is
+        // in-JVM (not JDBC), so readOnly does not block it. If a future
+        // change accidentally turned the cache write into a JDBC write,
+        // this test would catch it via the InvalidDataAccessApiUsageException
+        // Spring throws on writes inside a readOnly TX.
+        val jti = "explicitly-revoked-jti"
+        val jtiHash = sha256Hex(jti)
+        whenever(revokedTokenRepository.existsByJti(jtiHash)).thenReturn(true)
+
+        val result = service.isRevoked(jti, UUID.randomUUID().toString(), Instant.now())
+
+        assertThat(result).isTrue()
+    }
+
+    @Test
+    fun `isRevoked returns true when user passwordInvalidatedBefore is after token iat (#486 behavioural)`() {
+        // The second branch of isRevoked: bulk invalidation via password
+        // change. Same readOnly safety check as the explicit-revocation
+        // test above.
+        val jti = "valid-jti"
+        val jtiHash = sha256Hex(jti)
+        val userId = UUID.randomUUID()
+        val issuedAt = Instant.parse("2026-05-10T12:00:00Z")
+        val invalidatedAt = OffsetDateTime.parse("2026-05-10T12:30:00Z")
+        whenever(revokedTokenRepository.existsByJti(jtiHash)).thenReturn(false)
+        whenever(userRepository.findById(userId))
+            .thenReturn(Optional.of(localUser(userId, passwordInvalidatedBefore = invalidatedAt)))
+
+        val result = service.isRevoked(jti, userId.toString(), issuedAt)
+
+        assertThat(result).isTrue()
     }
 
     /**

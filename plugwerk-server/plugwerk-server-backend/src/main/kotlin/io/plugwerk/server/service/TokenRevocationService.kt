@@ -88,11 +88,17 @@ class TokenRevocationService(
      * Checks whether a token identified by [jti] has been revoked, either explicitly
      * or because the user's password was changed after the token was issued.
      *
+     * Runs inside a read-only transaction (#486) so the existsByJti + findById
+     * pair on a cache miss share one connection. Without this annotation each
+     * repository call ran in its own auto-commit unit, doubling JDBC connection
+     * acquires for every authenticated request hitting a cold jti.
+     *
      * @param jti The JWT ID claim.
      * @param subject The JWT `sub` claim — `plugwerk_user.id` UUID-string after #351.
      * @param issuedAt The `iat` claim of the token.
      * @return `true` if the token must be rejected.
      */
+    @Transactional(readOnly = true)
     fun isRevoked(jti: String, subject: String, issuedAt: Instant): Boolean {
         // Check explicit revocation (cache → DB fallback). Both the cache key
         // and the repository lookup use the SHA-256 hash so the raw jti never
