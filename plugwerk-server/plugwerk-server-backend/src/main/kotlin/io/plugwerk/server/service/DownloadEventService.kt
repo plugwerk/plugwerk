@@ -19,14 +19,15 @@
 package io.plugwerk.server.service
 
 import io.plugwerk.server.domain.DownloadEventEntity
-import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.repository.DownloadEventRepository
+import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.service.settings.ApplicationSettingsService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.net.InetAddress
+import java.util.UUID
 
 /**
  * Records download events in the audit log table.
@@ -40,13 +41,24 @@ import java.net.InetAddress
 @Service
 class DownloadEventService(
     private val downloadEventRepository: DownloadEventRepository,
+    private val releaseRepository: PluginReleaseRepository,
     private val settingsService: ApplicationSettingsService,
 ) {
 
     private val log = LoggerFactory.getLogger(DownloadEventService::class.java)
 
+    /**
+     * Records one download event for the release identified by [releaseId].
+     *
+     * Takes the release **id** rather than the entity (#484) so the caller
+     * does not have to hand a managed entity across the `REQUIRES_NEW`
+     * transaction boundary. The `@ManyToOne` on `DownloadEventEntity.release`
+     * has no cascade and only writes the FK column, so a Hibernate
+     * proxy from [PluginReleaseRepository.getReferenceById] is sufficient
+     * — no extra `SELECT` round-trip is issued.
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    fun record(release: PluginReleaseEntity, clientIp: String?, userAgent: String?) {
+    fun record(releaseId: UUID, clientIp: String?, userAgent: String?) {
         if (!settingsService.trackingEnabled()) return
 
         val ip = when {
@@ -59,7 +71,7 @@ class DownloadEventService(
 
         downloadEventRepository.save(
             DownloadEventEntity(
-                release = release,
+                release = releaseRepository.getReferenceById(releaseId),
                 clientIp = ip,
                 userAgent = agent,
             ),
