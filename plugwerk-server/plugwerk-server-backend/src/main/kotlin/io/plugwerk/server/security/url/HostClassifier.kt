@@ -36,36 +36,40 @@ import java.net.InetAddress
  * still resolves once at request time, which is acceptable risk for an
  * admin-only feature behind a guard at write *and* read time.
  *
- * Blocked categories:
- *  - RFC 1918 private (`10/8`, `172.16/12`, `192.168/16`)
- *  - Loopback (`127/8`, `::1`, the literal `localhost`, the `*.localhost`
- *    suffix per RFC 6761)
- *  - Link-local (`169.254/16`, `fe80::/10`) — also covers AWS instance
- *    metadata at `169.254.169.254` and the `fd00:ec2::254` IMDSv2 form via
- *    the ULA range below
- *  - Unspecified (`0.0.0.0`, `::`)
- *  - Unique-local IPv6 (`fc00::/7`) — covers GCP/IMDSv2 metadata too
- *  - Cloud-metadata exact-match names (`metadata.google.internal`,
- *    `metadata`)
- *  - mDNS / corporate-internal suffixes (`*.local`, `*.lan`, `*.internal`)
- *  - IPv4-mapped IPv6 onto any of the above (`::ffff:10.0.0.1` etc.)
+ * **IP-range blocks** (RFC 1918, loopback, link-local, ULA, IPv4-mapped
+ * forms) are hardcoded — they are Internet standards, not policy. The
+ * `plugwerk.auth.oidc.allow-private-discovery-uris` escape hatch
+ * disables them wholesale for dev profiles.
+ *
+ * **Hostname blocks** ([blockedNames], [blockedSuffixes]) ARE configurable
+ * — operators with a legitimate `*.internal` public domain or with their
+ * own corporate-internal suffixes (`*.corp.example.com`) override the
+ * defaults via `plugwerk.auth.oidc.blocked-host-names` /
+ * `plugwerk.auth.oidc.blocked-host-suffixes` (env:
+ * `PLUGWERK_AUTH_OIDC_BLOCKED_HOST_NAMES` /
+ * `PLUGWERK_AUTH_OIDC_BLOCKED_HOST_SUFFIXES`). Default values match
+ * [DEFAULT_BLOCKED_NAMES] / [DEFAULT_BLOCKED_SUFFIXES].
  */
-object HostClassifier {
+class HostClassifier(
+    blockedNames: Collection<String> = DEFAULT_BLOCKED_NAMES,
+    blockedSuffixes: Collection<String> = DEFAULT_BLOCKED_SUFFIXES,
+) {
 
-    private val EXACT_BLOCKED_NAMES = setOf(
-        "localhost",
-        "metadata.google.internal",
-        "metadata",
-    )
+    /** Lowercased copy — host comparison is case-insensitive (RFC 5890). */
+    private val blockedNames: Set<String> = blockedNames
+        .map { it.trim().lowercase() }
+        .filter { it.isNotEmpty() }
+        .toSet()
 
-    private val BLOCKED_NAME_SUFFIXES = listOf(
-        ".localhost",
-        ".local",
-        ".lan",
-        ".internal",
-    )
-
-    private val IPV4_LITERAL_REGEX = Regex("""\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}""")
+    /**
+     * Lowercased copy. Suffixes that don't already start with `.` get one
+     * prepended so a configured `corp.example.com` matches
+     * `idp.corp.example.com` but NOT `evilcorp.example.com`.
+     */
+    private val blockedSuffixes: List<String> = blockedSuffixes
+        .map { it.trim().lowercase() }
+        .filter { it.isNotEmpty() }
+        .map { if (it.startsWith(".")) it else ".$it" }
 
     fun isPublicRoutable(host: String): Boolean {
         val trimmed = host.trim()
@@ -73,8 +77,8 @@ object HostClassifier {
 
         val normalized = trimmed.lowercase()
 
-        if (normalized in EXACT_BLOCKED_NAMES) return false
-        if (BLOCKED_NAME_SUFFIXES.any { normalized.endsWith(it) }) return false
+        if (normalized in blockedNames) return false
+        if (blockedSuffixes.any { normalized.endsWith(it) }) return false
 
         val literal = parseIpLiteral(normalized) ?: return true
         return !isPrivateOrSpecial(literal)
@@ -150,5 +154,32 @@ object HostClassifier {
         }
 
         return false
+    }
+
+    companion object {
+        /**
+         * Default exact-match host blocklist — applied when the operator
+         * does not override `plugwerk.auth.oidc.blocked-host-names`.
+         */
+        val DEFAULT_BLOCKED_NAMES: Set<String> = setOf(
+            "localhost",
+            "metadata.google.internal",
+            "metadata",
+        )
+
+        /**
+         * Default suffix blocklist — applied when the operator does not
+         * override `plugwerk.auth.oidc.blocked-host-suffixes`. Each
+         * default starts with `.` so it matches a full DNS label, not a
+         * substring.
+         */
+        val DEFAULT_BLOCKED_SUFFIXES: List<String> = listOf(
+            ".localhost",
+            ".local",
+            ".lan",
+            ".internal",
+        )
+
+        private val IPV4_LITERAL_REGEX = Regex("""\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}""")
     }
 }

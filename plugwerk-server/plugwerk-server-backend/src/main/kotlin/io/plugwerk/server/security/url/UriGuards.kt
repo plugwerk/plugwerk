@@ -41,10 +41,17 @@ object UriGuards {
      * `null` or blank input passes when [required] is `false` (matching the
      * existing patch-semantics in `OidcProviderService.update`).
      */
-    fun requirePublicHttpUri(value: String?, fieldName: String, required: Boolean) {
+    fun requirePublicHttpUri(
+        value: String?,
+        fieldName: String,
+        required: Boolean,
+        hostClassifier: HostClassifier = DEFAULT_HOST_CLASSIFIER,
+    ) {
         val host = parseHttpUriHostOrNull(value, fieldName, required) ?: return
-        HostClassifier.requirePublicHost(host, fieldName)
+        hostClassifier.requirePublicHost(host, fieldName)
     }
+
+    private val DEFAULT_HOST_CLASSIFIER = HostClassifier()
 
     /**
      * Same syntax + scheme + non-blank-host checks as [requirePublicHttpUri]

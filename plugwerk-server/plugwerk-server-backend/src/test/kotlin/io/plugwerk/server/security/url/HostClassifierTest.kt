@@ -24,6 +24,8 @@ import org.junit.jupiter.params.provider.ValueSource
 
 class HostClassifierTest {
 
+    private val classifier = HostClassifier()
+
     @ParameterizedTest
     @ValueSource(
         strings = [
@@ -77,7 +79,7 @@ class HostClassifierTest {
         ],
     )
     fun `rejects private, loopback, link-local, ULA, metadata, and mDNS hosts`(host: String) {
-        assertThat(HostClassifier.isPublicRoutable(host))
+        assertThat(classifier.isPublicRoutable(host))
             .`as`("host=%s should be classified as non-public", host)
             .isFalse()
     }
@@ -105,7 +107,7 @@ class HostClassifierTest {
         ],
     )
     fun `accepts public hosts`(host: String) {
-        assertThat(HostClassifier.isPublicRoutable(host))
+        assertThat(classifier.isPublicRoutable(host))
             .`as`("host=%s should be classified as public", host)
             .isTrue()
     }
@@ -113,13 +115,13 @@ class HostClassifierTest {
     @ParameterizedTest
     @ValueSource(strings = ["", " ", "\t"])
     fun `rejects blank input`(host: String) {
-        assertThat(HostClassifier.isPublicRoutable(host)).isFalse()
+        assertThat(classifier.isPublicRoutable(host)).isFalse()
     }
 
     @org.junit.jupiter.api.Test
     fun `requirePublicHost throws IllegalArgumentException with field-prefixed message for non-public host`() {
         val ex = org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
-            HostClassifier.requirePublicHost("169.254.169.254", "issuerUri")
+            classifier.requirePublicHost("169.254.169.254", "issuerUri")
         }
         assertThat(ex.message)
             .startsWith("issuerUri")
@@ -128,6 +130,65 @@ class HostClassifierTest {
 
     @org.junit.jupiter.api.Test
     fun `requirePublicHost is silent for public host`() {
-        HostClassifier.requirePublicHost("login.example.com", "issuerUri")
+        classifier.requirePublicHost("login.example.com", "issuerUri")
+    }
+
+    // -- override tests ------------------------------------------------------
+
+    @org.junit.jupiter.api.Test
+    fun `custom blockedNames replaces the defaults entirely`() {
+        // Operator override: drop `localhost` etc. from the name list, add
+        // their own. Default suffixes still apply because we only overrode
+        // the names list.
+        val custom = HostClassifier(blockedNames = setOf("private-idp", "internal-only"))
+
+        assertThat(custom.isPublicRoutable("private-idp")).isFalse()
+        assertThat(custom.isPublicRoutable("internal-only")).isFalse()
+        // `metadata` was a default name-block but is no longer in the
+        // override → public (it is not an IP literal so IP-class checks
+        // do not catch it).
+        assertThat(custom.isPublicRoutable("metadata")).isTrue()
+        // default suffix still in effect.
+        assertThat(custom.isPublicRoutable("printer.local")).isFalse()
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `custom blockedSuffixes replaces the defaults entirely`() {
+        val custom = HostClassifier(blockedSuffixes = listOf(".corp.example.com", "intra"))
+
+        assertThat(custom.isPublicRoutable("idp.corp.example.com")).isFalse()
+        // suffix without a leading `.` gets one prepended → matches a label,
+        // not a substring.
+        assertThat(custom.isPublicRoutable("foo.intra")).isFalse()
+        assertThat(custom.isPublicRoutable("evilcorp.example.com")).isTrue()
+        // default suffix `.local` no longer blocked (we replaced the list).
+        assertThat(custom.isPublicRoutable("printer.local")).isTrue()
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `IP range blocks remain hardcoded even with empty hostname overrides`() {
+        // Operator passes empty lists explicitly — RFC 1918 / loopback /
+        // metadata IP-LITERALS must still be rejected. The escape hatch
+        // `allow-private-discovery-uris` is the only way to disable
+        // those.
+        val custom = HostClassifier(blockedNames = emptySet(), blockedSuffixes = emptyList())
+
+        assertThat(custom.isPublicRoutable("169.254.169.254")).isFalse()
+        assertThat(custom.isPublicRoutable("10.0.0.1")).isFalse()
+        assertThat(custom.isPublicRoutable("127.0.0.1")).isFalse()
+        assertThat(custom.isPublicRoutable("::1")).isFalse()
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `override entries are normalised case-insensitively and whitespace-trimmed`() {
+        val custom = HostClassifier(
+            blockedNames = setOf("  PRIVATE-IDP  ", "Other.Internal"),
+            blockedSuffixes = listOf("  .CORP.EXAMPLE.COM  "),
+        )
+
+        assertThat(custom.isPublicRoutable("private-idp")).isFalse()
+        assertThat(custom.isPublicRoutable("PRIVATE-IDP")).isFalse()
+        assertThat(custom.isPublicRoutable("other.internal")).isFalse()
+        assertThat(custom.isPublicRoutable("idp.corp.example.com")).isFalse()
     }
 }
