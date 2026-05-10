@@ -29,7 +29,7 @@ on:
 
 jobs:
   renovate:
-    uses: plugwerk/.github/.github/workflows/renovate.yml@main
+    uses: plugwerk/.github/.github/workflows/renovate.yml@4c1db2f28ca05c65628f410961c258e71e5b91c1 # main
     # Permissions belong on the calling job, not on the reusable
     # workflow. Each caller declares the minimum it needs; the
     # reusable workflow inherits these for the duration of the call.
