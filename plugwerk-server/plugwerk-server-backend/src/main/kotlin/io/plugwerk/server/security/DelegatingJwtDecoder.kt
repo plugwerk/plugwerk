@@ -65,10 +65,27 @@ class DelegatingJwtDecoder(
         throw JwtException("Token is not valid for any configured issuer")
     }
 
+    /**
+     * Validates that the locally-issued [jwt] carries the three claims the
+     * revocation service relies on, then asks the service whether this jti is
+     * revoked. Pre-#483 this method silently bypassed the check on any missing
+     * claim — a security control silently disabled by a downstream regression.
+     *
+     * Loud-fail is safe because this method runs ONLY after [localDecoder]
+     * accepted the token (see [decode]). Locally-issued tokens carry all three
+     * claims by [io.plugwerk.server.service.JwtTokenService] contract; an
+     * external OIDC token would have failed [localDecoder] and never reach
+     * here. A token that decodes locally but lacks one of the claims is, by
+     * definition, a regression — fail fast so it surfaces in tests and logs
+     * instead of silently turning revocation off for an entire token type.
+     */
     private fun checkRevocation(jwt: Jwt) {
-        val jti = jwt.id ?: return
-        val subject = jwt.subject ?: return
-        val issuedAt = jwt.issuedAt ?: return
+        val jti = jwt.id
+            ?: throw JwtException("Local JWT missing required jti claim — revocation check would be bypassed")
+        val subject = jwt.subject
+            ?: throw JwtException("Local JWT missing required sub claim — revocation check would be bypassed")
+        val issuedAt = jwt.issuedAt
+            ?: throw JwtException("Local JWT missing required iat claim — revocation check would be bypassed")
         if (tokenRevocationService.isRevoked(jti, subject, issuedAt)) {
             log.debug("Token jti={} for user={} has been revoked", jti, subject)
             throw JwtException("Token has been revoked")
