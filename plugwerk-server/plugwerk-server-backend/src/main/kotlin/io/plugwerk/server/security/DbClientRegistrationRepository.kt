@@ -18,6 +18,8 @@
  */
 package io.plugwerk.server.security
 
+import io.plugwerk.server.config.encryptionKeyMismatchMessage
+import io.plugwerk.server.config.isBadPadding
 import io.plugwerk.server.domain.OidcProviderEntity
 import io.plugwerk.server.domain.OidcProviderType
 import io.plugwerk.server.repository.OidcProviderRepository
@@ -95,6 +97,10 @@ class DbClientRegistrationRepository(
     private val oidcProviderRepository: OidcProviderRepository,
     private val textEncryptor: TextEncryptor,
     private val ssrfPolicy: io.plugwerk.server.security.url.OidcSsrfPolicy,
+    @param:org.springframework.beans.factory.annotation.Value(
+        "\${plugwerk.auth.oidc.fail-fast-on-undecryptable-providers:false}",
+    )
+    private val failFastOnUndecryptableProviders: Boolean = false,
 ) : ClientRegistrationRepository,
     Iterable<ClientRegistration> {
 
@@ -115,24 +121,59 @@ class DbClientRegistrationRepository(
      * Reload the registration map from the database. Called at startup and
      * by [io.plugwerk.server.service.OidcProviderService] after any change
      * that affects which providers participate in the browser login flow.
+     *
+     * Bad-padding (i.e. PLUGWERK_AUTH_ENCRYPTION_KEY mismatch — #501) gets
+     * its own ERROR log line with an actionable hint, separate from the
+     * outer WARN envelope that catches generic registration-build failures.
+     * If `plugwerk.auth.oidc.fail-fast-on-undecryptable-providers=true` and
+     * any **enabled** provider's secret is undecryptable, this method
+     * collects all such failures so every operator-facing ERROR is emitted
+     * before throwing — one boot attempt yields the complete list.
      */
     fun refresh() {
+        val undecryptable = mutableListOf<String>()
         val byId = oidcProviderRepository.findAllByEnabledTrue()
             .mapNotNull { provider ->
                 runCatching { buildRegistration(provider) }
-                    .onFailure {
-                        log.warn(
-                            "Skipping OIDC provider {} (registrationId={}) — failed to build ClientRegistration: {}",
-                            provider.name,
-                            OidcRegistrationIds.of(provider),
-                            it.message,
-                        )
+                    .onFailure { ex ->
+                        if (ex.isBadPadding()) {
+                            val regId = OidcRegistrationIds.of(provider)
+                            log.error(
+                                encryptionKeyMismatchMessage(
+                                    subject = "OIDC provider '${provider.name}' (registrationId=$regId) client secret",
+                                    hint = "Re-enter the client secret in the Admin UI under " +
+                                        "Admin → OIDC Providers, or restore the previous " +
+                                        "PLUGWERK_AUTH_ENCRYPTION_KEY value.",
+                                ),
+                                ex,
+                            )
+                            undecryptable += regId
+                        } else {
+                            log.warn(
+                                "Skipping OIDC provider {} (registrationId={}) — failed to build ClientRegistration: {}",
+                                provider.name,
+                                OidcRegistrationIds.of(provider),
+                                ex.message,
+                            )
+                        }
                     }
                     .getOrNull()
             }
             .associateBy { it.registrationId }
         activeRegistrations.set(byId)
         log.info("OAuth2 client registrations loaded: {} active provider(s)", byId.size)
+
+        if (failFastOnUndecryptableProviders && undecryptable.isNotEmpty()) {
+            throw IllegalStateException(
+                "Refusing to start: ${undecryptable.size} enabled OIDC provider(s) have an " +
+                    "undecryptable client_secret_encrypted under the current " +
+                    "PLUGWERK_AUTH_ENCRYPTION_KEY (registrationIds=$undecryptable). " +
+                    "Either restore the previous key or re-enter the client secret(s) in the " +
+                    "Admin UI, then restart. Set " +
+                    "plugwerk.auth.oidc.fail-fast-on-undecryptable-providers=false to allow " +
+                    "startup with affected providers skipped instead.",
+            )
+        }
     }
 
     private fun buildRegistration(provider: OidcProviderEntity): ClientRegistration {

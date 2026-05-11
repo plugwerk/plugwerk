@@ -331,4 +331,97 @@ class DbClientRegistrationRepositoryTest {
         assertThat(repo.iterator().hasNext()).isFalse()
         assertThat(repo.findByRegistrationId(ssrfProvider.id.toString())).isNull()
     }
+
+    @Test
+    fun `bad-padding on client_secret_encrypted is logged with PLUGWERK_AUTH_ENCRYPTION_KEY hint (#501)`() {
+        // Mirrors the field-incident: PLUGWERK_AUTH_ENCRYPTION_KEY rotated, the
+        // existing client_secret_encrypted no longer decrypts. Pre-#501 this
+        // surfaced as a generic WARN. Post-#501 it must be an ERROR that names
+        // the env var, names the provider, and tells the operator what to do.
+        whenever(textEncryptor.decrypt("{cipher}rotated-secret"))
+            .thenThrow(
+                java.lang.IllegalStateException(
+                    "Unable to invoke Cipher due to bad padding",
+                    javax.crypto.BadPaddingException("decrypt"),
+                ),
+            )
+        val provider = OidcProviderEntity(
+            id = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+            name = "Rotated-Key Google",
+            providerType = OidcProviderType.GITHUB, // GITHUB skips network discovery — isolates the decrypt failure
+            enabled = true,
+            clientId = "ignored",
+            clientSecretEncrypted = "{cipher}rotated-secret",
+        )
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(provider))
+
+        val (logEvents, detach) = captureLogs(DbClientRegistrationRepository::class.java)
+        try {
+            val repo = DbClientRegistrationRepository(
+                oidcProviderRepository,
+                textEncryptor,
+                OidcSsrfPolicy(allowPrivateDiscoveryUris = true),
+                failFastOnUndecryptableProviders = false,
+            )
+
+            // Behaviour preserved: bad-padding row is skipped, the rest of the registry would still load.
+            assertThat(repo.iterator().hasNext()).isFalse()
+            assertThat(repo.findByRegistrationId(provider.id.toString())).isNull()
+
+            val errorLine = logEvents.single { it.level == ch.qos.logback.classic.Level.ERROR }
+            assertThat(errorLine.formattedMessage)
+                .contains("PLUGWERK_AUTH_ENCRYPTION_KEY")
+                .contains("Rotated-Key Google")
+                .contains("Re-enter the client secret")
+        } finally {
+            detach()
+        }
+    }
+
+    @Test
+    fun `failFastOnUndecryptableProviders=true throws when an enabled provider's secret is undecryptable (#501)`() {
+        whenever(textEncryptor.decrypt(org.mockito.kotlin.any()))
+            .thenThrow(
+                java.lang.IllegalStateException(
+                    "Unable to invoke Cipher due to bad padding",
+                    javax.crypto.BadPaddingException("decrypt"),
+                ),
+            )
+        val provider = OidcProviderEntity(
+            id = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc"),
+            name = "Production OIDC",
+            providerType = OidcProviderType.GITHUB,
+            enabled = true,
+            clientId = "ignored",
+            clientSecretEncrypted = "{cipher}rotated",
+        )
+        whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(listOf(provider))
+
+        org.assertj.core.api.Assertions.assertThatThrownBy {
+            DbClientRegistrationRepository(
+                oidcProviderRepository,
+                textEncryptor,
+                OidcSsrfPolicy(allowPrivateDiscoveryUris = true),
+                failFastOnUndecryptableProviders = true,
+            )
+        }
+            .isInstanceOf(IllegalStateException::class.java)
+            .hasMessageContaining("PLUGWERK_AUTH_ENCRYPTION_KEY")
+            .hasMessageContaining(provider.id.toString())
+    }
+
+    /**
+     * Attaches a Logback [ListAppender] to the named logger and returns the
+     * captured events plus a detach lambda the caller invokes in a `finally`
+     * block. Tests that assert on log output rely on this rather than on
+     * SLF4J's `MDC` or Mockito-stubbed loggers — Logback's appender API is
+     * the documented way to drive this from tests.
+     */
+    private fun captureLogs(loggerClass: Class<*>): Pair<List<ch.qos.logback.classic.spi.ILoggingEvent>, () -> Unit> {
+        val logger = org.slf4j.LoggerFactory.getLogger(loggerClass) as ch.qos.logback.classic.Logger
+        val appender = ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>()
+        appender.start()
+        logger.addAppender(appender)
+        return appender.list to { logger.detachAppender(appender) }
+    }
 }

@@ -19,6 +19,7 @@
 package io.plugwerk.server.service.settings
 
 import io.plugwerk.server.domain.ApplicationSettingEntity
+import io.plugwerk.server.domain.SettingValueType
 import io.plugwerk.server.repository.ApplicationSettingRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -195,5 +196,93 @@ class ApplicationSettingsServiceTest {
         override fun getObject(vararg args: Any?): TextEncryptor = error("not used in these tests")
         override fun getIfAvailable(): TextEncryptor? = null
         override fun getIfUnique(): TextEncryptor? = null
+    }
+
+    @org.junit.jupiter.api.Nested
+    @org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
+    inner class SmtpPasswordDecryptDiagnostics {
+        @Test
+        fun `bad-padding on smtp_password is logged as ERROR with PLUGWERK_AUTH_ENCRYPTION_KEY hint (#501)`() {
+            // Plant a ciphertext for smtp.password, mock the encryptor to throw the
+            // Spring-wrapped bad-padding shape, and verify the ERROR carries the
+            // env-var name + remediation hint.
+            val encryptor = org.mockito.Mockito.mock(TextEncryptor::class.java)
+            org.mockito.kotlin.whenever(encryptor.decrypt("ciphertext-rotated")).thenThrow(
+                java.lang.IllegalStateException(
+                    "Unable to invoke Cipher due to bad padding",
+                    javax.crypto.BadPaddingException("decrypt"),
+                ),
+            )
+            val provider = object : ObjectProvider<TextEncryptor> {
+                override fun getObject() = encryptor
+                override fun getObject(vararg args: Any?) = encryptor
+                override fun getIfAvailable() = encryptor
+                override fun getIfUnique() = encryptor
+            }
+            storage[ApplicationSettingKey.SMTP_PASSWORD.key] = ApplicationSettingEntity(
+                settingKey = ApplicationSettingKey.SMTP_PASSWORD.key,
+                settingValue = "ciphertext-rotated",
+                valueType = SettingValueType.PASSWORD,
+            )
+            val sut = ApplicationSettingsService(repository = repository, encryptorProvider = provider)
+            invokePostConstruct(sut)
+
+            val (events, detach) = captureLogs(ApplicationSettingsService::class.java)
+            try {
+                val plaintext = sut.smtpPasswordPlaintext()
+
+                org.assertj.core.api.Assertions.assertThat(plaintext).isEmpty()
+                val error = events.single { it.level == ch.qos.logback.classic.Level.ERROR }
+                org.assertj.core.api.Assertions.assertThat(error.formattedMessage)
+                    .contains("PLUGWERK_AUTH_ENCRYPTION_KEY")
+                    .contains("smtp.password")
+                    .contains("Re-enter the value")
+            } finally {
+                detach()
+            }
+        }
+
+        @Test
+        fun `non-bad-padding decrypt failure is logged as WARN (#501)`() {
+            val encryptor = org.mockito.Mockito.mock(TextEncryptor::class.java)
+            org.mockito.kotlin.whenever(encryptor.decrypt("corrupted")).thenThrow(
+                java.lang.IllegalArgumentException("malformed ciphertext"),
+            )
+            val provider = object : ObjectProvider<TextEncryptor> {
+                override fun getObject() = encryptor
+                override fun getObject(vararg args: Any?) = encryptor
+                override fun getIfAvailable() = encryptor
+                override fun getIfUnique() = encryptor
+            }
+            storage[ApplicationSettingKey.SMTP_PASSWORD.key] = ApplicationSettingEntity(
+                settingKey = ApplicationSettingKey.SMTP_PASSWORD.key,
+                settingValue = "corrupted",
+                valueType = SettingValueType.PASSWORD,
+            )
+            val sut = ApplicationSettingsService(repository = repository, encryptorProvider = provider)
+            invokePostConstruct(sut)
+
+            val (events, detach) = captureLogs(ApplicationSettingsService::class.java)
+            try {
+                sut.smtpPasswordPlaintext()
+                val warn = events.single { it.level == ch.qos.logback.classic.Level.WARN }
+                org.assertj.core.api.Assertions.assertThat(warn.formattedMessage)
+                    .contains("Could not decrypt smtp.password")
+                    .doesNotContain("PLUGWERK_AUTH_ENCRYPTION_KEY")
+                org.assertj.core.api.Assertions.assertThat(
+                    events.none { it.level == ch.qos.logback.classic.Level.ERROR },
+                ).isTrue()
+            } finally {
+                detach()
+            }
+        }
+    }
+
+    private fun captureLogs(loggerClass: Class<*>): Pair<List<ch.qos.logback.classic.spi.ILoggingEvent>, () -> Unit> {
+        val logger = org.slf4j.LoggerFactory.getLogger(loggerClass) as ch.qos.logback.classic.Logger
+        val appender = ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>()
+        appender.start()
+        logger.addAppender(appender)
+        return appender.list to { logger.detachAppender(appender) }
     }
 }

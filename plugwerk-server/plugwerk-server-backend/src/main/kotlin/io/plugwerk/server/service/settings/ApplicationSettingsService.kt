@@ -18,6 +18,8 @@
  */
 package io.plugwerk.server.service.settings
 
+import io.plugwerk.server.config.encryptionKeyMismatchMessage
+import io.plugwerk.server.config.isBadPadding
 import io.plugwerk.server.domain.ApplicationSettingEntity
 import io.plugwerk.server.domain.SettingValueType
 import io.plugwerk.server.repository.ApplicationSettingRepository
@@ -184,11 +186,25 @@ class ApplicationSettingsService(
     fun smtpPasswordPlaintext(): String {
         val stored = cache.get()[ApplicationSettingKey.SMTP_PASSWORD.key]?.rawValue ?: return ""
         if (stored.isEmpty()) return ""
-        return decryptOrNull(stored) ?: run {
-            log.warn(
-                "Could not decrypt smtp.password — value is corrupted or the encryption key " +
-                    "changed. Treating as unset.",
-            )
+        return try {
+            encryptor?.decrypt(stored) ?: ""
+        } catch (ex: Exception) {
+            if (ex.isBadPadding()) {
+                log.error(
+                    encryptionKeyMismatchMessage(
+                        subject = "application setting 'smtp.password'",
+                        hint = "Re-enter the value in the Admin UI under Admin → Settings, or " +
+                            "restore the previous PLUGWERK_AUTH_ENCRYPTION_KEY value. Treating " +
+                            "as unset for now.",
+                    ),
+                    ex,
+                )
+            } else {
+                log.warn(
+                    "Could not decrypt smtp.password — value is corrupted. Treating as unset.",
+                    ex,
+                )
+            }
             ""
         }
     }
@@ -405,12 +421,6 @@ class ApplicationSettingsService(
                 log.warn("Settings update listener threw for key '{}': {}", key.key, ex.message)
             }
         }
-    }
-
-    private fun decryptOrNull(ciphertext: String): String? = try {
-        encryptor?.decrypt(ciphertext)
-    } catch (_: Exception) {
-        null
     }
 
     companion object {
