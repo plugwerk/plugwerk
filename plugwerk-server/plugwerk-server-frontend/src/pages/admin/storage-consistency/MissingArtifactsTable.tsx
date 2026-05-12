@@ -22,7 +22,11 @@ import {
   Button,
   Checkbox,
   Chip,
+  FormControl,
   InputAdornment,
+  InputLabel,
+  MenuItem,
+  Select,
   TablePagination,
   TextField,
   Typography,
@@ -76,8 +80,26 @@ export function MissingArtifactsTable({
   onDeleteOne,
   onDeleteMany,
 }: MissingArtifactsTableProps) {
+  const [namespaceFilter, setNamespaceFilter] = useState<string>("all");
+
+  // List of distinct namespaces in the result set, alphabetised, used to
+  // populate the namespace-filter dropdown. Recomputed only when `rows`
+  // change so typing in the search box does not re-render the option list.
+  const namespaceOptions = useMemo(() => {
+    const set = new Set(rows.map((r) => r.namespaceSlug));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [rows]);
+
+  // Apply the namespace facet before handing rows to the
+  // search/sort/paginate pipeline so the existing "filtered" count and the
+  // "Remove all matching" action both reflect the combined filter.
+  const namespaceFilteredRows = useMemo(() => {
+    if (namespaceFilter === "all") return rows;
+    return rows.filter((r) => r.namespaceSlug === namespaceFilter);
+  }, [rows, namespaceFilter]);
+
   const state = useTableState<MissingArtifact, SortKey>({
-    rows,
+    rows: namespaceFilteredRows,
     searchFields: (r) => [
       r.namespaceSlug,
       r.pluginId,
@@ -143,7 +165,8 @@ export function MissingArtifactsTable({
     setSelected(new Set());
   };
 
-  const filterActive = state.query.trim().length > 0;
+  const filterActive =
+    state.query.trim().length > 0 || namespaceFilter !== "all";
   const totalLabel = filterActive
     ? `${state.filteredCount} of ${rows.length}`
     : `${rows.length}`;
@@ -166,22 +189,52 @@ export function MissingArtifactsTable({
           justifyContent: "space-between",
         }}
       >
-        <TextField
-          value={state.query}
-          onChange={(e) => state.setQuery(e.target.value)}
-          placeholder="Filter by plugin, version or key…"
-          size="small"
-          sx={{ minWidth: 280, flex: "1 1 280px", maxWidth: 480 }}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search size={14} />
-                </InputAdornment>
-              ),
-            },
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1,
+            alignItems: "center",
+            flex: "1 1 280px",
+            maxWidth: 640,
           }}
-        />
+        >
+          <TextField
+            value={state.query}
+            onChange={(e) => state.setQuery(e.target.value)}
+            placeholder="Filter by plugin, version or key…"
+            size="small"
+            sx={{ flex: 1, minWidth: 220 }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search size={14} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+          {namespaceOptions.length > 1 && (
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel id="missing-namespace-filter-label">
+                Namespace
+              </InputLabel>
+              <Select
+                labelId="missing-namespace-filter-label"
+                label="Namespace"
+                value={namespaceFilter}
+                onChange={(e) => setNamespaceFilter(e.target.value)}
+              >
+                <MenuItem value="all">All namespaces</MenuItem>
+                {namespaceOptions.map((slug) => (
+                  <MenuItem key={slug} value={slug}>
+                    {slug}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+        </Box>
         <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
           {selected.size > 0 && (
             <Chip

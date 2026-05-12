@@ -227,6 +227,46 @@ describe("StorageConsistencySection", () => {
     });
   });
 
+  it("filters missing rows by the namespace dropdown", async () => {
+    const user = userEvent.setup();
+    vi.mocked(
+      apiConfig.adminStorageConsistencyApi.getStorageConsistencyReport,
+    ).mockResolvedValue({
+      data: reportFixture({
+        missingArtifacts: [
+          {
+            releaseId: "00000000-0000-0000-0000-000000000010",
+            namespaceSlug: "acme",
+            pluginId: "io.example.alpha",
+            version: "1.0.0",
+            artifactKey: "acme:io.example.alpha:1.0.0:jar",
+          },
+          {
+            releaseId: "00000000-0000-0000-0000-000000000011",
+            namespaceSlug: "community",
+            pluginId: "io.example.beta",
+            version: "2.0.0",
+            artifactKey: "community:io.example.beta:2.0.0:jar",
+          },
+        ],
+      }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    renderWithTheme(<StorageConsistencySection />);
+
+    await screen.findByText("io.example.alpha");
+    expect(screen.getByText("io.example.beta")).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText(/^Namespace$/i));
+    await user.click(screen.getByRole("option", { name: "acme" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("io.example.alpha")).toBeInTheDocument();
+      expect(screen.queryByText("io.example.beta")).not.toBeInTheDocument();
+    });
+  });
+
   it("filters orphan rows by the search field", async () => {
     const user = userEvent.setup();
     vi.mocked(
