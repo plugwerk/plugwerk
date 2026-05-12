@@ -22,6 +22,7 @@ import io.plugwerk.server.domain.NamespaceEntity
 import io.plugwerk.server.domain.PluginEntity
 import io.plugwerk.server.domain.PluginReleaseEntity
 import io.plugwerk.server.repository.PluginReleaseRepository
+import io.plugwerk.server.repository.PluginRepository
 import io.plugwerk.server.service.storage.ArtifactStorageService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -37,20 +38,26 @@ import java.util.UUID
 class StorageConsistencyAdminServiceTest {
 
     private lateinit var releaseRepository: PluginReleaseRepository
+    private lateinit var pluginRepository: PluginRepository
     private lateinit var storage: ArtifactStorageService
     private lateinit var service: StorageConsistencyAdminService
 
     @BeforeEach
     fun setUp() {
         releaseRepository = mock()
+        pluginRepository = mock()
         storage = mock()
-        service = StorageConsistencyAdminService(releaseRepository, storage)
+        service =
+            StorageConsistencyAdminService(releaseRepository, pluginRepository, storage)
     }
 
     @Test
     fun `deleteOrphanedRelease deletes DB row and storage file`() {
         val release = release(key = "ns:p:1.0.0:jar")
         whenever(releaseRepository.findById(release.id!!)).thenReturn(Optional.of(release))
+        // Pretend another release of the same plugin is still around so the
+        // plugin-GC branch does not interfere with this happy-path test.
+        whenever(releaseRepository.existsByPlugin(release.plugin)).thenReturn(true)
 
         service.deleteOrphanedRelease(release.id!!)
 
@@ -131,6 +138,50 @@ class StorageConsistencyAdminServiceTest {
     }
 
     @Test
+    fun `deleteOrphanedRelease also deletes empty plugin shell after last release`() {
+        val release = release(key = "ns:p:1.0.0:jar")
+        whenever(releaseRepository.findById(release.id!!)).thenReturn(Optional.of(release))
+        whenever(releaseRepository.existsByPlugin(release.plugin)).thenReturn(false)
+
+        service.deleteOrphanedRelease(release.id!!)
+
+        verify(releaseRepository).delete(release)
+        verify(pluginRepository).delete(release.plugin)
+    }
+
+    @Test
+    fun `deleteOrphanedRelease leaves plugin alone when other releases remain`() {
+        val release = release(key = "ns:p:1.0.0:jar")
+        whenever(releaseRepository.findById(release.id!!)).thenReturn(Optional.of(release))
+        whenever(releaseRepository.existsByPlugin(release.plugin)).thenReturn(true)
+
+        service.deleteOrphanedRelease(release.id!!)
+
+        verify(releaseRepository).delete(release)
+        verify(pluginRepository, never()).delete(any<PluginEntity>())
+    }
+
+    @Test
+    fun `deleteOrphanedReleases bulk removes plugin only after its last release is gone`() {
+        val release1 = release(key = "ns:p:1.0.0:jar", version = "1.0.0")
+        val release2 = release(key = "ns:p:2.0.0:jar", version = "2.0.0")
+        whenever(releaseRepository.findById(release1.id!!)).thenReturn(Optional.of(release1))
+        whenever(releaseRepository.findById(release2.id!!)).thenReturn(Optional.of(release2))
+        whenever(storage.exists(any())).thenReturn(false)
+        // First flush: release1 deleted, release2 still alive → plugin stays.
+        // Second flush: both deleted → plugin gets garbage-collected.
+        whenever(releaseRepository.existsByPlugin(release1.plugin))
+            .thenReturn(true)
+            .thenReturn(false)
+
+        service.deleteOrphanedReleases(listOf(release1.id!!, release2.id!!))
+
+        verify(releaseRepository).delete(release1)
+        verify(releaseRepository).delete(release2)
+        verify(pluginRepository).delete(release1.plugin)
+    }
+
+    @Test
     fun `deleteOrphanedArtifacts captures storage-failures as skipped, continues with next`() {
         whenever(releaseRepository.findAllArtifactKeys()).thenReturn(emptyList())
         whenever(storage.delete("flaky"))
@@ -142,15 +193,20 @@ class StorageConsistencyAdminServiceTest {
         assertThat(result.skipped).containsExactly("flaky")
     }
 
-    private fun release(key: String): PluginReleaseEntity {
-        val ns = NamespaceEntity(slug = "ns", name = "Namespace")
-        val plugin = PluginEntity(namespace = ns, pluginId = "p", name = "P")
-        return PluginReleaseEntity(
-            id = UUID.randomUUID(),
-            plugin = plugin,
-            version = "1.0.0",
-            artifactSha256 = "sha",
-            artifactKey = key,
-        )
-    }
+    // Plugin shared across `release()` calls within a single test so the
+    // GC-shell assertions can target the same `PluginEntity` instance for
+    // multiple releases of one plugin.
+    private val sharedPlugin: PluginEntity = PluginEntity(
+        namespace = NamespaceEntity(slug = "ns", name = "Namespace"),
+        pluginId = "p",
+        name = "P",
+    )
+
+    private fun release(key: String, version: String = "1.0.0"): PluginReleaseEntity = PluginReleaseEntity(
+        id = UUID.randomUUID(),
+        plugin = sharedPlugin,
+        version = version,
+        artifactSha256 = "sha",
+        artifactKey = key,
+    )
 }

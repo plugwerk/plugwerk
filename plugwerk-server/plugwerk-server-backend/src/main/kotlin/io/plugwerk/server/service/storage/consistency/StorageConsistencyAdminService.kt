@@ -18,7 +18,9 @@
  */
 package io.plugwerk.server.service.storage.consistency
 
+import io.plugwerk.server.domain.PluginEntity
 import io.plugwerk.server.repository.PluginReleaseRepository
+import io.plugwerk.server.repository.PluginRepository
 import io.plugwerk.server.service.storage.ArtifactStorageService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -52,6 +54,7 @@ data class BulkArtifactDeletionResult(val deleted: List<String>, val skipped: Li
 @Service
 class StorageConsistencyAdminService(
     private val releaseRepository: PluginReleaseRepository,
+    private val pluginRepository: PluginRepository,
     private val storage: ArtifactStorageService,
 ) {
 
@@ -76,7 +79,13 @@ class StorageConsistencyAdminService(
             return
         }
         val key = release.artifactKey
+        val plugin = release.plugin
         releaseRepository.delete(release)
+        // Force the DELETE to flush before the existsByPlugin probe — without
+        // this Hibernate would still see the row in its first-level cache and
+        // wrongly report the plugin as non-empty.
+        releaseRepository.flush()
+        deletePluginIfEmpty(plugin)
         // Best-effort storage delete — see #481 for why this lives after the
         // DB delete and is allowed to throw without rolling back.
         runCatching { storage.delete(key) }.onFailure {
@@ -133,7 +142,12 @@ class StorageConsistencyAdminService(
                 skipped.add(id)
                 continue
             }
+            val plugin = release.plugin
             releaseRepository.delete(release)
+            // Flush per row so existsByPlugin sees a consistent count when
+            // multiple releases of the same plugin are deleted in this batch.
+            releaseRepository.flush()
+            deletePluginIfEmpty(plugin)
             log.info(
                 "audit storage-consistency action=delete-release releaseId={} key={} outcome=deleted",
                 id,
@@ -142,6 +156,24 @@ class StorageConsistencyAdminService(
             deleted.add(id)
         }
         return BulkReleaseDeletionResult(deleted = deleted.toList(), skipped = skipped.toList())
+    }
+
+    /**
+     * Removes a `plugin` row that has just lost its last release. Plugins
+     * are pure metadata shells around their releases — an empty plugin row
+     * is dead data and shows up in catalogues with zero downloadable
+     * artefacts. Idempotent: a no-op when the plugin still has releases.
+     */
+    private fun deletePluginIfEmpty(plugin: PluginEntity) {
+        if (releaseRepository.existsByPlugin(plugin)) return
+        val pluginId = plugin.id
+        pluginRepository.delete(plugin)
+        log.info(
+            "audit storage-consistency action=delete-plugin pluginRowId={} namespace={} pluginId={} outcome=deleted-empty-shell",
+            pluginId,
+            plugin.namespace.slug,
+            plugin.pluginId,
+        )
     }
 
     /**

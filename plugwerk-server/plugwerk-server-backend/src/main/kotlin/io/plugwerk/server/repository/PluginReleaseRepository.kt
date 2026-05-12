@@ -80,6 +80,14 @@ interface PluginReleaseRepository : JpaRepository<PluginReleaseEntity, UUID> {
 
     fun existsByPluginAndVersion(plugin: PluginEntity, version: String): Boolean
 
+    /**
+     * Does this plugin still have at least one release? Used by the
+     * storage-consistency admin flow (#190) to GC a plugin shell after
+     * its last release is removed — we never want empty `plugin` rows
+     * lingering in the database.
+     */
+    fun existsByPlugin(plugin: PluginEntity): Boolean
+
     @Modifying
     @Query("UPDATE PluginReleaseEntity r SET r.downloadCount = r.downloadCount + 1 WHERE r.id = :id")
     fun incrementDownloadCount(@Param("id") id: UUID)
