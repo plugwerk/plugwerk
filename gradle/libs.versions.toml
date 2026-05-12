@@ -27,6 +27,7 @@ jmustache = "1.16"
 spotless = "8.4.0"
 cyclonedx = "3.2.4"
 aws-sdk = "2.36.3"
+shedlock = "6.10.0"
 
 [libraries]
 # Kotlin
@@ -105,6 +106,8 @@ testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-jun
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
 aws-sdk-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws-sdk" }
 aws-sdk-apache-client = { module = "software.amazon.awssdk:apache-client", version.ref = "aws-sdk" }
+shedlock-spring = { module = "net.javacrumbs.shedlock:shedlock-spring", version.ref = "shedlock" }
+shedlock-provider-jdbc-template = { module = "net.javacrumbs.shedlock:shedlock-provider-jdbc-template", version.ref = "shedlock" }
 mock-oauth2-server = { module = "no.nav.security:mock-oauth2-server", version.ref = "mock-oauth2-server" }
 
 [plugins]

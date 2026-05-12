@@ -148,6 +148,11 @@ class TokenRevocationService(
      * Purges revocation entries whose tokens have already expired. Runs hourly.
      */
     @Scheduled(cron = "0 0 * * * *")
+    @net.javacrumbs.shedlock.spring.annotation.SchedulerLock(
+        name = "token-revocation-cleanup",
+        lockAtMostFor = "PT15M",
+        lockAtLeastFor = "PT30S",
+    )
     @Transactional
     fun cleanupExpired() {
         val cutoff = OffsetDateTime.now(ZoneOffset.UTC)

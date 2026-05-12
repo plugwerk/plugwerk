@@ -78,6 +78,11 @@ const EmailLayout = lazy(() =>
     default: m.EmailLayout,
   })),
 );
+const StorageConsistencySection = lazy(() =>
+  import("../pages/admin/StorageConsistencySection").then((m) => ({
+    default: m.StorageConsistencySection,
+  })),
+);
 const EmailServerPage = lazy(() =>
   import("../pages/admin/EmailServerPage").then((m) => ({
     default: m.EmailServerPage,
@@ -229,6 +234,14 @@ export const router = createBrowserRouter([
                 ),
               },
             ],
+          },
+          {
+            path: "storage-consistency",
+            element: (
+              <Suspense fallback={<LazyFallback />}>
+                <StorageConsistencySection />
+              </Suspense>
+            ),
           },
           {
             path: "reviews",

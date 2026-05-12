@@ -133,6 +133,11 @@ class PasswordResetTokenService(
      * jobs don't fight for the same DB connection on a small instance.
      */
     @Scheduled(cron = "0 35 3 * * *")
+    @net.javacrumbs.shedlock.spring.annotation.SchedulerLock(
+        name = "password-reset-token-sweep",
+        lockAtMostFor = "PT15M",
+        lockAtLeastFor = "PT1M",
+    )
     @Transactional
     fun sweep() {
         val cutoff = OffsetDateTime.now(ZoneOffset.UTC).minus(SWEEP_GRACE)

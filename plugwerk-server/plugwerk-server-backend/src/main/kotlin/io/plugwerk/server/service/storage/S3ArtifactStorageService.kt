@@ -117,7 +117,7 @@ class S3ArtifactStorageService(private val s3Client: S3Client, properties: Plugw
         }
     }
 
-    override fun listKeys(prefix: String): Sequence<String> {
+    override fun listObjects(prefix: String): Sequence<StorageObjectInfo> {
         val combinedPrefix = prefixed(prefix)
         // Lazy: every iteration step calls the paginator, which transparently
         // pulls the next page when the current one is exhausted. Callers MUST
@@ -134,7 +134,14 @@ class S3ArtifactStorageService(private val s3Client: S3Client, properties: Plugw
                         // Strip the configured prefix so the caller sees the same
                         // keys they passed to store/retrieve/delete.
                         val raw = obj.key()
-                        yield(if (keyPrefix.isNotEmpty()) raw.removePrefix(keyPrefix) else raw)
+                        val key = if (keyPrefix.isNotEmpty()) raw.removePrefix(keyPrefix) else raw
+                        yield(
+                            StorageObjectInfo(
+                                key = key,
+                                lastModified = obj.lastModified(),
+                                sizeBytes = obj.size() ?: 0L,
+                            ),
+                        )
                     }
                 }
             } catch (ex: S3Exception) {

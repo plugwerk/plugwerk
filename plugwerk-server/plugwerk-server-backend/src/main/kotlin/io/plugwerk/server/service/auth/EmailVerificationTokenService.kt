@@ -134,6 +134,11 @@ class EmailVerificationTokenService(private val repository: EmailVerificationTok
      * timestamp; expired-unconsumed rows go straight away.
      */
     @Scheduled(cron = "0 30 3 * * *") // 03:30 server-local daily, off-peak
+    @net.javacrumbs.shedlock.spring.annotation.SchedulerLock(
+        name = "email-verification-token-sweep",
+        lockAtMostFor = "PT15M",
+        lockAtLeastFor = "PT1M",
+    )
     @Transactional
     fun sweep() {
         val cutoff = OffsetDateTime.now(ZoneOffset.UTC).minus(SWEEP_GRACE)

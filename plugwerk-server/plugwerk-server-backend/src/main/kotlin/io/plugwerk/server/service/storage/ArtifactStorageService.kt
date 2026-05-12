@@ -48,5 +48,22 @@ interface ArtifactStorageService {
      * Returned keys are storage-relative (no bucket prefix, no root path) and
      * match the format passed to [store] / [retrieve] / [delete] / [exists].
      */
-    fun listKeys(prefix: String = ""): Sequence<String>
+    fun listKeys(prefix: String = ""): Sequence<String> = listObjects(prefix).map { it.key }
+
+    /**
+     * Returns key + metadata for every object in the backend whose path
+     * starts with [prefix] (#190 / #496).
+     *
+     * Same iteration semantics as [listKeys] — filesystem materialises
+     * eagerly, S3 paginates lazily via `ListObjectsV2`. Callers MUST consume
+     * the sequence fully or wrap iteration in try-finally so the underlying
+     * pager is released.
+     *
+     * [lastModified] is the backend-reported modification timestamp and is
+     * the load-bearing field for the orphan-reaper grace-period check (#496):
+     * an artifact uploaded between `listObjects` and the reaper's
+     * `delete(key)` cannot be reaped because its `lastModified` will not be
+     * older than the configured grace.
+     */
+    fun listObjects(prefix: String = ""): Sequence<StorageObjectInfo>
 }

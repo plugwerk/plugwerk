@@ -100,6 +100,17 @@ interface PluginReleaseRepository : JpaRepository<PluginReleaseEntity, UUID> {
     fun findByIdWithPlugin(@Param("id") id: UUID): Optional<PluginReleaseEntity>
 
     /**
+     * Returns every artifact key referenced by a `plugin_release` row (#190).
+     *
+     * String-projection rather than full-entity load so a 100k-release deployment
+     * doesn't hydrate every join graph just to compare keys. Used by the storage
+     * consistency check to compute the symmetric difference against
+     * `ArtifactStorageService.listObjects()`.
+     */
+    @Query("SELECT r.artifactKey FROM PluginReleaseEntity r")
+    fun findAllArtifactKeys(): List<String>
+
+    /**
      * Returns the total download count per plugin for a given set of plugin IDs.
      * Each result row is [pluginId, sumDownloadCount].
      */
