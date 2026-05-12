@@ -83,6 +83,7 @@ data class PlugwerkProperties(
         val fs: FsProperties = FsProperties(),
         @field:Valid val s3: S3Properties? = null,
         @field:Valid val consistency: ConsistencyProperties = ConsistencyProperties(),
+        @field:Valid val reaper: ReaperProperties = ReaperProperties(),
     ) {
 
         /**
@@ -102,6 +103,53 @@ data class PlugwerkProperties(
         data class ConsistencyProperties(
             @field:jakarta.validation.constraints.Min(1)
             val maxKeysPerScan: Int = 100_000,
+        )
+
+        /**
+         * Orphan-artifact reaper (`plugwerk.storage.reaper.*`) — #496.
+         *
+         * Periodically scans storage for objects with no matching
+         * `plugin_release` row and deletes them after a grace period so a
+         * publish that is still in flight is never mistaken for an orphan.
+         * Coordinated across instances by ShedLock (ADR-0035) — only one
+         * Plugwerk process executes the reaper per tick.
+         *
+         * @property enabled Master switch. Default `true`. Set to `false` in
+         *   environments where storage cleanup is owned by an external job
+         *   (bucket lifecycle, cron container, …).
+         *   Env: `PLUGWERK_STORAGE_REAPER_ENABLED`
+         * @property cron Spring cron expression. Default `0 15 3 * * *` —
+         *   03:15 server-local time, off-peak in most deployments and
+         *   staggered against the token cleanup jobs that run on the hour.
+         *   Env: `PLUGWERK_STORAGE_REAPER_CRON`
+         * @property dryRun When `true` (default), the reaper logs the keys
+         *   it WOULD delete but does not call `storage.delete()`. Lets
+         *   operators inspect the eviction list for a release cycle before
+         *   committing to live deletes — defensive default for a destructive
+         *   automated job.
+         *   Env: `PLUGWERK_STORAGE_REAPER_DRY_RUN`
+         * @property gracePeriodHours Minimum age of a storage object before
+         *   the reaper will touch it. The publish flow writes to storage
+         *   first and inserts the DB row second, so an in-flight publish
+         *   would otherwise look exactly like an orphan. 24h is far longer
+         *   than the longest plausible publish transaction; tighten only
+         *   when running with very long upload pipelines.
+         *   Env: `PLUGWERK_STORAGE_REAPER_GRACE_PERIOD_HOURS`
+         * @property maxDeletesPerTick Safety cap on how many objects the
+         *   reaper will delete in a single run. A misconfigured bucket
+         *   or a runaway prefix should not silently wipe terabytes; once
+         *   the cap is hit the reaper logs a warning and stops, leaving the
+         *   rest for the next tick (or for an admin to triage via the UI).
+         *   Env: `PLUGWERK_STORAGE_REAPER_MAX_DELETES_PER_TICK`
+         */
+        data class ReaperProperties(
+            val enabled: Boolean = true,
+            val cron: String = "0 15 3 * * *",
+            val dryRun: Boolean = true,
+            @field:jakarta.validation.constraints.Min(1)
+            val gracePeriodHours: Int = 24,
+            @field:jakarta.validation.constraints.Min(1)
+            val maxDeletesPerTick: Int = 1_000,
         )
 
         /**

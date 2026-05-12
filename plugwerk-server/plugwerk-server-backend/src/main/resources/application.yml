@@ -111,6 +111,35 @@ plugwerk:
       # Env: PLUGWERK_STORAGE_CONSISTENCY_MAX_KEYS_PER_SCAN
       max-keys-per-scan: ${PLUGWERK_STORAGE_CONSISTENCY_MAX_KEYS_PER_SCAN:100000}
 
+    # Orphan-artifact reaper (#496). Periodically scans storage for objects
+    # with no matching plugin_release row and removes them after a grace
+    # period. ShedLock (migration 0033) ensures only one Plugwerk instance
+    # executes the reaper per tick. Defensive defaults: dry-run on, 24h
+    # grace, capped at 1000 deletes/run.
+    reaper:
+      # Env: PLUGWERK_STORAGE_REAPER_ENABLED
+      enabled: ${PLUGWERK_STORAGE_REAPER_ENABLED:true}
+      # Spring cron expression (sec min hour day-of-month month day-of-week).
+      # Default 03:15 server-local, off-peak and staggered against token-
+      # cleanup jobs that run on the hour.
+      # Env: PLUGWERK_STORAGE_REAPER_CRON
+      cron: ${PLUGWERK_STORAGE_REAPER_CRON:0 15 3 * * *}
+      # When true, the reaper logs the keys it WOULD delete without
+      # touching storage. Flip to false once you have inspected the
+      # eviction list for a release cycle and trust the output.
+      # Env: PLUGWERK_STORAGE_REAPER_DRY_RUN
+      dry-run: ${PLUGWERK_STORAGE_REAPER_DRY_RUN:true}
+      # Minimum age (hours, lastModified vs now at scan time) before a
+      # storage object becomes eligible for deletion. Must be longer than
+      # the longest plausible publish transaction.
+      # Env: PLUGWERK_STORAGE_REAPER_GRACE_PERIOD_HOURS
+      grace-period-hours: ${PLUGWERK_STORAGE_REAPER_GRACE_PERIOD_HOURS:24}
+      # Hard cap on deletes per run. A misconfigured prefix should not be
+      # able to silently wipe terabytes; the remainder rolls over to the
+      # next tick (or the admin UI).
+      # Env: PLUGWERK_STORAGE_REAPER_MAX_DELETES_PER_TICK
+      max-deletes-per-tick: ${PLUGWERK_STORAGE_REAPER_MAX_DELETES_PER_TICK:1000}
+
   # Scheduler coordination across horizontally scaled instances (ADR-0035).
   # ShedLock uses a PostgreSQL lock table (Liquibase migration 0033_shedlock)
   # so that only one instance executes a given `@Scheduled` job per tick.
