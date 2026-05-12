@@ -18,6 +18,7 @@
  */
 import { Box, Paper, Typography } from "@mui/material";
 import type { ReactNode } from "react";
+import { useConfigStore } from "../../stores/configStore";
 
 interface AuthCardProps {
   title: string;
@@ -26,6 +27,7 @@ interface AuthCardProps {
 }
 
 export function AuthCard({ title, subtitle, children }: AuthCardProps) {
+  const siteName = useConfigStore((s) => s.siteName);
   return (
     <Box
       component="main"
@@ -58,7 +60,7 @@ export function AuthCard({ title, subtitle, children }: AuthCardProps) {
           <Box
             component="img"
             src="/logomark.svg"
-            alt="Plugwerk"
+            alt={siteName}
             sx={{ height: 64, width: "auto" }}
           />
         </Box>

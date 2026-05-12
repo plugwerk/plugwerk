@@ -33,6 +33,7 @@ describe("configStore", () => {
       version: "…",
       maxFileSizeMb: 100,
       defaultTimezone: "UTC",
+      siteName: "Plugwerk",
       loaded: false,
     });
     vi.mocked(apiConfig.axiosInstance.get).mockReset();
@@ -74,6 +75,48 @@ describe("configStore", () => {
     await useConfigStore.getState().fetchConfig();
 
     expect(useConfigStore.getState().defaultTimezone).toBe("UTC");
+  });
+
+  it("parses siteName from response when present (#234)", async () => {
+    vi.mocked(apiConfig.axiosInstance.get).mockResolvedValue({
+      data: {
+        version: "1.0.0",
+        upload: { maxFileSizeMb: 100 },
+        general: { defaultTimezone: "UTC", siteName: "Acme Plugin Hub" },
+      },
+    });
+
+    await useConfigStore.getState().fetchConfig();
+
+    expect(useConfigStore.getState().siteName).toBe("Acme Plugin Hub");
+  });
+
+  it("falls back to Plugwerk when siteName is empty (#234)", async () => {
+    vi.mocked(apiConfig.axiosInstance.get).mockResolvedValue({
+      data: {
+        version: "1.0.0",
+        upload: { maxFileSizeMb: 100 },
+        general: { defaultTimezone: "UTC", siteName: "" },
+      },
+    });
+
+    await useConfigStore.getState().fetchConfig();
+
+    expect(useConfigStore.getState().siteName).toBe("Plugwerk");
+  });
+
+  it("falls back to Plugwerk when siteName is missing from response (#234)", async () => {
+    vi.mocked(apiConfig.axiosInstance.get).mockResolvedValue({
+      data: {
+        version: "1.0.0",
+        upload: { maxFileSizeMb: 100 },
+        general: { defaultTimezone: "UTC" },
+      },
+    });
+
+    await useConfigStore.getState().fetchConfig();
+
+    expect(useConfigStore.getState().siteName).toBe("Plugwerk");
   });
 
   it("sets version to unknown on fetch error", async () => {

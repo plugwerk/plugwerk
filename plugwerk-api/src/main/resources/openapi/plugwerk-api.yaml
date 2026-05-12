@@ -3881,8 +3881,18 @@ components:
                 `Europe/Berlin`). Used as the display-time fallback for any user who has
                 not set a personal timezone preference.
               example: "UTC"
+            siteName:
+              type: string
+              description: |
+                Operator-branded display name surfaced by the UI in the browser tab
+                title, top bar, footer, and onboarding (#234). DB-backed via
+                `general.site_name` in `application_setting` (ADR-0016); the admin
+                write path validates length 1..255. The frontend falls back to
+                `Plugwerk` if the value is empty.
+              example: "Plugwerk"
           required:
             - defaultTimezone
+            - siteName
         auth:
           type: object
           description: |

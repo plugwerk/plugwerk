@@ -24,6 +24,7 @@ import { tokens } from "../../theme/tokens";
 
 export function Footer() {
   const version = useConfigStore((s) => s.version);
+  const siteName = useConfigStore((s) => s.siteName);
   const fetchConfig = useConfigStore((s) => s.fetchConfig);
 
   useEffect(() => {
@@ -57,7 +58,7 @@ export function Footer() {
               fontWeight: 700,
             }}
           >
-            Plugwerk
+            {siteName}
           </Typography>
           <Typography
             variant="caption"
