@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useUiStore } from "../../stores/uiStore";
+import { useConfigStore } from "../../stores/configStore";
 import { UploadModal } from "../upload/UploadModal";
 import { UploadProgressPanel } from "../upload/UploadProgressPanel";
 import { useAuthStore } from "../../stores/authStore";
@@ -50,6 +51,7 @@ export function TopBar() {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
   const { toggleTheme, openUploadModal } = useUiStore();
+  const siteName = useConfigStore((s) => s.siteName);
   const { isAuthenticated, logout, namespace, setNamespace, isSuperadmin } =
     useAuthStore();
   const { data: namespaces = [] } = useNamespaces();
@@ -105,7 +107,7 @@ export function TopBar() {
           <Box
             component={Link}
             to="/"
-            aria-label="Plugwerk – back to catalog"
+            aria-label={`${siteName} – back to catalog`}
             sx={{
               display: "flex",
               alignItems: "center",
@@ -118,7 +120,7 @@ export function TopBar() {
             <Box
               component="img"
               src={isDark ? "/logo-dark.svg" : "/logo-light.svg"}
-              alt="Plugwerk"
+              alt={siteName}
               sx={{
                 height: 48,
                 width: "auto",

@@ -88,6 +88,14 @@ interface ConfigState {
   readonly version: string;
   readonly maxFileSizeMb: number;
   readonly defaultTimezone: string;
+  /**
+   * Operator-branded display name surfaced by the UI in the browser-tab
+   * title, top bar, footer, and onboarding (#234). Backed by the
+   * `general.site_name` admin setting (ADR-0016). Falls back to
+   * `"Plugwerk"` when the response is missing or empty so user-visible
+   * surfaces never render an empty string.
+   */
+  readonly siteName: string;
   /** OIDC providers currently enabled by the operator. Empty when none. */
   readonly oidcProviders: readonly OidcProviderLoginInfo[];
   /**
@@ -123,6 +131,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   version: "…",
   maxFileSizeMb: 100,
   defaultTimezone: "UTC",
+  siteName: "Plugwerk",
   oidcProviders: [],
   selfRegistrationEnabled: false,
   passwordResetEnabled: false,
@@ -143,6 +152,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
           res.data.general.defaultTimezone.length > 0
             ? res.data.general.defaultTimezone
             : "UTC",
+        siteName:
+          typeof res.data?.general?.siteName === "string" &&
+          res.data.general.siteName.length > 0
+            ? res.data.general.siteName
+            : "Plugwerk",
         oidcProviders: parseOidcProviders(res.data?.auth?.oidcProviders),
         selfRegistrationEnabled:
           res.data?.auth?.selfRegistrationEnabled === true,
@@ -152,6 +166,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     } catch {
       set({
         version: "unknown",
+        siteName: "Plugwerk",
         oidcProviders: [],
         selfRegistrationEnabled: false,
         passwordResetEnabled: false,

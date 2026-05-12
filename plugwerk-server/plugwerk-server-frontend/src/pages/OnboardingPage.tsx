@@ -21,6 +21,7 @@ import { Box, Button, Container, Typography } from "@mui/material";
 import { Puzzle, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
+import { useConfigStore } from "../stores/configStore";
 import { CreateNamespaceDialog } from "../components/admin/CreateNamespaceDialog";
 import type { NamespaceSummary } from "../api/generated/model";
 
@@ -28,6 +29,7 @@ export function OnboardingPage() {
   const navigate = useNavigate();
   const setNamespace = useAuthStore((s) => s.setNamespace);
   const isSuperadmin = useAuthStore((s) => s.isSuperadmin);
+  const siteName = useConfigStore((s) => s.siteName);
   const [createOpen, setCreateOpen] = useState(false);
 
   function handleCreated(ns: NamespaceSummary) {
@@ -52,7 +54,7 @@ export function OnboardingPage() {
         </Box>
 
         <Typography variant="h1" sx={{ fontSize: "2rem", mb: 2 }}>
-          Welcome to Plugwerk
+          Welcome to {siteName}
         </Typography>
 
         {isSuperadmin ? (
@@ -107,7 +109,7 @@ export function OnboardingPage() {
               mx: "auto",
             }}
           >
-            You don't have access to any namespace yet. Ask a Plugwerk
+            You don't have access to any namespace yet. Ask a {siteName}{" "}
             administrator to add you to one.
           </Typography>
         )}

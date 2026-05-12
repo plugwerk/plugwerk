@@ -16,11 +16,23 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
+import { useEffect } from "react";
 import { RouterProvider } from "react-router-dom";
 import { router } from "./router";
 import { AuthHydrationBoundary } from "./components/auth/AuthHydrationBoundary";
+import { useConfigStore } from "./stores/configStore";
 
 export default function App() {
+  // Keep document.title in sync with the operator-configured site name (#234).
+  // The static <title> in index.html stays as the SEO/no-JS fallback; this
+  // effect overrides it once /config has resolved. Footer already triggers
+  // fetchConfig() — the loaded guard in the store prevents a duplicate
+  // request, so reading siteName here is enough.
+  const siteName = useConfigStore((s) => s.siteName);
+  useEffect(() => {
+    document.title = `${siteName} – Plugin Catalog`;
+  }, [siteName]);
+
   return (
     <AuthHydrationBoundary>
       <RouterProvider router={router} />

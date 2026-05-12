@@ -71,10 +71,20 @@ class ConfigControllerTest {
 
     @Autowired private lateinit var mockMvc: MockMvc
 
+    @org.junit.jupiter.api.BeforeEach
+    fun setUpDefaultStubs() {
+        // siteName() is called by every getServerConfig() invocation — stub a
+        // sensible default so individual tests only override when they assert
+        // on the value. Mockito's lenient mode is the project default for these
+        // controller slices; #234.
+        whenever(settingsService.siteName()).thenReturn("Plugwerk")
+    }
+
     @Test
-    fun `GET config returns upload limits, version, and default timezone`() {
+    fun `GET config returns upload limits, version, default timezone, and site name`() {
         whenever(settingsService.maxUploadSizeMb()).thenReturn(200)
         whenever(settingsService.defaultTimezone()).thenReturn("Europe/Berlin")
+        whenever(settingsService.siteName()).thenReturn("Acme Plugin Hub")
         whenever(versionProvider.getVersion()).thenReturn("1.2.3")
         whenever(oidcProviderRepository.findAllByEnabledTrue()).thenReturn(emptyList())
 
@@ -84,6 +94,7 @@ class ConfigControllerTest {
                 jsonPath("$.version") { value("1.2.3") }
                 jsonPath("$.upload.maxFileSizeMb") { value(200) }
                 jsonPath("$.general.defaultTimezone") { value("Europe/Berlin") }
+                jsonPath("$.general.siteName") { value("Acme Plugin Hub") }
             }
     }
 
