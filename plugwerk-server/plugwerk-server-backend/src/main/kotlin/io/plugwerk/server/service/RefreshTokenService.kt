@@ -22,6 +22,10 @@ import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.domain.RefreshTokenEntity
 import io.plugwerk.server.repository.RefreshTokenRepository
 import io.plugwerk.server.security.AccessKeyHmac
+import io.plugwerk.server.service.scheduler.SchedulerJobAuditor
+import io.plugwerk.server.service.scheduler.SchedulerJobDescriptor
+import io.plugwerk.server.service.scheduler.SchedulerJobRegistry
+import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -54,10 +58,26 @@ class RefreshTokenService(
     private val refreshTokenRepository: RefreshTokenRepository,
     private val accessKeyHmac: AccessKeyHmac,
     private val props: PlugwerkProperties,
+    private val schedulerJobRegistry: SchedulerJobRegistry,
+    private val schedulerJobAuditor: SchedulerJobAuditor,
 ) {
 
     private val log = LoggerFactory.getLogger(RefreshTokenService::class.java)
     private val secureRandom = SecureRandom()
+
+    @PostConstruct
+    fun registerScheduledJob() {
+        schedulerJobRegistry.register(
+            SchedulerJobDescriptor(
+                name = "refresh-token-cleanup",
+                description = "Purges expired refresh-token rows hourly so reuse-detection " +
+                    "keeps working without unbounded table growth.",
+                cronExpression = "0 0 * * * *",
+                supportsDryRun = false,
+                runNowExecutor = ::cleanupExpired,
+            ),
+        )
+    }
 
     /**
      * Issues a new refresh token bound to [userId] (= `plugwerk_user.id`).
@@ -165,10 +185,12 @@ class RefreshTokenService(
     )
     @Transactional
     fun cleanupExpired() {
-        val cutoff = OffsetDateTime.now(ZoneOffset.UTC)
-        val deleted = refreshTokenRepository.deleteExpiredBefore(cutoff)
-        if (deleted > 0) {
-            log.info("Cleaned up {} expired refresh token(s)", deleted)
+        schedulerJobAuditor.gateAndRun("refresh-token-cleanup") {
+            val cutoff = OffsetDateTime.now(ZoneOffset.UTC)
+            val deleted = refreshTokenRepository.deleteExpiredBefore(cutoff)
+            if (deleted > 0) {
+                log.info("Cleaned up {} expired refresh token(s)", deleted)
+            }
         }
     }
 

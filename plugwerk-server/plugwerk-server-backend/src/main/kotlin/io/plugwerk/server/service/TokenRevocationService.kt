@@ -23,6 +23,10 @@ import io.plugwerk.server.PlugwerkProperties
 import io.plugwerk.server.domain.RevokedTokenEntity
 import io.plugwerk.server.repository.RevokedTokenRepository
 import io.plugwerk.server.repository.UserRepository
+import io.plugwerk.server.service.scheduler.SchedulerJobAuditor
+import io.plugwerk.server.service.scheduler.SchedulerJobDescriptor
+import io.plugwerk.server.service.scheduler.SchedulerJobRegistry
+import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -49,9 +53,25 @@ class TokenRevocationService(
     private val revokedTokenRepository: RevokedTokenRepository,
     private val userRepository: UserRepository,
     props: PlugwerkProperties,
+    private val schedulerJobRegistry: SchedulerJobRegistry,
+    private val schedulerJobAuditor: SchedulerJobAuditor,
 ) {
 
     private val log = LoggerFactory.getLogger(TokenRevocationService::class.java)
+
+    @PostConstruct
+    fun registerScheduledJob() {
+        schedulerJobRegistry.register(
+            SchedulerJobDescriptor(
+                name = "token-revocation-cleanup",
+                description = "Purges expired access-token revocation entries hourly. " +
+                    "Once a token is past its expiry, revocation is moot.",
+                cronExpression = "0 0 * * * *",
+                supportsDryRun = false,
+                runNowExecutor = ::cleanupExpired,
+            ),
+        )
+    }
 
     private val revokedJtiCache = Caffeine.newBuilder()
         .maximumSize(10_000)
@@ -155,10 +175,12 @@ class TokenRevocationService(
     )
     @Transactional
     fun cleanupExpired() {
-        val cutoff = OffsetDateTime.now(ZoneOffset.UTC)
-        val deleted = revokedTokenRepository.deleteExpiredBefore(cutoff)
-        if (deleted > 0) {
-            log.info("Cleaned up {} expired token revocation(s)", deleted)
+        schedulerJobAuditor.gateAndRun("token-revocation-cleanup") {
+            val cutoff = OffsetDateTime.now(ZoneOffset.UTC)
+            val deleted = revokedTokenRepository.deleteExpiredBefore(cutoff)
+            if (deleted > 0) {
+                log.info("Cleaned up {} expired token revocation(s)", deleted)
+            }
         }
     }
 }

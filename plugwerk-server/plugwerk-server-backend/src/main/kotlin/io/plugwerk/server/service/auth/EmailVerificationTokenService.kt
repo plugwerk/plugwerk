@@ -21,6 +21,10 @@ package io.plugwerk.server.service.auth
 import io.plugwerk.server.domain.EmailVerificationTokenEntity
 import io.plugwerk.server.domain.UserEntity
 import io.plugwerk.server.repository.EmailVerificationTokenRepository
+import io.plugwerk.server.service.scheduler.SchedulerJobAuditor
+import io.plugwerk.server.service.scheduler.SchedulerJobDescriptor
+import io.plugwerk.server.service.scheduler.SchedulerJobRegistry
+import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -56,7 +60,27 @@ import java.util.Base64
  *     (expired + consumed > 7 days) so the table doesn't grow unbounded.
  */
 @Service
-class EmailVerificationTokenService(private val repository: EmailVerificationTokenRepository) {
+class EmailVerificationTokenService(
+    private val repository: EmailVerificationTokenRepository,
+    private val schedulerJobRegistry: SchedulerJobRegistry,
+    private val schedulerJobAuditor: SchedulerJobAuditor,
+) {
+
+    @PostConstruct
+    fun registerScheduledJob() {
+        schedulerJobRegistry.register(
+            SchedulerJobDescriptor(
+                name = "email-verification-token-sweep",
+                description = "Daily sweep of expired email-verification tokens. " +
+                    "Consumed rows linger for a week to support post-incident " +
+                    "troubleshooting; unconsumed expired rows are removed immediately.",
+                cronExpression = "0 30 3 * * *",
+                supportsDryRun = false,
+                runNowExecutor = ::sweep,
+            ),
+        )
+    }
+
     private val log = LoggerFactory.getLogger(EmailVerificationTokenService::class.java)
     private val secureRandom = SecureRandom()
 
@@ -141,10 +165,12 @@ class EmailVerificationTokenService(private val repository: EmailVerificationTok
     )
     @Transactional
     fun sweep() {
-        val cutoff = OffsetDateTime.now(ZoneOffset.UTC).minus(SWEEP_GRACE)
-        val removed = repository.deleteByExpiresAtBefore(cutoff)
-        if (removed > 0) {
-            log.info("Email verification token sweep removed {} expired row(s) older than {}", removed, cutoff)
+        schedulerJobAuditor.gateAndRun("email-verification-token-sweep") {
+            val cutoff = OffsetDateTime.now(ZoneOffset.UTC).minus(SWEEP_GRACE)
+            val removed = repository.deleteByExpiresAtBefore(cutoff)
+            if (removed > 0) {
+                log.info("Email verification token sweep removed {} expired row(s) older than {}", removed, cutoff)
+            }
         }
     }
 

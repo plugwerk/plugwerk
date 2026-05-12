@@ -25,6 +25,7 @@ import {
   Globe,
   Mail,
   HardDrive,
+  Clock,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { tokens } from "../../theme/tokens";
@@ -80,6 +81,12 @@ const ADMIN_SECTIONS: AdminSection[] = [
     path: "storage-consistency",
     label: "Storage",
     icon: <HardDrive size={16} />,
+    requiresSuperadmin: true,
+  },
+  {
+    path: "scheduler",
+    label: "Scheduler",
+    icon: <Clock size={16} />,
     requiresSuperadmin: true,
   },
 ];

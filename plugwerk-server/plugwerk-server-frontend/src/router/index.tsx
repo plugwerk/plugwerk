@@ -83,6 +83,11 @@ const StorageConsistencySection = lazy(() =>
     default: m.StorageConsistencySection,
   })),
 );
+const SchedulerSection = lazy(() =>
+  import("../pages/admin/scheduler/SchedulerSection").then((m) => ({
+    default: m.SchedulerSection,
+  })),
+);
 const EmailServerPage = lazy(() =>
   import("../pages/admin/EmailServerPage").then((m) => ({
     default: m.EmailServerPage,
@@ -240,6 +245,14 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<LazyFallback />}>
                 <StorageConsistencySection />
+              </Suspense>
+            ),
+          },
+          {
+            path: "scheduler",
+            element: (
+              <Suspense fallback={<LazyFallback />}>
+                <SchedulerSection />
               </Suspense>
             ),
           },
