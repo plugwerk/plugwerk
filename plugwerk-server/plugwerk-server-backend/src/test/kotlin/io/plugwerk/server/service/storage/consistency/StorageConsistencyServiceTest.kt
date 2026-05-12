@@ -84,6 +84,7 @@ class StorageConsistencyServiceTest {
 
         assertThat(report.missingArtifacts).singleElement().satisfies({
             assertThat(it.releaseId).isEqualTo(release.id)
+            assertThat(it.namespaceSlug).isEqualTo("ns")
             assertThat(it.pluginId).isEqualTo("gone")
             assertThat(it.version).isEqualTo("1.0.0")
             assertThat(it.artifactKey).isEqualTo("ns:gone:1.0.0:jar")

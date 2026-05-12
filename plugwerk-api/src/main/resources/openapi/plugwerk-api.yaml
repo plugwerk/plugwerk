@@ -2874,6 +2874,13 @@ components:
         releaseId:
           type: string
           format: uuid
+        namespaceSlug:
+          type: string
+          description: |
+            Slug of the namespace the orphaned release belongs to. Surfaced
+            so the admin UI can disambiguate `pluginId`s that exist in
+            multiple namespaces (the global plugin identifier in the catalog
+            is `namespace/pluginId`).
         pluginId:
           type: string
         version:
@@ -2882,6 +2889,7 @@ components:
           type: string
       required:
         - releaseId
+        - namespaceSlug
         - pluginId
         - version
         - artifactKey

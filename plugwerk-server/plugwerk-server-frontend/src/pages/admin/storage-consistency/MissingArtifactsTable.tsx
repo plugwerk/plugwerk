@@ -78,7 +78,12 @@ export function MissingArtifactsTable({
 }: MissingArtifactsTableProps) {
   const state = useTableState<MissingArtifact, SortKey>({
     rows,
-    searchFields: (r) => [r.pluginId, r.version, r.artifactKey],
+    searchFields: (r) => [
+      r.namespaceSlug,
+      r.pluginId,
+      r.version,
+      r.artifactKey,
+    ],
     sorts: SORTS,
     initialSortKey: "plugin",
   });
@@ -309,9 +314,19 @@ export function MissingArtifactsTable({
                     <BodyCell>
                       <Typography
                         variant="body2"
-                        sx={{ fontWeight: 600, fontFamily: "monospace" }}
+                        sx={{ fontFamily: "monospace" }}
                       >
                         {row.pluginId}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontFamily: "monospace",
+                          color: "text.disabled",
+                          fontSize: "0.7rem",
+                        }}
+                      >
+                        {row.namespaceSlug}
                       </Typography>
                     </BodyCell>
                     <BodyCell>

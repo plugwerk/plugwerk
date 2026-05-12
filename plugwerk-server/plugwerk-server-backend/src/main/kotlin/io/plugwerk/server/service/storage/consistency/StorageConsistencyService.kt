@@ -102,6 +102,7 @@ class StorageConsistencyService(
                 .map { release ->
                     MissingArtifact(
                         releaseId = release.id ?: error("PluginReleaseEntity is detached from persistence context"),
+                        namespaceSlug = release.plugin.namespace.slug,
                         pluginId = release.plugin.pluginId,
                         version = release.version,
                         artifactKey = release.artifactKey,

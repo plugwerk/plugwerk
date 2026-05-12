@@ -74,6 +74,7 @@ describe("StorageConsistencySection", () => {
         missingArtifacts: [
           {
             releaseId: "00000000-0000-0000-0000-000000000001",
+            namespaceSlug: "acme",
             pluginId: "io.example.plugin",
             version: "1.0.0",
             artifactKey: "acme:io.example.plugin:1.0.0:jar",
@@ -140,6 +141,7 @@ describe("StorageConsistencySection", () => {
           missingArtifacts: [
             {
               releaseId,
+              namespaceSlug: "acme",
               pluginId: "io.example.plugin",
               version: "1.0.0",
               artifactKey: "acme:io.example.plugin:1.0.0:jar",

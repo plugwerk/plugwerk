@@ -62,6 +62,7 @@ class AdminStorageConsistencyController(
                 missingArtifacts = report.missingArtifacts.map {
                     ApiMissingArtifact(
                         releaseId = it.releaseId,
+                        namespaceSlug = it.namespaceSlug,
                         pluginId = it.pluginId,
                         version = it.version,
                         artifactKey = it.artifactKey,
