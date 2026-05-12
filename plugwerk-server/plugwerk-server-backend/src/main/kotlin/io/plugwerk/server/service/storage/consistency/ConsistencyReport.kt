@@ -67,3 +67,13 @@ data class MissingArtifact(val releaseId: UUID, val pluginId: String, val versio
  * uses it to enforce the grace-period guard against TOCTOU.
  */
 data class OrphanedArtifact(val key: String, val lastModified: Instant, val ageHours: Long, val sizeBytes: Long)
+
+/**
+ * Result of a bulk `deleteOrphanedReleases` operation. [skipped] entries
+ * are release IDs that were left intact — either the storage object had
+ * reappeared between the scan and the delete (e.g. a backup restore raced
+ * with the admin click), the DB row was already gone, or the storage
+ * backend rejected the delete and we did not want to amputate the DB row
+ * without it.
+ */
+data class BulkReleaseDeletionResult(val deleted: List<UUID>, val skipped: List<UUID>)

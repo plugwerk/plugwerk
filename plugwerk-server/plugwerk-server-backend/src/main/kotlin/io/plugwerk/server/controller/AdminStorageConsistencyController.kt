@@ -20,6 +20,7 @@ package io.plugwerk.server.controller
 
 import io.plugwerk.api.AdminStorageConsistencyApi
 import io.plugwerk.api.model.OrphanedArtifactDeletionRequest
+import io.plugwerk.api.model.OrphanedReleaseDeletionRequest
 import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.security.currentAuthentication
 import io.plugwerk.server.service.storage.consistency.StorageConsistencyAdminService
@@ -33,6 +34,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
 import io.plugwerk.api.model.BulkArtifactDeletionResult as ApiBulkArtifactDeletionResult
+import io.plugwerk.api.model.BulkReleaseDeletionResult as ApiBulkReleaseDeletionResult
 import io.plugwerk.api.model.ConsistencyReport as ApiConsistencyReport
 import io.plugwerk.api.model.MissingArtifact as ApiMissingArtifact
 import io.plugwerk.api.model.OrphanedArtifact as ApiOrphanedArtifact
@@ -85,6 +87,17 @@ class AdminStorageConsistencyController(
         namespaceAuthorizationService.requireSuperadmin(currentAuthentication())
         adminService.deleteOrphanedRelease(releaseId)
         return ResponseEntity.noContent().build()
+    }
+
+    @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")
+    override fun deleteOrphanedReleases(
+        orphanedReleaseDeletionRequest: OrphanedReleaseDeletionRequest,
+    ): ResponseEntity<ApiBulkReleaseDeletionResult> {
+        namespaceAuthorizationService.requireSuperadmin(currentAuthentication())
+        val result = adminService.deleteOrphanedReleases(orphanedReleaseDeletionRequest.releaseIds)
+        return ResponseEntity.ok(
+            ApiBulkReleaseDeletionResult(deleted = result.deleted, skipped = result.skipped),
+        )
     }
 
     @PreAuthorize("@namespaceAuthorizationService.isCurrentUserSuperadmin()")

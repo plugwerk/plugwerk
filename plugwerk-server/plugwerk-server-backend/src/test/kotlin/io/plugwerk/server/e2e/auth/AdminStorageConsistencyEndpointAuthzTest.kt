@@ -58,6 +58,22 @@ class AdminStorageConsistencyEndpointAuthzTest : AbstractAuthorizationTest() {
             .andExpect(status().`is`(case.expectedStatus))
     }
 
+    @ParameterizedTest(name = "DELETE /admin/storage/consistency/releases {0}")
+    @MethodSource("superadminOnlyDeniedMatrix")
+    fun `delete releases bulk denied for non-superadmins`(case: ActorExpectation) {
+        mockMvc.perform(
+            delete("/api/v1/admin/storage/consistency/releases")
+                .actAs(case.actor)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    objectMapper.writeValueAsString(
+                        mapOf("releaseIds" to listOf(UUID.randomUUID().toString())),
+                    ),
+                ),
+        )
+            .andExpect(status().`is`(case.expectedStatus))
+    }
+
     @ParameterizedTest(name = "DELETE /admin/storage/consistency/artifacts {0}")
     @MethodSource("superadminOnlyDeniedMatrix")
     fun `delete artifacts denied for non-superadmins`(case: ActorExpectation) {

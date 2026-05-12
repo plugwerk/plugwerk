@@ -29,6 +29,7 @@ import io.plugwerk.server.security.RefreshRateLimitFilter
 import io.plugwerk.server.security.RegisterRateLimitFilter
 import io.plugwerk.server.service.ForbiddenException
 import io.plugwerk.server.service.storage.consistency.BulkArtifactDeletionResult
+import io.plugwerk.server.service.storage.consistency.BulkReleaseDeletionResult
 import io.plugwerk.server.service.storage.consistency.ConsistencyReport
 import io.plugwerk.server.service.storage.consistency.OrphanedArtifact
 import io.plugwerk.server.service.storage.consistency.StorageConsistencyAdminService
@@ -159,6 +160,26 @@ class AdminStorageConsistencyControllerTest {
             .andExpect { status { isNoContent() } }
 
         verify(adminService).deleteOrphanedRelease(eq(id))
+    }
+
+    @Test
+    fun `DELETE orphaned releases bulk returns deleted vs skipped`() {
+        val deletedId = UUID.randomUUID()
+        val skippedId = UUID.randomUUID()
+        whenever(adminService.deleteOrphanedReleases(any())).thenReturn(
+            BulkReleaseDeletionResult(deleted = listOf(deletedId), skipped = listOf(skippedId)),
+        )
+
+        mockMvc.delete("/api/v1/admin/storage/consistency/releases") {
+            contentType = MediaType.APPLICATION_JSON
+            content = objectMapper.writeValueAsString(
+                mapOf("releaseIds" to listOf(deletedId, skippedId)),
+            )
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.deleted[0]") { value(deletedId.toString()) }
+            jsonPath("$.skipped[0]") { value(skippedId.toString()) }
+        }
     }
 
     @Test

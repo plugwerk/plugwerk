@@ -28,6 +28,7 @@ vi.mock("../../api/config", () => ({
   adminStorageConsistencyApi: {
     getStorageConsistencyReport: vi.fn(),
     deleteOrphanedRelease: vi.fn(),
+    deleteOrphanedReleases: vi.fn(),
     deleteOrphanedArtifacts: vi.fn(),
   },
 }));
@@ -132,6 +133,56 @@ describe("StorageConsistencySection", () => {
     });
   });
 
+  it("triggers bulk remove for missing releases", async () => {
+    const user = userEvent.setup();
+    const releaseId = "00000000-0000-0000-0000-000000000001";
+    vi.mocked(apiConfig.adminStorageConsistencyApi.getStorageConsistencyReport)
+      .mockResolvedValueOnce({
+        data: reportFixture({
+          missingArtifacts: [
+            {
+              releaseId,
+              pluginId: "io.example.plugin",
+              version: "1.0.0",
+              artifactKey: "acme:io.example.plugin:1.0.0:jar",
+            },
+          ],
+          totalDbRows: 1,
+        }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
+      .mockResolvedValueOnce({
+        data: reportFixture(),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+    vi.mocked(
+      apiConfig.adminStorageConsistencyApi.deleteOrphanedReleases,
+    ).mockResolvedValue({
+      data: { deleted: [releaseId], skipped: [] },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    renderWithTheme(<StorageConsistencySection />);
+
+    await screen.findByText("io.example.plugin");
+
+    // The Missing-section "Remove all" button is the first of the two
+    // identical buttons (Missing renders before Orphaned in the DOM).
+    const removeAllButtons = await screen.findAllByRole("button", {
+      name: /Remove all/i,
+    });
+    await user.click(removeAllButtons[0]);
+    await user.click(screen.getByRole("button", { name: /Remove rows/i }));
+
+    await waitFor(() => {
+      expect(
+        apiConfig.adminStorageConsistencyApi.deleteOrphanedReleases,
+      ).toHaveBeenCalledWith({
+        orphanedReleaseDeletionRequest: { releaseIds: [releaseId] },
+      });
+    });
+  });
+
   it("triggers bulk delete and re-scans on success", async () => {
     const user = userEvent.setup();
     vi.mocked(apiConfig.adminStorageConsistencyApi.getStorageConsistencyReport)
@@ -164,9 +215,17 @@ describe("StorageConsistencySection", () => {
 
     await screen.findByText("acme:orphan:0.1.0:jar");
 
-    await user.click(
-      screen.getByRole("button", { name: /Delete all listed/i }),
+    // Two "Remove all" buttons exist (Missing + Orphaned). Missing is
+    // disabled because that table is empty in this fixture, so we target
+    // the enabled one for the orphaned-bulk flow.
+    const removeAllButtons = screen.getAllByRole("button", {
+      name: /Remove all/i,
+    });
+    const orphanedButton = removeAllButtons.find(
+      (b) => !(b as HTMLButtonElement).disabled,
     );
+    expect(orphanedButton).toBeDefined();
+    await user.click(orphanedButton!);
     await user.click(screen.getByRole("button", { name: /Delete objects/i }));
 
     await waitFor(() => {

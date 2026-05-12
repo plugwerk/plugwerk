@@ -59,6 +59,44 @@ class StorageConsistencyAdminServiceTest {
     }
 
     @Test
+    fun `deleteOrphanedReleases skips when storage file has reappeared`() {
+        val present = release(key = "ns:present:1.0.0:jar")
+        val gone = release(key = "ns:gone:1.0.0:jar")
+        whenever(releaseRepository.findById(present.id!!)).thenReturn(Optional.of(present))
+        whenever(releaseRepository.findById(gone.id!!)).thenReturn(Optional.of(gone))
+        whenever(storage.exists("ns:present:1.0.0:jar")).thenReturn(true)
+        whenever(storage.exists("ns:gone:1.0.0:jar")).thenReturn(false)
+
+        val result = service.deleteOrphanedReleases(listOf(present.id!!, gone.id!!))
+
+        verify(releaseRepository).delete(gone)
+        verify(releaseRepository, never()).delete(present)
+        assertThat(result.deleted).containsExactly(gone.id!!)
+        assertThat(result.skipped).containsExactly(present.id!!)
+    }
+
+    @Test
+    fun `deleteOrphanedReleases reports already-gone IDs as skipped`() {
+        val ghostId = UUID.randomUUID()
+        whenever(releaseRepository.findById(ghostId)).thenReturn(Optional.empty())
+
+        val result = service.deleteOrphanedReleases(listOf(ghostId))
+
+        verify(releaseRepository, never()).delete(any<PluginReleaseEntity>())
+        assertThat(result.deleted).isEmpty()
+        assertThat(result.skipped).containsExactly(ghostId)
+    }
+
+    @Test
+    fun `deleteOrphanedReleases with empty input is a no-op`() {
+        val result = service.deleteOrphanedReleases(emptyList())
+
+        assertThat(result.deleted).isEmpty()
+        assertThat(result.skipped).isEmpty()
+        verify(releaseRepository, never()).delete(any<PluginReleaseEntity>())
+    }
+
+    @Test
     fun `deleteOrphanedRelease is idempotent when release already gone`() {
         val id = UUID.randomUUID()
         whenever(releaseRepository.findById(id)).thenReturn(Optional.empty())

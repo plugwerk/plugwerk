@@ -2314,6 +2314,38 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  /admin/storage/consistency/releases:
+    delete:
+      tags:
+        - AdminStorageConsistency
+      summary: Bulk-delete `plugin_release` rows whose artifacts are missing (#190)
+      description: |
+        Removes the supplied release rows (and best-effort their storage
+        entries) in one round-trip. Each delete is idempotent and is
+        skipped if the artifact is now present in storage (someone restored
+        it between scan and delete). Returns the partition of deleted vs
+        skipped release IDs. Requires superadmin.
+      operationId: deleteOrphanedReleases
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrphanedReleaseDeletionRequest'
+      responses:
+        '200':
+          description: Partition of deleted vs skipped release IDs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkReleaseDeletionResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
   /admin/storage/consistency/artifacts:
     delete:
       tags:
@@ -2879,6 +2911,43 @@ components:
         - lastModified
         - ageHours
         - sizeBytes
+
+    OrphanedReleaseDeletionRequest:
+      type: object
+      description: Bulk-delete payload for orphaned `plugin_release` rows.
+      properties:
+        releaseIds:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            type: string
+            format: uuid
+      required:
+        - releaseIds
+
+    BulkReleaseDeletionResult:
+      type: object
+      description: |
+        Partition of the requested release IDs into successfully deleted
+        vs skipped (either the release row had reappeared in storage
+        between scan and delete, the row was already gone, or storage
+        delete failed). Skipped IDs are still returned so the admin UI
+        can re-render the report without re-fetching.
+      properties:
+        deleted:
+          type: array
+          items:
+            type: string
+            format: uuid
+        skipped:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+        - deleted
+        - skipped
 
     OrphanedArtifactDeletionRequest:
       type: object

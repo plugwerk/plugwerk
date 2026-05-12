@@ -96,6 +96,55 @@ class StorageConsistencyAdminService(
     }
 
     /**
+     * Removes a batch of `plugin_release` rows whose artifacts are missing
+     * from storage. Same semantics as [deleteOrphanedRelease] applied per
+     * ID, but with one DB transaction and one round-trip. Each ID is also
+     * re-checked against storage — if the file has reappeared since the
+     * scan (e.g. operator just restored a backup) the row is left intact
+     * and reported back as skipped so the admin UI can keep the entry on
+     * screen.
+     */
+    @Transactional
+    fun deleteOrphanedReleases(releaseIds: List<UUID>): BulkReleaseDeletionResult {
+        if (releaseIds.isEmpty()) return BulkReleaseDeletionResult(deleted = emptyList(), skipped = emptyList())
+
+        val deleted = mutableListOf<UUID>()
+        val skipped = mutableListOf<UUID>()
+        for (id in releaseIds) {
+            val release = releaseRepository.findById(id).orElse(null)
+            if (release == null) {
+                log.info(
+                    "audit storage-consistency action=delete-release releaseId={} outcome=already-gone",
+                    id,
+                )
+                skipped.add(id)
+                continue
+            }
+            val key = release.artifactKey
+            if (storage.exists(key)) {
+                // The artifact reappeared between scan and this delete —
+                // refuse to amputate the DB row that now legitimately
+                // references a real file.
+                log.warn(
+                    "audit storage-consistency action=delete-release releaseId={} key={} outcome=skipped-storage-reappeared",
+                    id,
+                    key,
+                )
+                skipped.add(id)
+                continue
+            }
+            releaseRepository.delete(release)
+            log.info(
+                "audit storage-consistency action=delete-release releaseId={} key={} outcome=deleted",
+                id,
+                key,
+            )
+            deleted.add(id)
+        }
+        return BulkReleaseDeletionResult(deleted = deleted.toList(), skipped = skipped.toList())
+    }
+
+    /**
      * Removes orphaned storage keys (manual / admin-triggered — bypasses
      * the reaper's grace period). For each key we re-check that no DB row
      * references it inside this transaction; if a row appeared after the

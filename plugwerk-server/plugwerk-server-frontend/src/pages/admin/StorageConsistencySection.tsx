@@ -55,6 +55,8 @@ export function StorageConsistencySection() {
   const [releaseToDelete, setReleaseToDelete] =
     useState<MissingArtifact | null>(null);
   const [deletingRelease, setDeletingRelease] = useState(false);
+  const [bulkReleaseConfirmOpen, setBulkReleaseConfirmOpen] = useState(false);
+  const [bulkReleaseDeleting, setBulkReleaseDeleting] = useState(false);
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const addToast = useUiStore((s) => s.addToast);
@@ -116,6 +118,31 @@ export function StorageConsistencySection() {
       });
     } finally {
       setDeletingRelease(false);
+    }
+  }
+
+  async function handleBulkDeleteReleases() {
+    if (!report || report.missingArtifacts.length === 0) return;
+    setBulkReleaseDeleting(true);
+    try {
+      const res = await adminStorageConsistencyApi.deleteOrphanedReleases({
+        orphanedReleaseDeletionRequest: {
+          releaseIds: report.missingArtifacts.map((m) => m.releaseId),
+        },
+      });
+      const { deleted, skipped } = res.data;
+      addToast({
+        message: skipped.length
+          ? `Removed ${deleted.length} release row(s); skipped ${skipped.length} (file reappeared or row already gone).`
+          : `Removed ${deleted.length} release row(s).`,
+        type: "success",
+      });
+      setBulkReleaseConfirmOpen(false);
+      refresh();
+    } catch {
+      addToast({ message: "Bulk release removal failed.", type: "error" });
+    } finally {
+      setBulkReleaseDeleting(false);
     }
   }
 
@@ -281,6 +308,20 @@ export function StorageConsistencySection() {
             title="Missing artifacts"
             description={`${report.missingArtifacts.length} release row(s) point at storage keys that are gone.`}
           >
+            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
+              <Button
+                variant="contained"
+                color="error"
+                size="small"
+                startIcon={<Trash2 size={14} />}
+                disabled={
+                  report.missingArtifacts.length === 0 || bulkReleaseDeleting
+                }
+                onClick={() => setBulkReleaseConfirmOpen(true)}
+              >
+                Remove all
+              </Button>
+            </Box>
             <DataTable
               ariaLabel="Missing artifacts"
               columns={missingColumns}
@@ -304,7 +345,7 @@ export function StorageConsistencySection() {
                 disabled={report.orphanedArtifacts.length === 0 || bulkDeleting}
                 onClick={() => setBulkConfirmOpen(true)}
               >
-                Delete all listed
+                Remove all
               </Button>
             </Box>
             <DataTable
@@ -339,6 +380,19 @@ export function StorageConsistencySection() {
             : ""
         }
         loading={deletingRelease}
+      />
+      <ConfirmDeleteDialog
+        open={bulkReleaseConfirmOpen}
+        onCancel={() => setBulkReleaseConfirmOpen(false)}
+        onConfirm={handleBulkDeleteReleases}
+        title="Remove all missing release rows?"
+        actionLabel="Remove rows"
+        message={
+          report
+            ? `This will remove ${report.missingArtifacts.length} release row(s) from the database. Rows whose storage file has reappeared since the last scan are skipped automatically.`
+            : ""
+        }
+        loading={bulkReleaseDeleting}
       />
       <ConfirmDeleteDialog
         open={bulkConfirmOpen}
