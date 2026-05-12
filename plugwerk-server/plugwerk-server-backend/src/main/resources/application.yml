@@ -179,6 +179,17 @@ plugwerk:
       # Env: PLUGWERK_AUTH_OIDC_BLOCKED_HOST_SUFFIXES
       blocked-host-suffixes: ${PLUGWERK_AUTH_OIDC_BLOCKED_HOST_SUFFIXES:}
 
+      # Refuse to start the server if any ENABLED OIDC provider's client
+      # secret is undecryptable under the current PLUGWERK_AUTH_ENCRYPTION_KEY
+      # (#501). Default false → server boots, affected providers are skipped
+      # with an ERROR log line per provider, and Sign-in via that provider
+      # silently 4xx's. Set true in production deployments where a half-broken
+      # login surface is worse than a fail-closed restart loop. The startup
+      # error message lists every affected registrationId so one boot attempt
+      # surfaces the complete list.
+      # Env: PLUGWERK_AUTH_OIDC_FAIL_FAST_ON_UNDECRYPTABLE_PROVIDERS
+      fail-fast-on-undecryptable-providers: ${PLUGWERK_AUTH_OIDC_FAIL_FAST_ON_UNDECRYPTABLE_PROVIDERS:false}
+
   # Upload and download-tracking settings were moved to the `application_setting` database
   # table in 1.0.0-alpha.2 (ADR-0016). The environment variables PLUGWERK_UPLOAD_MAX_FILE_SIZE_MB,
   # PLUGWERK_TRACKING_ENABLED, PLUGWERK_TRACKING_CAPTURE_IP, PLUGWERK_TRACKING_ANONYMIZE_IP and
