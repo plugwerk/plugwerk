@@ -67,7 +67,7 @@ class FilesystemArtifactStorageService(properties: PlugwerkProperties) : Artifac
 
     override fun exists(key: String): Boolean = resolveKey(key).exists()
 
-    override fun listKeys(prefix: String): Sequence<String> {
+    override fun listObjects(prefix: String): Sequence<StorageObjectInfo> {
         if (!root.exists()) return emptySequence()
         return try {
             // Eager materialisation: the filesystem artifact directory is bounded
@@ -77,8 +77,15 @@ class FilesystemArtifactStorageService(properties: PlugwerkProperties) : Artifac
             Files.walk(root).use { stream ->
                 stream
                     .filter { Files.isRegularFile(it) }
-                    .map { root.relativize(it).toString() }
-                    .filter { it.startsWith(prefix) }
+                    .map { path ->
+                        val attrs = Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes::class.java)
+                        StorageObjectInfo(
+                            key = root.relativize(path).toString(),
+                            lastModified = attrs.lastModifiedTime().toInstant(),
+                            sizeBytes = attrs.size(),
+                        )
+                    }
+                    .filter { it.key.startsWith(prefix) }
                     .toList()
                     .asSequence()
             }

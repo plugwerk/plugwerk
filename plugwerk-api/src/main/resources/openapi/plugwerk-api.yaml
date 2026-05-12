@@ -2238,6 +2238,151 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /admin/storage/consistency:
+    get:
+      tags:
+        - AdminStorageConsistency
+      summary: Scan storage vs DB and return inconsistencies (#190)
+      description: |
+        Walks the entire `plugin_release` table and the configured storage
+        backend, returning a [`ConsistencyReport`](#/components/schemas/ConsistencyReport)
+        with two lists:
+
+        * `missingArtifacts`: DB rows whose `artifactKey` does not exist in
+          storage (caused by storage outage during upload, accidental
+          delete in the storage console, or an incomplete `fs ↔ s3`
+          migration).
+        * `orphanedArtifacts`: storage objects with no DB row pointing at
+          them (caused by best-effort post-commit storage cleanup
+          failing — see #481).
+
+        Synchronous and uncached. A `max-keys-per-scan` circuit breaker
+        (default 100 000, see
+        `plugwerk.storage.consistency.max-keys-per-scan`) aborts the scan
+        with `409 CONFLICT` rather than hanging the admin UI on a runaway
+        bucket. An async-scan endpoint is **out of scope** for the first
+        iteration.
+
+        Requires superadmin.
+      operationId: getStorageConsistencyReport
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Consistency snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsistencyReport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Scan aborted by the max-keys-per-scan circuit breaker.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/storage/consistency/releases/{releaseId}:
+    delete:
+      tags:
+        - AdminStorageConsistency
+      summary: Remove a `plugin_release` row whose artifact is missing (#190)
+      description: |
+        Deletes the DB row and best-effort the storage object (idempotent —
+        re-running on a vanished row succeeds with 204). Used to clear
+        `missingArtifacts` entries from the consistency report. Requires
+        superadmin.
+      operationId: deleteOrphanedRelease
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: releaseId
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID of the orphaned release row to remove.
+      responses:
+        '204':
+          description: Row removed (or already gone).
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/storage/consistency/releases:
+    delete:
+      tags:
+        - AdminStorageConsistency
+      summary: Bulk-delete `plugin_release` rows whose artifacts are missing (#190)
+      description: |
+        Removes the supplied release rows (and best-effort their storage
+        entries) in one round-trip. Each delete is idempotent and is
+        skipped if the artifact is now present in storage (someone restored
+        it between scan and delete). Returns the partition of deleted vs
+        skipped release IDs. Requires superadmin.
+      operationId: deleteOrphanedReleases
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrphanedReleaseDeletionRequest'
+      responses:
+        '200':
+          description: Partition of deleted vs skipped release IDs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkReleaseDeletionResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/storage/consistency/artifacts:
+    delete:
+      tags:
+        - AdminStorageConsistency
+      summary: Bulk-delete orphaned storage objects (#190)
+      description: |
+        Deletes the supplied storage keys after re-checking that no
+        `plugin_release` row references them inside the same transaction.
+        Returns the partition of deleted vs skipped keys (skipped =
+        became referenced between scan and delete, or storage backend
+        failed).
+
+        Bypasses the reaper's grace-period guard because the admin is
+        making an explicit choice to delete. The narrow TOCTOU window
+        between the recheck and the storage `delete` is accepted as the
+        admin-action cost. Requires superadmin.
+      operationId: deleteOrphanedArtifacts
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrphanedArtifactDeletionRequest'
+      responses:
+        '200':
+          description: Partition of deleted vs skipped keys.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkArtifactDeletionResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
 components:
   parameters:
     NamespaceSlug:
@@ -2688,6 +2833,161 @@ components:
           description: Whether new plugin releases are auto-approved without manual review
       required:
         - name
+
+    ConsistencyReport:
+      type: object
+      description: |
+        Bidirectional reconciliation snapshot between `plugin_release` rows
+        and the configured storage backend (#190).
+      properties:
+        missingArtifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissingArtifact'
+        orphanedArtifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrphanedArtifact'
+        scannedAt:
+          type: string
+          format: date-time
+          description: Wall-clock timestamp the scan started.
+        totalDbRows:
+          type: integer
+          format: int32
+          description: Distinct artifact keys across `plugin_release`.
+        totalStorageObjects:
+          type: integer
+          format: int32
+          description: Objects walked in storage (subject to the max-keys circuit breaker).
+      required:
+        - missingArtifacts
+        - orphanedArtifacts
+        - scannedAt
+        - totalDbRows
+        - totalStorageObjects
+
+    MissingArtifact:
+      type: object
+      description: DB row whose `artifactKey` does not exist in storage.
+      properties:
+        releaseId:
+          type: string
+          format: uuid
+        namespaceSlug:
+          type: string
+          description: |
+            Slug of the namespace the orphaned release belongs to. Surfaced
+            so the admin UI can disambiguate `pluginId`s that exist in
+            multiple namespaces (the global plugin identifier in the catalog
+            is `namespace/pluginId`).
+        pluginId:
+          type: string
+        version:
+          type: string
+        artifactKey:
+          type: string
+      required:
+        - releaseId
+        - namespaceSlug
+        - pluginId
+        - version
+        - artifactKey
+
+    OrphanedArtifact:
+      type: object
+      description: |
+        Storage object with no `plugin_release` row pointing at it.
+        `ageHours` is computed at scan time against `lastModified` so the
+        UI renders deterministic values across re-renders; the reaper
+        (#496) uses the same field to enforce its grace-period guard.
+      properties:
+        key:
+          type: string
+        lastModified:
+          type: string
+          format: date-time
+        ageHours:
+          type: integer
+          format: int64
+          description: Whole hours since the object was last modified at scan time.
+        sizeBytes:
+          type: integer
+          format: int64
+      required:
+        - key
+        - lastModified
+        - ageHours
+        - sizeBytes
+
+    OrphanedReleaseDeletionRequest:
+      type: object
+      description: Bulk-delete payload for orphaned `plugin_release` rows.
+      properties:
+        releaseIds:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            type: string
+            format: uuid
+      required:
+        - releaseIds
+
+    BulkReleaseDeletionResult:
+      type: object
+      description: |
+        Partition of the requested release IDs into successfully deleted
+        vs skipped (either the release row had reappeared in storage
+        between scan and delete, the row was already gone, or storage
+        delete failed). Skipped IDs are still returned so the admin UI
+        can re-render the report without re-fetching.
+      properties:
+        deleted:
+          type: array
+          items:
+            type: string
+            format: uuid
+        skipped:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+        - deleted
+        - skipped
+
+    OrphanedArtifactDeletionRequest:
+      type: object
+      description: Bulk-delete payload for orphaned storage keys.
+      properties:
+        keys:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            type: string
+      required:
+        - keys
+
+    BulkArtifactDeletionResult:
+      type: object
+      description: |
+        Partition of the requested keys into successfully deleted vs
+        skipped (either re-referenced between scan and delete, or storage
+        backend failed).
+      properties:
+        deleted:
+          type: array
+          items:
+            type: string
+        skipped:
+          type: array
+          items:
+            type: string
+      required:
+        - deleted
+        - skipped
 
     ErrorResponse:
       type: object

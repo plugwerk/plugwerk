@@ -1,0 +1,36 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0033-shedlock-table
+      author: plugwerk
+      comment: |
+        ShedLock cluster-coordination table for @Scheduled jobs (#190 / #496).
+        Spring-Boot-managed schema mirrors the canonical JDBC provider DDL:
+          - name        primary key, max 64 chars (matches ShedLock @SchedulerLock name length)
+          - lock_until  upper bound on lease validity; another instance can re-acquire after this
+          - locked_at   diagnostic timestamp; not used by the lock logic
+          - locked_by   diagnostic instance identifier; defaults to hostname
+      changes:
+        - createTable:
+            tableName: shedlock
+            columns:
+              - column:
+                  name: name
+                  type: varchar(64)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: lock_until
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: locked_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: locked_by
+                  type: varchar(255)
+                  constraints:
+                    nullable: false

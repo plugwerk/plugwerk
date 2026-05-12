@@ -17,7 +17,15 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 import { Box, Typography } from "@mui/material";
-import { Settings, Users, Shield, FileCheck, Globe, Mail } from "lucide-react";
+import {
+  Settings,
+  Users,
+  Shield,
+  FileCheck,
+  Globe,
+  Mail,
+  HardDrive,
+} from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { tokens } from "../../theme/tokens";
 import { useAuthStore } from "../../stores/authStore";
@@ -68,6 +76,12 @@ const ADMIN_SECTIONS: AdminSection[] = [
     requiresSuperadmin: true,
   },
   { path: "reviews", label: "Pending Reviews", icon: <FileCheck size={16} /> },
+  {
+    path: "storage-consistency",
+    label: "Storage",
+    icon: <HardDrive size={16} />,
+    requiresSuperadmin: true,
+  },
 ];
 
 export function AdminSidebar() {

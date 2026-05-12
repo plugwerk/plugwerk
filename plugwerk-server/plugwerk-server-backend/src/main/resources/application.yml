@@ -100,6 +100,26 @@ plugwerk:
       # orchestrators that already have a restart loop and prefer fail-closed.
       # Env: PLUGWERK_STORAGE_S3_FAIL_FAST_ON_BUCKET_MISSING
       fail-fast-on-bucket-missing: ${PLUGWERK_STORAGE_S3_FAIL_FAST_ON_BUCKET_MISSING:false}
+
+    # Storage / DB consistency check (#190 + ADR-0035). The admin UI uses the
+    # `/admin/storage/consistency` endpoint to detect missing and orphaned
+    # artifacts. Scans short-circuit with HTTP 409 above this many storage
+    # objects to keep multi-million-object buckets from blocking the admin UI;
+    # operators should use a targeted prefix scan in that case (planned in
+    # PR2).
+    consistency:
+      # Env: PLUGWERK_STORAGE_CONSISTENCY_MAX_KEYS_PER_SCAN
+      max-keys-per-scan: ${PLUGWERK_STORAGE_CONSISTENCY_MAX_KEYS_PER_SCAN:100000}
+
+  # Scheduler coordination across horizontally scaled instances (ADR-0035).
+  # ShedLock uses a PostgreSQL lock table (Liquibase migration 0033_shedlock)
+  # so that only one instance executes a given `@Scheduled` job per tick.
+  # Set to `false` only in test slices that run against an in-memory DB
+  # without the shedlock table — production should keep this on.
+  scheduler:
+    shedlock:
+      # Env: PLUGWERK_SCHEDULER_SHEDLOCK_ENABLED
+      enabled: ${PLUGWERK_SCHEDULER_SHEDLOCK_ENABLED:true}
   server:
     base-url: ${PLUGWERK_BASE_URL:http://localhost:8080}
     # Frontend base URL for browser-facing links emitted by the server (e.g. the

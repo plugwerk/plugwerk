@@ -18,20 +18,36 @@
 -- =============================================================================
 
 -- ============================================================
--- Users (post-#351 identity-hub split)
+-- Users (post-#351 identity-hub split, post-0023 source rename)
 -- ------------------------------------------------------------
--- Every row is `source = 'LOCAL'` with mandatory `display_name`
--- and `email`. The `(username, source)` partial unique index
--- replaces the old column-level UNIQUE on `username`, so the
--- ON CONFLICT clause now references that pair.
+-- The `admin` superadmin row is intentionally NOT seeded here: it is
+-- created on every boot by `AdminInitializationRunner` with a random
+-- UUID and the operator-configured password, which makes a fixed-UUID
+-- INSERT here collide on `uq_plugwerk_user_username_internal` (partial
+-- unique on `username` WHERE source = 'INTERNAL') even with
+-- `ON CONFLICT (id) DO NOTHING`. The memberships further down resolve
+-- the admin via `username = 'admin' AND source = 'INTERNAL'` instead
+-- of a hard-coded UUID.
+--
+-- The remaining four users (alice, bob, charlie, diana) are pure test
+-- fixtures with `source = 'INTERNAL'` and mandatory `display_name` +
+-- `email`. Migration 0023 renamed the discriminator values
+-- (LOCAL → INTERNAL, OIDC → EXTERNAL).
+--
+-- The conflict target matches the partial unique index
+-- `uq_plugwerk_user_username_internal` (UNIQUE ON username WHERE
+-- source = 'INTERNAL'). PostgreSQL infers the index from the
+-- `(col) WHERE pred` form. Email collisions resolve to the analogous
+-- `uq_plugwerk_user_email_internal` partial index and would still
+-- throw — that is intentional: re-running the seed should be a no-op,
+-- not a silent overwrite of unrelated rows.
 -- ============================================================
 INSERT INTO plugwerk_user (id, username, display_name, email, source, password_hash, enabled, password_change_required, is_superadmin) VALUES
-  ('a0000000-0000-0000-0000-000000000001', 'admin',   'Administrator', 'admin@example.com',   'LOCAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  false, true),
-  ('a0000000-0000-0000-0000-000000000002', 'alice',   'Alice',         'alice@example.com',   'LOCAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  false, false),
-  ('a0000000-0000-0000-0000-000000000003', 'bob',     'Bob',           'bob@example.com',     'LOCAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  false, false),
-  ('a0000000-0000-0000-0000-000000000004', 'charlie', 'Charlie',       'charlie@example.com', 'LOCAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  true,  false),
-  ('a0000000-0000-0000-0000-000000000005', 'diana',   'Diana',         'diana@example.com',   'LOCAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', false, false, false)
-ON CONFLICT (id) DO NOTHING;
+  ('a0000000-0000-0000-0000-000000000002', 'alice',   'Alice',         'alice@example.com',   'INTERNAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  false, false),
+  ('a0000000-0000-0000-0000-000000000003', 'bob',     'Bob',           'bob@example.com',     'INTERNAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  false, false),
+  ('a0000000-0000-0000-0000-000000000004', 'charlie', 'Charlie',       'charlie@example.com', 'INTERNAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  true,  false),
+  ('a0000000-0000-0000-0000-000000000005', 'diana',   'Diana',         'diana@example.com',   'INTERNAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', false, false, false)
+ON CONFLICT (username) WHERE source = 'INTERNAL' DO NOTHING;
 
 -- ============================================================
 -- Namespaces
@@ -44,12 +60,16 @@ ON CONFLICT (slug) DO NOTHING;
 
 -- ============================================================
 -- Namespace Members (post-#351: user_id FK instead of user_subject text)
+-- ------------------------------------------------------------
+-- The admin's `user_id` is resolved by sub-select because the admin
+-- row is created on each boot by `AdminInitializationRunner` with a
+-- random UUID, so we cannot hard-code it here.
 -- ============================================================
 INSERT INTO namespace_member (id, namespace_id, user_id, role) VALUES
   -- admin → default (ADMIN), acme-corp (ADMIN), community (ADMIN)
-  ('b0000000-0000-0000-0000-000000000001', (SELECT id FROM namespace WHERE slug = 'default'),   'a0000000-0000-0000-0000-000000000001', 'ADMIN'),
-  ('b0000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000002',              'a0000000-0000-0000-0000-000000000001', 'ADMIN'),
-  ('b0000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000003',              'a0000000-0000-0000-0000-000000000001', 'ADMIN'),
+  ('b0000000-0000-0000-0000-000000000001', (SELECT id FROM namespace WHERE slug = 'default'),   (SELECT id FROM plugwerk_user WHERE username = 'admin' AND source = 'INTERNAL'), 'ADMIN'),
+  ('b0000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000002',              (SELECT id FROM plugwerk_user WHERE username = 'admin' AND source = 'INTERNAL'), 'ADMIN'),
+  ('b0000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000003',              (SELECT id FROM plugwerk_user WHERE username = 'admin' AND source = 'INTERNAL'), 'ADMIN'),
   -- alice → default (MEMBER), acme-corp (ADMIN)
   ('b0000000-0000-0000-0000-000000000004', (SELECT id FROM namespace WHERE slug = 'default'),   'a0000000-0000-0000-0000-000000000002', 'MEMBER'),
   ('b0000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000002',              'a0000000-0000-0000-0000-000000000002', 'ADMIN'),

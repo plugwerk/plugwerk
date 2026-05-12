@@ -22,6 +22,7 @@ import { AccessKeysApi } from "./generated/api/access-keys-api";
 import { AdminEmailApi } from "./generated/api/admin-email-api";
 import { AdminEmailTemplatesApi } from "./generated/api/admin-email-templates-api";
 import { AdminSettingsApi } from "./generated/api/admin-settings-api";
+import { AdminStorageConsistencyApi } from "./generated/api/admin-storage-consistency-api";
 import { AdminUsersApi } from "./generated/api/admin-users-api";
 import { AuthApi } from "./generated/api/auth-api";
 import { AuthPasswordResetApi } from "./generated/api/auth-password-reset-api";
@@ -161,6 +162,11 @@ export const authPasswordResetApi = new AuthPasswordResetApi(
   axiosInstance,
 );
 export const adminUsersApi = new AdminUsersApi(
+  apiConfig,
+  BASE_PATH,
+  axiosInstance,
+);
+export const adminStorageConsistencyApi = new AdminStorageConsistencyApi(
   apiConfig,
   BASE_PATH,
   axiosInstance,

@@ -1,0 +1,375 @@
+/*
+ * Copyright (c) 2025-present devtank42 GmbH
+ *
+ * This file is part of Plugwerk.
+ *
+ * Plugwerk is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Plugwerk is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
+ */
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { StorageConsistencySection } from "./StorageConsistencySection";
+import { renderWithTheme } from "../../test/renderWithTheme";
+import * as apiConfig from "../../api/config";
+import type { ConsistencyReport } from "../../api/generated/model";
+
+vi.mock("../../api/config", () => ({
+  adminStorageConsistencyApi: {
+    getStorageConsistencyReport: vi.fn(),
+    deleteOrphanedRelease: vi.fn(),
+    deleteOrphanedReleases: vi.fn(),
+    deleteOrphanedArtifacts: vi.fn(),
+  },
+}));
+
+const NOW = "2026-05-12T12:00:00Z";
+
+function reportFixture(
+  overrides: Partial<ConsistencyReport> = {},
+): ConsistencyReport {
+  return {
+    missingArtifacts: [],
+    orphanedArtifacts: [],
+    scannedAt: NOW,
+    totalDbRows: 0,
+    totalStorageObjects: 0,
+    ...overrides,
+  };
+}
+
+describe("StorageConsistencySection", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders empty states for both tables when the report is clean", async () => {
+    vi.mocked(apiConfig.adminStorageConsistencyApi.getStorageConsistencyReport)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .mockResolvedValue({ data: reportFixture() } as any);
+
+    renderWithTheme(<StorageConsistencySection />);
+
+    await waitFor(() => {
+      expect(screen.getByText("No missing artifacts")).toBeInTheDocument();
+      expect(screen.getByText("No orphaned objects")).toBeInTheDocument();
+    });
+  });
+
+  it("lists missing and orphaned rows with the new key + age columns", async () => {
+    vi.mocked(
+      apiConfig.adminStorageConsistencyApi.getStorageConsistencyReport,
+    ).mockResolvedValue({
+      data: reportFixture({
+        missingArtifacts: [
+          {
+            releaseId: "00000000-0000-0000-0000-000000000001",
+            namespaceSlug: "acme",
+            pluginId: "io.example.plugin",
+            version: "1.0.0",
+            artifactKey: "acme:io.example.plugin:1.0.0:jar",
+          },
+        ],
+        orphanedArtifacts: [
+          {
+            key: "acme:orphan:0.1.0:jar",
+            lastModified: "2026-05-10T12:00:00Z",
+            ageHours: 48,
+            sizeBytes: 12_345,
+          },
+        ],
+        totalDbRows: 1,
+        totalStorageObjects: 2,
+      }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    renderWithTheme(<StorageConsistencySection />);
+
+    await waitFor(() => {
+      expect(screen.getByText("io.example.plugin")).toBeInTheDocument();
+      expect(
+        screen.getByText("acme:io.example.plugin:1.0.0:jar"),
+      ).toBeInTheDocument();
+      expect(screen.getByText("acme:orphan:0.1.0:jar")).toBeInTheDocument();
+      // Age renders as `2d` (48 hours) — once in the stats strip
+      // ("Oldest") and once in the row badge.
+      expect(screen.getAllByText("2d").length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  it("surfaces the 409 max-keys-per-scan limit message", async () => {
+    vi.mocked(
+      apiConfig.adminStorageConsistencyApi.getStorageConsistencyReport,
+    ).mockRejectedValue({
+      response: {
+        status: 409,
+        data: {
+          limit: 100_000,
+          scannedSoFar: 100_001,
+          message:
+            "Storage scan aborted by max-keys-per-scan circuit breaker (limit=100000, scanned=100001).",
+        },
+      },
+    });
+
+    renderWithTheme(<StorageConsistencySection />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/max-keys-per-scan circuit breaker/),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("triggers bulk remove for missing releases via the Missing table", async () => {
+    const user = userEvent.setup();
+    const releaseId = "00000000-0000-0000-0000-000000000001";
+    vi.mocked(apiConfig.adminStorageConsistencyApi.getStorageConsistencyReport)
+      .mockResolvedValueOnce({
+        data: reportFixture({
+          missingArtifacts: [
+            {
+              releaseId,
+              namespaceSlug: "acme",
+              pluginId: "io.example.plugin",
+              version: "1.0.0",
+              artifactKey: "acme:io.example.plugin:1.0.0:jar",
+            },
+          ],
+          totalDbRows: 1,
+        }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
+      .mockResolvedValueOnce({
+        data: reportFixture(),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+    vi.mocked(
+      apiConfig.adminStorageConsistencyApi.deleteOrphanedReleases,
+    ).mockResolvedValue({
+      data: { deleted: [releaseId], skipped: [] },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    renderWithTheme(<StorageConsistencySection />);
+
+    const missingTable = await screen.findByRole("table", {
+      name: /Missing artifacts/i,
+    });
+    expect(missingTable).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Remove all \(1\)/i }));
+    await user.click(screen.getByRole("button", { name: /Remove rows/i }));
+
+    await waitFor(() => {
+      expect(
+        apiConfig.adminStorageConsistencyApi.deleteOrphanedReleases,
+      ).toHaveBeenCalledWith({
+        orphanedReleaseDeletionRequest: { releaseIds: [releaseId] },
+      });
+    });
+  });
+
+  it("triggers bulk delete for orphans via the Orphaned table", async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiConfig.adminStorageConsistencyApi.getStorageConsistencyReport)
+      .mockResolvedValueOnce({
+        data: reportFixture({
+          orphanedArtifacts: [
+            {
+              key: "acme:orphan:0.1.0:jar",
+              lastModified: "2026-05-10T12:00:00Z",
+              ageHours: 48,
+              sizeBytes: 12_345,
+            },
+          ],
+          totalStorageObjects: 1,
+        }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
+      .mockResolvedValueOnce({
+        data: reportFixture(),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+    vi.mocked(
+      apiConfig.adminStorageConsistencyApi.deleteOrphanedArtifacts,
+    ).mockResolvedValue({
+      data: { deleted: ["acme:orphan:0.1.0:jar"], skipped: [] },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    renderWithTheme(<StorageConsistencySection />);
+
+    await screen.findByText("acme:orphan:0.1.0:jar");
+
+    await user.click(screen.getByRole("button", { name: /Delete all \(1\)/i }));
+    await user.click(screen.getByRole("button", { name: /Delete objects/i }));
+
+    await waitFor(() => {
+      expect(
+        apiConfig.adminStorageConsistencyApi.deleteOrphanedArtifacts,
+      ).toHaveBeenCalledWith({
+        orphanedArtifactDeletionRequest: {
+          keys: ["acme:orphan:0.1.0:jar"],
+        },
+      });
+    });
+  });
+
+  it("filters missing rows by the namespace dropdown", async () => {
+    const user = userEvent.setup();
+    vi.mocked(
+      apiConfig.adminStorageConsistencyApi.getStorageConsistencyReport,
+    ).mockResolvedValue({
+      data: reportFixture({
+        missingArtifacts: [
+          {
+            releaseId: "00000000-0000-0000-0000-000000000010",
+            namespaceSlug: "acme",
+            pluginId: "io.example.alpha",
+            version: "1.0.0",
+            artifactKey: "acme:io.example.alpha:1.0.0:jar",
+          },
+          {
+            releaseId: "00000000-0000-0000-0000-000000000011",
+            namespaceSlug: "community",
+            pluginId: "io.example.beta",
+            version: "2.0.0",
+            artifactKey: "community:io.example.beta:2.0.0:jar",
+          },
+        ],
+      }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    renderWithTheme(<StorageConsistencySection />);
+
+    await screen.findByText("io.example.alpha");
+    expect(screen.getByText("io.example.beta")).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText(/^Namespace$/i));
+    await user.click(screen.getByRole("option", { name: "acme" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("io.example.alpha")).toBeInTheDocument();
+      expect(screen.queryByText("io.example.beta")).not.toBeInTheDocument();
+    });
+  });
+
+  it("filters orphan rows by the search field", async () => {
+    const user = userEvent.setup();
+    vi.mocked(
+      apiConfig.adminStorageConsistencyApi.getStorageConsistencyReport,
+    ).mockResolvedValue({
+      data: reportFixture({
+        orphanedArtifacts: [
+          {
+            key: "acme:keeper:1.0.0:jar",
+            lastModified: "2026-05-10T12:00:00Z",
+            ageHours: 48,
+            sizeBytes: 1_000,
+          },
+          {
+            key: "acme:noise:9.9.9:jar",
+            lastModified: "2026-05-09T12:00:00Z",
+            ageHours: 72,
+            sizeBytes: 2_000,
+          },
+        ],
+      }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    renderWithTheme(<StorageConsistencySection />);
+
+    await screen.findByText("acme:keeper:1.0.0:jar");
+    expect(screen.getByText("acme:noise:9.9.9:jar")).toBeInTheDocument();
+
+    const orphanedTable = screen.getByRole("table", {
+      name: /Orphaned artifacts/i,
+    });
+    const orphanedSection = orphanedTable.closest("div");
+    expect(orphanedSection).toBeTruthy();
+    // The search input is scoped to the orphaned table by its placeholder.
+    const search = await screen.findByPlaceholderText("Filter by key…");
+    await user.type(search, "keeper");
+
+    await waitFor(() => {
+      expect(screen.getByText("acme:keeper:1.0.0:jar")).toBeInTheDocument();
+      expect(
+        screen.queryByText("acme:noise:9.9.9:jar"),
+      ).not.toBeInTheDocument();
+    });
+    // The bulk action label should reflect the filter context.
+    expect(
+      within(orphanedTable.parentElement!.parentElement!).getByRole("button", {
+        name: /Delete all 1 matching/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("supports multi-select bulk delete for orphans", async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiConfig.adminStorageConsistencyApi.getStorageConsistencyReport)
+      .mockResolvedValueOnce({
+        data: reportFixture({
+          orphanedArtifacts: [
+            {
+              key: "acme:a:1.0.0:jar",
+              lastModified: "2026-05-10T12:00:00Z",
+              ageHours: 48,
+              sizeBytes: 1_000,
+            },
+            {
+              key: "acme:b:1.0.0:jar",
+              lastModified: "2026-05-09T12:00:00Z",
+              ageHours: 72,
+              sizeBytes: 2_000,
+            },
+          ],
+        }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
+      .mockResolvedValueOnce({
+        data: reportFixture(),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+    vi.mocked(
+      apiConfig.adminStorageConsistencyApi.deleteOrphanedArtifacts,
+    ).mockResolvedValue({
+      data: { deleted: ["acme:a:1.0.0:jar"], skipped: [] },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    renderWithTheme(<StorageConsistencySection />);
+
+    const firstRowCheckbox = await screen.findByRole("checkbox", {
+      name: /Select acme:a:1\.0\.0:jar/i,
+    });
+    await user.click(firstRowCheckbox);
+
+    await user.click(
+      screen.getByRole("button", { name: /Delete 1 selected/i }),
+    );
+    await user.click(screen.getByRole("button", { name: /Delete objects/i }));
+
+    await waitFor(() => {
+      expect(
+        apiConfig.adminStorageConsistencyApi.deleteOrphanedArtifacts,
+      ).toHaveBeenCalledWith({
+        orphanedArtifactDeletionRequest: { keys: ["acme:a:1.0.0:jar"] },
+      });
+    });
+  });
+});

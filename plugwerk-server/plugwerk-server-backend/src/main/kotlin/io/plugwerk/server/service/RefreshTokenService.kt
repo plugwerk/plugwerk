@@ -158,6 +158,11 @@ class RefreshTokenService(
      * they pass [RefreshTokenEntity.expiresAt], reuse detection is moot.
      */
     @Scheduled(cron = "0 0 * * * *")
+    @net.javacrumbs.shedlock.spring.annotation.SchedulerLock(
+        name = "refresh-token-cleanup",
+        lockAtMostFor = "PT15M",
+        lockAtLeastFor = "PT30S",
+    )
     @Transactional
     fun cleanupExpired() {
         val cutoff = OffsetDateTime.now(ZoneOffset.UTC)

@@ -80,6 +80,14 @@ interface PluginReleaseRepository : JpaRepository<PluginReleaseEntity, UUID> {
 
     fun existsByPluginAndVersion(plugin: PluginEntity, version: String): Boolean
 
+    /**
+     * Does this plugin still have at least one release? Used by the
+     * storage-consistency admin flow (#190) to GC a plugin shell after
+     * its last release is removed — we never want empty `plugin` rows
+     * lingering in the database.
+     */
+    fun existsByPlugin(plugin: PluginEntity): Boolean
+
     @Modifying
     @Query("UPDATE PluginReleaseEntity r SET r.downloadCount = r.downloadCount + 1 WHERE r.id = :id")
     fun incrementDownloadCount(@Param("id") id: UUID)
@@ -98,6 +106,17 @@ interface PluginReleaseRepository : JpaRepository<PluginReleaseEntity, UUID> {
 
     @Query("SELECT r FROM PluginReleaseEntity r JOIN FETCH r.plugin WHERE r.id = :id")
     fun findByIdWithPlugin(@Param("id") id: UUID): Optional<PluginReleaseEntity>
+
+    /**
+     * Returns every artifact key referenced by a `plugin_release` row (#190).
+     *
+     * String-projection rather than full-entity load so a 100k-release deployment
+     * doesn't hydrate every join graph just to compare keys. Used by the storage
+     * consistency check to compute the symmetric difference against
+     * `ArtifactStorageService.listObjects()`.
+     */
+    @Query("SELECT r.artifactKey FROM PluginReleaseEntity r")
+    fun findAllArtifactKeys(): List<String>
 
     /**
      * Returns the total download count per plugin for a given set of plugin IDs.

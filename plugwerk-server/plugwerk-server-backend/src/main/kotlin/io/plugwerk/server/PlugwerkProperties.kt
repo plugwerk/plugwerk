@@ -82,7 +82,28 @@ data class PlugwerkProperties(
         val type: String = "fs",
         val fs: FsProperties = FsProperties(),
         @field:Valid val s3: S3Properties? = null,
+        @field:Valid val consistency: ConsistencyProperties = ConsistencyProperties(),
     ) {
+
+        /**
+         * Storage-consistency-check settings (`plugwerk.storage.consistency.*`)
+         * — admin-triggered DB-vs-storage reconciliation (#190).
+         *
+         * @property maxKeysPerScan Circuit breaker for runaway bucket scans.
+         *   The synchronous-only `GET /admin/storage/consistency` endpoint
+         *   walks the entire storage keyspace; an operator with 10M objects
+         *   should get a clear `StorageScanLimitExceededException` rather
+         *   than a 5-minute-spinning UI. Default 100k = comfortably above the
+         *   plugin-marketplace shape any single Plugwerk instance is expected
+         *   to host.
+         *
+         *   Env: `PLUGWERK_STORAGE_CONSISTENCY_MAX_KEYS_PER_SCAN`
+         */
+        data class ConsistencyProperties(
+            @field:jakarta.validation.constraints.Min(1)
+            val maxKeysPerScan: Int = 100_000,
+        )
+
         /**
          * Filesystem storage settings (`plugwerk.storage.fs.*`).
          *

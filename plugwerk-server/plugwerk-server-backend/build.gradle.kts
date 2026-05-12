@@ -66,6 +66,12 @@ dependencies {
     }
     implementation(libs.aws.sdk.apache.client)
 
+    // ShedLock — cluster-coordination for @Scheduled jobs (#190 + #496).
+    // PostgreSQL JDBC provider; the lock table is created by db/changelog/
+    // migrations/0033_shedlock.yaml.
+    implementation(libs.shedlock.spring)
+    implementation(libs.shedlock.provider.jdbc.template)
+
     runtimeOnly(libs.yasson)
     runtimeOnly(libs.postgresql)
     runtimeOnly(project(path = ":plugwerk-server:plugwerk-server-frontend", configuration = "staticResources"))

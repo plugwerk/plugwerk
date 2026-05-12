@@ -115,6 +115,29 @@ class FilesystemArtifactStorageServiceTest {
             .containsExactly("acme:plugin:1.0.0:jar")
     }
 
+    @Test
+    fun `listObjects returns key, lastModified and size for each artifact (#190)`() {
+        val bytes = "hello-plugwerk".toByteArray()
+        storage.store("acme:plugin-a:1.0.0:jar", ByteArrayInputStream(bytes), bytes.size.toLong())
+
+        val before = java.time.Instant.now().minusSeconds(2)
+        val after = java.time.Instant.now().plusSeconds(2)
+
+        val info = storage.listObjects().toList().single()
+        assertThat(info.key).isEqualTo("acme:plugin-a:1.0.0:jar")
+        assertThat(info.sizeBytes).isEqualTo(bytes.size.toLong())
+        assertThat(info.lastModified).isBetween(before, after)
+    }
+
+    @Test
+    fun `listObjects honours prefix filter`() {
+        storage.store("acme:plugin-a:1.0.0:jar", ByteArrayInputStream(byteArrayOf(0)), 1)
+        storage.store("other:plugin-b:1.0.0:jar", ByteArrayInputStream(byteArrayOf(0)), 1)
+
+        val acmeOnly = storage.listObjects("acme:").map { it.key }.toList()
+        assertThat(acmeOnly).containsExactly("acme:plugin-a:1.0.0:jar")
+    }
+
     private fun propsWithRoot(root: Path): PlugwerkProperties = PlugwerkProperties(
         storage = PlugwerkProperties.StorageProperties(
             type = "fs",

@@ -20,3 +20,10 @@ plugwerk:
       # guard so the discovery + refresh paths still work. Production
       # default is false, see application.yml comment for the rationale.
       allow-private-discovery-uris: true
+  scheduler:
+    shedlock:
+      # H2 (test DB) does not run the Liquibase migration that creates the
+      # `shedlock` table — ShedLock's INSERT would fail at AOP-interception
+      # time. Fall back to the NoOpLockProvider so @SchedulerLock-annotated
+      # methods still execute in tests.
+      enabled: false
