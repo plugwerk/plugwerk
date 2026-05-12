@@ -50,9 +50,56 @@ spring:
 
 plugwerk:
   storage:
+    # Storage backend selector. `fs` = local filesystem (single-node, default).
+    # `s3` = S3-compatible object storage (AWS S3, MinIO, Hetzner OS, Cloudflare R2).
+    # Env: PLUGWERK_STORAGE_TYPE
     type: ${PLUGWERK_STORAGE_TYPE:fs}
+
+    # Filesystem-backend settings — only used when type=fs.
     fs:
       root: ${PLUGWERK_STORAGE_ROOT:/var/plugwerk/artifacts}
+
+    # S3-compatible-backend settings — only used when type=s3 (#191).
+    # `bucket` and `region` are required when type=s3. The bucket must already
+    # exist; Plugwerk does not create buckets.
+    s3:
+      # Env: PLUGWERK_STORAGE_S3_BUCKET
+      bucket: ${PLUGWERK_STORAGE_S3_BUCKET:}
+      # AWS region or region-compatible identifier (`auto`, `us-east-1` for
+      # non-AWS endpoints).
+      # Env: PLUGWERK_STORAGE_S3_REGION
+      region: ${PLUGWERK_STORAGE_S3_REGION:}
+      # Override the endpoint for non-AWS S3-compatible providers. Leave blank
+      # for AWS S3 (the SDK derives the endpoint from region).
+      # Examples:
+      #   MinIO local:    http://localhost:9000
+      #   Cloudflare R2:  https://<account>.r2.cloudflarestorage.com
+      #   Hetzner OS:     https://fsn1.your-objectstorage.com
+      # Env: PLUGWERK_STORAGE_S3_ENDPOINT
+      endpoint: ${PLUGWERK_STORAGE_S3_ENDPOINT:}
+      # When BOTH accessKey AND secretKey are set, static credentials are used.
+      # When BOTH are blank, the SDK falls back to the DefaultCredentialsProvider
+      # (env, instance profile, IRSA, ECS task role). Half-configured states
+      # (one set, one blank) are rejected at startup.
+      # Env: PLUGWERK_STORAGE_S3_ACCESS_KEY
+      access-key: ${PLUGWERK_STORAGE_S3_ACCESS_KEY:}
+      # Env: PLUGWERK_STORAGE_S3_SECRET_KEY
+      secret-key: ${PLUGWERK_STORAGE_S3_SECRET_KEY:}
+      # Optional prefix prepended to every artifact key. Lets multiple Plugwerk
+      # installations share one bucket (e.g. "prod/plugwerk/"). Must NOT start
+      # with '/'.
+      # Env: PLUGWERK_STORAGE_S3_KEY_PREFIX
+      key-prefix: ${PLUGWERK_STORAGE_S3_KEY_PREFIX:}
+      # `true` for MinIO and other endpoints that do not support virtual-hosted
+      # style URLs. Default `false` (DNS-style; works for AWS S3, R2, Hetzner).
+      # Env: PLUGWERK_STORAGE_S3_PATH_STYLE_ACCESS
+      path-style-access: ${PLUGWERK_STORAGE_S3_PATH_STYLE_ACCESS:false}
+      # Refuse to start when the bucket-existence probe fails at startup.
+      # Default false → probe failure logs ERROR and server keeps running so the
+      # operator can fix the bucket without a restart loop. Set true in container
+      # orchestrators that already have a restart loop and prefer fail-closed.
+      # Env: PLUGWERK_STORAGE_S3_FAIL_FAST_ON_BUCKET_MISSING
+      fail-fast-on-bucket-missing: ${PLUGWERK_STORAGE_S3_FAIL_FAST_ON_BUCKET_MISSING:false}
   server:
     base-url: ${PLUGWERK_BASE_URL:http://localhost:8080}
     # Frontend base URL for browser-facing links emitted by the server (e.g. the

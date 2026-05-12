@@ -57,6 +57,15 @@ dependencies {
     implementation(libs.bucket4j.core)
     implementation(libs.caffeine)
 
+    // AWS SDK for Java v2 — S3-compatible storage backend (#191).
+    // Versions pinned in libs.versions.toml via aws-sdk. apache-client is the
+    // synchronous Java HTTP client; exclude the default Netty client to keep
+    // Netty out of the fat-jar (servlet stack uses blocking I/O).
+    implementation(libs.aws.sdk.s3) {
+        exclude(group = "software.amazon.awssdk", module = "netty-nio-client")
+    }
+    implementation(libs.aws.sdk.apache.client)
+
     runtimeOnly(libs.yasson)
     runtimeOnly(libs.postgresql)
     runtimeOnly(project(path = ":plugwerk-server:plugwerk-server-frontend", configuration = "staticResources"))

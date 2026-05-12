@@ -76,8 +76,13 @@ data class PlugwerkProperties(
      *   ```
      *
      * @property fs Settings for the filesystem backend. Only relevant when [type] is `fs`.
+     * @property s3 Settings for the S3-compatible backend. Only relevant when [type] is `s3`.
      */
-    data class StorageProperties(val type: String = "fs", val fs: FsProperties = FsProperties()) {
+    data class StorageProperties(
+        val type: String = "fs",
+        val fs: FsProperties = FsProperties(),
+        @field:Valid val s3: S3Properties? = null,
+    ) {
         /**
          * Filesystem storage settings (`plugwerk.storage.fs.*`).
          *
@@ -102,6 +107,124 @@ data class PlugwerkProperties(
          *   ```
          */
         data class FsProperties(val root: String = "/var/plugwerk/artifacts")
+
+        /**
+         * S3-compatible object-storage settings (`plugwerk.storage.s3.*`). Used when
+         * `plugwerk.storage.type=s3` (#191).
+         *
+         * Supports any S3-compatible endpoint via [endpoint] override: AWS S3, MinIO,
+         * Hetzner Object Storage, Cloudflare R2, etc.
+         *
+         * @property bucket REQUIRED. Bucket name that holds plugin artefacts. The
+         *   bucket must already exist; Plugwerk does not create buckets. A startup
+         *   `HeadBucket` probe verifies access — see [failFastOnBucketMissing].
+         *
+         *   Environment variable: `PLUGWERK_STORAGE_S3_BUCKET`
+         *
+         * @property region REQUIRED. AWS region or region-compatible identifier of
+         *   the bucket. For non-AWS endpoints this is still required by the SDK but
+         *   often a placeholder (`auto`, `us-east-1`).
+         *
+         *   Environment variable: `PLUGWERK_STORAGE_S3_REGION`
+         *
+         * @property endpoint Optional override URL for non-AWS S3-compatible endpoints.
+         *   Leave blank for AWS S3 (the SDK derives the endpoint from [region]).
+         *
+         *   Environment variable: `PLUGWERK_STORAGE_S3_ENDPOINT`
+         *
+         *   ```yaml
+         *   # MinIO local dev:
+         *   plugwerk.storage.s3.endpoint: http://localhost:9000
+         *
+         *   # Cloudflare R2:
+         *   plugwerk.storage.s3.endpoint: https://<account>.r2.cloudflarestorage.com
+         *
+         *   # Hetzner Object Storage (fsn1 region):
+         *   plugwerk.storage.s3.endpoint: https://fsn1.your-objectstorage.com
+         *   ```
+         *
+         * @property accessKey Optional. When [accessKey] AND [secretKey] are both set,
+         *   the SDK uses static credentials. When BOTH are blank, the SDK falls back
+         *   to the `DefaultCredentialsProvider` chain (env, instance profile, IRSA,
+         *   ECS task role). Half-configured states are rejected at startup.
+         *
+         *   Environment variable: `PLUGWERK_STORAGE_S3_ACCESS_KEY`
+         *
+         * @property secretKey Optional. See [accessKey].
+         *
+         *   Environment variable: `PLUGWERK_STORAGE_S3_SECRET_KEY`
+         *
+         * @property keyPrefix Optional prefix prepended to every artefact key.
+         *   Lets multiple Plugwerk installations share one bucket (`prod/plugwerk/`,
+         *   `staging/plugwerk/`). Default empty. **Must not start with `/`.**
+         *
+         *   Environment variable: `PLUGWERK_STORAGE_S3_KEY_PREFIX`
+         *
+         * @property pathStyleAccess `true` for MinIO and other endpoints that do not
+         *   support virtual-hosted–style URLs. Default `false` (DNS-style, the
+         *   default for AWS S3 / R2 / Hetzner).
+         *
+         *   Environment variable: `PLUGWERK_STORAGE_S3_PATH_STYLE_ACCESS`
+         *
+         * @property failFastOnBucketMissing When `true`, the server refuses to start
+         *   if the startup `HeadBucket` probe fails. Default `false` (probe failure
+         *   logs ERROR and the server keeps running so the operator can fix the
+         *   bucket without a restart loop). Set `true` in container orchestrators
+         *   that have their own restart loop and prefer fail-closed semantics
+         *   (mirrors #501).
+         *
+         *   Environment variable: `PLUGWERK_STORAGE_S3_FAIL_FAST_ON_BUCKET_MISSING`
+         */
+        data class S3Properties(
+            @field:NotBlank val bucket: String = "",
+            @field:NotBlank val region: String = "",
+            val endpoint: String? = null,
+            val accessKey: String? = null,
+            val secretKey: String? = null,
+            val keyPrefix: String = "",
+            val pathStyleAccess: Boolean = false,
+            val failFastOnBucketMissing: Boolean = false,
+        ) {
+            /**
+             * Static credentials must be supplied as a pair: both set or both blank.
+             * A half-configured state means the operator forgot one half — fail
+             * fast at startup rather than silently using the default provider chain.
+             */
+            @AssertTrue(
+                message = "S3 accessKey and secretKey must either both be set or both be blank " +
+                    "(blank means fall back to the default AWS credentials chain).",
+            )
+            fun isCredentialPairConsistent(): Boolean {
+                val accessBlank = accessKey.isNullOrBlank()
+                val secretBlank = secretKey.isNullOrBlank()
+                return accessBlank == secretBlank
+            }
+
+            /**
+             * A leading slash in `key-prefix` becomes a key segment named `""` on
+             * S3, which is valid but always wrong (no object browser will show it
+             * as the operator expects). Reject it.
+             */
+            @AssertTrue(message = "S3 key-prefix must not start with '/' (use 'env/plugwerk/' not '/env/plugwerk/').")
+            fun isKeyPrefixWellFormed(): Boolean = !keyPrefix.startsWith("/")
+
+            /** Redact [secretKey] from any accidental log line. */
+            override fun toString(): String = "S3Properties(bucket='$bucket', region='$region', endpoint=$endpoint, " +
+                "accessKey=${accessKey?.let { "<set>" } ?: "<unset>"}, " +
+                "secretKey=${secretKey?.let { "<set>" } ?: "<unset>"}, " +
+                "keyPrefix='$keyPrefix', pathStyleAccess=$pathStyleAccess, " +
+                "failFastOnBucketMissing=$failFastOnBucketMissing)"
+        }
+
+        /**
+         * When [type] is `s3`, the [s3] sub-section must be present and have a non-blank
+         * bucket. Without this, a half-configured deploy boots and silently falls back to
+         * the filesystem default, which is exactly the surprise we want to avoid.
+         */
+        @AssertTrue(
+            message = "plugwerk.storage.type=s3 requires plugwerk.storage.s3.bucket to be set.",
+        )
+        fun isS3ConfigPresentWhenS3Selected(): Boolean = type != "s3" || (s3 != null && s3.bucket.isNotBlank())
     }
 
     /**
