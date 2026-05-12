@@ -24,6 +24,18 @@ Wait for `curl http://localhost:8080/actuator/health` to return `{"status":"UP"}
 
 See [`.env.example`](.env.example) for the full list of environment variables (CORS, storage, auth tuning).
 
+### S3-compatible storage (optional)
+
+Local filesystem is the default. To run against an S3-compatible backend (AWS S3, MinIO, Hetzner Object Storage, Cloudflare R2), set `PLUGWERK_STORAGE_TYPE=s3` plus the `PLUGWERK_STORAGE_S3_*` variables documented in `.env.example`. A local MinIO container ships under a compose profile:
+
+```bash
+docker compose --profile s3-dev up -d minio minio-init
+# Console: http://localhost:9001 (minioadmin / minioadmin)
+# Bucket `plugwerk-artifacts` is created automatically.
+```
+
+Trade-offs and design rationale are recorded in [`docs/adrs/0034-s3-storage-backend.md`](docs/adrs/0034-s3-storage-backend.md).
+
 ### Initial admin credentials
 
 On first startup, Plugwerk generates a random superadmin password and surfaces it on two channels that bypass SLF4J entirely (so log aggregators like Datadog/ELK/CloudWatch do **not** capture the credential):

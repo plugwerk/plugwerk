@@ -67,6 +67,26 @@ class FilesystemArtifactStorageService(properties: PlugwerkProperties) : Artifac
 
     override fun exists(key: String): Boolean = resolveKey(key).exists()
 
+    override fun listKeys(prefix: String): Sequence<String> {
+        if (!root.exists()) return emptySequence()
+        return try {
+            // Eager materialisation: the filesystem artifact directory is bounded
+            // (one file per release), so walking it once and closing the stream
+            // immediately is correct. Lazy iteration would force callers to close
+            // the Files.walk stream — extra contract burden for no real benefit.
+            Files.walk(root).use { stream ->
+                stream
+                    .filter { Files.isRegularFile(it) }
+                    .map { root.relativize(it).toString() }
+                    .filter { it.startsWith(prefix) }
+                    .toList()
+                    .asSequence()
+            }
+        } catch (e: Exception) {
+            throw ArtifactStorageException("Failed to list artifacts with prefix '$prefix'", e)
+        }
+    }
+
     private fun resolveKey(key: String): Path = root.resolve(key).normalize().also {
         require(it.startsWith(root)) { "Key '$key' resolves outside storage root" }
     }

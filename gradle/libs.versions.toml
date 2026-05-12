@@ -26,6 +26,7 @@ greenmail = "2.1.8"
 jmustache = "1.16"
 spotless = "8.4.0"
 cyclonedx = "3.2.4"
+aws-sdk = "2.36.3"
 
 [libraries]
 # Kotlin
@@ -102,6 +103,8 @@ mockito-kotlin = { module = "org.mockito.kotlin:mockito-kotlin", version.ref = "
 testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
 testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
+aws-sdk-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws-sdk" }
+aws-sdk-apache-client = { module = "software.amazon.awssdk:apache-client", version.ref = "aws-sdk" }
 mock-oauth2-server = { module = "no.nav.security:mock-oauth2-server", version.ref = "mock-oauth2-server" }
 
 [plugins]

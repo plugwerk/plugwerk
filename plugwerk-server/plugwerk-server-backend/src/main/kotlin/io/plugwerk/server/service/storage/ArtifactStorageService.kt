@@ -29,4 +29,24 @@ interface ArtifactStorageService {
     fun delete(key: String)
 
     fun exists(key: String): Boolean
+
+    /**
+     * Returns every key in the backend whose path starts with [prefix] (#191).
+     *
+     * Designed for the consistency-check use case in #190 (find orphaned artifacts).
+     * The empty default returns every key; **do not call without a prefix on a
+     * production bucket unless you mean it**.
+     *
+     * Backend semantics:
+     *   - Filesystem: keyspace is bounded by the artifact directory; returns
+     *     eagerly-materialised contents wrapped in a Sequence for API symmetry.
+     *   - S3: lazy pagination via `ListObjectsV2`; callers MUST either fully
+     *     consume the sequence or wrap their use in a try-finally so the
+     *     underlying pager is released. Filtering should be done by passing a
+     *     non-empty [prefix] so S3 can skip non-matching pages server-side.
+     *
+     * Returned keys are storage-relative (no bucket prefix, no root path) and
+     * match the format passed to [store] / [retrieve] / [delete] / [exists].
+     */
+    fun listKeys(prefix: String = ""): Sequence<String>
 }
