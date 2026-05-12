@@ -100,11 +100,33 @@ issue the `DELETE`. We mitigate this with two layers:
    shedlock migration. Production / Docker / Compose run on PostgreSQL and
    pick up the real `JdbcTemplateLockProvider`.
 
-6. **Reaper as a separate, opt-in scheduled job (PR2).** The orphan reaper
-   (#496) lands in a follow-up PR with `@Scheduled` + `@SchedulerLock`,
-   `dry-run` mode by default, a configurable grace period, a Micrometer
-   counter, and a cluster integration test using two embedded Plugwerk
-   contexts against one PostgreSQL.
+6. **Reaper as a separate scheduled job (#496, delivered).** The orphan
+   reaper is `OrphanReaperScheduler`, a `@Scheduled` + `@SchedulerLock`
+   bean that runs nightly (default `0 15 3 * * *`) and delegates eligible
+   orphans to `StorageConsistencyAdminService.deleteOrphanedArtifacts`
+   for the actual delete with DB recheck-in-tx.
+
+   - **Dry-run by default** (`plugwerk.storage.reaper.dry-run=true`).
+     The reaper logs the keys it WOULD delete; operators inspect the
+     eviction list for a release cycle before flipping the flag to
+     `false`.
+   - **Grace-period filter** (`plugwerk.storage.reaper.grace-period-hours`,
+     default 24h) — keys younger than the cut-off are skipped to avoid
+     deleting an in-flight publish.
+   - **Per-tick cap** (`plugwerk.storage.reaper.max-deletes-per-tick`,
+     default 1000) — a misconfigured prefix cannot silently wipe
+     terabytes; the rest rolls over to the next tick.
+   - **Micrometer counters** — `plugwerk.storage.reaper.deleted` and
+     `plugwerk.storage.reaper.skipped` with a `plugwerk.storage.reaper.run`
+     timer for tick wall-clock time.
+   - **Scan-limit handling** — a `StorageScanLimitExceededException`
+     aborts the tick without throwing to the scheduler thread, so the
+     next tick gets a clean slate.
+   - **Wiring test** uses a real PostgreSQL container, the production
+     Liquibase migration set, and the proxy-wrapped reaper bean to
+     prove the `@SchedulerLock` advice actually records a row in the
+     `shedlock` table on every invocation (cluster mutual-exclusion
+     itself is owned by the ShedLock library and is not re-tested).
 
 ## Consequences
 
@@ -123,7 +145,8 @@ issue the `DELETE`. We mitigate this with two layers:
 - The grace period delays reaper deletions by 24h by default; this is a
   conscious correctness-over-eagerness trade.
 - A 10M-key bucket cannot be scanned in one call. The 409-with-limit
-  exception nudges admins toward targeted prefix scans (planned in PR2).
+  exception nudges admins toward targeted prefix scans; the reaper
+  aborts the tick rather than work on a biased subset.
 - The shedlock table must exist in production PostgreSQL. Liquibase
   migration `0033_shedlock` creates it on the next deploy; rollback is a
   plain `DROP TABLE shedlock`.
