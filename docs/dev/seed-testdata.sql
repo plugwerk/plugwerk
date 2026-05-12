@@ -18,19 +18,20 @@
 -- =============================================================================
 
 -- ============================================================
--- Users (post-#351 identity-hub split)
+-- Users (post-#351 identity-hub split, post-0023 source rename)
 -- ------------------------------------------------------------
--- Every row is `source = 'LOCAL'` with mandatory `display_name`
--- and `email`. The `(username, source)` partial unique index
--- replaces the old column-level UNIQUE on `username`, so the
--- ON CONFLICT clause now references that pair.
+-- Every row is `source = 'INTERNAL'` with mandatory `display_name`
+-- and `email`. Migration 0023 renamed the discriminator values
+-- (LOCAL → INTERNAL, OIDC → EXTERNAL) so the `source` column now
+-- expects 'INTERNAL' / 'EXTERNAL'. The `(username, source)` partial
+-- unique index replaces the old column-level UNIQUE on `username`.
 -- ============================================================
 INSERT INTO plugwerk_user (id, username, display_name, email, source, password_hash, enabled, password_change_required, is_superadmin) VALUES
-  ('a0000000-0000-0000-0000-000000000001', 'admin',   'Administrator', 'admin@example.com',   'LOCAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  false, true),
-  ('a0000000-0000-0000-0000-000000000002', 'alice',   'Alice',         'alice@example.com',   'LOCAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  false, false),
-  ('a0000000-0000-0000-0000-000000000003', 'bob',     'Bob',           'bob@example.com',     'LOCAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  false, false),
-  ('a0000000-0000-0000-0000-000000000004', 'charlie', 'Charlie',       'charlie@example.com', 'LOCAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  true,  false),
-  ('a0000000-0000-0000-0000-000000000005', 'diana',   'Diana',         'diana@example.com',   'LOCAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', false, false, false)
+  ('a0000000-0000-0000-0000-000000000001', 'admin',   'Administrator', 'admin@example.com',   'INTERNAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  false, true),
+  ('a0000000-0000-0000-0000-000000000002', 'alice',   'Alice',         'alice@example.com',   'INTERNAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  false, false),
+  ('a0000000-0000-0000-0000-000000000003', 'bob',     'Bob',           'bob@example.com',     'INTERNAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  false, false),
+  ('a0000000-0000-0000-0000-000000000004', 'charlie', 'Charlie',       'charlie@example.com', 'INTERNAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', true,  true,  false),
+  ('a0000000-0000-0000-0000-000000000005', 'diana',   'Diana',         'diana@example.com',   'INTERNAL', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6CQyMb5Z0SNhyFCj3GqNDAlbC', false, false, false)
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
