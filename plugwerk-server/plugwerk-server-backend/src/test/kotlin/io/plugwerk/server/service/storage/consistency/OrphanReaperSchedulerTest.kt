@@ -20,11 +20,15 @@ package io.plugwerk.server.service.storage.consistency
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.plugwerk.server.PlugwerkProperties
+import io.plugwerk.server.service.scheduler.SchedulerJobAuditor
+import io.plugwerk.server.service.scheduler.SchedulerJobRegistry
+import io.plugwerk.server.service.scheduler.SchedulerJobService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -35,13 +39,35 @@ class OrphanReaperSchedulerTest {
 
     private lateinit var consistencyService: StorageConsistencyService
     private lateinit var adminService: StorageConsistencyAdminService
+    private lateinit var schedulerJobService: SchedulerJobService
+    private lateinit var schedulerJobAuditor: SchedulerJobAuditor
     private lateinit var meterRegistry: SimpleMeterRegistry
 
     @BeforeEach
     fun setUp() {
         consistencyService = mock()
         adminService = mock()
+        schedulerJobService = mock()
+        schedulerJobAuditor = mock()
         meterRegistry = SimpleMeterRegistry()
+        // Default: no admin override — the body falls back to the yaml
+        // properties.dryRun the test sets up via `scheduler(...)`.
+        whenever(schedulerJobService.getDryRunOverride(any())).thenReturn(null)
+        // gateAndRun is the single entry point each scheduler uses — keep the
+        // unit-test focus on the body by making the auditor a transparent pass-
+        // through, mirroring the real implementation's exception handling
+        // (uncaught throwables become FAILED, the scheduler thread never sees
+        // them). The dedicated auditor tests live alongside SchedulerJobService.
+        whenever(schedulerJobAuditor.gateAndRun(any(), any())).thenAnswer { invocation ->
+            @Suppress("UNCHECKED_CAST")
+            val block = invocation.arguments[1] as () -> Unit
+            try {
+                block()
+                io.plugwerk.server.domain.SchedulerJobOutcome.SUCCESS
+            } catch (_: Exception) {
+                io.plugwerk.server.domain.SchedulerJobOutcome.FAILED
+            }
+        }
     }
 
     @Test
@@ -179,6 +205,9 @@ class OrphanReaperSchedulerTest {
             consistencyService,
             adminService,
             props,
+            SchedulerJobRegistry(),
+            schedulerJobService,
+            schedulerJobAuditor,
             meterRegistry,
         )
     }

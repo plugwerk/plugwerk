@@ -60,9 +60,30 @@ class TokenRevocationServiceTest {
         ),
     )
 
+    private lateinit var schedulerJobAuditor: io.plugwerk.server.service.scheduler.SchedulerJobAuditor
+
     @BeforeEach
     fun setUp() {
-        service = TokenRevocationService(revokedTokenRepository, userRepository, props)
+        schedulerJobAuditor = org.mockito.kotlin.mock()
+        // Pass-through: the auditor's only job in unit tests is to invoke
+        // the body. `lenient` because most tests in this class never call
+        // the scheduled method — Mockito's strict mode would otherwise
+        // reject the stubbing as unused.
+        org.mockito.Mockito.lenient()
+            .`when`(schedulerJobAuditor.gateAndRun(any(), any()))
+            .thenAnswer { invocation ->
+                @Suppress("UNCHECKED_CAST")
+                val block = invocation.arguments[1] as () -> Unit
+                block()
+                io.plugwerk.server.domain.SchedulerJobOutcome.SUCCESS
+            }
+        service = TokenRevocationService(
+            revokedTokenRepository,
+            userRepository,
+            props,
+            io.plugwerk.server.service.scheduler.SchedulerJobRegistry(),
+            schedulerJobAuditor,
+        )
     }
 
     private fun localUser(id: UUID, passwordInvalidatedBefore: OffsetDateTime? = null) = UserEntity(

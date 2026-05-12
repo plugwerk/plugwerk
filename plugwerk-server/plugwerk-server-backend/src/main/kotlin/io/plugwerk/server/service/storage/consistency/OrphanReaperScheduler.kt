@@ -22,9 +22,16 @@ import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
 import io.plugwerk.server.PlugwerkProperties
+import io.plugwerk.server.service.scheduler.SchedulerJobAuditor
+import io.plugwerk.server.service.scheduler.SchedulerJobDescriptor
+import io.plugwerk.server.service.scheduler.SchedulerJobRegistry
+import io.plugwerk.server.service.scheduler.SchedulerJobService
+import jakarta.annotation.PostConstruct
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.context.annotation.Lazy
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
@@ -66,9 +73,36 @@ class OrphanReaperScheduler(
     private val consistencyService: StorageConsistencyService,
     private val adminService: StorageConsistencyAdminService,
     private val properties: PlugwerkProperties,
+    private val schedulerJobRegistry: SchedulerJobRegistry,
+    private val schedulerJobService: SchedulerJobService,
+    private val schedulerJobAuditor: SchedulerJobAuditor,
     meterRegistry: MeterRegistry,
 ) {
     private val log = LoggerFactory.getLogger(OrphanReaperScheduler::class.java)
+
+    /** See [io.plugwerk.server.service.RefreshTokenService.self] — same Spring-proxy reason. */
+    @Autowired
+    @Lazy
+    private lateinit var self: OrphanReaperScheduler
+
+    @PostConstruct
+    fun registerScheduledJob() {
+        schedulerJobRegistry.register(
+            SchedulerJobDescriptor(
+                name = JOB_NAME,
+                description = "Scans object storage for files with no matching " +
+                    "plugin_release row and removes them after a grace period. " +
+                    "Dry-run-aware (toggle in the admin UI overrides the yaml default).",
+                cronExpression = properties.storage.reaper.cron,
+                supportsDryRun = true,
+                runNowExecutor = { self.reap() },
+            ),
+        )
+    }
+
+    companion object {
+        private const val JOB_NAME = "orphan-storage-reaper"
+    }
 
     private val deletedCounter: Counter = Counter
         .builder("plugwerk.storage.reaper.deleted")
@@ -98,12 +132,18 @@ class OrphanReaperScheduler(
      */
     @Scheduled(cron = "\${plugwerk.storage.reaper.cron:0 15 3 * * *}")
     @SchedulerLock(
-        name = "orphan-storage-reaper",
+        name = JOB_NAME,
         lockAtMostFor = "PT2H",
         lockAtLeastFor = "PT30S",
     )
     fun reap() {
+        schedulerJobAuditor.gateAndRun(JOB_NAME) { doReap() }
+    }
+
+    private fun doReap() {
         val reaper = properties.storage.reaper
+        val dryRunOverride = schedulerJobService.getDryRunOverride(JOB_NAME)
+        val dryRun = dryRunOverride ?: reaper.dryRun
         val sample = Timer.start()
         try {
             val report = consistencyService.scan()
@@ -134,7 +174,7 @@ class OrphanReaperScheduler(
                 )
             }
 
-            if (reaper.dryRun) {
+            if (dryRun) {
                 log.info(
                     "reaper tick (DRY-RUN): would delete {} orphan(s); skippedByGrace={}",
                     capped.size,

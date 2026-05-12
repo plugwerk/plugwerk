@@ -2383,6 +2383,110 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  /admin/scheduler/jobs:
+    get:
+      tags:
+        - AdminScheduler
+      summary: List all registered scheduled jobs (#516)
+      description: |
+        Returns the per-job dashboard payload: registry metadata (name,
+        description, cron, supportsDryRun) joined with admin-controlled
+        runtime state (enabled, dryRun, lastRun*, runCountTotal). Requires
+        superadmin.
+      operationId: listSchedulerJobs
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: All registered jobs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SchedulerJobDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/scheduler/jobs/{name}:
+    patch:
+      tags:
+        - AdminScheduler
+      summary: Toggle enabled/dry-run on a scheduled job (#516)
+      description: |
+        Mutates the admin-controlled flags for [name]. Cron and tuning
+        constants live in `application.yml` and cannot be changed here.
+        Returns the updated dashboard row. Requires superadmin.
+      operationId: updateSchedulerJob
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+          description: Job identifier as returned by the list endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SchedulerJobUpdateRequest'
+      responses:
+        '200':
+          description: Updated job row.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchedulerJobDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: No registered job with that name.
+
+  /admin/scheduler/jobs/{name}/run:
+    post:
+      tags:
+        - AdminScheduler
+      summary: Trigger an off-schedule execution of [name] (#516)
+      description: |
+        Invokes the job's body once, off-schedule, through the same
+        ShedLock path the cron tick uses — if a regular tick is mid-flight
+        the request is rejected so the two cannot collide. Honours the
+        `enabled` toggle (a disabled job's run-now is rejected with the
+        body returning `SKIPPED_DISABLED`). Requires superadmin.
+      operationId: runSchedulerJobNow
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+      responses:
+        '200':
+          description: Outcome of the off-schedule invocation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchedulerJobRunResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: No registered job with that name.
+        '409':
+          description: A concurrent execution is already in progress.
+
 components:
   parameters:
     NamespaceSlug:
@@ -2988,6 +3092,109 @@ components:
       required:
         - deleted
         - skipped
+
+    SchedulerJobOutcome:
+      type: string
+      description: |
+        Result of a single scheduler-job invocation, recorded in
+        `scheduler_job.last_run_outcome` and returned by the run-now
+        endpoint.
+      enum:
+        - SUCCESS
+        - FAILED
+        - SKIPPED_DISABLED
+        - SKIPPED_LOCK
+        - ABORTED_LIMIT
+
+    SchedulerJobDto:
+      type: object
+      description: |
+        Dashboard row for a single registered scheduled job (#516).
+        Combines compile-time metadata (description, cron, dry-run
+        support) with admin-controlled runtime state.
+      properties:
+        name:
+          type: string
+          description: Stable job identifier (matches the ShedLock lock name).
+        description:
+          type: string
+        cronExpression:
+          type: string
+          description: |
+            Cron pattern as configured in application.yml. Read-only —
+            the UI shows it but cannot edit it.
+        supportsDryRun:
+          type: boolean
+        enabled:
+          type: boolean
+        dryRun:
+          type: boolean
+          nullable: true
+          description: |
+            null = no admin override, use the yaml default. Non-null
+            overrides the yaml default for jobs where supportsDryRun is
+            true; the value is ignored for other jobs.
+        lastRunAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastRunOutcome:
+          $ref: '#/components/schemas/SchedulerJobOutcome'
+          nullable: true
+        lastRunDurationMs:
+          type: integer
+          format: int64
+          nullable: true
+        lastRunMessage:
+          type: string
+          nullable: true
+        runCountTotal:
+          type: integer
+          format: int64
+      required:
+        - name
+        - description
+        - cronExpression
+        - supportsDryRun
+        - enabled
+        - runCountTotal
+
+    SchedulerJobUpdateRequest:
+      type: object
+      description: |
+        Patch payload for `PATCH /admin/scheduler/jobs/{name}`. Both
+        fields are optional — only fields explicitly present in the
+        request body are updated. `dryRun: null` is a legitimate value
+        and clears the override (= "honour the yaml default").
+      properties:
+        enabled:
+          type: boolean
+        dryRun:
+          type: boolean
+          nullable: true
+
+    SchedulerJobRunResult:
+      type: object
+      description: |
+        Reply payload for the run-now endpoint. The outcome distinguishes
+        a real run from the various skip reasons so the admin UI can
+        give specific feedback ("disabled, flip the toggle first" vs
+        "another instance is running it right now").
+      properties:
+        name:
+          type: string
+        outcome:
+          $ref: '#/components/schemas/SchedulerJobOutcome'
+        durationMs:
+          type: integer
+          format: int64
+          nullable: true
+        message:
+          type: string
+          nullable: true
+      required:
+        - name
+        - outcome
 
     ErrorResponse:
       type: object

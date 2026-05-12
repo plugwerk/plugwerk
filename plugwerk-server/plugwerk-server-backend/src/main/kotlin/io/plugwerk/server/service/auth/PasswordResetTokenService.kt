@@ -21,8 +21,14 @@ package io.plugwerk.server.service.auth
 import io.plugwerk.server.domain.PasswordResetTokenEntity
 import io.plugwerk.server.domain.UserEntity
 import io.plugwerk.server.repository.PasswordResetTokenRepository
+import io.plugwerk.server.service.scheduler.SchedulerJobAuditor
+import io.plugwerk.server.service.scheduler.SchedulerJobDescriptor
+import io.plugwerk.server.service.scheduler.SchedulerJobRegistry
 import io.plugwerk.server.service.settings.ApplicationSettingsService
+import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.annotation.Lazy
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -50,9 +56,31 @@ import java.util.Base64
 class PasswordResetTokenService(
     private val repository: PasswordResetTokenRepository,
     private val settings: ApplicationSettingsService,
+    private val schedulerJobRegistry: SchedulerJobRegistry,
+    private val schedulerJobAuditor: SchedulerJobAuditor,
 ) {
     private val log = LoggerFactory.getLogger(PasswordResetTokenService::class.java)
     private val secureRandom = SecureRandom()
+
+    /** See [io.plugwerk.server.service.RefreshTokenService.self] — same Spring-proxy reason. */
+    @Autowired
+    @Lazy
+    private lateinit var self: PasswordResetTokenService
+
+    @PostConstruct
+    fun registerScheduledJob() {
+        schedulerJobRegistry.register(
+            SchedulerJobDescriptor(
+                name = "password-reset-token-sweep",
+                description = "Daily sweep of expired password-reset tokens. Consumed " +
+                    "rows linger for a week so support can correlate user complaints; " +
+                    "expired-unconsumed rows are removed immediately.",
+                cronExpression = "0 35 3 * * *",
+                supportsDryRun = false,
+                runNowExecutor = { self.sweep() },
+            ),
+        )
+    }
 
     /**
      * Issues a fresh token for [user] and invalidates any earlier in-flight
@@ -140,10 +168,12 @@ class PasswordResetTokenService(
     )
     @Transactional
     fun sweep() {
-        val cutoff = OffsetDateTime.now(ZoneOffset.UTC).minus(SWEEP_GRACE)
-        val removed = repository.deleteByExpiresAtBefore(cutoff)
-        if (removed > 0) {
-            log.info("Password-reset token sweep removed {} expired row(s) older than {}", removed, cutoff)
+        schedulerJobAuditor.gateAndRun("password-reset-token-sweep") {
+            val cutoff = OffsetDateTime.now(ZoneOffset.UTC).minus(SWEEP_GRACE)
+            val removed = repository.deleteByExpiresAtBefore(cutoff)
+            if (removed > 0) {
+                log.info("Password-reset token sweep removed {} expired row(s) older than {}", removed, cutoff)
+            }
         }
     }
 

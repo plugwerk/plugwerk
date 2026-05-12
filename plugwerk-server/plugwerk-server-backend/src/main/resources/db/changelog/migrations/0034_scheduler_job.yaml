@@ -1,0 +1,91 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0034-scheduler-job-table
+      author: plugwerk
+      comment: |
+        Admin-controllable runtime state for @Scheduled jobs (#516).
+
+        The yaml-driven cron pattern and tuning constants stay
+        authoritative — this table only carries the small set of
+        toggles and bookkeeping fields the admin UI needs:
+          - enabled                : per-instance master switch the
+                                     in-method gate consults each tick
+          - dry_run                : nullable; null = "no dry-run concept
+                                     for this job" (currently only the
+                                     orphan-storage reaper uses this)
+          - last_run_*             : diagnostics for the dashboard
+          - run_count_total        : cumulative; long-term history lives
+                                     in metrics, not in this row
+
+        `name` matches the @SchedulerLock name and the registry key, so
+        it doubles as the join target for the run-now path's `-manual`
+        lock suffix.
+      changes:
+        - createTable:
+            tableName: scheduler_job
+            columns:
+              - column:
+                  name: name
+                  type: varchar(64)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: enabled
+                  type: boolean
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: dry_run
+                  type: boolean
+                  constraints:
+                    nullable: true
+              - column:
+                  name: last_run_at
+                  type: timestamptz
+                  constraints:
+                    nullable: true
+              - column:
+                  name: last_run_outcome
+                  type: varchar(32)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: last_run_duration_ms
+                  type: bigint
+                  constraints:
+                    nullable: true
+              - column:
+                  name: last_run_message
+                  type: text
+                  constraints:
+                    nullable: true
+              - column:
+                  name: run_count_total
+                  type: bigint
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: |
+              ALTER TABLE scheduler_job
+                ADD CONSTRAINT chk_scheduler_job_outcome
+                CHECK (last_run_outcome IS NULL OR last_run_outcome IN
+                  ('SUCCESS', 'FAILED', 'SKIPPED_DISABLED', 'SKIPPED_LOCK',
+                   'ABORTED_LIMIT'));
+      rollback:
+        - dropTable:
+            tableName: scheduler_job

@@ -21,6 +21,7 @@ import { Configuration } from "./generated/configuration";
 import { AccessKeysApi } from "./generated/api/access-keys-api";
 import { AdminEmailApi } from "./generated/api/admin-email-api";
 import { AdminEmailTemplatesApi } from "./generated/api/admin-email-templates-api";
+import { AdminSchedulerApi } from "./generated/api/admin-scheduler-api";
 import { AdminSettingsApi } from "./generated/api/admin-settings-api";
 import { AdminStorageConsistencyApi } from "./generated/api/admin-storage-consistency-api";
 import { AdminUsersApi } from "./generated/api/admin-users-api";
@@ -167,6 +168,11 @@ export const adminUsersApi = new AdminUsersApi(
   axiosInstance,
 );
 export const adminStorageConsistencyApi = new AdminStorageConsistencyApi(
+  apiConfig,
+  BASE_PATH,
+  axiosInstance,
+);
+export const adminSchedulerApi = new AdminSchedulerApi(
   apiConfig,
   BASE_PATH,
   axiosInstance,
