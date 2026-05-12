@@ -17,7 +17,7 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StorageConsistencySection } from "./StorageConsistencySection";
 import { renderWithTheme } from "../../test/renderWithTheme";
@@ -53,7 +53,7 @@ describe("StorageConsistencySection", () => {
     vi.clearAllMocks();
   });
 
-  it("renders both empty tables on a clean report", async () => {
+  it("renders empty states for both tables when the report is clean", async () => {
     vi.mocked(apiConfig.adminStorageConsistencyApi.getStorageConsistencyReport)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mockResolvedValue({ data: reportFixture() } as any);
@@ -61,16 +61,12 @@ describe("StorageConsistencySection", () => {
     renderWithTheme(<StorageConsistencySection />);
 
     await waitFor(() => {
-      expect(
-        screen.getByText("No releases reference missing storage files."),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText("No orphaned objects in storage."),
-      ).toBeInTheDocument();
+      expect(screen.getByText("No missing artifacts")).toBeInTheDocument();
+      expect(screen.getByText("No orphaned objects")).toBeInTheDocument();
     });
   });
 
-  it("lists missing and orphaned rows from the report", async () => {
+  it("lists missing and orphaned rows with the new key + age columns", async () => {
     vi.mocked(
       apiConfig.adminStorageConsistencyApi.getStorageConsistencyReport,
     ).mockResolvedValue({
@@ -105,7 +101,9 @@ describe("StorageConsistencySection", () => {
         screen.getByText("acme:io.example.plugin:1.0.0:jar"),
       ).toBeInTheDocument();
       expect(screen.getByText("acme:orphan:0.1.0:jar")).toBeInTheDocument();
-      expect(screen.getByText("48h")).toBeInTheDocument();
+      // Age renders as `2d` (48 hours) — once in the stats strip
+      // ("Oldest") and once in the row badge.
+      expect(screen.getAllByText("2d").length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -133,7 +131,7 @@ describe("StorageConsistencySection", () => {
     });
   });
 
-  it("triggers bulk remove for missing releases", async () => {
+  it("triggers bulk remove for missing releases via the Missing table", async () => {
     const user = userEvent.setup();
     const releaseId = "00000000-0000-0000-0000-000000000001";
     vi.mocked(apiConfig.adminStorageConsistencyApi.getStorageConsistencyReport)
@@ -164,14 +162,12 @@ describe("StorageConsistencySection", () => {
 
     renderWithTheme(<StorageConsistencySection />);
 
-    await screen.findByText("io.example.plugin");
-
-    // The Missing-section "Remove all" button is the first of the two
-    // identical buttons (Missing renders before Orphaned in the DOM).
-    const removeAllButtons = await screen.findAllByRole("button", {
-      name: /Remove all/i,
+    const missingTable = await screen.findByRole("table", {
+      name: /Missing artifacts/i,
     });
-    await user.click(removeAllButtons[0]);
+    expect(missingTable).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Remove all \(1\)/i }));
     await user.click(screen.getByRole("button", { name: /Remove rows/i }));
 
     await waitFor(() => {
@@ -183,7 +179,7 @@ describe("StorageConsistencySection", () => {
     });
   });
 
-  it("triggers bulk delete and re-scans on success", async () => {
+  it("triggers bulk delete for orphans via the Orphaned table", async () => {
     const user = userEvent.setup();
     vi.mocked(apiConfig.adminStorageConsistencyApi.getStorageConsistencyReport)
       .mockResolvedValueOnce({
@@ -215,17 +211,7 @@ describe("StorageConsistencySection", () => {
 
     await screen.findByText("acme:orphan:0.1.0:jar");
 
-    // Two "Remove all" buttons exist (Missing + Orphaned). Missing is
-    // disabled because that table is empty in this fixture, so we target
-    // the enabled one for the orphaned-bulk flow.
-    const removeAllButtons = screen.getAllByRole("button", {
-      name: /Remove all/i,
-    });
-    const orphanedButton = removeAllButtons.find(
-      (b) => !(b as HTMLButtonElement).disabled,
-    );
-    expect(orphanedButton).toBeDefined();
-    await user.click(orphanedButton!);
+    await user.click(screen.getByRole("button", { name: /Delete all \(1\)/i }));
     await user.click(screen.getByRole("button", { name: /Delete objects/i }));
 
     await waitFor(() => {
@@ -237,8 +223,111 @@ describe("StorageConsistencySection", () => {
         },
       });
     });
-    expect(
+  });
+
+  it("filters orphan rows by the search field", async () => {
+    const user = userEvent.setup();
+    vi.mocked(
       apiConfig.adminStorageConsistencyApi.getStorageConsistencyReport,
-    ).toHaveBeenCalledTimes(2);
+    ).mockResolvedValue({
+      data: reportFixture({
+        orphanedArtifacts: [
+          {
+            key: "acme:keeper:1.0.0:jar",
+            lastModified: "2026-05-10T12:00:00Z",
+            ageHours: 48,
+            sizeBytes: 1_000,
+          },
+          {
+            key: "acme:noise:9.9.9:jar",
+            lastModified: "2026-05-09T12:00:00Z",
+            ageHours: 72,
+            sizeBytes: 2_000,
+          },
+        ],
+      }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    renderWithTheme(<StorageConsistencySection />);
+
+    await screen.findByText("acme:keeper:1.0.0:jar");
+    expect(screen.getByText("acme:noise:9.9.9:jar")).toBeInTheDocument();
+
+    const orphanedTable = screen.getByRole("table", {
+      name: /Orphaned artifacts/i,
+    });
+    const orphanedSection = orphanedTable.closest("div");
+    expect(orphanedSection).toBeTruthy();
+    // The search input is scoped to the orphaned table by its placeholder.
+    const search = await screen.findByPlaceholderText("Filter by key…");
+    await user.type(search, "keeper");
+
+    await waitFor(() => {
+      expect(screen.getByText("acme:keeper:1.0.0:jar")).toBeInTheDocument();
+      expect(
+        screen.queryByText("acme:noise:9.9.9:jar"),
+      ).not.toBeInTheDocument();
+    });
+    // The bulk action label should reflect the filter context.
+    expect(
+      within(orphanedTable.parentElement!.parentElement!).getByRole("button", {
+        name: /Delete all 1 matching/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("supports multi-select bulk delete for orphans", async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiConfig.adminStorageConsistencyApi.getStorageConsistencyReport)
+      .mockResolvedValueOnce({
+        data: reportFixture({
+          orphanedArtifacts: [
+            {
+              key: "acme:a:1.0.0:jar",
+              lastModified: "2026-05-10T12:00:00Z",
+              ageHours: 48,
+              sizeBytes: 1_000,
+            },
+            {
+              key: "acme:b:1.0.0:jar",
+              lastModified: "2026-05-09T12:00:00Z",
+              ageHours: 72,
+              sizeBytes: 2_000,
+            },
+          ],
+        }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
+      .mockResolvedValueOnce({
+        data: reportFixture(),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+    vi.mocked(
+      apiConfig.adminStorageConsistencyApi.deleteOrphanedArtifacts,
+    ).mockResolvedValue({
+      data: { deleted: ["acme:a:1.0.0:jar"], skipped: [] },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    renderWithTheme(<StorageConsistencySection />);
+
+    const firstRowCheckbox = await screen.findByRole("checkbox", {
+      name: /Select acme:a:1\.0\.0:jar/i,
+    });
+    await user.click(firstRowCheckbox);
+
+    await user.click(
+      screen.getByRole("button", { name: /Delete 1 selected/i }),
+    );
+    await user.click(screen.getByRole("button", { name: /Delete objects/i }));
+
+    await waitFor(() => {
+      expect(
+        apiConfig.adminStorageConsistencyApi.deleteOrphanedArtifacts,
+      ).toHaveBeenCalledWith({
+        orphanedArtifactDeletionRequest: { keys: ["acme:a:1.0.0:jar"] },
+      });
+    });
   });
 });
