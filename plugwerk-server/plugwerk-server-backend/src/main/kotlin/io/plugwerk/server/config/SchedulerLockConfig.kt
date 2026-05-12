@@ -26,8 +26,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.jdbc.core.JdbcTemplate
-import javax.sql.DataSource
 import java.time.ZoneOffset
+import javax.sql.DataSource
 
 /**
  * Cluster-coordination primitive for `@Scheduled` jobs (#190 prerequisite).
@@ -67,18 +67,17 @@ class SchedulerLockConfig {
         havingValue = "true",
         matchIfMissing = true,
     )
-    fun lockProvider(dataSource: DataSource): LockProvider =
-        JdbcTemplateLockProvider(
-            JdbcTemplateLockProvider.Configuration.builder()
-                .withJdbcTemplate(JdbcTemplate(dataSource))
-                .withTimeZone(java.util.TimeZone.getTimeZone(ZoneOffset.UTC))
-                // JVM time, not DB time: usingDbTime() requires a Postgres-
-                // specific SELECT pg_… probe that H2 (used in unit tests)
-                // does not implement. Plugwerk hosts run NTP-synchronised so
-                // JVM-time skew is in the millisecond range; lock granularity
-                // here is minutes/hours.
-                .build(),
-        )
+    fun lockProvider(dataSource: DataSource): LockProvider = JdbcTemplateLockProvider(
+        JdbcTemplateLockProvider.Configuration.builder()
+            .withJdbcTemplate(JdbcTemplate(dataSource))
+            .withTimeZone(java.util.TimeZone.getTimeZone(ZoneOffset.UTC))
+            // JVM time, not DB time: usingDbTime() requires a Postgres-
+            // specific SELECT pg_… probe that H2 (used in unit tests)
+            // does not implement. Plugwerk hosts run NTP-synchronised so
+            // JVM-time skew is in the millisecond range; lock granularity
+            // here is minutes/hours.
+            .build(),
+    )
 
     /**
      * Fallback when ShedLock is disabled (test profile, single-node deploys

@@ -30,10 +30,7 @@ import java.util.UUID
  * as either successfully deleted or skipped (because it became referenced
  * by a `plugin_release` row between the scan and the delete call).
  */
-data class BulkArtifactDeletionResult(
-    val deleted: List<String>,
-    val skipped: List<String>,
-)
+data class BulkArtifactDeletionResult(val deleted: List<String>, val skipped: List<String>)
 
 /**
  * Admin-triggered remediation for findings produced by

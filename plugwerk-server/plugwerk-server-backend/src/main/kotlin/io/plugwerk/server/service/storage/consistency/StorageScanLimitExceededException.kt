@@ -27,11 +27,9 @@ package io.plugwerk.server.service.storage.consistency
  * they should get a clear "too many keys; scan is sync-only for now"
  * error and a follow-up async-mode work item.
  */
-class StorageScanLimitExceededException(
-    val limit: Int,
-    val scannedSoFar: Int,
-) : RuntimeException(
-    "Storage scan aborted after $scannedSoFar objects (limit: $limit). " +
-        "Set plugwerk.storage.consistency.max-keys-per-scan higher or " +
-        "narrow the scan (#190 supports only synchronous scans for now).",
-)
+class StorageScanLimitExceededException(val limit: Int, val scannedSoFar: Int) :
+    RuntimeException(
+        "Storage scan aborted after $scannedSoFar objects (limit: $limit). " +
+            "Set plugwerk.storage.consistency.max-keys-per-scan higher or " +
+            "narrow the scan (#190 supports only synchronous scans for now).",
+    )

@@ -59,21 +59,11 @@ data class ConsistencyReport(
  * a useful "plugin X version Y" identifier in the admin UI without forcing
  * the consumer to re-query.
  */
-data class MissingArtifact(
-    val releaseId: UUID,
-    val pluginId: String,
-    val version: String,
-    val artifactKey: String,
-)
+data class MissingArtifact(val releaseId: UUID, val pluginId: String, val version: String, val artifactKey: String)
 
 /**
  * Storage object with no DB row pointing at it. [ageHours] is computed at
  * scan time for stable rendering across UI re-renders; the reaper (#496)
  * uses it to enforce the grace-period guard against TOCTOU.
  */
-data class OrphanedArtifact(
-    val key: String,
-    val lastModified: Instant,
-    val ageHours: Long,
-    val sizeBytes: Long,
-)
+data class OrphanedArtifact(val key: String, val lastModified: Instant, val ageHours: Long, val sizeBytes: Long)

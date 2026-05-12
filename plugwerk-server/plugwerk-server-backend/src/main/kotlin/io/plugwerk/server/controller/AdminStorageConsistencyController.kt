@@ -19,10 +19,6 @@
 package io.plugwerk.server.controller
 
 import io.plugwerk.api.AdminStorageConsistencyApi
-import io.plugwerk.api.model.BulkArtifactDeletionResult as ApiBulkArtifactDeletionResult
-import io.plugwerk.api.model.ConsistencyReport as ApiConsistencyReport
-import io.plugwerk.api.model.MissingArtifact as ApiMissingArtifact
-import io.plugwerk.api.model.OrphanedArtifact as ApiOrphanedArtifact
 import io.plugwerk.api.model.OrphanedArtifactDeletionRequest
 import io.plugwerk.server.security.NamespaceAuthorizationService
 import io.plugwerk.server.security.currentAuthentication
@@ -36,6 +32,10 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
+import io.plugwerk.api.model.BulkArtifactDeletionResult as ApiBulkArtifactDeletionResult
+import io.plugwerk.api.model.ConsistencyReport as ApiConsistencyReport
+import io.plugwerk.api.model.MissingArtifact as ApiMissingArtifact
+import io.plugwerk.api.model.OrphanedArtifact as ApiOrphanedArtifact
 
 /**
  * Admin endpoints for the storage-vs-DB consistency check (#190).

@@ -174,12 +174,11 @@ class StorageConsistencyServiceTest {
         return StorageConsistencyService(storage, repo, props, clock)
     }
 
-    private fun storageObject(key: String, ageHours: Long): StorageObjectInfo =
-        StorageObjectInfo(
-            key = key,
-            lastModified = now.minusSeconds(ageHours * 3600),
-            sizeBytes = 123L,
-        )
+    private fun storageObject(key: String, ageHours: Long): StorageObjectInfo = StorageObjectInfo(
+        key = key,
+        lastModified = now.minusSeconds(ageHours * 3600),
+        sizeBytes = 123L,
+    )
 
     private fun release(
         key: String,

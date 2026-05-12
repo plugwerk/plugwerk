@@ -37,8 +37,4 @@ import java.time.Instant
  *   - S3: `S3Object.lastModified()`.
  * @property sizeBytes Object size as reported by the backend.
  */
-data class StorageObjectInfo(
-    val key: String,
-    val lastModified: Instant,
-    val sizeBytes: Long,
-)
+data class StorageObjectInfo(val key: String, val lastModified: Instant, val sizeBytes: Long)

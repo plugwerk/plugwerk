@@ -103,6 +103,7 @@ data class PlugwerkProperties(
             @field:jakarta.validation.constraints.Min(1)
             val maxKeysPerScan: Int = 100_000,
         )
+
         /**
          * Filesystem storage settings (`plugwerk.storage.fs.*`).
          *
