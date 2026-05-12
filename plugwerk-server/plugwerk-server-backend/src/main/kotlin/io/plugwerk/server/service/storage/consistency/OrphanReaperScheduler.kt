@@ -29,7 +29,9 @@ import io.plugwerk.server.service.scheduler.SchedulerJobService
 import jakarta.annotation.PostConstruct
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.context.annotation.Lazy
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
@@ -78,6 +80,11 @@ class OrphanReaperScheduler(
 ) {
     private val log = LoggerFactory.getLogger(OrphanReaperScheduler::class.java)
 
+    /** See [io.plugwerk.server.service.RefreshTokenService.self] — same Spring-proxy reason. */
+    @Autowired
+    @Lazy
+    private lateinit var self: OrphanReaperScheduler
+
     @PostConstruct
     fun registerScheduledJob() {
         schedulerJobRegistry.register(
@@ -88,7 +95,7 @@ class OrphanReaperScheduler(
                     "Dry-run-aware (toggle in the admin UI overrides the yaml default).",
                 cronExpression = properties.storage.reaper.cron,
                 supportsDryRun = true,
-                runNowExecutor = ::reap,
+                runNowExecutor = { self.reap() },
             ),
         )
     }

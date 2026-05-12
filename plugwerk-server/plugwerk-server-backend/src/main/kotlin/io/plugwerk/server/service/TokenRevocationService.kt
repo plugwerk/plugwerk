@@ -28,6 +28,8 @@ import io.plugwerk.server.service.scheduler.SchedulerJobDescriptor
 import io.plugwerk.server.service.scheduler.SchedulerJobRegistry
 import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.annotation.Lazy
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -59,6 +61,11 @@ class TokenRevocationService(
 
     private val log = LoggerFactory.getLogger(TokenRevocationService::class.java)
 
+    /** See [RefreshTokenService.self] — same Spring-proxy reason. */
+    @Autowired
+    @Lazy
+    private lateinit var self: TokenRevocationService
+
     @PostConstruct
     fun registerScheduledJob() {
         schedulerJobRegistry.register(
@@ -68,7 +75,7 @@ class TokenRevocationService(
                     "Once a token is past its expiry, revocation is moot.",
                 cronExpression = "0 0 * * * *",
                 supportsDryRun = false,
-                runNowExecutor = ::cleanupExpired,
+                runNowExecutor = { self.cleanupExpired() },
             ),
         )
     }

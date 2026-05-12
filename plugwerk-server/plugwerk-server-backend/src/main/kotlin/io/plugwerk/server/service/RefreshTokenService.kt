@@ -27,6 +27,8 @@ import io.plugwerk.server.service.scheduler.SchedulerJobDescriptor
 import io.plugwerk.server.service.scheduler.SchedulerJobRegistry
 import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.annotation.Lazy
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -65,6 +67,16 @@ class RefreshTokenService(
     private val log = LoggerFactory.getLogger(RefreshTokenService::class.java)
     private val secureRandom = SecureRandom()
 
+    /**
+     * Lazy self-reference so the run-now lambda invokes the Spring-proxy
+     * method rather than the raw `this`. Without it the proxy-bound
+     * `@Transactional` + `@SchedulerLock` advice does not fire for
+     * admin-triggered runs (issue surfaced in #516 testing).
+     */
+    @Autowired
+    @Lazy
+    private lateinit var self: RefreshTokenService
+
     @PostConstruct
     fun registerScheduledJob() {
         schedulerJobRegistry.register(
@@ -74,7 +86,7 @@ class RefreshTokenService(
                     "keeps working without unbounded table growth.",
                 cronExpression = "0 0 * * * *",
                 supportsDryRun = false,
-                runNowExecutor = ::cleanupExpired,
+                runNowExecutor = { self.cleanupExpired() },
             ),
         )
     }

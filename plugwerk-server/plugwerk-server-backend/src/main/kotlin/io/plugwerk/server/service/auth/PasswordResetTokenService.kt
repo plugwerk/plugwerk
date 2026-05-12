@@ -27,6 +27,8 @@ import io.plugwerk.server.service.scheduler.SchedulerJobRegistry
 import io.plugwerk.server.service.settings.ApplicationSettingsService
 import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.annotation.Lazy
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -60,6 +62,11 @@ class PasswordResetTokenService(
     private val log = LoggerFactory.getLogger(PasswordResetTokenService::class.java)
     private val secureRandom = SecureRandom()
 
+    /** See [io.plugwerk.server.service.RefreshTokenService.self] — same Spring-proxy reason. */
+    @Autowired
+    @Lazy
+    private lateinit var self: PasswordResetTokenService
+
     @PostConstruct
     fun registerScheduledJob() {
         schedulerJobRegistry.register(
@@ -70,7 +77,7 @@ class PasswordResetTokenService(
                     "expired-unconsumed rows are removed immediately.",
                 cronExpression = "0 35 3 * * *",
                 supportsDryRun = false,
-                runNowExecutor = ::sweep,
+                runNowExecutor = { self.sweep() },
             ),
         )
     }
