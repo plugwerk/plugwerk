@@ -19,11 +19,16 @@
 package io.plugwerk.server.service.configuration
 
 import io.plugwerk.server.PlugwerkProperties
+import jakarta.validation.constraints.AssertTrue
 import org.springframework.stereotype.Service
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ArrayNode
 import tools.jackson.databind.node.ObjectNode
+import kotlin.reflect.KClass
+import kotlin.reflect.full.declaredMemberFunctions
+import kotlin.reflect.full.declaredMemberProperties
+import kotlin.reflect.full.findAnnotation
 
 /**
  * Builds a read-only JSON tree of the effective `plugwerk.*` configuration
@@ -39,6 +44,17 @@ import tools.jackson.databind.node.ObjectNode
  */
 @Service
 class ConfigurationTreeBuilder(private val objectMapper: ObjectMapper, private val properties: PlugwerkProperties) {
+
+    /**
+     * JSON field names produced by Jackson for Bean-Validation methods
+     * (`@AssertTrue fun isFoo(): Boolean` → JSON field `foo`). These
+     * are validation checks, not configurable properties, so they must
+     * not surface in the admin UI tree. Computed once at bean
+     * construction by walking `PlugwerkProperties` and every nested
+     * `@ConfigurationProperties`-style data class via Kotlin reflection.
+     */
+    private val hiddenFieldNames: Set<String> =
+        collectAssertTrueFieldNames(PlugwerkProperties::class)
 
     /**
      * Returns the redacted tree, ready to serialise as the admin
@@ -59,6 +75,12 @@ class ConfigurationTreeBuilder(private val objectMapper: ObjectMapper, private v
         is ObjectNode -> {
             val replacement = objectMapper.createObjectNode()
             node.propertyNames().forEach { fieldName ->
+                // Skip @AssertTrue validation methods serialised as
+                // is*() getters — they are checks, not configuration,
+                // and would otherwise pollute the admin UI with
+                // pseudo-properties like
+                // `is-s3-config-present-when-s3-selected`.
+                if (fieldName in hiddenFieldNames) return@forEach
                 val value = node.get(fieldName)
                 // Convert camelCase property names to kebab-case so the
                 // rendered path matches the yaml the operator edits.
@@ -97,6 +119,41 @@ class ConfigurationTreeBuilder(private val objectMapper: ObjectMapper, private v
     private fun toKebabCase(camel: String): String = camel
         .replace(Regex("([a-z0-9])([A-Z])"), "$1-$2")
         .lowercase()
+
+    /**
+     * Walks the `@ConfigurationProperties` class graph starting at
+     * [root] and collects the JSON field names that correspond to
+     * `@AssertTrue` Bean-Validation methods. The Jackson convention
+     * for `isFoo()` → JSON `foo`; we honour that so a Set lookup on
+     * the raw field name works in [redact].
+     *
+     * Only types in the `io.plugwerk.` package family are recursed
+     * into so we don't drift into JDK / library types like `Duration`.
+     */
+    private fun collectAssertTrueFieldNames(root: KClass<*>): Set<String> {
+        val seen = mutableSetOf<KClass<*>>()
+        val hidden = mutableSetOf<String>()
+        fun visit(klass: KClass<*>) {
+            if (!seen.add(klass)) return
+            for (fn in klass.declaredMemberFunctions) {
+                if (fn.findAnnotation<AssertTrue>() == null) continue
+                val name = fn.name
+                // Jackson strips a leading `is` and lowercases the
+                // first remaining char: `isFooBar` → `fooBar`.
+                if (name.length > 2 && name.startsWith("is") && name[2].isUpperCase()) {
+                    hidden += name[2].lowercaseChar() + name.substring(3)
+                }
+            }
+            for (prop in klass.declaredMemberProperties) {
+                val type = prop.returnType.classifier as? KClass<*> ?: continue
+                if (type.qualifiedName?.startsWith("io.plugwerk.") == true) {
+                    visit(type)
+                }
+            }
+        }
+        visit(root)
+        return hidden
+    }
 
     /**
      * Replaces a sensitive leaf with the redacted marker. "Configured"

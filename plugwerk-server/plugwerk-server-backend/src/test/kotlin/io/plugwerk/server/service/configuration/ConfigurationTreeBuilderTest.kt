@@ -62,4 +62,19 @@ class ConfigurationTreeBuilderTest {
 
         assertThat(tree.get("storage")?.get("type")?.textValue()).isEqualTo("fs")
     }
+
+    @Test
+    fun `bean-validation methods are hidden from the rendered tree`() {
+        val props = PlugwerkProperties()
+        val tree = ConfigurationTreeBuilder(mapper, props).build()
+
+        // @AssertTrue methods on PlugwerkProperties.StorageProperties /
+        // S3Properties would otherwise surface as pseudo-properties
+        // because Jackson treats `isFooBar()` as a bean getter.
+        val asString = tree.toString()
+        assertThat(asString).doesNotContain("s3-config-present-when-s3-selected")
+        assertThat(asString).doesNotContain("s3ConfigPresentWhenS3Selected")
+        assertThat(asString).doesNotContain("credentials-consistent")
+        assertThat(asString).doesNotContain("key-prefix-well-formed")
+    }
 }
