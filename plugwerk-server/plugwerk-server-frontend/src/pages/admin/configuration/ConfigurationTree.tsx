@@ -166,7 +166,9 @@ export function ConfigurationTree({
   value,
   filter,
 }: ConfigurationTreeProps) {
-  const all = flatten(pathPrefix, value);
+  const all = flatten(pathPrefix, value)
+    .slice()
+    .sort((a, b) => a.path.localeCompare(b.path));
   const visible = filter
     ? all.filter((leaf) => leaf.path.toLowerCase().includes(filter))
     : all;
@@ -187,13 +189,25 @@ export function ConfigurationTree({
       component="table"
       role="table"
       aria-label={`Configuration: ${pathPrefix}`}
-      sx={{ width: "100%", borderCollapse: "collapse" }}
+      sx={{
+        width: "100%",
+        borderCollapse: "collapse",
+        // Fixed layout + thirds so the three columns stay aligned
+        // across the storage / server / auth sections regardless of
+        // their individual content widths.
+        tableLayout: "fixed",
+      }}
     >
+      <Box component="colgroup">
+        <Box component="col" sx={{ width: "33.34%" }} />
+        <Box component="col" sx={{ width: "33.33%" }} />
+        <Box component="col" sx={{ width: "33.33%" }} />
+      </Box>
       <Box component="thead">
         <Box component="tr">
           <HeaderCell>Path</HeaderCell>
-          <HeaderCell width={220}>Env var</HeaderCell>
-          <HeaderCell width={260}>Value</HeaderCell>
+          <HeaderCell>Env var</HeaderCell>
+          <HeaderCell>Value</HeaderCell>
         </Box>
       </Box>
       <Box component="tbody">
@@ -237,19 +251,12 @@ export function ConfigurationTree({
   );
 }
 
-function HeaderCell({
-  children,
-  width,
-}: {
-  readonly children?: React.ReactNode;
-  readonly width?: number;
-}) {
+function HeaderCell({ children }: { readonly children?: React.ReactNode }) {
   return (
     <Box
       component="th"
       sx={{
         textAlign: "left",
-        width,
         px: 2,
         py: 1,
         borderBottom: "1px solid",
