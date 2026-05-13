@@ -99,11 +99,13 @@ class ConfigurationKeyRedactorTest {
             results += prop.name
             val returnType = prop.returnType.classifier as? kotlin.reflect.KClass<*> ?: continue
             // Recurse into nested data classes inside the same package family.
-            if (returnType.qualifiedName?.startsWith("io.plugwerk.server.PlugwerkProperties") == true ||
+            val isPlugwerkPropertiesInner =
+                returnType.qualifiedName?.startsWith("io.plugwerk.server.PlugwerkProperties") == true
+            val isPlugwerkDataClass =
                 returnType.isSubclassOf(Any::class) &&
-                returnType.qualifiedName?.startsWith("io.plugwerk.") == true &&
-                returnType.isData
-            ) {
+                    returnType.qualifiedName?.startsWith("io.plugwerk.") == true &&
+                    returnType.isData
+            if (isPlugwerkPropertiesInner || isPlugwerkDataClass) {
                 results += collectPropertyNames(returnType, seen)
             }
         }
