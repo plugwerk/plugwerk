@@ -1473,6 +1473,14 @@ paths:
       tags:
         - AdminUsers
       summary: Delete user (superadmin cannot be deleted)
+      description: |
+        Removes a user account from the directory. Hard-delete — the row is gone
+        and cannot be recovered. Memberships, refresh tokens, and personal access
+        keys cascade via the FK chain.
+
+        The bootstrap superadmin account is protected: attempting to delete it
+        returns `403`. To rotate the superadmin, create a second superadmin,
+        promote it, and then delete the original.
       operationId: deleteUser
       security:
         - BearerAuth: []
@@ -1598,6 +1606,14 @@ paths:
       tags:
         - NamespaceMembers
       summary: List namespace members
+      description: |
+        Returns every user who has a direct membership in this namespace,
+        with their role (`ADMIN` or `READ_ONLY`). Identity-only — does not
+        expand the user's other namespace memberships or personal access
+        keys.
+
+        Callers see only namespaces they belong to (or all of them if
+        superadmin).
       operationId: listNamespaceMembers
       security:
         - BearerAuth: []
@@ -2396,6 +2412,20 @@ paths:
       tags:
         - AdminBranding
       summary: Upload a custom logo asset for the given slot (#254)
+      description: |
+        Replaces the asset stored for this branding slot. SVG payloads are
+        sanitised server-side (scripts, foreignObject, event-handler
+        attributes, external `href` / `src` references are stripped); PNG
+        and WebP payloads are size- and dimension-checked.
+
+        Per-slot rules:
+
+          - `logo-light` / `logo-dark`: max 512 KB, ~4:1 aspect tolerance.
+          - `logomark`: max 256 KB, 1:1 (square) aspect.
+
+        The previous asset in the slot (if any) is replaced atomically — the
+        public `GET /branding/{slot}` switches to the new bytes within the
+        same transaction. Superadmin only.
       operationId: uploadBrandingAsset
       security:
         - BearerAuth: []
@@ -2428,6 +2458,12 @@ paths:
       tags:
         - AdminBranding
       summary: Reset the given slot back to the bundled default (#254)
+      description: |
+        Deletes the custom asset for this slot. Idempotent — returns `204`
+        even when no row was stored, so the operator never sees an error
+        for "reset what was already the default". The public
+        `GET /branding/{slot}` endpoint then returns `404`, prompting the
+        client to fall back to the bundled SVG. Superadmin only.
       operationId: resetBrandingAsset
       security:
         - BearerAuth: []
