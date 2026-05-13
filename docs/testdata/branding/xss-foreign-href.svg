@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 200">
+  <!-- Sanitizer test: javascript: hrefs and external xlink:hrefs must
+       be stripped; internal '#'-hrefs and data: URIs must survive. -->
+  <defs>
+    <symbol id="mark">
+      <rect width="80" height="80" fill="#0F62FE"/>
+    </symbol>
+  </defs>
+
+  <!-- internal ref — survives -->
+  <use xlink:href="#mark" x="40" y="60"/>
+
+  <!-- javascript: ref — stripped -->
+  <a xlink:href="javascript:alert('xss')">
+    <text x="180" y="120" font-family="Helvetica, Arial, sans-serif"
+          font-size="40" font-weight="700" fill="#161616">no remote loads</text>
+  </a>
+
+  <!-- external http: ref — stripped -->
+  <image xlink:href="https://evil.example.com/exfil.png" x="600" y="40" width="160" height="120"/>
+</svg>

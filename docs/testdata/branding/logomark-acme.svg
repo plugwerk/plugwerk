@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Happy path: 1:1 logomark, ~512×512. -->
+  <rect x="0" y="0" width="512" height="512" rx="96" fill="#0F62FE"/>
+  <g transform="translate(96,96)" fill="white">
+    <circle cx="160" cy="160" r="140" fill="none" stroke="white" stroke-width="32"/>
+    <path d="M70 200 L150 130 L210 190 L260 110" stroke="white" stroke-width="32"
+          fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

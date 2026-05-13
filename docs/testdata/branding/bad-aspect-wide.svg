@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 100">
+  <!-- Reject path: uploaded as logomark.
+       Aspect 8:1 instead of the expected 1:1 → server returns 400. -->
+  <rect width="800" height="100" fill="#DA1E28"/>
+  <text x="400" y="68" text-anchor="middle"
+        font-family="Helvetica, Arial, sans-serif" font-size="48"
+        font-weight="700" fill="white">WRONG ASPECT</text>
+</svg>

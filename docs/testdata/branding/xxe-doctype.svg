@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!DOCTYPE svg [
+  <!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200">
+  <!-- Reject path: the sanitizer disables DOCTYPE; the upload returns
+       400 with an "SVG is not parseable" message. The intent is XXE
+       file disclosure — proving the hardening defangs it. -->
+  <text x="400" y="120" text-anchor="middle"
+        font-family="Helvetica, Arial, sans-serif" font-size="48"
+        font-weight="700" fill="red">&xxe;</text>
+</svg>
