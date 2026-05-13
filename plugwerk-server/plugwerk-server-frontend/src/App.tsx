@@ -21,6 +21,7 @@ import { RouterProvider } from "react-router-dom";
 import { router } from "./router";
 import { AuthHydrationBoundary } from "./components/auth/AuthHydrationBoundary";
 import { useConfigStore } from "./stores/configStore";
+import { useBranding } from "./hooks/useBranding";
 
 export default function App() {
   // Keep document.title in sync with the operator-configured site name (#234).
@@ -32,6 +33,19 @@ export default function App() {
   useEffect(() => {
     document.title = `${siteName} – Plugin Catalog`;
   }, [siteName]);
+
+  // Swap the favicon to the operator-uploaded logomark when present (#254).
+  // Falls back to the bundled SVG via useBranding's default. We mutate the
+  // existing <link rel="icon"> in index.html rather than appending so the
+  // browser cache treats it as a single resource.
+  const logomark = useBranding("logomark");
+  useEffect(() => {
+    const link =
+      document.querySelector<HTMLLinkElement>("link[rel='icon']") ??
+      Object.assign(document.createElement("link"), { rel: "icon" });
+    link.href = logomark;
+    if (!link.parentElement) document.head.appendChild(link);
+  }, [logomark]);
 
   return (
     <AuthHydrationBoundary>

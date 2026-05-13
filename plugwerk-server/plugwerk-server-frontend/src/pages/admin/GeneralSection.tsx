@@ -35,6 +35,7 @@ import {
 } from "@mui/material";
 import { Activity, Globe, KeyRound, Upload, UserPlus } from "lucide-react";
 import { TimezoneSelect } from "../../components/common/TimezoneSelect";
+import { BrandingSection } from "./branding/BrandingSection";
 import type { ApplicationSettingDto } from "../../api/generated/model/application-setting-dto";
 import { Section } from "../../components/common/Section";
 import { useSettingsStore } from "../../stores/settingsStore";
@@ -395,6 +396,9 @@ export function GeneralSection() {
           {renderField("general.default_language")}
           {renderField("general.default_timezone")}
         </Section>
+
+        {/* Branding — three logo slots, #254 */}
+        <BrandingSection />
 
         {/* Upload */}
         <Section

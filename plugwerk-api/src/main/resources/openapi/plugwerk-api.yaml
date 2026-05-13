@@ -2383,6 +2383,103 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  /admin/branding/{slot}:
+    parameters:
+      - in: path
+        name: slot
+        required: true
+        schema:
+          type: string
+          enum: [logo-light, logo-dark, logomark]
+        description: Branding slot to operate on.
+    post:
+      tags:
+        - AdminBranding
+      summary: Upload a custom logo asset for the given slot (#254)
+      operationId: uploadBrandingAsset
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+                - file
+      responses:
+        '200':
+          description: Asset stored and now serves on the public endpoint.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrandingAssetDto'
+        '400':
+          description: Validation failed (size, dimensions, aspect, sanitiser).
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      tags:
+        - AdminBranding
+      summary: Reset the given slot back to the bundled default (#254)
+      operationId: resetBrandingAsset
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Custom asset removed (or never existed — idempotent).
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /branding/{slot}:
+    get:
+      tags:
+        - Branding
+      summary: Public asset for the given slot (#254)
+      description: |
+        Returns the operator-uploaded asset for the slot, or a 404 when
+        the slot is at its default — the frontend falls back to the
+        bundled SVG in that case. Response carries an `ETag` matching
+        the asset's SHA-256 and `Cache-Control: public, max-age=...`
+        so the file caches aggressively in browsers and proxies. The
+        frontend pins the URL with `?v=<sha256>` so a reset/replace
+        invalidates immediately.
+      operationId: getBrandingAsset
+      security: []
+      parameters:
+        - in: path
+          name: slot
+          required: true
+          schema:
+            type: string
+            enum: [logo-light, logo-dark, logomark]
+      responses:
+        '200':
+          description: The asset bytes.
+          headers:
+            ETag:
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+          content:
+            image/svg+xml: {}
+            image/png: {}
+            image/webp: {}
+        '304':
+          description: Conditional GET — cached copy still valid.
+        '404':
+          description: No custom asset for this slot — use the bundled default.
+
   /admin/configuration:
     get:
       tags:
@@ -3126,6 +3223,34 @@ components:
       required:
         - deleted
         - skipped
+
+    BrandingAssetDto:
+      type: object
+      description: |
+        Metadata for an uploaded branding asset (#254). The bytes are
+        served separately via `GET /branding/{slot}` — this DTO only
+        carries the bits the admin UI needs to refresh its preview
+        and pin a cache-busting URL.
+      properties:
+        slot:
+          type: string
+          enum: [logo-light, logo-dark, logomark]
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        sha256:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+      required:
+        - slot
+        - contentType
+        - sizeBytes
+        - sha256
+        - uploadedAt
 
     SchedulerJobOutcome:
       type: string

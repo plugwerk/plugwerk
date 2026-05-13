@@ -381,6 +381,9 @@ class SecurityConfiguration(
                     .requestMatchers(HttpMethod.POST, "/api/v1/namespaces/*/updates/check").permitAll()
                     // Public server config (upload limits etc.) — used by frontend without auth
                     .requestMatchers(HttpMethod.GET, "/api/v1/config").permitAll()
+                    // Branding assets are public — referenced from the login page,
+                    // emails, and OpenGraph metadata before any session exists (#254).
+                    .requestMatchers(HttpMethod.GET, "/api/v1/branding/*").permitAll()
                     // /actuator/** is handled by actuatorSecurityFilterChain (@Order 1). See ADR-0025.
                     // SPA static assets and routes are always public — they only serve index.html
                     // or static bundles. Real authorization happens in the frontend via the API.

@@ -46,10 +46,13 @@ import { useNamespaces } from "../../api/hooks/useNamespaces";
 import { useNamespaceRole } from "../../api/hooks/useNamespaceRole";
 import { FilterSelect } from "../common/FilterSelect";
 import { tokens } from "../../theme/tokens";
+import { useBranding } from "../../hooks/useBranding";
 
 export function TopBar() {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
+  const logoLight = useBranding("logo-light");
+  const logoDark = useBranding("logo-dark");
   const { toggleTheme, openUploadModal } = useUiStore();
   const siteName = useConfigStore((s) => s.siteName);
   const { isAuthenticated, logout, namespace, setNamespace, isSuperadmin } =
@@ -119,7 +122,7 @@ export function TopBar() {
           >
             <Box
               component="img"
-              src={isDark ? "/logo-dark.svg" : "/logo-light.svg"}
+              src={isDark ? logoDark : logoLight}
               alt={siteName}
               sx={{
                 height: 48,
