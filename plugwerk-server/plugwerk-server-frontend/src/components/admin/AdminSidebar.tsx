@@ -58,6 +58,12 @@ const ADMIN_SECTIONS: AdminSection[] = [
     icon: <Settings size={16} />,
     requiresSuperadmin: true,
   },
+  {
+    path: "configuration",
+    label: "Configuration",
+    icon: <SlidersHorizontal size={16} />,
+    requiresSuperadmin: true,
+  },
   { path: "namespaces", label: "Namespaces", icon: <Globe size={16} /> },
   {
     path: "users",
@@ -88,12 +94,6 @@ const ADMIN_SECTIONS: AdminSection[] = [
     path: "scheduler",
     label: "Scheduler",
     icon: <Clock size={16} />,
-    requiresSuperadmin: true,
-  },
-  {
-    path: "configuration",
-    label: "Configuration",
-    icon: <SlidersHorizontal size={16} />,
     requiresSuperadmin: true,
   },
 ];
