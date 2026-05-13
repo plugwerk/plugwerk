@@ -24,6 +24,7 @@ import { Section } from "../../../components/common/Section";
 import { tokens } from "../../../theme/tokens";
 import { adminBrandingApi } from "../../../api/config";
 import { useUiStore } from "../../../stores/uiStore";
+import { notifyBrandingChanged } from "../../../hooks/useBranding";
 
 /**
  * Three-slot branding upload UI for the global-settings page (#254).
@@ -128,6 +129,10 @@ function BrandingSlotCard({
         // then either confirms it (onLoad) or rolls back (onError).
         setVersion((v) => v + 1);
         setHasCustom(true);
+        // Tell the top-bar logo and favicon to re-probe the new asset
+        // — without this they keep rendering whatever they had cached
+        // before the upload.
+        notifyBrandingChanged();
         addToast({ message: `${descriptor.label} updated.`, type: "success" });
       } catch (err: unknown) {
         const message =
@@ -147,6 +152,7 @@ function BrandingSlotCard({
       await adminBrandingApi.resetBrandingAsset({ slot: descriptor.slot });
       setVersion((v) => v + 1);
       setHasCustom(false);
+      notifyBrandingChanged();
       addToast({
         message: `${descriptor.label} reset to default.`,
         type: "success",

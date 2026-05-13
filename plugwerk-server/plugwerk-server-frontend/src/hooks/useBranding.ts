@@ -27,6 +27,25 @@ const BUNDLED: Record<BrandingSlot, string> = {
 };
 
 /**
+ * Custom DOM event name fired by the admin branding UI after a
+ * successful upload / reset. `useBranding` listens for it and
+ * re-probes the public endpoint so the top-bar logo and favicon
+ * swap without a page reload.
+ */
+export const BRANDING_CHANGED_EVENT = "plugwerk:branding-changed";
+
+/**
+ * Notify every `useBranding` subscriber that an upload or reset just
+ * happened. Called by the admin tile so consumers do not need to know
+ * the event-name convention.
+ */
+export function notifyBrandingChanged(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(BRANDING_CHANGED_EVENT));
+  }
+}
+
+/**
  * Resolves the URL the UI should render for a branding slot (#254).
  *
  * Probes the public endpoint with an `Image()` element rather than a
@@ -34,14 +53,30 @@ const BUNDLED: Record<BrandingSlot, string> = {
  * long enough to break the "upload, see the new logo" happy path.
  * Image elements bypass that layer; on success we swap to the public
  * URL, on `onerror` we keep the bundled fallback.
+ *
+ * Listens for [BRANDING_CHANGED_EVENT] so a Reset or Upload performed
+ * elsewhere on the page triggers a re-probe immediately. The probe is
+ * cache-busted with a monotonic counter so the browser refetches the
+ * fresh bytes even though the public endpoint advertises `immutable`.
  */
 export function useBranding(slot: BrandingSlot): string {
   const fallback = BUNDLED[slot];
   const [url, setUrl] = useState(fallback);
+  const [version, setVersion] = useState(0);
+
+  // Re-probe whenever the admin UI tells us the slot changed.
+  useEffect(() => {
+    const handler = () => setVersion((v) => v + 1);
+    window.addEventListener(BRANDING_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(BRANDING_CHANGED_EVENT, handler);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    const candidate = `/api/v1/branding/${slot}`;
+    const candidate =
+      version === 0
+        ? `/api/v1/branding/${slot}`
+        : `/api/v1/branding/${slot}?v=${version}`;
     const probe = new Image();
     probe.onload = () => {
       if (!cancelled) setUrl(candidate);
@@ -53,7 +88,7 @@ export function useBranding(slot: BrandingSlot): string {
     return () => {
       cancelled = true;
     };
-  }, [slot, fallback]);
+  }, [slot, fallback, version]);
 
   return url;
 }
