@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Box, Button, Chip, Typography } from "@mui/material";
 import { useDropzone } from "react-dropzone";
 import { ImagePlus, RotateCcw } from "lucide-react";
@@ -104,26 +104,15 @@ function BrandingSlotCard({
   readonly descriptor: SlotDescriptor;
 }) {
   const [version, setVersion] = useState(0);
+  // Tri-state: null while we have not tried to render yet, true if the
+  // server returned the asset, false if the <img> onError fired (i.e.
+  // the slot is at its bundled default). Driven by the rendered image
+  // itself rather than a separate HEAD probe — HEAD-response caching
+  // was inconsistent across browsers and made the chip / Reset button
+  // flicker after an upload.
   const [hasCustom, setHasCustom] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const addToast = useUiStore((s) => s.addToast);
-
-  // Probe the public endpoint on mount to learn whether this slot
-  // currently carries a custom asset. 404 = default; 200 = custom.
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/v1/branding/${descriptor.slot}`, { method: "HEAD" })
-      .then((res) => {
-        if (cancelled) return;
-        setHasCustom(res.ok);
-      })
-      .catch(() => {
-        if (!cancelled) setHasCustom(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [descriptor.slot, version]);
 
   const upload = useCallback(
     async (file: File) => {
@@ -133,7 +122,12 @@ function BrandingSlotCard({
           slot: descriptor.slot,
           file,
         });
+        // Bump the cache-bust query param so the <img> refetches the
+        // fresh asset. We optimistically flip to `Custom` so the chip
+        // changes the moment the upload returns 200 — the image load
+        // then either confirms it (onLoad) or rolls back (onError).
         setVersion((v) => v + 1);
+        setHasCustom(true);
         addToast({ message: `${descriptor.label} updated.`, type: "success" });
       } catch (err: unknown) {
         const message =
@@ -152,6 +146,7 @@ function BrandingSlotCard({
     try {
       await adminBrandingApi.resetBrandingAsset({ slot: descriptor.slot });
       setVersion((v) => v + 1);
+      setHasCustom(false);
       addToast({
         message: `${descriptor.label} reset to default.`,
         type: "success",
@@ -180,12 +175,17 @@ function BrandingSlotCard({
     disabled: busy,
   });
 
-  const previewUrl = useMemo(() => {
-    if (hasCustom) {
-      return `/api/v1/branding/${descriptor.slot}?v=${version}`;
-    }
-    return descriptor.bundledFallback;
-  }, [hasCustom, descriptor.bundledFallback, descriptor.slot, version]);
+  // Always try the public endpoint first. The <img> onError falls back
+  // to the bundled default and flips the chip to `Default` for us.
+  // `?v=<counter>` defeats the immutable Cache-Control on the GET so a
+  // freshly uploaded asset replaces the previous bytes immediately.
+  const previewUrl = useMemo(
+    () =>
+      hasCustom === false
+        ? descriptor.bundledFallback
+        : `/api/v1/branding/${descriptor.slot}?v=${version}`,
+    [hasCustom, descriptor.bundledFallback, descriptor.slot, version],
+  );
 
   return (
     <Box
@@ -243,6 +243,20 @@ function BrandingSlotCard({
           src={previewUrl}
           alt={`${descriptor.label} preview`}
           style={{ maxWidth: "85%", maxHeight: "85%", objectFit: "contain" }}
+          onLoad={() => {
+            // Only flip to Custom if we were actually pointing at the
+            // public endpoint, not at the bundled fallback.
+            if (hasCustom !== false) setHasCustom(true);
+          }}
+          onError={(e) => {
+            // 404 on the public endpoint → fall back to the bundled SVG
+            // and remember that the slot is at its default.
+            if (hasCustom !== false) {
+              setHasCustom(false);
+              (e.currentTarget as HTMLImageElement).src =
+                descriptor.bundledFallback;
+            }
+          }}
         />
       </Box>
 

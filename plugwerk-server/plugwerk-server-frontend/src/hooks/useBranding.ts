@@ -28,14 +28,12 @@ const BUNDLED: Record<BrandingSlot, string> = {
 
 /**
  * Resolves the URL the UI should render for a branding slot (#254).
- * Returns the bundled fallback first so the page does not flash an
- * empty image, then probes the public endpoint and swaps to the
- * custom asset if one exists.
  *
- * Cache-busting is unnecessary here — the public endpoint sets
- * `Cache-Control: immutable` and the dashboard is the only place that
- * mutates it. After a re-upload the operator triggers a refresh
- * implicitly (next page load).
+ * Probes the public endpoint with an `Image()` element rather than a
+ * `fetch()` HEAD — Chrome's HTTP cache holds onto HEAD 404 responses
+ * long enough to break the "upload, see the new logo" happy path.
+ * Image elements bypass that layer; on success we swap to the public
+ * URL, on `onerror` we keep the bundled fallback.
  */
 export function useBranding(slot: BrandingSlot): string {
   const fallback = BUNDLED[slot];
@@ -43,18 +41,15 @@ export function useBranding(slot: BrandingSlot): string {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/v1/branding/${slot}`, { method: "HEAD" })
-      .then((res) => {
-        if (cancelled) return;
-        if (res.ok) {
-          setUrl(`/api/v1/branding/${slot}`);
-        } else {
-          setUrl(fallback);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setUrl(fallback);
-      });
+    const candidate = `/api/v1/branding/${slot}`;
+    const probe = new Image();
+    probe.onload = () => {
+      if (!cancelled) setUrl(candidate);
+    };
+    probe.onerror = () => {
+      if (!cancelled) setUrl(fallback);
+    };
+    probe.src = candidate;
     return () => {
       cancelled = true;
     };

@@ -16,11 +16,11 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
-import { BrandingSection } from "./BrandingSection";
-import { renderWithTheme } from "../../../test/renderWithTheme";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as apiConfig from "../../../api/config";
+import { renderWithTheme } from "../../../test/renderWithTheme";
+import { BrandingSection } from "./BrandingSection";
 
 vi.mock("../../../api/config", () => ({
   adminBrandingApi: {
@@ -32,14 +32,9 @@ vi.mock("../../../api/config", () => ({
 describe("BrandingSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // HEAD probe defaults to "no custom asset" so all tiles show Default.
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({ ok: false } as Response),
-    );
   });
 
-  it("renders three tiles for the slot model", async () => {
+  it("renders three tiles for the slot model", () => {
     renderWithTheme(<BrandingSection />);
 
     expect(screen.getByText("Light logo")).toBeInTheDocument();
@@ -47,8 +42,14 @@ describe("BrandingSection", () => {
     expect(screen.getByText("Logomark")).toBeInTheDocument();
   });
 
-  it("labels each slot Default while no custom asset is present", async () => {
+  it("falls back to Default when the public asset 404s", async () => {
     renderWithTheme(<BrandingSection />);
+
+    // Each tile renders an <img> pointing at /api/v1/branding/{slot}.
+    // Simulate the 404 the server returns when the slot is at its
+    // default by firing the image's onError on every preview.
+    const previews = await screen.findAllByRole("img");
+    previews.forEach((img) => fireEvent.error(img));
 
     await waitFor(() => {
       expect(screen.getAllByText("Default").length).toBeGreaterThanOrEqual(3);
@@ -58,13 +59,13 @@ describe("BrandingSection", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("shows Custom and a Reset button when the slot has a custom asset", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true } as Response));
-
+  it("flips to Custom + offers Reset when the asset loads", async () => {
     renderWithTheme(<BrandingSection />);
 
+    const previews = await screen.findAllByRole("img");
+    previews.forEach((img) => fireEvent.load(img));
+
     await waitFor(() => {
-      // Three tiles → three Custom chips (or three Reset buttons).
       expect(
         screen.getAllByRole("button", { name: /Reset to default/i }),
       ).toHaveLength(3);

@@ -51,9 +51,9 @@ class BrandingController(private val brandingService: BrandingService) {
     @GetMapping("/branding/{slot}")
     fun serve(@PathVariable slot: String): ResponseEntity<ByteArray> {
         val parsedSlot = BrandingSlot.fromUrl(slot)
-            ?: return ResponseEntity.notFound().build()
+            ?: return notFound()
         val asset = brandingService.find(parsedSlot).orElse(null)
-            ?: return ResponseEntity.notFound().build()
+            ?: return notFound()
         return ResponseEntity.ok()
             .contentType(MediaType.parseMediaType(asset.contentType))
             .eTag("\"${asset.sha256}\"")
@@ -61,4 +61,15 @@ class BrandingController(private val brandingService: BrandingService) {
             .header("Content-Length", asset.sizeBytes.toString())
             .body(asset.content)
     }
+
+    /**
+     * 404 must explicitly forbid caching. Otherwise a browser that
+     * recorded the "no asset yet" 404 keeps serving it from cache
+     * after the operator uploads, breaking the dashboard's "see the
+     * new logo immediately" UX.
+     */
+    private fun notFound(): ResponseEntity<ByteArray> = ResponseEntity
+        .status(404)
+        .cacheControl(CacheControl.noStore())
+        .build()
 }
