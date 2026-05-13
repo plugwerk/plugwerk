@@ -138,8 +138,12 @@ class ConfigurationTreeBuilder(private val objectMapper: ObjectMapper, private v
             for (fn in klass.declaredMemberFunctions) {
                 if (fn.findAnnotation<AssertTrue>() == null) continue
                 val name = fn.name
-                // Jackson strips a leading `is` and lowercases the
-                // first remaining char: `isFooBar` → `fooBar`.
+                // Add both the with-`is`-prefix form (Jackson's
+                // Kotlin-module default for `isFooBar()` keeps the
+                // method name verbatim) and the bean-convention
+                // stripped form (`fooBar`). Whichever shape Jackson
+                // emits at runtime is then in the hidden set.
+                hidden += name
                 if (name.length > 2 && name.startsWith("is") && name[2].isUpperCase()) {
                     hidden += name[2].lowercaseChar() + name.substring(3)
                 }

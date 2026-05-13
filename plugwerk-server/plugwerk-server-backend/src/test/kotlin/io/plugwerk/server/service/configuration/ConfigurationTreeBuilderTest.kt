@@ -72,9 +72,15 @@ class ConfigurationTreeBuilderTest {
         // S3Properties would otherwise surface as pseudo-properties
         // because Jackson treats `isFooBar()` as a bean getter.
         val asString = tree.toString()
+        // The Kotlin Jackson module keeps `isFooBar` as a method name —
+        // hide both shapes so neither leaks.
+        assertThat(asString).doesNotContain("isS3ConfigPresentWhenS3Selected")
+        assertThat(asString).doesNotContain("is-s3-config-present-when-s3-selected")
         assertThat(asString).doesNotContain("s3-config-present-when-s3-selected")
         assertThat(asString).doesNotContain("s3ConfigPresentWhenS3Selected")
+        assertThat(asString).doesNotContain("isCredentialsConsistent")
         assertThat(asString).doesNotContain("credentials-consistent")
+        assertThat(asString).doesNotContain("isKeyPrefixWellFormed")
         assertThat(asString).doesNotContain("key-prefix-well-formed")
     }
 }
