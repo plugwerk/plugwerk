@@ -19,8 +19,55 @@ import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.util.zip.ZipInputStream
 
+/**
+ * Reads a [PlugwerkDescriptor] from an arbitrary upload stream.
+ *
+ * The PF4J ecosystem ships plugins in two shapes:
+ *
+ *  - a single fat-JAR with everything in the JAR's root
+ *  - a ZIP bundle that contains the plugin JAR plus its `lib/`
+ *    dependencies
+ *
+ * The server cannot tell which shape was uploaded without reading the
+ * stream, so the resolver tries both:
+ *
+ *  1. Treat the input as a JAR and ask [Pf4jManifestParser] to find a
+ *     `MANIFEST.MF` (or `plugin.properties`) at the JAR root.
+ *  2. If that fails, treat the input as a ZIP bundle. Iterate every
+ *     entry, validate the entry name to defeat Zip-Slip, and try to
+ *     parse the root-level JAR first, then any nested `lib/` JAR.
+ *
+ * The stream is fully buffered into memory (PF4J descriptors are tiny
+ * and the upload endpoint already caps file size), so the resolver is
+ * thread-safe and re-entrant across uploads.
+ *
+ * The resolver only throws [DescriptorNotFoundException] when neither
+ * source yielded a descriptor — malformed manifests bubble up as
+ * [DescriptorParseException], and unsafe ZIP entry names trigger an
+ * [IllegalArgumentException] from [validateEntryName] so the upload
+ * controller can return precise 4xx messages.
+ *
+ * @property manifestParser Pluggable parser, exposed for tests. The
+ *   default constructor is the right choice for production.
+ */
 class DescriptorResolver(private val manifestParser: Pf4jManifestParser = Pf4jManifestParser()) {
 
+    /**
+     * Resolve a descriptor from an uploaded plugin stream.
+     *
+     * @param jarStream Caller-owned input stream. The resolver fully
+     *   consumes it; the caller is responsible for closing the
+     *   original source.
+     * @return Parsed descriptor with all required fields populated.
+     * @throws DescriptorNotFoundException No `MANIFEST.MF` /
+     *   `plugin.properties` could be located in the JAR or in any
+     *   bundled JAR inside the ZIP.
+     * @throws DescriptorParseException Manifest was found but
+     *   contained invalid attributes.
+     * @throws IllegalArgumentException ZIP bundle contained an entry
+     *   name that would escape the extraction root (Zip-Slip defence
+     *   via [validateEntryName]).
+     */
     fun resolve(jarStream: InputStream): PlugwerkDescriptor {
         val bytes = jarStream.readAllBytes()
 
