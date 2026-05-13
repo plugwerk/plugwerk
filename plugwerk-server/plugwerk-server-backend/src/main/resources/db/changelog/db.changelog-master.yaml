@@ -67,3 +67,5 @@ databaseChangeLog:
       file: db/changelog/migrations/0033_shedlock.yaml
   - include:
       file: db/changelog/migrations/0034_scheduler_job.yaml
+  - include:
+      file: db/changelog/migrations/0035_application_asset.yaml

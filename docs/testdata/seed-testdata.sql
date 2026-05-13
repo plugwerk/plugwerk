@@ -2,7 +2,7 @@
 -- Plugwerk — Development Test Data Seed
 -- =============================================================================
 -- Run against a local Plugwerk database that has Liquibase migrations applied:
---   PGPASSWORD=plugwerk psql -h localhost -U plugwerk -d plugwerk -f docs/dev/seed-testdata.sql
+--   PGPASSWORD=plugwerk psql -h localhost -U plugwerk -d plugwerk -f docs/testdata/seed-testdata.sql
 --
 -- Creates:
 --   3 namespaces (default, acme-corp, community)

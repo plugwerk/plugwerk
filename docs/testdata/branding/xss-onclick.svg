@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200">
+  <!-- Sanitizer test: the on* event-handler attributes must be
+       stripped on upload. Expected outcome: upload succeeds; the
+       saved bytes contain neither onclick= nor onmouseover=. -->
+  <rect width="800" height="200" fill="#198038" onclick="alert('xss')" onmouseover="evil()"/>
+  <text x="400" y="120" text-anchor="middle"
+        font-family="Helvetica, Arial, sans-serif" font-size="48"
+        font-weight="700" fill="white" onclick="alert('xss')">EVENT HANDLERS STRIPPED</text>
+</svg>

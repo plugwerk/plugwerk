@@ -205,6 +205,30 @@ abstract class AbstractAuthorizationTest {
         }
     }
 
+    /**
+     * Multipart sibling of [actAs]. In Spring 7 the multipart builder is
+     * no longer a subclass of [MockHttpServletRequestBuilder], so the
+     * extension above does not chain off it. This overload keeps the
+     * test sites symmetric.
+     */
+    fun org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder.actAs(
+        actor: Actor,
+    ): org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder = when {
+        actor == Actor.ANONYMOUS -> this
+
+        actor.isApiKey -> {
+            val key = requireNotNull(apiKeyCache[actor]) { "No API key cached for $actor" }
+            this.header("X-Api-Key", key)
+            this
+        }
+
+        else -> {
+            val token = requireNotNull(tokenCache[actor]) { "No JWT cached for $actor" }
+            this.header("Authorization", "Bearer $token")
+            this
+        }
+    }
+
     // ------------------------------------------------------------------ //
     // Ephemeral entity helpers (for destructive test operations)           //
     // ------------------------------------------------------------------ //

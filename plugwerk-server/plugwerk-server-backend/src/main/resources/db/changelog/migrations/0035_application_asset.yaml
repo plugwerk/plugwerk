@@ -1,0 +1,82 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0035-application-asset-table
+      author: plugwerk
+      comment: |
+        Branding-asset storage for the Corporate-Identity feature (#254).
+
+        Three slots (`logo_light`, `logo_dark`, `logomark`) each carry one
+        asset row. Re-uploading a slot replaces the existing row via the
+        `(slot)` UNIQUE — the contract is "current asset", not history.
+        Long-term storage in PostgreSQL `bytea` was chosen over the
+        existing object-storage layer because the orphan-storage reaper
+        (#496) would otherwise GC unreferenced branding files; see
+        ADR-0037 for the full rationale.
+
+        Caps:
+          - logo_light / logo_dark: 512 KB
+          - logomark:               256 KB
+        These are enforced in the application layer, not at the column
+        level, so the same row can grow if a future slot needs more.
+      changes:
+        - createTable:
+            tableName: application_asset
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: slot
+                  type: varchar(32)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uq_application_asset_slot
+              - column:
+                  name: content_type
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: content
+                  type: bytea
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sha256
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: size_bytes
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: uploaded_at
+                  type: timestamptz
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: uploaded_by
+                  type: uuid
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_application_asset_user
+                    references: plugwerk_user(id)
+                    deleteCascade: false
+        - sql:
+            sql: |
+              ALTER TABLE application_asset
+                ADD CONSTRAINT chk_application_asset_slot
+                CHECK (slot IN ('logo_light', 'logo_dark', 'logomark'));
+              ALTER TABLE application_asset
+                ADD CONSTRAINT chk_application_asset_content_type
+                CHECK (content_type IN ('image/svg+xml', 'image/png', 'image/webp'));
+      rollback:
+        - dropTable:
+            tableName: application_asset

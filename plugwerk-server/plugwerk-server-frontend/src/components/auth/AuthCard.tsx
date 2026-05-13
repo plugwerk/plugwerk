@@ -19,6 +19,7 @@
 import { Box, Paper, Typography } from "@mui/material";
 import type { ReactNode } from "react";
 import { useConfigStore } from "../../stores/configStore";
+import { useBranding } from "../../hooks/useBranding";
 
 interface AuthCardProps {
   title: string;
@@ -28,6 +29,7 @@ interface AuthCardProps {
 
 export function AuthCard({ title, subtitle, children }: AuthCardProps) {
   const siteName = useConfigStore((s) => s.siteName);
+  const logomark = useBranding("logomark");
   return (
     <Box
       component="main"
@@ -59,7 +61,7 @@ export function AuthCard({ title, subtitle, children }: AuthCardProps) {
         <Box sx={{ display: "flex", justifyContent: "center" }}>
           <Box
             component="img"
-            src="/logomark.svg"
+            src={logomark}
             alt={siteName}
             sx={{ height: 64, width: "auto" }}
           />

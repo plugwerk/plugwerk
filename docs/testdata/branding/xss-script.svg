@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200">
+  <!-- Sanitizer test: the <script> tag must be stripped on upload.
+       Expected outcome: upload succeeds, the saved bytes do NOT
+       contain "script" or "alert". Verify via:
+         curl -s http://localhost:8080/api/v1/branding/logo-light | grep -i script  # must be empty -->
+  <script>alert('xss');</script>
+  <rect width="800" height="200" fill="#198038"/>
+  <text x="400" y="120" text-anchor="middle"
+        font-family="Helvetica, Arial, sans-serif" font-size="48"
+        font-weight="700" fill="white">SCRIPT STRIPPED</text>
+</svg>
