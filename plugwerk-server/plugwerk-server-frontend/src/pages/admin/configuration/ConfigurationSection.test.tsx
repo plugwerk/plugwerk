@@ -41,8 +41,8 @@ describe("ConfigurationSection", () => {
       data: {
         storage: { type: "fs" },
         auth: {
-          jwtSecret: { _secret: true, configured: true },
-          accessTokenValidityMinutes: 480,
+          "jwt-secret": { _secret: true, configured: true },
+          "access-token-validity-minutes": 480,
         },
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,8 +67,11 @@ describe("ConfigurationSection", () => {
       apiConfig.adminConfigurationApi.getEffectiveConfiguration,
     ).mockResolvedValue({
       data: {
-        storage: { type: "fs", consistency: { maxKeysPerScan: 100000 } },
-        auth: { accessTokenValidityMinutes: 480 },
+        storage: {
+          type: "fs",
+          consistency: { "max-keys-per-scan": 100000 },
+        },
+        auth: { "access-token-validity-minutes": 480 },
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
@@ -82,7 +85,7 @@ describe("ConfigurationSection", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText("plugwerk.auth.accessTokenValidityMinutes"),
+        screen.getByText("plugwerk.auth.access-token-validity-minutes"),
       ).toBeInTheDocument();
       expect(
         screen.queryByText("plugwerk.storage.type"),
@@ -95,7 +98,7 @@ describe("ConfigurationSection", () => {
       apiConfig.adminConfigurationApi.getEffectiveConfiguration,
     ).mockResolvedValue({
       data: {
-        auth: { jwtSecret: { _secret: true, configured: false } },
+        auth: { "jwt-secret": { _secret: true, configured: false } },
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);

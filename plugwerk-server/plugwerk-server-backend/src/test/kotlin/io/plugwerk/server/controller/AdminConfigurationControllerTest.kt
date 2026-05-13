@@ -92,7 +92,7 @@ class AdminConfigurationControllerTest {
         val tree = objectMapper.createObjectNode().apply {
             putObject("storage").put("type", "fs")
             putObject("auth").set(
-                "jwtSecret",
+                "jwt-secret",
                 objectMapper.createObjectNode().put("_secret", true).put("configured", true),
             )
         }
@@ -102,8 +102,8 @@ class AdminConfigurationControllerTest {
             .andExpect {
                 status { isOk() }
                 jsonPath("$.storage.type") { value("fs") }
-                jsonPath("$.auth.jwtSecret._secret") { value(true) }
-                jsonPath("$.auth.jwtSecret.configured") { value(true) }
+                jsonPath("$.auth['jwt-secret']._secret") { value(true) }
+                jsonPath("$.auth['jwt-secret'].configured") { value(true) }
             }
     }
 

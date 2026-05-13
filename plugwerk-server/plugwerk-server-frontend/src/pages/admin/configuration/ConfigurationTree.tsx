@@ -62,8 +62,10 @@ function flatten(prefix: string, value: unknown): FlatLeaf[] {
  * Converts a dotted property path into the conventional `PLUGWERK_*`
  * env-var name so the dashboard can show the operator exactly what to
  * flip in the deployment without grepping the yaml. Convention:
- *   - dots become underscores
- *   - camelCase splits become underscore boundaries
+ *   - dots and dashes become underscores
+ *   - camelCase splits become underscore boundaries (defensive — the
+ *     backend already emits kebab-case, but a hand-edited path stays
+ *     well-behaved)
  *   - the whole thing is uppercased
  *
  * Best effort — the yaml occasionally maps a property to a custom env
@@ -72,8 +74,8 @@ function flatten(prefix: string, value: unknown): FlatLeaf[] {
  */
 function toEnvVar(path: string): string {
   return path
-    .replace(/\./g, "_")
     .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/[.-]/g, "_")
     .toUpperCase();
 }
 

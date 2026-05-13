@@ -34,7 +34,7 @@ class ConfigurationTreeBuilderTest {
         )
         val tree = ConfigurationTreeBuilder(mapper, props).build()
 
-        val jwtSecret = tree.get("auth")?.get("jwtSecret")
+        val jwtSecret = tree.get("auth")?.get("jwt-secret")
         assertThat(jwtSecret).isNotNull
         assertThat(jwtSecret!!.get("_secret").booleanValue()).isTrue
         assertThat(jwtSecret.get("configured").booleanValue()).isTrue
@@ -49,7 +49,7 @@ class ConfigurationTreeBuilderTest {
         )
         val tree = ConfigurationTreeBuilder(mapper, props).build()
 
-        val jwtSecret = tree.get("auth")?.get("jwtSecret")
+        val jwtSecret = tree.get("auth")?.get("jwt-secret")
         assertThat(jwtSecret?.get("configured")?.booleanValue()).isFalse
     }
 

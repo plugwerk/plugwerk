@@ -39,9 +39,13 @@ import tools.jackson.databind.node.ObjectNode
  */
 @Service
 class ConfigurationTreeBuilder(private val objectMapper: ObjectMapper, private val properties: PlugwerkProperties) {
+
     /**
      * Returns the redacted tree, ready to serialise as the admin
-     * endpoint's response.
+     * endpoint's response. Field names are converted to kebab-case
+     * during the walk so the rendered paths match the yaml the
+     * operator actually edits (`path-style-access` instead of
+     * `pathStyleAccess`).
      */
     fun build(): ObjectNode {
         val raw = objectMapper.valueToTree<JsonNode>(properties)
@@ -56,8 +60,14 @@ class ConfigurationTreeBuilder(private val objectMapper: ObjectMapper, private v
             val replacement = objectMapper.createObjectNode()
             node.propertyNames().forEach { fieldName ->
                 val value = node.get(fieldName)
+                // Convert camelCase property names to kebab-case so the
+                // rendered path matches the yaml the operator edits.
+                // Redaction is decided against the original (camelCase)
+                // name because the suffix rule has both shapes covered
+                // anyway and the original keeps the intent obvious.
+                val renderedName = toKebabCase(fieldName)
                 replacement.set(
-                    fieldName,
+                    renderedName,
                     if (ConfigurationKeyRedactor.isSensitiveCamel(fieldName)) {
                         redactedLeaf(value)
                     } else {
@@ -78,6 +88,15 @@ class ConfigurationTreeBuilder(private val objectMapper: ObjectMapper, private v
 
         else -> node
     }
+
+    /**
+     * Converts a camelCase identifier to kebab-case
+     * (`pathStyleAccess` → `path-style-access`). Identifiers that are
+     * already kebab-case or single-word are returned unchanged.
+     */
+    private fun toKebabCase(camel: String): String = camel
+        .replace(Regex("([a-z0-9])([A-Z])"), "$1-$2")
+        .lowercase()
 
     /**
      * Replaces a sensitive leaf with the redacted marker. "Configured"
