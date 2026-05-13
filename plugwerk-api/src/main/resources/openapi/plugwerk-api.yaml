@@ -2383,6 +2383,40 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  /admin/configuration:
+    get:
+      tags:
+        - AdminConfiguration
+      summary: Effective plugwerk.* configuration tree (#522)
+      description: |
+        Read-only snapshot of the bound `PlugwerkProperties` bean for the
+        admin dashboard. The tree mirrors the yaml hierarchy. Sensitive
+        fields (jwt-secret, S3 access/secret key, scrape-password, …) are
+        replaced by an object `{ "_secret": true, "configured": <bool> }`
+        — the plaintext is never sent over the wire. Requires superadmin.
+
+        Values cannot be edited via this endpoint; operators must change
+        `application.yml` / `PLUGWERK_*` env vars and restart.
+      operationId: getEffectiveConfiguration
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Effective plugwerk.* configuration tree.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                description: |
+                  Nested object that mirrors the `plugwerk.*` yaml
+                  hierarchy. Leaf values are primitives or the redacted
+                  marker for sensitive fields.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
   /admin/scheduler/jobs:
     get:
       tags:

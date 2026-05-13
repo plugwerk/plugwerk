@@ -88,6 +88,11 @@ const SchedulerSection = lazy(() =>
     default: m.SchedulerSection,
   })),
 );
+const ConfigurationSection = lazy(() =>
+  import("../pages/admin/configuration/ConfigurationSection").then((m) => ({
+    default: m.ConfigurationSection,
+  })),
+);
 const EmailServerPage = lazy(() =>
   import("../pages/admin/EmailServerPage").then((m) => ({
     default: m.EmailServerPage,
@@ -253,6 +258,14 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<LazyFallback />}>
                 <SchedulerSection />
+              </Suspense>
+            ),
+          },
+          {
+            path: "configuration",
+            element: (
+              <Suspense fallback={<LazyFallback />}>
+                <ConfigurationSection />
               </Suspense>
             ),
           },

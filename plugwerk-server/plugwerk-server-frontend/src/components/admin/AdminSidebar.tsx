@@ -26,6 +26,7 @@ import {
   Mail,
   HardDrive,
   Clock,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { tokens } from "../../theme/tokens";
@@ -87,6 +88,12 @@ const ADMIN_SECTIONS: AdminSection[] = [
     path: "scheduler",
     label: "Scheduler",
     icon: <Clock size={16} />,
+    requiresSuperadmin: true,
+  },
+  {
+    path: "configuration",
+    label: "Configuration",
+    icon: <SlidersHorizontal size={16} />,
     requiresSuperadmin: true,
   },
 ];
