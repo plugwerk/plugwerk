@@ -249,27 +249,41 @@ function BrandingSlotCard({
         />
       </Box>
 
+      {/*
+       * Fixed-height wrapper so the preview frame (240×60 for the wide
+       * logos, 128×128 for the square logomark) always occupies the
+       * same vertical extent across cards. Without this, the dropzone
+       * row below renders at three different y-positions.
+       */}
       <Box
         sx={{
-          aspectRatio: descriptor.previewAspect,
-          width: descriptor.previewSize,
-          maxWidth: "100%",
-          bgcolor: descriptor.previewBg,
-          border: "1px solid",
-          borderColor: "divider",
-          borderRadius: tokens.radius.input,
+          minHeight: 140,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          overflow: "hidden",
-          alignSelf: "center",
         }}
       >
-        <img
-          src={previewUrl}
-          alt={`${descriptor.label} preview`}
-          style={{ maxWidth: "85%", maxHeight: "85%", objectFit: "contain" }}
-        />
+        <Box
+          sx={{
+            aspectRatio: descriptor.previewAspect,
+            width: descriptor.previewSize,
+            maxWidth: "100%",
+            bgcolor: descriptor.previewBg,
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: tokens.radius.input,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "hidden",
+          }}
+        >
+          <img
+            src={previewUrl}
+            alt={`${descriptor.label} preview`}
+            style={{ maxWidth: "85%", maxHeight: "85%", objectFit: "contain" }}
+          />
+        </Box>
       </Box>
 
       <Box
