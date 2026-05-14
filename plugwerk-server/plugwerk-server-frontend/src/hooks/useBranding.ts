@@ -55,9 +55,11 @@ export function notifyBrandingChanged(): void {
  * URL, on `onerror` we keep the bundled fallback.
  *
  * Listens for [BRANDING_CHANGED_EVENT] so a Reset or Upload performed
- * elsewhere on the page triggers a re-probe immediately. The probe is
- * cache-busted with a monotonic counter so the browser refetches the
- * fresh bytes even though the public endpoint advertises `immutable`.
+ * elsewhere on the page triggers a re-probe immediately. The probe URL
+ * always carries a `?v=` query parameter so browsers that cached an
+ * older response under the bare `/api/v1/branding/{slot}` URL (when
+ * the endpoint still advertised `immutable, max-age=1y`) miss the
+ * cache and revalidate against the server (#530).
  */
 export function useBranding(slot: BrandingSlot): string {
   const fallback = BUNDLED[slot];
@@ -73,10 +75,7 @@ export function useBranding(slot: BrandingSlot): string {
 
   useEffect(() => {
     let cancelled = false;
-    const candidate =
-      version === 0
-        ? `/api/v1/branding/${slot}`
-        : `/api/v1/branding/${slot}?v=${version}`;
+    const candidate = `/api/v1/branding/${slot}?v=${version}`;
     const probe = new Image();
     probe.onload = () => {
       if (!cancelled) setUrl(candidate);

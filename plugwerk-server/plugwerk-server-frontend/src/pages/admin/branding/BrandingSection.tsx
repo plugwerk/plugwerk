@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Button, Chip, Typography } from "@mui/material";
 import { useDropzone } from "react-dropzone";
 import { ImagePlus, RotateCcw } from "lucide-react";
@@ -105,12 +105,15 @@ function BrandingSlotCard({
   readonly descriptor: SlotDescriptor;
 }) {
   const [version, setVersion] = useState(0);
-  // Tri-state: null while we have not tried to render yet, true if the
-  // server returned the asset, false if the <img> onError fired (i.e.
-  // the slot is at its bundled default). Driven by the rendered image
-  // itself rather than a separate HEAD probe — HEAD-response caching
-  // was inconsistent across browsers and made the chip / Reset button
-  // flicker after an upload.
+  // Tri-state: null while the probe is in flight, true if the server
+  // returned the asset, false if it returned 404. Driven by an
+  // off-DOM Image() probe rather than the rendered <img>'s
+  // onLoad/onError, because src-swapping the rendered <img> to the
+  // bundled fallback raced with React state updates: the cached
+  // fallback's onLoad fired before the setHasCustom(false) from the
+  // 404 had committed, re-flipping hasCustom to true and resurrecting
+  // the Reset button on slots that were actually at their default
+  // (#530 follow-up).
   const [hasCustom, setHasCustom] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const addToast = useUiStore((s) => s.addToast);
@@ -181,15 +184,32 @@ function BrandingSlotCard({
     disabled: busy,
   });
 
-  // Always try the public endpoint first. The <img> onError falls back
-  // to the bundled default and flips the chip to `Default` for us.
-  // `?v=<counter>` defeats the immutable Cache-Control on the GET so a
-  // freshly uploaded asset replaces the previous bytes immediately.
+  // Probe the public endpoint with an off-DOM Image so the load /
+  // error handlers can't race with React state updates the way an
+  // <img onLoad>/<img onError> on the rendered element did before
+  // (#530 follow-up). The `?v=<counter>` query bypasses any
+  // pre-#530 `immutable` cache entry and forces revalidation after
+  // upload / reset.
+  useEffect(() => {
+    let cancelled = false;
+    const probe = new Image();
+    probe.onload = () => {
+      if (!cancelled) setHasCustom(true);
+    };
+    probe.onerror = () => {
+      if (!cancelled) setHasCustom(false);
+    };
+    probe.src = `/api/v1/branding/${descriptor.slot}?v=${version}`;
+    return () => {
+      cancelled = true;
+    };
+  }, [descriptor.slot, version]);
+
   const previewUrl = useMemo(
     () =>
-      hasCustom === false
-        ? descriptor.bundledFallback
-        : `/api/v1/branding/${descriptor.slot}?v=${version}`,
+      hasCustom === true
+        ? `/api/v1/branding/${descriptor.slot}?v=${version}`
+        : descriptor.bundledFallback,
     [hasCustom, descriptor.bundledFallback, descriptor.slot, version],
   );
 
@@ -229,41 +249,41 @@ function BrandingSlotCard({
         />
       </Box>
 
+      {/*
+       * Fixed-height wrapper so the preview frame (240×60 for the wide
+       * logos, 128×128 for the square logomark) always occupies the
+       * same vertical extent across cards. Without this, the dropzone
+       * row below renders at three different y-positions.
+       */}
       <Box
         sx={{
-          aspectRatio: descriptor.previewAspect,
-          width: descriptor.previewSize,
-          maxWidth: "100%",
-          bgcolor: descriptor.previewBg,
-          border: "1px solid",
-          borderColor: "divider",
-          borderRadius: tokens.radius.input,
+          minHeight: 140,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          overflow: "hidden",
-          alignSelf: "center",
         }}
       >
-        <img
-          src={previewUrl}
-          alt={`${descriptor.label} preview`}
-          style={{ maxWidth: "85%", maxHeight: "85%", objectFit: "contain" }}
-          onLoad={() => {
-            // Only flip to Custom if we were actually pointing at the
-            // public endpoint, not at the bundled fallback.
-            if (hasCustom !== false) setHasCustom(true);
+        <Box
+          sx={{
+            aspectRatio: descriptor.previewAspect,
+            width: descriptor.previewSize,
+            maxWidth: "100%",
+            bgcolor: descriptor.previewBg,
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: tokens.radius.input,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "hidden",
           }}
-          onError={(e) => {
-            // 404 on the public endpoint → fall back to the bundled SVG
-            // and remember that the slot is at its default.
-            if (hasCustom !== false) {
-              setHasCustom(false);
-              (e.currentTarget as HTMLImageElement).src =
-                descriptor.bundledFallback;
-            }
-          }}
-        />
+        >
+          <img
+            src={previewUrl}
+            alt={`${descriptor.label} preview`}
+            style={{ maxWidth: "85%", maxHeight: "85%", objectFit: "contain" }}
+          />
+        </Box>
       </Box>
 
       <Box

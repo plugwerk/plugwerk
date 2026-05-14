@@ -27,7 +27,6 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import java.time.Duration
 
 /**
  * Public read-only endpoint that serves the bytes of an
@@ -35,10 +34,11 @@ import java.time.Duration
  * default the endpoint returns 404 and the frontend falls back to the
  * bundled SVG.
  *
- * The response carries a SHA-256 ETag and a long `Cache-Control` —
- * the frontend pins the URL with `?v=<sha256>` so a re-upload
- * invalidates immediately, which lets us treat the bytes as
- * effectively immutable.
+ * `Cache-Control: no-cache` paired with a SHA-256 ETag means the
+ * browser may cache the bytes but MUST revalidate via
+ * `If-None-Match` on every request. Unchanged slots get a cheap
+ * `304 Not Modified`; deleted slots get a fresh 404 instead of a
+ * stale cached 200 (#530).
  *
  * Implemented directly with `@GetMapping` rather than implementing
  * the OpenAPI-generated interface because the contract returns
@@ -57,7 +57,7 @@ class BrandingController(private val brandingService: BrandingService) {
         return ResponseEntity.ok()
             .contentType(MediaType.parseMediaType(asset.contentType))
             .eTag("\"${asset.sha256}\"")
-            .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable())
+            .cacheControl(CacheControl.noCache())
             .header("Content-Length", asset.sizeBytes.toString())
             .body(asset.content)
     }
