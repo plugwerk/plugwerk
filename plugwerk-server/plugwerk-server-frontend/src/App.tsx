@@ -34,17 +34,27 @@ export default function App() {
     document.title = `${siteName} – Plugin Catalog`;
   }, [siteName]);
 
-  // Swap the favicon to the operator-uploaded logomark when present (#254).
-  // Falls back to the bundled SVG via useBranding's default. We mutate the
-  // existing <link rel="icon"> in index.html rather than appending so the
-  // browser cache treats it as a single resource.
+  // Swap the favicon to the operator-uploaded logomark when present
+  // (#254). Falls back to the bundled SVG via useBranding's default.
+  //
+  // Browsers cache favicons in a separate, very aggressive cache that
+  // ignores HTTP Cache-Control AND often ignores `link.href` mutations
+  // on an existing element (Chrome in particular only re-checks the
+  // favicon at specific lifecycle events, not on attribute changes).
+  // The reliable cross-browser workaround is to remove every existing
+  // icon link and append a fresh one — the browser then registers the
+  // new element as a brand-new favicon target and refetches (#530).
   const logomark = useBranding("logomark");
   useEffect(() => {
-    const link =
-      document.querySelector<HTMLLinkElement>("link[rel='icon']") ??
-      Object.assign(document.createElement("link"), { rel: "icon" });
+    document
+      .querySelectorAll(
+        "link[rel='icon'], link[rel='shortcut icon'], link[rel='apple-touch-icon']",
+      )
+      .forEach((el) => el.remove());
+    const link = document.createElement("link");
+    link.rel = "icon";
     link.href = logomark;
-    if (!link.parentElement) document.head.appendChild(link);
+    document.head.appendChild(link);
   }, [logomark]);
 
   return (
