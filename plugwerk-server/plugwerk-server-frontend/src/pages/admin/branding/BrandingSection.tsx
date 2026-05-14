@@ -183,8 +183,9 @@ function BrandingSlotCard({
 
   // Always try the public endpoint first. The <img> onError falls back
   // to the bundled default and flips the chip to `Default` for us.
-  // `?v=<counter>` defeats the immutable Cache-Control on the GET so a
-  // freshly uploaded asset replaces the previous bytes immediately.
+  // `?v=<counter>` invalidates any old `immutable, max-age=1y` cache
+  // entry that pre-#530 servers left in the browser, and bumps on
+  // upload/reset for in-tab refresh.
   const previewUrl = useMemo(
     () =>
       hasCustom === false
