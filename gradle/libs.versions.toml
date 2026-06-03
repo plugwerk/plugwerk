@@ -32,7 +32,7 @@ jmustache = "1.16"
 spotless = "8.6.0"
 cyclonedx = "3.2.4"
 aws-sdk = "2.45.1"
-shedlock = "6.10.0"
+shedlock = "7.7.0"
 
 [libraries]
 # Kotlin
