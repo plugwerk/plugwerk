@@ -60,7 +60,7 @@ jobs:
 
       # Upload results to GitHub Security tab
       - name: Upload SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@87557b9c84dde89fdd9b10e88954ac2f4248e463 # v4.36.1
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
         if: always()
         with:
           sarif_file: trivy-results.sarif
@@ -211,7 +211,7 @@ jobs:
       # Upload SARIF under a distinct category so it does not de-dupe with the
       # existing `trivy` (frontend + secret) upload.
       - name: Upload SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@87557b9c84dde89fdd9b10e88954ac2f4248e463 # v4.36.1
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
         if: always()
         with:
           sarif_file: trivy-backend-sbom.sarif
