@@ -171,7 +171,16 @@ export function OidcProvidersSection() {
   ) {
     const previous = provider;
     const { clientSecret: _ignored, ...visibleDiff } = diff;
-    const optimistic: OidcProviderDto = { ...provider, ...visibleDiff };
+    // Required DTO fields are non-nullable; a null/undefined in the diff
+    // means "unchanged" for the optimistic merge, never "cleared".
+    const optimistic: OidcProviderDto = {
+      ...provider,
+      ...visibleDiff,
+      enabled: visibleDiff.enabled ?? provider.enabled,
+      name: visibleDiff.name ?? provider.name,
+      clientId: visibleDiff.clientId ?? provider.clientId,
+      scope: visibleDiff.scope ?? provider.scope,
+    };
     setProviders((prev) =>
       prev.map((p) => (p.id === provider.id ? optimistic : p)),
     );
