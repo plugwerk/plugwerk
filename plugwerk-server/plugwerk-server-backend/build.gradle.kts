@@ -9,17 +9,6 @@ plugins {
     signing
 }
 
-// Security: override the Spring Boot-managed Apache Tomcat version. Spring Boot
-// 4.0.6 manages tomcat-embed-* 11.0.21, which carries 5 fixed CVEs
-// (CVE-2026-41293 / CVE-2026-43512 CRITICAL; CVE-2026-41284 / CVE-2026-42498 /
-// CVE-2026-43513 HIGH) and fails the required backend SBOM scan. No stable
-// Spring Boot 4.0.x ships the patched Tomcat yet, so the `tomcat.version` BOM
-// property is overridden here — it propagates to every tomcat-embed-* artifact
-// via the io.spring.dependency-management plugin. Remove this override and the
-// libs.versions.toml `tomcat` key once Spring Boot >= 4.0.7 carries the fix
-// (tracked in #538; cleanup follow-up #539).
-extra["tomcat.version"] = libs.versions.tomcat.get()
-
 // CycloneDX SBOM generation for CI vulnerability scanning (issue #297, ADR-0030).
 // Restricted to runtimeClasspath: only deps that ship in the production artefact
 // are security-relevant. Test/compile-only deps would add false-positive noise.
