@@ -25,7 +25,7 @@ type TimestampVariant = "full" | "relative";
 
 interface TimestampProps {
   /** ISO-8601 timestamp (OffsetDateTime from the backend). */
-  readonly date: string | undefined;
+  readonly date: string | null | undefined;
   /**
    * Rendering variant:
    * - `full` (default): `dd.MM.yyyy HH:mm:ss`

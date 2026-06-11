@@ -810,8 +810,8 @@ function DefaultDiff({ label, value, monospace, multiline }: DefaultDiffProps) {
 
 interface EditAttributionProps {
   isCustomised: boolean;
-  updatedAt?: string;
-  updatedBy?: string;
+  updatedAt?: string | null;
+  updatedBy?: string | null;
 }
 
 /**

@@ -215,8 +215,8 @@ function TemplateRow({ template, onClick }: TemplateRowProps) {
 
 interface EditAttributionProps {
   isCustomised: boolean;
-  updatedAt?: string;
-  updatedBy?: string;
+  updatedAt?: string | null;
+  updatedBy?: string | null;
 }
 
 /**
