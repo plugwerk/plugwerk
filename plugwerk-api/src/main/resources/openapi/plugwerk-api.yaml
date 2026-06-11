@@ -2822,8 +2822,7 @@ components:
             the floor; future strength checks (zxcvbn, banned-passwords)
             land in the service.
         displayName:
-          type: string
-          nullable: true
+          type: [string, "null"]
           maxLength: 128
           description: Optional human-readable label; defaults to the username when omitted
       required:
@@ -2956,8 +2955,7 @@ components:
             to the username; for OIDC users it is sourced from the `name`
             or `preferred_username` ID-token claim at first login.
         username:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             Local-login username. NULL for OIDC users — their authenticating
             identity lives with the upstream provider. Frontend should prefer
@@ -3323,26 +3321,23 @@ components:
         enabled:
           type: boolean
         dryRun:
-          type: boolean
-          nullable: true
+          type: [boolean, "null"]
           description: |
             null = no admin override, use the yaml default. Non-null
             overrides the yaml default for jobs where supportsDryRun is
             true; the value is ignored for other jobs.
         lastRunAt:
-          type: string
+          type: [string, "null"]
           format: date-time
-          nullable: true
         lastRunOutcome:
-          $ref: '#/components/schemas/SchedulerJobOutcome'
-          nullable: true
+          anyOf:
+            - $ref: '#/components/schemas/SchedulerJobOutcome'
+            - type: "null"
         lastRunDurationMs:
-          type: integer
+          type: [integer, "null"]
           format: int64
-          nullable: true
         lastRunMessage:
-          type: string
-          nullable: true
+          type: [string, "null"]
         runCountTotal:
           type: integer
           format: int64
@@ -3365,8 +3360,7 @@ components:
         enabled:
           type: boolean
         dryRun:
-          type: boolean
-          nullable: true
+          type: [boolean, "null"]
 
     SchedulerJobRunResult:
       type: object
@@ -3381,12 +3375,10 @@ components:
         outcome:
           $ref: '#/components/schemas/SchedulerJobOutcome'
         durationMs:
-          type: integer
+          type: [integer, "null"]
           format: int64
-          nullable: true
         message:
-          type: string
-          nullable: true
+          type: [string, "null"]
       required:
         - name
         - outcome
@@ -3466,9 +3458,9 @@ components:
             type: string
           description: Free-form tags for discovery and filtering
         latestRelease:
-          allOf:
+          anyOf:
             - $ref: '#/components/schemas/PluginReleaseDto'
-          nullable: true
+            - type: "null"
           description: |
             Full metadata of the latest published release, or `null` if no published
             release exists. Embedded to avoid extra round-trips when rendering catalog
@@ -3490,8 +3482,7 @@ components:
           format: uri
           description: URL of the source code repository (e.g. GitHub)
         hasDraftOnly:
-          type: boolean
-          nullable: true
+          type: [boolean, "null"]
           description: |
             `true` when the plugin has at least one draft release but no published release.
             `null` or `false` for plugins with at least one published release.
@@ -3877,17 +3868,15 @@ components:
           format: int32
           description: Total number of pages
         pendingReviewPluginCount:
-          type: integer
+          type: [integer, "null"]
           format: int64
-          nullable: true
           description: |
             Number of active plugins that have at least one draft release pending review.
             Only populated for authenticated users with namespace access; `null` for
             anonymous requests.
         pendingReviewReleaseCount:
-          type: integer
+          type: [integer, "null"]
           format: int64
-          nullable: true
           description: |
             Total number of draft releases pending review across all plugins in the
             namespace. This reflects the actual size of the review queue.
@@ -4002,8 +3991,7 @@ components:
             `EXTERNAL` accounts authenticate against an upstream provider —
             `username` is `null`, `passwordChangeRequired` is always `false`.
         username:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             Local-login username. Always present and unique for `source = INTERNAL`,
             always `null` for `source = EXTERNAL`.
@@ -4024,9 +4012,8 @@ components:
           type: string
           format: date-time
         lastLoginAt:
-          type: string
+          type: [string, "null"]
           format: date-time
-          nullable: true
           description: |
             Timestamp of the most recent fresh, credential-validated login —
             either a successful `POST /auth/login` (INTERNAL) or a successful
@@ -4035,8 +4022,7 @@ components:
             `null` for accounts that have never logged in (e.g. provisioned
             via `POST /admin/users` and never used yet).
         providerName:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             Operator-configured display name of the OIDC / OAuth2 provider that
             authenticates this user — `OidcProviderEntity.name`, the same string
@@ -4099,12 +4085,10 @@ components:
       description: Partial update — include only the fields to change
       properties:
         enabled:
-          type: boolean
-          nullable: true
+          type: [boolean, "null"]
         newPassword:
-          type: string
+          type: [string, "null"]
           minLength: 12
-          nullable: true
 
     AdminPasswordResetResponse:
       type: object
@@ -4137,8 +4121,7 @@ components:
             Operators surfacing the link out-of-band can use this to tell
             the user how long they have to act.
         resetUrl:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             Absolute reset URL (`{webBaseUrl}/reset-password?token=…`).
             Populated only when `emailSent` is `false`, so the operator can
@@ -4173,8 +4156,7 @@ components:
         displayName:
           type: string
         username:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Local-login username; null for OIDC users.
         source:
           type: string
@@ -4187,8 +4169,7 @@ components:
             Used by the members table to render a provider-name secondary
             label under EXTERNAL members.
         providerName:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             Operator-configured display name of the OIDC / OAuth2 provider —
             same data as `UserDto.providerName`, surfaced here so the
@@ -4263,44 +4244,36 @@ components:
         clientId:
           type: string
         issuerUri:
-          type: string
-          nullable: true
+          type: [string, "null"]
         scope:
           type: string
         authorizationUri:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Authorization endpoint URL — meaningful only when providerType is OAUTH2.
         tokenUri:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Token endpoint URL — meaningful only when providerType is OAUTH2.
         userInfoUri:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: User-info endpoint URL — meaningful only when providerType is OAUTH2.
         jwkSetUri:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             JWK set URL for resource-server JWT validation — meaningful only when providerType
             is OAUTH2 and the provider issues JWT access tokens. Leave null for opaque-
             token providers.
         subjectAttribute:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             User-info JSON key for the stable user identifier — meaningful only when providerType
             is OAUTH2. Null means application default (`sub`).
         emailAttribute:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             User-info JSON key for the user's email — meaningful only when providerType is
             OAUTH2. Null means application default (`email`).
         displayNameAttribute:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             User-info JSON key for the user's display name — meaningful only when providerType
             is OAUTH2. Null means application default (`name`).
@@ -4332,51 +4305,43 @@ components:
         clientSecret:
           type: string
         issuerUri:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Required for the Generic OIDC provider type
         scope:
           type: string
           default: openid email profile
         authorizationUri:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             OAuth2 authorize-endpoint URL. Required when providerType is OAUTH2;
             ignored otherwise. Validated for http(s) scheme by the server.
         tokenUri:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             OAuth2 token-endpoint URL. Required when providerType is OAUTH2;
             ignored otherwise. Validated for http(s) scheme by the server.
         userInfoUri:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             OAuth2 user-info endpoint URL. Required when providerType is OAUTH2;
             ignored otherwise. Validated for http(s) scheme by the server.
         jwkSetUri:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             JWK set URL for resource-server JWT validation. Optional; only meaningful when
             providerType is OAUTH2. Leave null for opaque-token providers.
         subjectAttribute:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             User-info JSON key carrying the stable user identifier. Defaults to `sub` when
             null. Meaningful only when providerType is OAUTH2.
         emailAttribute:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             User-info JSON key carrying the user's email. Defaults to `email` when null.
             Meaningful only when providerType is OAUTH2.
         displayNameAttribute:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             User-info JSON key carrying the user's display name. Defaults to `name` when null.
             Meaningful only when providerType is OAUTH2.
@@ -4396,35 +4361,30 @@ components:
         provider. To change `providerType`, delete and recreate the provider.
       properties:
         enabled:
-          type: boolean
-          nullable: true
+          type: [boolean, "null"]
         name:
-          type: string
+          type: [string, "null"]
           minLength: 1
           maxLength: 255
-          nullable: true
           description: Display name shown on the login page.
         clientId:
-          type: string
+          type: [string, "null"]
           minLength: 1
           maxLength: 255
-          nullable: true
           description: |
             OAuth2 client ID. Changing this on an enabled provider invalidates all existing
             access tokens issued by that provider (the `aud` claim no longer matches), so
             users must re-login.
         clientSecret:
-          type: string
+          type: [string, "null"]
           minLength: 8
           writeOnly: true
-          nullable: true
           description: |
             Provide to rotate the client secret. Blank or omitted leaves the existing
             encrypted value untouched. Never returned in responses.
         issuerUri:
-          type: string
+          type: [string, "null"]
           format: uri
-          nullable: true
           description: |
             OIDC issuer URI for type `OIDC` (Generic OIDC). Reachability is verified
             lazily by the registration refresh after the patch is saved — a temporarily
@@ -4432,55 +4392,47 @@ components:
             patch the URI before the upstream is reachable, e.g. during a realm cutover).
             Cannot be cleared via PATCH; to remove, delete and recreate the provider.
         scope:
-          type: string
+          type: [string, "null"]
           minLength: 1
-          nullable: true
           description: |
             Space-separated OAuth2 scopes. For type `OIDC` (Generic OIDC) the scope set
             must include `openid`; otherwise the patch is rejected.
         authorizationUri:
-          type: string
+          type: [string, "null"]
           format: uri
-          nullable: true
           description: |
             OAuth2 authorize-endpoint URL. Meaningful only for OAUTH2 providers.
         tokenUri:
-          type: string
+          type: [string, "null"]
           format: uri
-          nullable: true
           description: |
             OAuth2 token-endpoint URL. Meaningful only for OAUTH2 providers.
         userInfoUri:
-          type: string
+          type: [string, "null"]
           format: uri
-          nullable: true
           description: |
             OAuth2 user-info endpoint URL. Meaningful only for OAUTH2 providers.
         jwkSetUri:
-          type: string
+          type: [string, "null"]
           format: uri
-          nullable: true
           description: |
             JWK set URL. Meaningful only for OAUTH2 providers that issue JWT access
             tokens. Cannot be cleared via PATCH; to remove, delete and recreate the provider.
         subjectAttribute:
-          type: string
+          type: [string, "null"]
           minLength: 1
-          nullable: true
           description: |
             User-info JSON key carrying the stable subject identifier. Meaningful only for
             OAUTH2 providers. Default (`sub`) is used when null.
         emailAttribute:
-          type: string
+          type: [string, "null"]
           minLength: 1
-          nullable: true
           description: |
             User-info JSON key carrying the user's email. Meaningful only for OAUTH2
             providers. Default (`email`) is used when null.
         displayNameAttribute:
-          type: string
+          type: [string, "null"]
           minLength: 1
-          nullable: true
           description: |
             User-info JSON key carrying the user's display name. Meaningful only for
             OAUTH2 providers. Default (`name`) is used when null.
@@ -4508,20 +4460,15 @@ components:
         success:
           type: boolean
         authorizationUri:
-          type: string
-          nullable: true
+          type: [string, "null"]
         tokenUri:
-          type: string
-          nullable: true
+          type: [string, "null"]
         userInfoUri:
-          type: string
-          nullable: true
+          type: [string, "null"]
         jwkSetUri:
-          type: string
-          nullable: true
+          type: [string, "null"]
         error:
-          type: string
-          nullable: true
+          type: [string, "null"]
       required:
         - success
 
@@ -4674,8 +4621,7 @@ components:
             of the open-redirect guard from issue #274 trivially satisfied.
           example: "/oauth2/authorization/keycloak-local"
         accountPickerLoginUrl:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             Relative URL the frontend navigates the browser to when the user
             wants to pick a *different* upstream account (issue #410). Same
@@ -4697,8 +4643,7 @@ components:
             `select_account` and `login` are forwarded upstream.
           example: "/oauth2/authorization/keycloak-local?prompt=select_account"
         accountSwitchHintUrl:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             Absolute upstream URL the user can follow to terminate their
             session at the IdP when the provider does not support OIDC
@@ -4813,8 +4758,7 @@ components:
           type: string
           description: Raw string value (parsed according to `valueType` on the client)
         description:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             Human-readable description of the setting, persisted in the
             `application_setting.setting_desc` column. Intended for display as inline help
@@ -4898,8 +4842,7 @@ components:
           type: string
           description: Currently effective plaintext body (override or default).
         bodyHtml:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             Currently effective HTML body, or `null` when neither the override
             nor the default ships an HTML alternative. When set, mail sends
@@ -4911,8 +4854,7 @@ components:
           type: string
           description: Hard-coded enum default plaintext body. Always present.
         defaultBodyHtml:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Hard-coded enum default HTML body, or `null`.
         placeholders:
           type: array
@@ -4928,13 +4870,11 @@ components:
             `DATABASE` when an admin override exists for `locale`;
             `DEFAULT` when render falls back to the enum literal.
         updatedAt:
-          type: string
+          type: [string, "null"]
           format: date-time
-          nullable: true
           description: Timestamp of the last override update, or `null` when never overridden.
         updatedBy:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Username of the admin who last edited, or `null` when never overridden.
       required:
         - key
@@ -4975,8 +4915,7 @@ components:
           type: string
           minLength: 1
         bodyHtml:
-          type: string
-          nullable: true
+          type: [string, "null"]
         sampleVars:
           type: object
           additionalProperties:
@@ -5005,8 +4944,7 @@ components:
           type: string
           description: Rendered plaintext body.
         bodyHtml:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Rendered HTML body, or `null` when no HTML draft was supplied.
         sampleVars:
           type: object
@@ -5036,8 +4974,7 @@ components:
           type: string
           minLength: 1
         bodyHtml:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: |
             HTML body; `null` means plaintext-only delivery. Blank strings
             are rejected — use `null` to clear.
