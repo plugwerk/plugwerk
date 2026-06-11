@@ -48,9 +48,11 @@ jobs:
         if: steps.check.outputs.is_snapshot == 'true'
         uses: gradle/actions/setup-gradle@5e2ebd065dc2488b7a6ad670704656cbbe1e8f60 # v6.1.1
 
+      # -x spotlessCheck: lint enforcement happens in ci.yml (isolated step);
+      # running Spotless under full build load is flaky (diffplug/spotless#2850).
       - name: Build all modules
         if: steps.check.outputs.is_snapshot == 'true'
-        run: ./gradlew build -x integrationTest
+        run: ./gradlew build -x integrationTest -x spotlessCheck
 
       - name: Publish SNAPSHOTs to GitHub Packages
         if: steps.check.outputs.is_snapshot == 'true'

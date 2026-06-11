@@ -33,8 +33,15 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@5e2ebd065dc2488b7a6ad670704656cbbe1e8f60 # v6.1.1
 
+      # Spotless runs isolated, before the main build: its formatter classloader
+      # is flaky under concurrent task load (diffplug/spotless#2850 — backing JAR
+      # closed mid-build → NoClassDefFoundError). Standalone invocation is
+      # reliable; see plugwerk#563 for the investigation.
+      - name: Spotless check (isolated)
+        run: ./gradlew spotlessCheck
+
       - name: Build and run unit tests
-        run: ./gradlew build
+        run: ./gradlew build -x spotlessCheck
 
       - name: Pre-pull Docker images (with retry)
         run: |

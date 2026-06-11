@@ -132,7 +132,7 @@ object OidcJwtValidators {
      * `contains` check covers both shapes uniformly.
      */
     private fun audienceValidator(expected: String): OAuth2TokenValidator<Jwt> =
-        JwtClaimValidator<List<String>?>(JwtClaimNames.AUD) { aud ->
+        JwtClaimValidator<List<String>>(JwtClaimNames.AUD) { aud ->
             !aud.isNullOrEmpty() && aud.contains(expected)
         }
 }

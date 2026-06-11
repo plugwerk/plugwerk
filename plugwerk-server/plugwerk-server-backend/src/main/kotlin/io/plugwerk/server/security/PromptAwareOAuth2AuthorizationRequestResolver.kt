@@ -96,7 +96,7 @@ class PromptAwareOAuth2AuthorizationRequestResolver(
         return maybeAddPrompt(request, resolved)
     }
 
-    override fun resolve(request: HttpServletRequest, clientRegistrationId: String?): OAuth2AuthorizationRequest? {
+    override fun resolve(request: HttpServletRequest, clientRegistrationId: String): OAuth2AuthorizationRequest? {
         val resolved = delegate.resolve(request, clientRegistrationId) ?: return null
         return maybeAddPrompt(request, resolved)
     }
