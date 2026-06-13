@@ -176,6 +176,14 @@ class OidcProviderService(
         emailAttribute: String? = null,
         displayNameAttribute: String? = null,
     ): OidcProviderEntity {
+        // Secret strength: empty is allowed (PKCE / public clients legitimately
+        // have no client secret and we encrypt the empty string as-is), but a
+        // non-blank secret must clear the same >= 8 char floor that update()
+        // enforces — otherwise the two write paths silently diverge and create
+        // could persist a 1-char secret that update would reject (#351 / DEV-46).
+        require(clientSecret.isBlank() || clientSecret.length >= 8) {
+            "clientSecret must be at least 8 characters"
+        }
         // OAUTH2 requires the three core endpoint URIs at create time.
         // The four URI columns are nullable in the schema (existing rows for
         // OIDC/GOOGLE/GITHUB/FACEBOOK don't need them) so service-layer
@@ -365,23 +373,33 @@ class OidcProviderService(
     }
 
     /**
-     * Deletes an OIDC provider, applying issue #351's Politik C: any
-     * `plugwerk_user` rows that authenticated through this provider get
+     * Deletes an OIDC provider, applying issue #351's Politik C: every
+     * `plugwerk_user` row that authenticated through this provider is set to
      * `enabled = false` BEFORE the SQL cascade wipes their `oidc_identity`
-     * rows. The user records survive for audit purposes — operators who
-     * later want to permanently delete those users can do so via the admin
-     * UI; until then the disabled flag prevents any new login attempt.
+     * rows.
+     *
+     * Note the deliberate breadth: this disables **all** users linked to the
+     * provider, not only those whose *sole* login was this provider. A user
+     * who still holds a local password or a second OIDC identity is disabled
+     * too. That is the accepted Politik C trade-off (an audit-survivable
+     * lockout is preferred over leaving half-authenticated accounts behind);
+     * narrowing this to truly-orphaned users would be a behaviour change with
+     * availability implications and must be reviewed on its own (DEV-46/F4).
+     *
+     * The user records survive for audit purposes — operators who later want
+     * to permanently delete those users can do so via the admin UI; until then
+     * the disabled flag prevents any new login attempt.
      */
     fun delete(id: UUID) {
         if (!oidcProviderRepository.existsById(id)) {
             throw EntityNotFoundException("OidcProvider", id.toString())
         }
-        val orphanedUserIds = oidcIdentityRepository.findAllByOidcProviderId(id)
+        val linkedUserIds = oidcIdentityRepository.findAllByOidcProviderId(id)
             .mapNotNull { it.user.id }
-        if (orphanedUserIds.isNotEmpty()) {
-            val disabled = userRepository.disableAll(orphanedUserIds)
+        if (linkedUserIds.isNotEmpty()) {
+            val disabled = userRepository.disableAll(linkedUserIds)
             log.warn(
-                "Disabled {} user(s) orphaned by deletion of OIDC provider {} (Politik C, issue #351)",
+                "Disabled {} user(s) linked to deleted OIDC provider {} (Politik C, issue #351)",
                 disabled,
                 id,
             )

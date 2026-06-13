@@ -32,9 +32,12 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.inOrder
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.times
@@ -202,6 +205,38 @@ class OidcProviderServiceTest {
             service.update(providerId, OidcProviderPatch(issuerUri = "ftp://nope.example.com"))
         }.isInstanceOf(IllegalArgumentException::class.java)
             .hasMessageContaining("http")
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["issuerUri", "jwkSetUri", "authorizationUri", "tokenUri", "userInfoUri"])
+    fun `update rejects an SSRF private host on each gated URI field (DEV-46 F2)`(field: String) {
+        // Every URI the update path persists is SSRF-gated. Use an OAUTH2 row
+        // so the authorizationUri/tokenUri/userInfoUri patches clear their
+        // providerType pre-check and actually reach the SSRF guard. Patch one
+        // field at a time with a metadata IP and assert it is rejected before
+        // any write/refresh — guarding each requirePublicHttpUri(...) line.
+        val provider = newProvider().apply {
+            providerType = OidcProviderType.OAUTH2
+            issuerUri = null
+        }
+        whenever(oidcProviderRepository.findById(providerId)).thenReturn(Optional.of(provider))
+        val privateHost = "http://169.254.169.254/x"
+        val patch = when (field) {
+            "issuerUri" -> OidcProviderPatch(issuerUri = privateHost)
+            "jwkSetUri" -> OidcProviderPatch(jwkSetUri = privateHost)
+            "authorizationUri" -> OidcProviderPatch(authorizationUri = privateHost)
+            "tokenUri" -> OidcProviderPatch(tokenUri = privateHost)
+            "userInfoUri" -> OidcProviderPatch(userInfoUri = privateHost)
+            else -> error("unmapped field: $field")
+        }
+
+        assertThatThrownBy { service.update(providerId, patch) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining(field)
+
+        verify(oidcProviderRepository, never()).save(any())
+        verify(oidcProviderRegistry, never()).refresh()
+        verify(dbClientRegistrationRepository, never()).refresh()
     }
 
     @Test
@@ -502,6 +537,79 @@ class OidcProviderServiceTest {
         assertThat(created.subjectAttribute).isNull()
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = ["authorizationUri", "tokenUri", "userInfoUri", "jwkSetUri", "issuerUri"])
+    fun `create rejects an OAUTH2 URI field pointing at a private host (SSRF guard, DEV-46 F2)`(field: String) {
+        // The pre-existing SSRF test only covered the OIDC issuerUri. The
+        // service also gates every OAUTH2 endpoint URI (authorizationUri/
+        // tokenUri/userInfoUri/jwkSetUri) and the OAUTH2 issuerUri. Poison one
+        // field at a time with a metadata IP, keep the rest public-routable,
+        // and assert the per-field requirePublicHttpUri(...) wiring rejects it.
+        // Guards against a regression that deletes one of those guard lines.
+        val privateHost = "http://169.254.169.254/x"
+        fun valueFor(name: String) = if (name == field) privateHost else "https://idp.example.com/$name"
+
+        assertThatThrownBy {
+            service.create(
+                name = "OAUTH2 SSRF",
+                providerType = OidcProviderType.OAUTH2,
+                clientId = "c",
+                clientSecret = "secret-1234",
+                issuerUri = if (field == "issuerUri") privateHost else null,
+                scope = "read_user",
+                authorizationUri = valueFor("authorizationUri"),
+                tokenUri = valueFor("tokenUri"),
+                userInfoUri = valueFor("userInfoUri"),
+                jwkSetUri = if (field == "jwkSetUri") privateHost else null,
+            )
+        }.isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining(field)
+
+        verify(oidcProviderRepository, never()).save(any())
+    }
+
+    @Test
+    fun `create rejects a non-blank clientSecret shorter than 8 chars (matches update, DEV-46 F3)`() {
+        // update enforces clientSecret >= 8; create historically did not and
+        // would happily encrypt a 1-char secret. Pin the now-consistent policy
+        // so the two write paths cannot silently diverge.
+        assertThatThrownBy {
+            service.create(
+                name = "Weak secret",
+                providerType = OidcProviderType.OIDC,
+                clientId = "c",
+                clientSecret = "short",
+                issuerUri = "https://idp.example.com",
+                scope = "openid",
+            )
+        }.isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("at least 8")
+
+        verify(oidcProviderRepository, never()).save(any())
+    }
+
+    @Test
+    fun `create allows a blank clientSecret for public PKCE clients (DEV-46 F3)`() {
+        // The >= 8 floor applies only to non-blank secrets: public / PKCE
+        // clients legitimately have no client secret, so an empty string is
+        // accepted and encrypted as-is rather than rejected.
+        whenever(oidcProviderRepository.save(any<OidcProviderEntity>())).thenAnswer {
+            it.arguments[0] as OidcProviderEntity
+        }
+
+        val created = service.create(
+            name = "Public client",
+            providerType = OidcProviderType.OIDC,
+            clientId = "c",
+            clientSecret = "",
+            issuerUri = "https://idp.example.com",
+            scope = "openid",
+        )
+
+        assertThat(created.clientSecretEncrypted).isEqualTo("ENCRYPTED-")
+        verify(oidcProviderRepository, times(1)).save(any())
+    }
+
     // -----------------------------------------------------------------------
     // delete — Politik C: orphaned users disabled before the cascade (DEV-30).
     // -----------------------------------------------------------------------
@@ -538,6 +646,17 @@ class OidcProviderServiceTest {
         verify(oidcProviderRepository).deleteById(providerId)
         verify(oidcProviderRegistry, times(1)).refresh()
         verify(dbClientRegistrationRepository, times(1)).refresh()
+
+        // Pin Politik C's ordering invariant explicitly (DEV-46/F1): the
+        // independent verify(...) calls above assert *that* each interaction
+        // happened but not *in what order*. A refactor that moved deleteById
+        // ahead of disableAll/findAllByOidcProviderId would still satisfy them.
+        // inOrder fails loudly if the cascade ever runs before the orphaned
+        // users are found and disabled.
+        val ordered = inOrder(oidcIdentityRepository, userRepository, oidcProviderRepository)
+        ordered.verify(oidcIdentityRepository).findAllByOidcProviderId(providerId)
+        ordered.verify(userRepository).disableAll(any())
+        ordered.verify(oidcProviderRepository).deleteById(providerId)
     }
 
     @Test
@@ -551,6 +670,29 @@ class OidcProviderServiceTest {
         verify(oidcProviderRepository).deleteById(providerId)
         verify(oidcProviderRegistry, times(1)).refresh()
         verify(dbClientRegistrationRepository, times(1)).refresh()
+    }
+
+    @Test
+    fun `delete disables every linked user, not only sole-login orphans (Politik C, DEV-46 F4)`() {
+        // Politik C deliberately disables EVERY user with an identity on the
+        // provider — the service does not check whether a user still has a
+        // local password or a second OIDC identity, so a multi-login user is
+        // disabled exactly like a sole-login one. This pins that blast radius:
+        // a future refactor that narrows it to truly-orphaned users (a real
+        // behaviour change with availability implications) must fail this test
+        // and get re-reviewed rather than land silently.
+        val multiLoginUserId = UUID.randomUUID() // also holds a local password / 2nd identity
+        val soleLoginUserId = UUID.randomUUID()
+        val identities = listOf(identityForUser(multiLoginUserId), identityForUser(soleLoginUserId))
+        whenever(oidcProviderRepository.existsById(providerId)).thenReturn(true)
+        whenever(oidcIdentityRepository.findAllByOidcProviderId(providerId)).thenReturn(identities)
+        whenever(userRepository.disableAll(any())).thenReturn(2)
+
+        service.delete(providerId)
+
+        val captor = argumentCaptor<Collection<UUID>>()
+        verify(userRepository).disableAll(captor.capture())
+        assertThat(captor.firstValue).containsExactlyInAnyOrder(multiLoginUserId, soleLoginUserId)
     }
 
     private fun identityForUser(userId: UUID): OidcIdentityEntity {

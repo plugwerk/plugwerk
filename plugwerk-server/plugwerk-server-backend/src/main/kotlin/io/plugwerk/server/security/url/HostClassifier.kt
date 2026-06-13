@@ -36,6 +36,15 @@ import java.net.InetAddress
  * still resolves once at request time, which is acceptable risk for an
  * admin-only feature behind a guard at write *and* read time.
  *
+ * **Accepted residual risk (DEV-46/R1):** concretely, a *public* hostname
+ * whose A/AAAA record resolves to a private or metadata IP (e.g. an
+ * attacker-controlled domain pointed at `169.254.169.254`) passes this
+ * guard, and the HTTP client then resolves and dials it — classic
+ * public-name-to-private-IP / DNS-rebinding. This is accepted because every
+ * endpoint that reaches here is gated behind the superadmin role. Future
+ * hardening, if the threat model tightens: resolve-once-and-pin, or an
+ * egress allowlist / forward proxy.
+ *
  * **IP-range blocks** (RFC 1918, loopback, link-local, ULA, IPv4-mapped
  * forms) are hardcoded — they are Internet standards, not policy. The
  * `plugwerk.auth.oidc.allow-private-discovery-uris` escape hatch
