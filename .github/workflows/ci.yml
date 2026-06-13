@@ -57,6 +57,29 @@ jobs:
           PLUGWERK_AUTH_JWT_SECRET: ci-integration-test-secret-min-32-characters!!
           PLUGWERK_AUTH_ENCRYPTION_KEY: ci-encrypt-16chr
 
+      # Coverage report over the merged unit + integration exec data. The
+      # build step above produced build/jacoco/test.exec; the step above that
+      # produced build/jacoco/integrationTest.exec — jacocoTestReport reads
+      # both (see plugwerk-server-backend/build.gradle.kts, DEV-30).
+      - name: Coverage report (merged unit + integration)
+        run: ./gradlew :plugwerk-server:plugwerk-server-backend:jacocoTestReport
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-coverage-report
+          path: |
+            plugwerk-server/plugwerk-server-backend/build/reports/jacoco/test/html/
+            plugwerk-server/plugwerk-server-backend/build/reports/jacoco/test/jacocoTestReport.xml
+          retention-days: 14
+
+      # Coverage gate. Fails the build when coverage drops below the ratchet
+      # floors defined in build.gradle.kts. Runs last so the report artifact
+      # above is always published, even on a gate failure.
+      - name: Coverage gate
+        run: ./gradlew :plugwerk-server:plugwerk-server-backend:jacocoTestCoverageVerification
+
       - name: Upload unit test reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
