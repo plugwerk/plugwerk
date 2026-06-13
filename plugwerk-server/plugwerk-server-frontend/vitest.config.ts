@@ -9,6 +9,17 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     globals: true,
+    // `@mui/material` re-exports `react-transition-group@4`, which ships CJS
+    // with an extensionless directory import (`.../TransitionGroupContext`)
+    // and no `exports` map. Vitest externalises both by default, and Node's
+    // ESM resolver then rejects the directory import, breaking any test file
+    // that mounts a MUI transition component. Inlining forces Vite to bundle
+    // and resolve them through its own pipeline. See DEV-29.
+    server: {
+      deps: {
+        inline: [/@mui\//, /react-transition-group/],
+      },
+    },
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
