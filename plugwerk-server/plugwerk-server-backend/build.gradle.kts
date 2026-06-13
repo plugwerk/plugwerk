@@ -264,10 +264,10 @@ tasks.jacocoTestCoverageVerification {
     executionData.setFrom(coverageExecData)
     mustRunAfter(tasks.named("integrationTest"))
     violationRules {
-        // Repo-wide ratchet floors, seeded at the DEV-30 baseline (test +
-        // integrationTest merged) so the gate catches regressions today.
-        // BRANCH ramps to 0.80 as the DEV-30 follow-up tests land — raise
-        // these numbers as coverage improves, never lower them.
+        // Repo-wide ratchet floors. BRANCH was raised from the DEV-30 baseline
+        // (0.65) to 0.80 in DEV-42 once focused tests on the lowest-branch
+        // classes pushed the merged number to ≥80%. Raise these as coverage
+        // improves, never lower them.
         rule {
             limit {
                 counter = "INSTRUCTION"
@@ -282,7 +282,7 @@ tasks.jacocoTestCoverageVerification {
             limit {
                 counter = "BRANCH"
                 value = "COVEREDRATIO"
-                minimum = "0.65".toBigDecimal()
+                minimum = "0.80".toBigDecimal()
             }
         }
     }
