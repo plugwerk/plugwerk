@@ -98,6 +98,12 @@ secret setup:
    badge reads _EU_, host `eu.i.posthog.com`). If a US project was created by
    mistake, recreate it in the EU region — region cannot be migrated in place.
 
+> **Production residency:** the capture host **must** remain an EU PostHog host
+> (`eu.i.posthog.com`). The `POSTHOG_CAPTURE_URL` binding (`src/posthog.ts`) is a
+> non-secret override intended for **local/mock use only** — never point it at a
+> non-EU host in production, or telemetry would leave the EU and break the DPA
+> residency guarantee above.
+
 Only after the DPA is accepted and the EU region is confirmed should the project API
 key be captured and injected as a secret (below). The key is captured from
 **Project settings → Project API key** (`phc_…`) and is **read once into the secret
@@ -155,6 +161,12 @@ simply stop being collected.
 
 To rotate the PostHog key, re-run `wrangler secret put POSTHOG_PROJECT_KEY` with the
 new value and `npm run deploy`. No code change required.
+
+After deploying the new secret, **regenerate/rotate the project API key in PostHog
+→ Project settings** so the previous value is invalidated. Re-running
+`wrangler secret put` alone leaves the old key valid: a leaked previous `phc_…`
+ingestion key would still let anyone POST events to PostHog past the proxy
+allowlist until it is regenerated.
 
 ## Files
 
