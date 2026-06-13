@@ -75,4 +75,33 @@ class TelemetryPayloadBuilderTest {
         assertThat(InstallType.K8S.wireValue).isEqualTo("k8s")
         assertThat(InstallType.UNKNOWN.wireValue).isEqualTo("unknown")
     }
+
+    // --- DEV-24: activation events reuse the same allowlisted payload ---
+
+    @Test
+    fun `activation events serialize to their wire values`() {
+        assertThat(TelemetryEvent.NAMESPACE_CREATED.wireValue).isEqualTo("namespace_created")
+        assertThat(TelemetryEvent.FIRST_PLUGIN_PUBLISH.wireValue).isEqualTo("first_plugin_publish")
+    }
+
+    @Test
+    fun `activation event payloads carry exactly the four allowlisted keys and no PII`() {
+        for (event in listOf(TelemetryEvent.NAMESPACE_CREATED, TelemetryEvent.FIRST_PLUGIN_PUBLISH)) {
+            val payload = TelemetryPayloadBuilder.build(
+                installId = "11111111-2222-4333-8444-555555555555",
+                version = "1.1.0",
+                installType = InstallType.DOCKER_COMPOSE,
+                event = event,
+            )
+
+            @Suppress("UNCHECKED_CAST")
+            val asMap = objectMapper.readValue(objectMapper.writeValueAsString(payload), Map::class.java)
+                as Map<String, Any?>
+
+            // Same hard allowlist as the P0 beacon: no place for a namespace name,
+            // plugin name, user id, count, or free text to ride along.
+            assertThat(asMap.keys).containsExactlyInAnyOrder("installId", "version", "installType", "event")
+            assertThat(asMap["event"]).isEqualTo(event.wireValue)
+        }
+    }
 }

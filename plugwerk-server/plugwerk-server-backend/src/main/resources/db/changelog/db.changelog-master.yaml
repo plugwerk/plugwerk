@@ -71,3 +71,5 @@ databaseChangeLog:
       file: db/changelog/migrations/0035_application_asset.yaml
   - include:
       file: db/changelog/migrations/0036_seed_telemetry_install_id.yaml
+  - include:
+      file: db/changelog/migrations/0037_add_namespace_first_published.yaml

@@ -29,6 +29,7 @@ import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
 import io.plugwerk.server.service.settings.ApplicationSettingsService
 import io.plugwerk.server.service.storage.ArtifactStorageService
+import io.plugwerk.server.service.telemetry.ActivationTelemetry
 import io.plugwerk.spi.model.ReleaseStatus
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
@@ -38,6 +39,7 @@ import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.security.MessageDigest
+import java.time.OffsetDateTime
 import java.util.UUID
 
 @Service
@@ -51,6 +53,7 @@ class PluginReleaseService(
     private val objectMapper: ObjectMapper,
     private val settingsService: ApplicationSettingsService,
     private val downloadEventService: DownloadEventService,
+    private val activationTelemetry: ActivationTelemetry,
 ) {
 
     fun findAllByPlugin(namespaceSlug: String, pluginId: String): List<PluginReleaseEntity> {
@@ -96,7 +99,9 @@ class PluginReleaseService(
             throw ReleaseNotFoundException("id=$id", "")
         }
         release.status = status
-        return releaseRepository.save(release)
+        val saved = releaseRepository.save(release)
+        recordFirstPublishActivation(status, release.plugin.namespace)
+        return saved
     }
 
     @Transactional
@@ -161,7 +166,7 @@ class PluginReleaseService(
             ReleaseStatus.DRAFT
         }
 
-        return releaseRepository.save(
+        val saved = releaseRepository.save(
             PluginReleaseEntity(
                 plugin = plugin,
                 version = descriptor.version,
@@ -174,6 +179,8 @@ class PluginReleaseService(
                 status = initialStatus,
             ),
         )
+        recordFirstPublishActivation(initialStatus, plugin.namespace)
+        return saved
     }
 
     @Transactional
@@ -185,7 +192,33 @@ class PluginReleaseService(
     ): PluginReleaseEntity {
         val release = findByVersion(namespaceSlug, pluginId, version)
         release.status = status
-        return releaseRepository.save(release)
+        val saved = releaseRepository.save(release)
+        recordFirstPublishActivation(status, release.plugin.namespace)
+        return saved
+    }
+
+    /**
+     * Emits the `first_plugin_publish` activation event (DEV-24) the first time a
+     * release reaches [ReleaseStatus.PUBLISHED] in [namespace], and never again.
+     *
+     * All three publish paths (auto-approve [upload], [updateStatus], and review
+     * approval via [updateStatusByIdInNamespace]) funnel through here. The "first
+     * only" guarantee does **not** rely on this method being called once — it
+     * relies on [NamespaceRepository.markFirstPublishedIfAbsent], an atomic
+     * conditional `UPDATE` that flips `first_published_at` for exactly one caller.
+     * We emit the event iff that update reported a row changed, so the event is
+     * tied to the same transaction that durably set the flag and fires at most
+     * once per namespace regardless of path or concurrency.
+     *
+     * No-op for any non-published transition (DRAFT/DEPRECATED/YANKED).
+     */
+    private fun recordFirstPublishActivation(status: ReleaseStatus, namespace: NamespaceEntity) {
+        if (status != ReleaseStatus.PUBLISHED) return
+        val namespaceId = requireNotNull(namespace.id) { "Namespace has no persisted id" }
+        val firstPublish = namespaceRepository.markFirstPublishedIfAbsent(namespaceId, OffsetDateTime.now()) == 1
+        if (firstPublish) {
+            activationTelemetry.firstPluginPublished()
+        }
     }
 
     /**

@@ -30,6 +30,20 @@ enum class TelemetryEvent(val wireValue: String) {
 
     /** Emitted ~once per 24h by the scheduled heartbeat job. */
     HEARTBEAT("heartbeat"),
+
+    /**
+     * Activation event (DEV-24): a namespace was created. Fired once per
+     * namespace creation, after the owning transaction commits.
+     */
+    NAMESPACE_CREATED("namespace_created"),
+
+    /**
+     * Activation event (DEV-24): the **first** plugin release was published in a
+     * namespace. Fired at most once per namespace lifetime — gated by the
+     * `namespace.first_published_at` timestamp, not emitted on subsequent
+     * publishes.
+     */
+    FIRST_PLUGIN_PUBLISH("first_plugin_publish"),
 }
 
 /**
