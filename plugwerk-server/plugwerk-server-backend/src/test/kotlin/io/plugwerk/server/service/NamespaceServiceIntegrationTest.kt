@@ -30,6 +30,7 @@ import io.plugwerk.server.repository.NamespaceRepository
 import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
 import io.plugwerk.server.service.storage.ArtifactStorageService
+import io.plugwerk.server.service.telemetry.ActivationTelemetry
 import io.plugwerk.spi.model.ReleaseStatus
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
@@ -66,6 +67,11 @@ class NamespaceServiceIntegrationTest {
     class MockConfig {
         @Bean
         fun artifactStorageService(): ArtifactStorageService = mock(ArtifactStorageService::class.java)
+
+        // DEV-24: the activation telemetry seam is mocked — this slice exercises
+        // persistence, not the telemetry transport (covered by ActivationTelemetryTest).
+        @Bean
+        fun activationTelemetry(): ActivationTelemetry = mock(ActivationTelemetry::class.java)
     }
 
     companion object {

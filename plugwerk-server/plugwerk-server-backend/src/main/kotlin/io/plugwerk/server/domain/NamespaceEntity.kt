@@ -49,6 +49,11 @@ import java.util.UUID
  * @property name Human-readable display name of the namespace.
  * @property description Optional longer description of the namespace.
  * @property autoApproveReleases Whether new plugin releases are auto-approved without manual review.
+ * @property firstPublishedAt Timestamp of the first plugin release ever published in this namespace,
+ *   or `null` if none yet. Set once (and only once) via
+ *   [io.plugwerk.server.repository.NamespaceRepository.markFirstPublishedIfAbsent]; it is the gate
+ *   that makes the `first_plugin_publish` activation telemetry event (DEV-24) fire exactly once per
+ *   namespace. Carries no personal data — a coarse activation timestamp only.
  * @property createdAt Creation timestamp (set automatically, immutable).
  * @property updatedAt Timestamp of the last modification (updated automatically).
  */
@@ -74,6 +79,9 @@ class NamespaceEntity(
 
     @Column(name = "auto_approve_releases", nullable = false)
     var autoApproveReleases: Boolean = false,
+
+    @Column(name = "first_published_at")
+    var firstPublishedAt: OffsetDateTime? = null,
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

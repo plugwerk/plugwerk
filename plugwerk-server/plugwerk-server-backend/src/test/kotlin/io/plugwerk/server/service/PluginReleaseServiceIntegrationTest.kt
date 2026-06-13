@@ -22,6 +22,7 @@ import io.plugwerk.descriptor.DescriptorResolver
 import io.plugwerk.descriptor.PlugwerkDescriptor
 import io.plugwerk.server.SharedPostgresContainer
 import io.plugwerk.server.service.storage.ArtifactStorageService
+import io.plugwerk.server.service.telemetry.ActivationTelemetry
 import io.plugwerk.spi.model.ReleaseStatus
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -29,6 +30,10 @@ import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 import org.mockito.kotlin.any
+import org.mockito.kotlin.clearInvocations
+import org.mockito.kotlin.never
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
@@ -72,6 +77,11 @@ class PluginReleaseServiceIntegrationTest {
 
         @Bean
         fun objectMapper(): ObjectMapper = ObjectMapper()
+
+        // DEV-24: telemetry transport is mocked; this slice verifies the real
+        // first-publish gate (the conditional UPDATE) against Postgres, not the send.
+        @Bean
+        fun activationTelemetry(): ActivationTelemetry = mock(ActivationTelemetry::class.java)
     }
 
     companion object {
@@ -95,11 +105,17 @@ class PluginReleaseServiceIntegrationTest {
     @Autowired
     lateinit var descriptorResolver: DescriptorResolver
 
+    @Autowired
+    lateinit var activationTelemetry: ActivationTelemetry
+
     lateinit var testNamespace: io.plugwerk.server.domain.NamespaceEntity
 
     @BeforeEach
     fun setUp() {
         testNamespace = namespaceService.create("rel-int-ns", "Integration Org")
+        // The bean is a context-cached singleton; reset interactions recorded by
+        // the setUp create() (and any prior test) so per-test verify() counts are honest.
+        clearInvocations(activationTelemetry)
     }
 
     @Test
@@ -161,5 +177,35 @@ class PluginReleaseServiceIntegrationTest {
         val result = releaseService.upload("auto-approve-ns", ByteArrayInputStream(FAKE_JAR), FAKE_JAR.size.toLong())
 
         assertThat(result.status).isEqualTo(ReleaseStatus.PUBLISHED)
+    }
+
+    @Test
+    fun `first_plugin_publish fires once per namespace — gated by the real conditional UPDATE (DEV-24)`() {
+        namespaceService.create("first-pub-ns", "First Pub Org", autoApproveReleases = true)
+        val first = PlugwerkDescriptor(id = "alpha-plugin", version = "1.0.0", name = "Alpha")
+        val second = PlugwerkDescriptor(id = "beta-plugin", version = "1.0.0", name = "Beta")
+        whenever(descriptorResolver.resolve(any())).thenReturn(first).thenReturn(second)
+
+        // Two distinct auto-approved (=PUBLISHED) publishes in the same namespace.
+        // The first opens the gate; the second hits markFirstPublishedIfAbsent's
+        // `WHERE first_published_at IS NULL` after the column is already stamped
+        // (same transaction) and updates 0 rows — so no second event fires.
+        releaseService.upload("first-pub-ns", ByteArrayInputStream(FAKE_JAR), FAKE_JAR.size.toLong())
+        releaseService.upload("first-pub-ns", ByteArrayInputStream(FAKE_JAR), FAKE_JAR.size.toLong())
+
+        verify(activationTelemetry, times(1)).firstPluginPublished()
+    }
+
+    @Test
+    fun `first_plugin_publish does not fire while releases stay in DRAFT (DEV-24)`() {
+        // rel-int-ns (from setUp) has autoApproveReleases = false → uploads land
+        // as DRAFT, which must not touch the first-publish gate.
+        val descriptor = PlugwerkDescriptor(id = "draft-plugin", version = "1.0.0", name = "Draft")
+        whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+
+        val result = releaseService.upload("rel-int-ns", ByteArrayInputStream(FAKE_JAR), FAKE_JAR.size.toLong())
+
+        assertThat(result.status).isEqualTo(ReleaseStatus.DRAFT)
+        verify(activationTelemetry, never()).firstPluginPublished()
     }
 }

@@ -24,6 +24,7 @@ import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
 import io.plugwerk.server.service.settings.UserSettingsService
 import io.plugwerk.server.service.storage.ArtifactStorageService
+import io.plugwerk.server.service.telemetry.ActivationTelemetry
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
@@ -38,6 +39,7 @@ class NamespaceService(
     private val storageService: ArtifactStorageService,
     private val userSettingsService: UserSettingsService,
     private val namespaceDeletionTransaction: NamespaceDeletionTransaction,
+    private val activationTelemetry: ActivationTelemetry,
 ) {
 
     private val log = LoggerFactory.getLogger(NamespaceService::class.java)
@@ -56,7 +58,7 @@ class NamespaceService(
         autoApproveReleases: Boolean = false,
     ): NamespaceEntity {
         if (namespaceRepository.existsBySlug(slug)) throw NamespaceAlreadyExistsException(slug)
-        return namespaceRepository.save(
+        val saved = namespaceRepository.save(
             NamespaceEntity(
                 slug = slug,
                 name = name,
@@ -65,6 +67,11 @@ class NamespaceService(
                 autoApproveReleases = autoApproveReleases,
             ),
         )
+        // DEV-24: activation telemetry. Deferred to after commit and dispatched
+        // off-thread (fail-open) so it cannot affect this create. Zero PII —
+        // only the event name leaves the process, never the namespace itself.
+        activationTelemetry.namespaceCreated()
+        return saved
     }
 
     @Transactional
