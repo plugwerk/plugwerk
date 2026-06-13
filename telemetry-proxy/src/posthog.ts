@@ -17,7 +17,11 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { DEFAULT_POSTHOG_CAPTURE_URL, POSTHOG_TIMEOUT_MS } from "./constants";
+import {
+  DEFAULT_POSTHOG_CAPTURE_URL,
+  POSTHOG_PROJECT_KEY_PREFIX,
+  POSTHOG_TIMEOUT_MS,
+} from "./constants";
 import type { ValidPayload } from "./validate";
 
 /** Worker environment bindings. `POSTHOG_PROJECT_KEY` is an encrypted secret. */
@@ -38,10 +42,24 @@ export interface PostHogEnv {
  * or timeout returns `false`, which the caller maps to HTTP 502 so delivery
  * failures stay observable (the client beacon already fails open per DEV-23).
  *
+ * Fails closed if the configured key is not a `phc_…` PostHog project key
+ * (DEV-54, condition 2): a personal/admin key is never used to forward, the
+ * request gets a 502, and a secret-free error is logged so the misconfiguration
+ * is distinguishable from a real upstream outage.
+ *
  * The secret project key is read from the environment and is never logged or
  * echoed in errors.
  */
 export async function forwardToPostHog(payload: ValidPayload, env: PostHogEnv): Promise<boolean> {
+  // Defense-in-depth go-live gate: only a write-only project key may forward events.
+  // The key VALUE is never logged — only the fact that the prefix check failed.
+  if (!env.POSTHOG_PROJECT_KEY.startsWith(POSTHOG_PROJECT_KEY_PREFIX)) {
+    console.error(
+      `POSTHOG_PROJECT_KEY is not a '${POSTHOG_PROJECT_KEY_PREFIX}' project key; refusing to forward (502).`,
+    );
+    return false;
+  }
+
   const captureUrl = env.POSTHOG_CAPTURE_URL ?? DEFAULT_POSTHOG_CAPTURE_URL;
 
   const body = JSON.stringify({

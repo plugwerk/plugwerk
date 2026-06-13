@@ -31,6 +31,17 @@ export const MAX_VERSION_LENGTH = 32;
 /** PostHog EU Cloud capture endpoint (events are forwarded here). */
 export const DEFAULT_POSTHOG_CAPTURE_URL = "https://eu.i.posthog.com/capture/";
 
+/**
+ * Required prefix of a PostHog **project** (ingestion / capture) API key.
+ *
+ * The go-live security gate (DEV-54, condition 2) requires the configured secret to
+ * be the write-only `phc_…` project key — never a personal (`phx_…`) or admin key —
+ * so a leak's blast radius stays capture-only, not data-read/admin. We enforce this
+ * in code (fail-closed) so a misconfigured key is never used to forward events,
+ * rather than relying on the operator getting `wrangler secret put` right.
+ */
+export const POSTHOG_PROJECT_KEY_PREFIX = "phc_";
+
 /** Upstream forward timeout in milliseconds; a slower PostHog is treated as a delivery failure (502). */
 export const POSTHOG_TIMEOUT_MS = 5000;
 

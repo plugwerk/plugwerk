@@ -150,6 +150,47 @@ describe("forwarding to PostHog", () => {
   });
 });
 
+describe("PostHog project key guard (DEV-54 condition 2)", () => {
+  // The go-live security gate requires the write-only `phc_` project key. A personal
+  // (`phx_`) or admin key must never be used to forward — it widens a leak's blast
+  // radius from capture-only to data-read/admin. The Worker fails closed (502).
+  const BAD_KEYS = ["phx_personal_key", "admin_secret", "phc", ""];
+
+  function callWithKey(request: Request, key: string): Promise<Response> {
+    const env = { ...ENV, POSTHOG_PROJECT_KEY: key };
+    return (worker.fetch as (r: Request, e: typeof env, c: ExecutionContext) => Promise<Response>)(request, env, ctx);
+  }
+
+  it.each(BAD_KEYS)("502s and never forwards when the key is %o (not a phc_ key)", async (key) => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await callWithKey(post(VALID_BODY), key);
+
+    expect(res.status).toBe(502);
+    expect(fetchMock).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("logs a secret-free misconfiguration error (never echoes the key value)", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await callWithKey(post(VALID_BODY), "phx_super_secret_value");
+
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const logged = String(errorSpy.mock.calls[0]?.[0] ?? "");
+    expect(logged).not.toContain("phx_super_secret_value");
+    errorSpy.mockRestore();
+  });
+
+  it("still 204s with a valid phc_ key", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    const res = await callWithKey(post(VALID_BODY), "phc_valid_project_key");
+    expect(res.status).toBe(204);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("rate limiting", () => {
   // Regression test for DEV-47 (DEV-33 HIGH gate): the public, unauthenticated
   // endpoint must not amplify floods into per-event-billed PostHog forwards.
