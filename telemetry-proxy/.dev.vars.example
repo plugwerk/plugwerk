@@ -1,0 +1,9 @@
+# Copy this file to `.dev.vars` for local `wrangler dev`.
+# `.dev.vars` is gitignored — never commit a real key.
+#
+# This placeholder is NOT a real secret. For local runs use a throwaway PostHog
+# project key, or set POSTHOG_CAPTURE_URL to a local mock so nothing is forwarded.
+POSTHOG_PROJECT_KEY="phc_local_dev_placeholder"
+
+# Optional: override the capture endpoint locally (defaults to PostHog EU Cloud).
+# POSTHOG_CAPTURE_URL="https://eu.i.posthog.com/capture/"
