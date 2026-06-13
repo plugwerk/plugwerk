@@ -23,7 +23,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
- * Unit tests for install-type resolution (DEV-23 / ADR-0038). The env-var and
+ * Unit tests for install-type resolution (DEV-23 / ADR-0039). The env-var and
  * docker-marker probes are stubbed so the four-step resolution order can be
  * exercised deterministically without touching the real environment.
  */

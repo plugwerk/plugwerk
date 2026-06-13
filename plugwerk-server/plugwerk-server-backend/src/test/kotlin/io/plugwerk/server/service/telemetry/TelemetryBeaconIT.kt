@@ -28,7 +28,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 
 /**
- * Fail-open integration check (DEV-23 / ADR-0038, acceptance criterion 3).
+ * Fail-open integration check (DEV-23 / ADR-0039, acceptance criterion 3).
  *
  * Telemetry is **enabled** and pointed at a deliberately broken HTTPS endpoint
  * (a closed local port). The first-start beacon fires on `ApplicationReadyEvent`

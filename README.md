@@ -72,7 +72,7 @@ Plugwerk sends a small, **opt-out**, privacy-respecting telemetry beacon so the 
 | `installType` | `docker-compose` | How it is deployed: `docker-compose`, `jar`, `k8s`, or `unknown`. |
 | `event` | `server_start` | `server_start` or `heartbeat`. |
 
-**No** hostnames, IP addresses, namespaces, usernames, plugin names, or request data are ever collected. The payload is the four fields above and there is no code path that adds a fifth — see [ADR-0038](docs/adrs/0038-telemetry-beacon.md).
+**No** hostnames, IP addresses, namespaces, usernames, plugin names, or request data are ever collected. The payload is the four fields above and there is no code path that adds a fifth — see [ADR-0039](docs/adrs/0039-telemetry-beacon.md).
 
 It is **fail-open**: the beacon runs off the startup and request paths with short timeouts, and any failure (unreachable endpoint, timeout, error response) is silently ignored. Telemetry can never affect startup, health, or readiness.
 

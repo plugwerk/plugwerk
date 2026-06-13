@@ -25,7 +25,7 @@ import org.assertj.core.api.Assertions.assertThatCode
 import org.junit.jupiter.api.Test
 
 /**
- * Unit tests for the two hard constraints the beacon owns (DEV-23 / ADR-0038):
+ * Unit tests for the two hard constraints the beacon owns (DEV-23 / ADR-0039):
  * the **opt-out gate** (disabled ⇒ no UUID, no send) and **fail-open** (a
  * throwing sender never propagates). Hand-written fakes keep the seams explicit.
  */

@@ -29,7 +29,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /**
- * Orchestrates the opt-out telemetry beacon (DEV-23 / ADR-0038): builds the
+ * Orchestrates the opt-out telemetry beacon (DEV-23 / ADR-0039): builds the
  * zero-PII payload and hands it to the [TelemetrySender], gated by the global
  * opt-out and wrapped fail-open.
  *

@@ -19,7 +19,7 @@
 package io.plugwerk.server.service.telemetry
 
 /**
- * Transport seam for the telemetry beacon (DEV-23 / ADR-0038).
+ * Transport seam for the telemetry beacon (DEV-23 / ADR-0039).
  *
  * Pulled out as an interface for one reason above all: the fail-open acceptance
  * criterion requires a test that injects a *failing* sender and proves the

@@ -31,7 +31,7 @@ import org.mockito.kotlin.whenever
 import java.util.UUID
 
 /**
- * Unit tests for the lazy, DB-backed install-id provider (DEV-23 / ADR-0038).
+ * Unit tests for the lazy, DB-backed install-id provider (DEV-23 / ADR-0039).
  */
 class TelemetryInstallIdProviderTest {
 

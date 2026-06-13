@@ -20,7 +20,7 @@ package io.plugwerk.server.service.telemetry
 
 /**
  * How this Plugwerk installation is being run, as reported by the opt-out
- * telemetry beacon (DEV-23 / ADR-0038).
+ * telemetry beacon (DEV-23 / ADR-0039).
  *
  * The [wireValue] is the only form that ever leaves the process — the payload
  * carries the lowercase, hyphenated string, never the enum constant name. The

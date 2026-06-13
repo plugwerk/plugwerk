@@ -25,7 +25,7 @@ import java.util.UUID
 
 /**
  * Supplies the stable, anonymous install identifier used by the telemetry
- * beacon (DEV-23 / ADR-0038).
+ * beacon (DEV-23 / ADR-0039).
  *
  * Extracted as an interface so the orchestrating [TelemetryBeacon] can be
  * unit-tested with a recording fake — the opt-out test asserts that a disabled

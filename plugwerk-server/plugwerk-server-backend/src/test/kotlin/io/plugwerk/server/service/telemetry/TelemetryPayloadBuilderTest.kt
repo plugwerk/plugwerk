@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
 
 /**
- * Contract tests for the telemetry payload allowlist (DEV-23 / ADR-0038).
+ * Contract tests for the telemetry payload allowlist (DEV-23 / ADR-0039).
  *
  * The single invariant that must never regress: a serialized payload carries
  * **exactly** `installId`, `version`, `installType`, `event` — no PII field can

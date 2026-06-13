@@ -19,7 +19,7 @@
 package io.plugwerk.server.service.telemetry
 
 /**
- * The lifecycle event a [TelemetryPayload] reports (DEV-23 / ADR-0038).
+ * The lifecycle event a [TelemetryPayload] reports (DEV-23 / ADR-0039).
  *
  * Only the [wireValue] is serialized; the enum constant name never leaves the
  * process.
@@ -47,7 +47,7 @@ enum class TelemetryEvent(val wireValue: String) {
 }
 
 /**
- * The complete, zero-PII telemetry payload (DEV-23 / ADR-0038).
+ * The complete, zero-PII telemetry payload (DEV-23 / ADR-0039).
  *
  * This data class **is** the allowlist: Jackson serializes exactly these four
  * camelCase fields and nothing else. There is deliberately no place to attach a
