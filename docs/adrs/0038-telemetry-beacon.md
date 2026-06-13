@@ -2,9 +2,11 @@
 
 ## Status
 
-Proposed
+Accepted
 
-(Security/privacy review — [DEV-25](/DEV/issues/DEV-25) — flips this to Accepted.)
+(Security/privacy review — [DEV-25](/DEV/issues/DEV-25) — passed with no CRITICAL/HIGH
+findings: zero-PII payload allowlist, random-UUID install id, complete opt-out, HTTPS-only
+configurable endpoint, and fail-open all verified. Flipped Proposed → Accepted on sign-off.)
 
 ## Context
 
