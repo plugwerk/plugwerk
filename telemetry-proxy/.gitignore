@@ -1,0 +1,8 @@
+node_modules/
+.wrangler/
+dist/
+
+# Local Worker secrets for `wrangler dev` — never commit. Use .dev.vars.example.
+.dev.vars
+
+*.log

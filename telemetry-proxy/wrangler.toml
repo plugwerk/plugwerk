@@ -1,0 +1,25 @@
+# Cloudflare Worker config for the Plugwerk telemetry reverse proxy.
+# No secret values live in this file. The PostHog project key is an encrypted
+# Worker secret (see README.md → "Secret setup").
+
+name = "plugwerk-telemetry-proxy"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+
+# Public ingestion route. The zone telemetry.plugwerk.io must already exist on
+# the plugwerk.io Cloudflare zone before this route resolves (DEV-31 / DEV-34).
+routes = [
+  { pattern = "telemetry.plugwerk.io/v1/*", zone_name = "plugwerk.io" },
+]
+
+# Observability helps monitor 4xx/5xx delivery rates without logging payloads.
+[observability]
+enabled = true
+
+# --- Secrets (NOT set here) ---------------------------------------------------
+# POSTHOG_PROJECT_KEY  -> wrangler secret put POSTHOG_PROJECT_KEY
+#
+# --- Optional non-secret override ---------------------------------------------
+# Defaults to https://eu.i.posthog.com/capture/ when unset.
+# [vars]
+# POSTHOG_CAPTURE_URL = "https://eu.i.posthog.com/capture/"
