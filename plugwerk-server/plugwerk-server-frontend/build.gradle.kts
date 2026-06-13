@@ -40,13 +40,16 @@ val npmLint by tasks.registering(Exec::class) {
     outputs.upToDateWhen { true }
 }
 
-// Vitest gate (DEV-29). The frontend suite was red on `main` and invisible to
-// CI — only `format:check` + `build` were wired in, so a broken test never
-// failed a build. `test:run` is non-watch and exits non-zero on any failure.
-val npmTest by tasks.registering(Exec::class) {
+// Vitest + coverage gate (DEV-29 → DEV-44). The frontend suite was red on
+// `main` and invisible to CI — only `format:check` + `build` were wired in, so
+// a broken test never failed a build. `test:coverage` runs the full non-watch
+// suite AND enforces the lines/branches/functions >= 80% thresholds declared in
+// `vitest.config.ts`, exiting non-zero on any test failure OR coverage
+// regression. It subsumes the earlier `test:run` gate.
+val npmCoverage by tasks.registering(Exec::class) {
     dependsOn(npmInstall)
     workingDir = projectDir
-    commandLine(npmCmd("run", "test:run"))
+    commandLine(npmCmd("run", "test:coverage"))
     inputs.dir("src")
     inputs.file("vitest.config.ts")
     outputs.upToDateWhen { true }
@@ -74,9 +77,10 @@ tasks.named("build") {
 }
 
 // `check` is wired into `build` by the `base` plugin, so attaching the Vitest
-// suite here makes `./gradlew build` (CI) enforce it without touching ci.yml.
+// coverage suite here makes `./gradlew build` (CI) enforce both the tests and
+// the coverage thresholds without touching ci.yml.
 tasks.named("check") {
-    dependsOn(npmTest)
+    dependsOn(npmCoverage)
 }
 
 // Make the static resources available as a runtime dependency
