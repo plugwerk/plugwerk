@@ -23,6 +23,7 @@ import io.plugwerk.descriptor.PlugwerkDescriptor
 import io.plugwerk.server.SharedPostgresContainer
 import io.plugwerk.server.repository.DownloadEventRepository
 import io.plugwerk.server.service.storage.ArtifactStorageService
+import io.plugwerk.server.service.telemetry.ActivationTelemetry
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -77,6 +78,11 @@ class DownloadEventServiceIntegrationTest {
 
         @Bean
         fun objectMapper(): ObjectMapper = ObjectMapper()
+
+        // DEV-24: NamespaceService/PluginReleaseService now collaborate with the
+        // activation telemetry seam — mocked here, this slice covers downloads only.
+        @Bean
+        fun activationTelemetry(): ActivationTelemetry = mock(ActivationTelemetry::class.java)
     }
 
     companion object {

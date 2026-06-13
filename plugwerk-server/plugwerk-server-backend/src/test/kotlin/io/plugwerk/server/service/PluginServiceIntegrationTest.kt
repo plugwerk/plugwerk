@@ -21,6 +21,7 @@ package io.plugwerk.server.service
 import io.plugwerk.server.SharedPostgresContainer
 import io.plugwerk.server.repository.PluginRepository
 import io.plugwerk.server.service.storage.ArtifactStorageService
+import io.plugwerk.server.service.telemetry.ActivationTelemetry
 import io.plugwerk.spi.model.PluginStatus
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -61,6 +62,10 @@ class PluginServiceIntegrationTest {
 
     @MockitoBean
     lateinit var artifactStorageService: ArtifactStorageService
+
+    // DEV-24: NamespaceService now collaborates with the activation telemetry seam.
+    @MockitoBean
+    lateinit var activationTelemetry: ActivationTelemetry
 
     @Autowired
     lateinit var pluginService: PluginService

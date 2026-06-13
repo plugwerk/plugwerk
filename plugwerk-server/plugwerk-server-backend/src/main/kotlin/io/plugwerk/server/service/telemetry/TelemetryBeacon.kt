@@ -52,7 +52,9 @@ import java.util.concurrent.TimeUnit
  * The first-start beacon is dispatched on a dedicated single-thread executor so a
  * slow or hung endpoint cannot delay `ApplicationReadyEvent` propagation. The
  * heartbeat path runs on the scheduler thread (already off the request/startup
- * path) and calls [emit] directly.
+ * path) and calls [emit] directly. The activation events (DEV-24) reuse the same
+ * executor via [emitAsync] so a request thread (namespace create / plugin
+ * publish) is never blocked on the telemetry HTTP send or its timeout.
  */
 @Component
 class TelemetryBeacon(
@@ -64,9 +66,13 @@ class TelemetryBeacon(
 ) {
     private val log = LoggerFactory.getLogger(TelemetryBeacon::class.java)
 
-    /** Off-startup-thread dispatcher for the first-start beacon. Daemon so it never blocks JVM exit. */
-    private val startupExecutor = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "telemetry-startup").apply { isDaemon = true }
+    /**
+     * Off-request/startup-thread dispatcher for the first-start beacon and the
+     * activation events. Single-threaded (telemetry volume is tiny and ordering
+     * is irrelevant) and daemon so it never blocks JVM exit.
+     */
+    private val dispatchExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "telemetry-dispatch").apply { isDaemon = true }
     }
 
     /**
@@ -90,17 +96,31 @@ class TelemetryBeacon(
     }
 
     /**
+     * Fire-and-forget variant of [emit] for callers on a latency-sensitive thread
+     * (request handlers emitting activation events, DEV-24). Submits the [emit]
+     * to the off-thread [dispatchExecutor] and returns immediately. Fail-open: a
+     * rejected submission (executor shut down during app teardown) is swallowed
+     * and logged at debug, exactly like a failed send.
+     */
+    fun emitAsync(event: TelemetryEvent) {
+        runCatching { dispatchExecutor.execute { emit(event) } }
+            .onFailure { ex ->
+                log.debug("telemetry {} async dispatch rejected (ignored, fail-open): {}", event.wireValue, ex.message)
+            }
+    }
+
+    /**
      * First-start beacon. Fired once when the application is ready; dispatched off
      * the event thread so the send (or its timeout) never delays startup.
      */
     @EventListener(ApplicationReadyEvent::class)
     fun onApplicationReady() {
-        startupExecutor.execute { emit(TelemetryEvent.SERVER_START) }
+        dispatchExecutor.execute { emit(TelemetryEvent.SERVER_START) }
     }
 
     @PreDestroy
     fun shutdown() {
-        startupExecutor.shutdown()
-        runCatching { startupExecutor.awaitTermination(2, TimeUnit.SECONDS) }
+        dispatchExecutor.shutdown()
+        runCatching { dispatchExecutor.awaitTermination(2, TimeUnit.SECONDS) }
     }
 }
