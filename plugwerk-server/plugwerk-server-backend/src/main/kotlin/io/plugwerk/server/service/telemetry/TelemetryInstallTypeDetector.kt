@@ -25,7 +25,7 @@ import java.nio.file.Path
 
 /**
  * Resolves how this installation is being run, for the telemetry payload's
- * `installType` field (DEV-23 / ADR-0038).
+ * `installType` field (DEV-23 / ADR-0039).
  *
  * Resolution order:
  *  1. **Operator override** — `PLUGWERK_INSTALL_TYPE` (bound to

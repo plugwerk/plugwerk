@@ -150,7 +150,7 @@ plugwerk:
       # Env: PLUGWERK_SCHEDULER_SHEDLOCK_ENABLED
       enabled: ${PLUGWERK_SCHEDULER_SHEDLOCK_ENABLED:true}
 
-  # Opt-out telemetry beacon (ADR-0038). Sends a strictly zero-PII install
+  # Opt-out telemetry beacon (ADR-0039). Sends a strictly zero-PII install
   # heartbeat — {installId, version, installType, event} and nothing else — on
   # first server start and once per day, so the Plugwerk team can size the
   # activation funnel. No hostnames, IPs, namespaces, or user data are ever

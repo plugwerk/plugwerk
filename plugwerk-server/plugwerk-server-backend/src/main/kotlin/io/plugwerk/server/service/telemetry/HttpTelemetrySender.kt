@@ -28,7 +28,7 @@ import java.time.Duration
 
 /**
  * Sends the telemetry payload over HTTPS to the configured, Plugwerk-owned
- * endpoint (DEV-23 / ADR-0038).
+ * endpoint (DEV-23 / ADR-0039).
  *
  * Two guards keep this fail-open and safe:
  *  - **Short timeouts** ([CONNECT_TIMEOUT] / [READ_TIMEOUT]) cap the worst-case

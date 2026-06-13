@@ -1,4 +1,4 @@
-# ADR-0038: Opt-out telemetry beacon
+# ADR-0039: Opt-out telemetry beacon
 
 ## Status
 

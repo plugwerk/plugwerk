@@ -226,7 +226,7 @@ enum class ApplicationSettingKey(
         maxInt = 1440,
     ),
 
-    // ---- Telemetry (DEV-23 / ADR-0038) -------------------------------------
+    // ---- Telemetry (DEV-23 / ADR-0039) -------------------------------------
     // Anonymous random UUID v4 identifying this installation in the opt-out
     // telemetry beacon. Generated once on the first beacon send and persisted
     // here; blank (the default) until then. Carries **no** personal data — it

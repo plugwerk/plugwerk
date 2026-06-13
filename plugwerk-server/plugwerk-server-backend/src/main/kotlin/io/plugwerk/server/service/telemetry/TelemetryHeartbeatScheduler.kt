@@ -31,7 +31,7 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
 /**
- * Daily telemetry heartbeat (DEV-23 / ADR-0038).
+ * Daily telemetry heartbeat (DEV-23 / ADR-0039).
  *
  * `@ConditionalOnProperty`-gated on `plugwerk.telemetry.enabled` so that an
  * opted-out installation registers **no** schedule at all (the strongest reading

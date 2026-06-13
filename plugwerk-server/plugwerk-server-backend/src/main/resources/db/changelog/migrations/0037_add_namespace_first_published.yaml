@@ -1,5 +1,5 @@
 # Add nullable namespace.first_published_at for the P1 activation telemetry
-# (DEV-24 / ADR-0038). It is the gate behind the `first_plugin_publish` event:
+# (DEV-24 / ADR-0039). It is the gate behind the `first_plugin_publish` event:
 # the column is stamped exactly once per namespace, by the atomic conditional
 # UPDATE in NamespaceRepository.markFirstPublishedIfAbsent
 # (`... WHERE first_published_at IS NULL`), and the event is emitted only when
@@ -16,7 +16,7 @@
 # Privacy: the column holds a coarse activation timestamp only — no namespace
 # name, plugin name, or user identifier. It is never serialized into the
 # telemetry payload (which stays {installId, version, installType, event}); it
-# lives server-side purely to gate the event. See ADR-0038.
+# lives server-side purely to gate the event. See ADR-0039.
 
 databaseChangeLog:
   - changeSet:

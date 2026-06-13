@@ -29,7 +29,7 @@ import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.TestPropertySource
 
 /**
- * Opt-out integration check (DEV-23 / ADR-0038, acceptance criterion 1).
+ * Opt-out integration check (DEV-23 / ADR-0039, acceptance criterion 1).
  *
  * With `PLUGWERK_TELEMETRY=false` (here as `plugwerk.telemetry.enabled=false`):
  *  - **No schedule** — the `@ConditionalOnProperty`-gated heartbeat scheduler

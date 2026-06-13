@@ -54,7 +54,7 @@ data class PlugwerkProperties(
     val telemetry: TelemetryProperties = TelemetryProperties(),
 ) {
     /**
-     * Opt-out telemetry-beacon configuration (`plugwerk.telemetry.*`) — DEV-23 / ADR-0038.
+     * Opt-out telemetry-beacon configuration (`plugwerk.telemetry.*`) — DEV-23 / ADR-0039.
      *
      * The beacon sends a strictly zero-PII install heartbeat (install UUID, version,
      * install type, event) on first server start and once per day. It is **opt-out**:
