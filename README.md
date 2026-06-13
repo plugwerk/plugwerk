@@ -59,6 +59,32 @@ Interactive API reference (Scalar) is served by every running instance:
 
 Hosted reference: [plugwerk.io/api-docs](https://www.plugwerk.io/api-docs/).
 
+## Telemetry & Privacy
+
+Plugwerk sends a small, **opt-out**, privacy-respecting telemetry beacon so the team can size the install base and prioritise work. It fires once on first server start and once per day thereafter.
+
+**Exactly what is sent — and nothing else:**
+
+| Field | Example | What it is |
+|-------|---------|------------|
+| `installId` | `7c9e6f...` (UUID v4) | A random identifier generated once per installation and stored locally. Synthetic — it is **not** derived from anything and is unlinkable to you. |
+| `version` | `1.1.0-SNAPSHOT` | The Plugwerk version you are running. |
+| `installType` | `docker-compose` | How it is deployed: `docker-compose`, `jar`, `k8s`, or `unknown`. |
+| `event` | `server_start` | `server_start` or `heartbeat`. |
+
+**No** hostnames, IP addresses, namespaces, usernames, plugin names, or request data are ever collected. The payload is the four fields above and there is no code path that adds a fifth — see [ADR-0038](docs/adrs/0038-telemetry-beacon.md).
+
+It is **fail-open**: the beacon runs off the startup and request paths with short timeouts, and any failure (unreachable endpoint, timeout, error response) is silently ignored. Telemetry can never affect startup, health, or readiness.
+
+**Turn it off completely:**
+
+```bash
+# No install ID is generated, no heartbeat is scheduled, no HTTP call is made.
+PLUGWERK_TELEMETRY=false
+```
+
+Related environment variables: `PLUGWERK_TELEMETRY_ENDPOINT` (HTTPS-only analytics endpoint), `PLUGWERK_INSTALL_TYPE` (override the auto-detected install type). See [`.env.example`](.env.example).
+
 ## Repository Layout
 
 ```

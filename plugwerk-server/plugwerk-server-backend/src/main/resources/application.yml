@@ -149,6 +149,35 @@ plugwerk:
     shedlock:
       # Env: PLUGWERK_SCHEDULER_SHEDLOCK_ENABLED
       enabled: ${PLUGWERK_SCHEDULER_SHEDLOCK_ENABLED:true}
+
+  # Opt-out telemetry beacon (ADR-0038). Sends a strictly zero-PII install
+  # heartbeat — {installId, version, installType, event} and nothing else — on
+  # first server start and once per day, so the Plugwerk team can size the
+  # activation funnel. No hostnames, IPs, namespaces, or user data are ever
+  # collected. See the "Telemetry & Privacy" section of the root README for the
+  # full payload and rationale. Fail-open by design: a blank, non-HTTPS, or
+  # unreachable endpoint is harmless and never affects startup, health, or
+  # readiness.
+  telemetry:
+    # Master opt-out. Set PLUGWERK_TELEMETRY=false to fully disable: no install
+    # UUID is generated, no heartbeat is scheduled, and no HTTP call is made.
+    # Env: PLUGWERK_TELEMETRY
+    enabled: ${PLUGWERK_TELEMETRY:true}
+    # HTTPS-only, Plugwerk-owned analytics endpoint the beacon POSTs to. Empty by
+    # default until the live endpoint is provisioned; an empty or non-HTTPS value
+    # means the payload is built but never sent (a harmless no-op). Do NOT treat
+    # an unset endpoint as a reason to delay a deployment.
+    # Env: PLUGWERK_TELEMETRY_ENDPOINT
+    endpoint: ${PLUGWERK_TELEMETRY_ENDPOINT:}
+    # Override the auto-detected install type (docker-compose | jar | k8s). Empty
+    # (default) = auto-detect (KUBERNETES_SERVICE_HOST ⇒ k8s; /.dockerenv ⇒
+    # docker-compose; else jar). An unrecognized value reports as 'unknown'.
+    # Env: PLUGWERK_INSTALL_TYPE
+    install-type: ${PLUGWERK_INSTALL_TYPE:}
+    # Daily heartbeat cron (sec min hour day-of-month month day-of-week). Default
+    # 03:30 server-local, staggered against the storage reaper (03:15).
+    # Env: PLUGWERK_TELEMETRY_CRON
+    cron: ${PLUGWERK_TELEMETRY_CRON:0 30 3 * * *}
   server:
     base-url: ${PLUGWERK_BASE_URL:http://localhost:8080}
     # Frontend base URL for browser-facing links emitted by the server (e.g. the
