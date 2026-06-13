@@ -30,6 +30,7 @@ import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
 import io.plugwerk.server.service.settings.ApplicationSettingsService
 import io.plugwerk.server.service.storage.ArtifactStorageService
+import io.plugwerk.server.service.telemetry.ActivationTelemetry
 import io.plugwerk.spi.model.ReleaseStatus
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -75,6 +76,8 @@ class PluginReleaseServiceBranchCoverageTest {
 
     @Mock lateinit var downloadEventService: DownloadEventService
 
+    @Mock lateinit var activationTelemetry: ActivationTelemetry
+
     lateinit var releaseService: PluginReleaseService
 
     private val namespaceId = UUID.fromString("00000000-0000-0000-0000-000000000001")
@@ -96,6 +99,7 @@ class PluginReleaseServiceBranchCoverageTest {
             ObjectMapper(),
             settingsService,
             downloadEventService,
+            activationTelemetry,
         )
     }
 
