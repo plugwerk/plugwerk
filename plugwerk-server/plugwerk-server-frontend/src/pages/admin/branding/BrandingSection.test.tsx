@@ -16,8 +16,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as apiConfig from "../../../api/config";
 import { renderWithTheme } from "../../../test/renderWithTheme";
 import { BrandingSection } from "./BrandingSection";
@@ -29,9 +29,43 @@ vi.mock("../../../api/config", () => ({
   },
 }));
 
+// Each card decides Custom-vs-Default (and whether to show "Reset to default")
+// by probing its public endpoint with an off-DOM `new Image()` inside an effect
+// — deliberately *not* the rendered <img>'s onLoad/onError, to avoid the
+// fallback-swap race documented in BrandingSection.tsx ("#530 follow-up").
+// jsdom never fires load/error on a real Image, so drive the probe with a
+// controllable stub whose outcome each test selects via `probeOutcome`.
+let probeOutcome: "load" | "error" = "error";
+
+class FakeImage {
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  private _src = "";
+
+  set src(value: string) {
+    this._src = value;
+    // Defer so the effect has finished assigning onload/onerror before we
+    // fire, mirroring a real asynchronous image fetch.
+    setTimeout(() => {
+      if (probeOutcome === "load") this.onload?.();
+      else this.onerror?.();
+    }, 0);
+  }
+
+  get src(): string {
+    return this._src;
+  }
+}
+
 describe("BrandingSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    probeOutcome = "error";
+    vi.stubGlobal("Image", FakeImage);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("renders three tiles for the slot model", () => {
@@ -43,13 +77,8 @@ describe("BrandingSection", () => {
   });
 
   it("falls back to Default when the public asset 404s", async () => {
+    probeOutcome = "error";
     renderWithTheme(<BrandingSection />);
-
-    // Each tile renders an <img> pointing at /api/v1/branding/{slot}.
-    // Simulate the 404 the server returns when the slot is at its
-    // default by firing the image's onError on every preview.
-    const previews = await screen.findAllByRole("img");
-    previews.forEach((img) => fireEvent.error(img));
 
     await waitFor(() => {
       expect(screen.getAllByText("Default").length).toBeGreaterThanOrEqual(3);
@@ -60,10 +89,8 @@ describe("BrandingSection", () => {
   });
 
   it("flips to Custom + offers Reset when the asset loads", async () => {
+    probeOutcome = "load";
     renderWithTheme(<BrandingSection />);
-
-    const previews = await screen.findAllByRole("img");
-    previews.forEach((img) => fireEvent.load(img));
 
     await waitFor(() => {
       expect(
