@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
     alias(libs.plugins.cyclonedx.bom)
+    jacoco
     `maven-publish`
     signing
 }
@@ -205,6 +206,10 @@ tasks.named<Test>("test") {
     useJUnitPlatform {
         excludeTags("integration")
     }
+    // A plain `./gradlew build` always leaves a fresh coverage number behind
+    // (unit-only — no Docker required). CI re-runs the report after the
+    // integration suite to produce the merged number (see below + ci.yml).
+    finalizedBy(tasks.named("jacocoTestReport"))
 }
 
 tasks.register<Test>("integrationTest") {
@@ -216,4 +221,69 @@ tasks.register<Test>("integrationTest") {
     classpath = sourceSets["test"].runtimeClasspath
     testClassesDirs = sourceSets["test"].output.classesDirs
     shouldRunAfter(tasks.named("test"))
+}
+
+// ---------------------------------------------------------------------------
+// Code coverage (JaCoCo) — DEV-30
+//
+// The `test` (unit) and `integrationTest` tasks each emit their own `.exec`
+// file via the JacocoTaskExtension the plugin attaches to every Test task.
+// The report and verification tasks below read *whichever* `.exec` files are
+// present under build/jacoco, so the wiring works in both contexts:
+//   - `./gradlew build`             → unit-only number, no Docker needed
+//   - CI: build + integrationTest   → merged number matching the QA baseline
+//
+// CI publishes the XML/HTML report as an artifact and runs
+// `jacocoCoverageVerification` as the gate (see .github/workflows/ci.yml).
+// ---------------------------------------------------------------------------
+
+jacoco {
+    // Pinned for reproducibility; 0.8.13 fully supports Java 21 bytecode.
+    toolVersion = "0.8.13"
+}
+
+// Lazily collects every coverage exec file that exists at execution time, so
+// the merged report transparently picks up integrationTest.exec when present.
+val coverageExecData = fileTree(layout.buildDirectory.dir("jacoco")) {
+    include("*.exec")
+}
+
+tasks.jacocoTestReport {
+    executionData.setFrom(coverageExecData)
+    // Order-only: when both suites are requested in one invocation the report
+    // runs last. In CI they run in separate invocations, so this is a no-op
+    // there and the report simply reads the persisted .exec files.
+    mustRunAfter(tasks.named("integrationTest"))
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+tasks.jacocoTestCoverageVerification {
+    executionData.setFrom(coverageExecData)
+    mustRunAfter(tasks.named("integrationTest"))
+    violationRules {
+        // Repo-wide ratchet floors, seeded at the DEV-30 baseline (test +
+        // integrationTest merged) so the gate catches regressions today.
+        // BRANCH ramps to 0.80 as the DEV-30 follow-up tests land — raise
+        // these numbers as coverage improves, never lower them.
+        rule {
+            limit {
+                counter = "INSTRUCTION"
+                value = "COVEREDRATIO"
+                minimum = "0.80".toBigDecimal()
+            }
+            limit {
+                counter = "LINE"
+                value = "COVEREDRATIO"
+                minimum = "0.85".toBigDecimal()
+            }
+            limit {
+                counter = "BRANCH"
+                value = "COVEREDRATIO"
+                minimum = "0.65".toBigDecimal()
+            }
+        }
+    }
 }
