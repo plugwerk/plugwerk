@@ -26,8 +26,22 @@ val npmFormatCheck by tasks.registering(Exec::class) {
     outputs.upToDateWhen { true }
 }
 
+// ESLint gate (DEV-21). A non-zero `npm run lint` fails the Gradle build, so
+// `./gradlew build` — and therefore CI — blocks any PR that introduces a lint
+// error. ESLint warnings do not change the exit code, so they surface in the
+// log without breaking the build.
+val npmLint by tasks.registering(Exec::class) {
+    dependsOn(npmInstall)
+    workingDir = projectDir
+    commandLine(npmCmd("run", "lint"))
+    inputs.dir("src")
+    inputs.file("eslint.config.js")
+    inputs.file("package.json")
+    outputs.upToDateWhen { true }
+}
+
 val npmBuild by tasks.registering(Exec::class) {
-    dependsOn(npmInstall, npmFormatCheck)
+    dependsOn(npmInstall, npmFormatCheck, npmLint)
     workingDir = projectDir
     commandLine(npmCmd("run", "build"))
     inputs.dir("src")
