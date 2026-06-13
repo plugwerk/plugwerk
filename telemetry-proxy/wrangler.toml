@@ -16,6 +16,25 @@ routes = [
 [observability]
 enabled = true
 
+# --- Rate limiting (per client IP) -------------------------------------------
+# Workers Rate Limiting binding: 60 requests / 60 s per client IP. This is the
+# in-code defense that travels with the Worker (DEV-47); src/index.ts meters every
+# real ingestion attempt and returns 429 before forwarding to PostHog.
+#
+# CAVEAT: this binding counts per Cloudflare colo (data center), NOT globally — it
+# is best-effort throttling, not an authoritative global cap. The authoritative
+# edge control is a Cloudflare ZONE rate-limiting rule on telemetry.plugwerk.io/v1/*
+# (blocks before the Worker even spins up, and is global), provisioned in the
+# DEV-34 deploy runbook. Both layers are required.
+#
+# `period` must be 10 or 60. `namespace_id` is an account-unique integer; reusing
+# it across bindings/Workers shares the same counters (intentional here: one limiter).
+# Keep `period` in sync with RATE_LIMIT_PERIOD_SECONDS in src/constants.ts.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 60, period = 60 }
+
 # --- Secrets (NOT set here) ---------------------------------------------------
 # POSTHOG_PROJECT_KEY  -> wrangler secret put POSTHOG_PROJECT_KEY
 #

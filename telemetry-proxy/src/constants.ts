@@ -34,6 +34,12 @@ export const DEFAULT_POSTHOG_CAPTURE_URL = "https://eu.i.posthog.com/capture/";
 /** Upstream forward timeout in milliseconds; a slower PostHog is treated as a delivery failure (502). */
 export const POSTHOG_TIMEOUT_MS = 5000;
 
+/**
+ * Per-IP rate-limit window in seconds, surfaced in the `Retry-After` header on a 429.
+ * MUST match `simple.period` of the `[[ratelimits]]` binding in wrangler.toml.
+ */
+export const RATE_LIMIT_PERIOD_SECONDS = 60;
+
 /** Allowed `installType` values (mirrors the beacon contract in DEV-23). */
 export const INSTALL_TYPES = ["docker-compose", "jar", "k8s", "unknown"] as const;
 export type InstallType = (typeof INSTALL_TYPES)[number];

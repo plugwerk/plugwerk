@@ -17,11 +17,12 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { MAX_BODY_BYTES, TELEMETRY_PATH } from "./constants";
+import { MAX_BODY_BYTES, RATE_LIMIT_PERIOD_SECONDS, TELEMETRY_PATH } from "./constants";
 import { forwardToPostHog, type PostHogEnv } from "./posthog";
+import { isWithinRateLimit, type RateLimitEnv } from "./ratelimit";
 import { validatePayload } from "./validate";
 
-export type Env = PostHogEnv;
+export type Env = PostHogEnv & RateLimitEnv;
 
 const JSON_CONTENT_TYPE = "application/json";
 
@@ -34,7 +35,7 @@ function emptyResponse(status: number, headers?: HeadersInit): Response {
  *
  * Accepts `POST /v1/events` with a strict zero-PII JSON body, then forwards the
  * validated event to PostHog. Status contract:
- *   404 wrong path · 405 non-POST · 415 wrong content-type ·
+ *   404 wrong path · 405 non-POST · 415 wrong content-type · 429 rate-limited ·
  *   400 invalid/oversized/unknown-field body · 204 forwarded · 502 forward failed.
  *
  * Request bodies and field values are never logged (defense-in-depth).
@@ -53,6 +54,15 @@ const handler: ExportedHandler<Env> = {
     const contentType = request.headers.get("content-type") ?? "";
     if (!contentType.toLowerCase().trimStart().startsWith(JSON_CONTENT_TYPE)) {
       return emptyResponse(415);
+    }
+
+    // Per-IP rate limit AFTER the cheap path/method/content-type guards, so only real
+    // ingestion attempts are metered. Throttled requests get a 429 and we skip the body
+    // read and the outbound PostHog forward entirely — this endpoint is public and
+    // unauthenticated, so it must not become an amplifier (OWASP API4:2023). Best-effort
+    // per-colo throttle; the authoritative global cap is the zone rule (see DEV-34).
+    if (!(await isWithinRateLimit(request, env))) {
+      return emptyResponse(429, { "retry-after": String(RATE_LIMIT_PERIOD_SECONDS) });
     }
 
     // Cheap guard: reject an oversized declared length before buffering the body.
