@@ -1,0 +1,22 @@
+{
+  "name": "@plugwerk/telemetry-proxy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker reverse proxy for Plugwerk zero-PII telemetry ingestion (telemetry.plugwerk.io/v1/events).",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "smoke": "bash smoke-test.sh"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260613.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8",
+    "wrangler": "^4.100.0"
+  }
+}
