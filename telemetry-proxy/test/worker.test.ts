@@ -21,7 +21,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import worker from "../src/index";
 
 const ENDPOINT = "https://telemetry.plugwerk.io/v1/events";
-const ENV = { POSTHOG_PROJECT_KEY: "phc_test_key", POSTHOG_CAPTURE_URL: "https://capture.test/capture/" };
+
+// Mock for the Workers Rate Limiting binding. Reset in beforeEach to allow-all so
+// the non-rate-limit suites exercise the forwarding path; the rate limiting suite
+// overrides it to simulate the over-limit case.
+const limitMock = vi.fn();
+
+const ENV = {
+  POSTHOG_PROJECT_KEY: "phc_test_key",
+  POSTHOG_CAPTURE_URL: "https://capture.test/capture/",
+  RATE_LIMITER: { limit: limitMock } as unknown as RateLimit,
+};
 
 const VALID_BODY = JSON.stringify({
   installId: "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
@@ -47,6 +57,8 @@ let fetchMock: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   fetchMock = vi.fn();
   vi.stubGlobal("fetch", fetchMock);
+  limitMock.mockReset();
+  limitMock.mockResolvedValue({ success: true });
 });
 
 afterEach(() => {
@@ -135,5 +147,63 @@ describe("forwarding to PostHog", () => {
     fetchMock.mockRejectedValue(new Error("connection reset"));
     const res = await call(post(VALID_BODY));
     expect(res.status).toBe(502);
+  });
+});
+
+describe("rate limiting", () => {
+  // Regression test for DEV-47 (DEV-33 HIGH gate): the public, unauthenticated
+  // endpoint must not amplify floods into per-event-billed PostHog forwards.
+  it("429s the over-limit request and does NOT forward to PostHog", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ status: 1 }), { status: 200 }));
+    // First two calls allowed, the third is over the limit.
+    limitMock
+      .mockResolvedValueOnce({ success: true })
+      .mockResolvedValueOnce({ success: true })
+      .mockResolvedValueOnce({ success: false });
+
+    expect((await call(post(VALID_BODY))).status).toBe(204);
+    expect((await call(post(VALID_BODY))).status).toBe(204);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    const throttled = await call(post(VALID_BODY));
+    expect(throttled.status).toBe(429);
+    // No PostHog forward on throttle — the forward count stays at 2.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns 429 with an empty body and a Retry-After header", async () => {
+    limitMock.mockResolvedValue({ success: false });
+    const res = await call(post(VALID_BODY));
+    expect(res.status).toBe(429);
+    expect(res.headers.get("retry-after")).toBe("60");
+    expect(await res.text()).toBe("");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("meters before reading the body (throttles even an oversized/invalid request)", async () => {
+    limitMock.mockResolvedValue({ success: false });
+    // Oversized declared length would otherwise 400; rate limiting runs first.
+    const res = await call(post(VALID_BODY, { "content-type": "application/json", "content-length": "9999" }));
+    expect(res.status).toBe(429);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keys the limiter by the cf-connecting-ip header", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    await call(post(VALID_BODY, { "content-type": "application/json", "cf-connecting-ip": "203.0.113.7" }));
+    expect(limitMock).toHaveBeenCalledWith({ key: "203.0.113.7" });
+  });
+
+  it("falls back to an 'unknown' key when cf-connecting-ip is absent", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    await call(post(VALID_BODY));
+    expect(limitMock).toHaveBeenCalledWith({ key: "unknown" });
+  });
+
+  it("does not meter requests rejected by the path/method/content-type guards", async () => {
+    await call(new Request(ENDPOINT, { method: "GET" }));
+    await call(post(VALID_BODY, { "content-type": "text/plain" }));
+    await call(new Request("https://telemetry.plugwerk.io/", { method: "POST" }));
+    expect(limitMock).not.toHaveBeenCalled();
   });
 });

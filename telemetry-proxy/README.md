@@ -30,10 +30,27 @@ Accepted fields — **exactly these four, nothing else**:
 | `400`  | Missing/invalid field, wrong enum, malformed UUID, **unknown field**, or body > 2 KB |
 | `405`  | Non-POST method (includes `Allow: POST`)                                    |
 | `415`  | Wrong `Content-Type`                                                        |
+| `429`  | Per-IP rate limit exceeded (includes `Retry-After`); no PostHog forward     |
 | `502`  | PostHog forwarding failed (non-2xx, network error, or timeout)             |
 
 Unknown fields are **rejected, not silently stripped**. Request bodies and field
 values are **never logged** (defense-in-depth, even though the payload is PII-free).
+
+### Rate limiting (two-layer defense)
+
+The endpoint is public and unauthenticated, so it must not become an amplifier into
+per-event-billed PostHog (OWASP API4:2023, DEV-33 HIGH gate). Two layers throttle it,
+both keyed by client IP at **60 requests / 60 s**:
+
+1. **In-code Worker binding** (`wrangler.toml` → `[[ratelimits]]` `RATE_LIMITER`):
+   `src/index.ts` meters every real ingestion attempt _after_ the path/method/
+   content-type guards and returns `429` before reading the body or forwarding.
+   **Caveat:** the Workers rate-limit binding counts **per Cloudflare colo**, not
+   globally — it is best-effort, not an authoritative global cap.
+2. **Cloudflare zone rate-limiting rule** (authoritative, global; provisioned in the
+   DEV-34 deploy runbook below). It blocks at the edge before the Worker spins up.
+
+Both are required: layer 1 travels with the code, layer 2 is the global enforcement.
 
 The `502`/fail-open split is deliberate: the client beacon fails open on its side
 (DEV-23), so a `5xx` here never affects the Plugwerk server — it only makes our own
@@ -144,6 +161,33 @@ Verify after deploy:
 ./smoke-test.sh https://telemetry.plugwerk.io   # expect 204 then 400
 ```
 
+### Zone rate-limiting rule (REQUIRED — authoritative edge control)
+
+The in-code Worker binding (`[[ratelimits]]` in `wrangler.toml`) only throttles
+**per Cloudflare colo**, not globally. Go-live therefore also requires an
+authoritative **zone rate-limiting rule** that blocks at the edge before the Worker
+runs. This is the DEV-33 HIGH gate (DEV-47); it must exist before opening the route
+to production traffic.
+
+Configure on the `plugwerk.io` zone (Security → WAF → Rate limiting rules), or via
+API on the `http_ratelimit` phase ruleset:
+
+- **Match expression:**
+  `http.request.method eq "POST" and http.host eq "telemetry.plugwerk.io" and starts_with(http.request.uri.path, "/v1/")`
+- **Counting characteristic:** client IP (`ip.src`).
+- **Threshold:** **60 requests / 60 s** per IP.
+- **Action:** **block** for 60 s. **Do NOT use a managed challenge** — the client is
+  a JVM beacon (DEV-23), not a browser, and cannot solve challenges.
+
+Rationale for the number: a single install emits only a handful of events/hour
+(DEV-23 cadence), so 60/min/IP is very generous for legit traffic (including NAT'd
+corporate egress) while clamping floods hard. Tighten later if observability shows
+headroom.
+
+> The matching threshold/period is mirrored in the in-code binding so both layers
+> agree. If you change one, change the other (`simple` in `wrangler.toml` and
+> `RATE_LIMIT_PERIOD_SECONDS` in `src/constants.ts`).
+
 ### Rollback
 
 Instant — remove the route (no redeploy of the Plugwerk server needed):
@@ -172,10 +216,11 @@ allowlist until it is regenerated.
 
 | Path                  | Purpose                                                |
 | --------------------- | ------------------------------------------------------ |
-| `src/index.ts`        | Worker entry: routing, method/content-type/size guards |
+| `src/index.ts`        | Worker entry: routing, method/content-type/size guards, per-IP rate limit |
 | `src/validate.ts`     | Pure zero-PII allowlist validator                      |
 | `src/posthog.ts`      | PostHog forwarding (secret read from env, never logged) |
+| `src/ratelimit.ts`    | Per-IP rate-limit binding type + metering helper       |
 | `src/constants.ts`    | Allowlist, enums, limits, endpoints                    |
-| `test/*.test.ts`      | Validator + handler unit tests                         |
-| `wrangler.toml`       | Worker config + route (no secrets)                     |
+| `test/*.test.ts`      | Validator + handler unit tests (incl. rate-limit regression) |
+| `wrangler.toml`       | Worker config + route + rate-limit binding (no secrets) |
 | `smoke-test.sh`       | curl smoke test (204 valid / 400 extra-field)          |
