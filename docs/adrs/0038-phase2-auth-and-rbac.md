@@ -1,4 +1,6 @@
-# ADR-0006: Phase 2 — Database-Backed Authentication, OIDC Support, and Namespace RBAC
+# ADR-0038: Phase 2 — Database-Backed Authentication, OIDC Support, and Namespace RBAC
+
+> **Renumbered from ADR-0006.** This ADR originally shared the number `0006` with [ADR-0006: Authentication Strategy](./0006-auth-strategy.md). The duplicate was resolved per the DEV-11 onboarding readiness review: `0006-auth-strategy.md` keeps the canonical `ADR-0006` anchor and this Phase 2 ADR moved to the next free number, `ADR-0038`.
 
 ## Status
 
@@ -72,6 +74,8 @@ Three new tables added via Liquibase migration `0002_user_and_rbac.yaml`:
 - Throws `ForbiddenException` (→ 403) on insufficient role
 
 ### Client Secret Encryption
+
+> **Superseded by [ADR-0022](./0022-encryption-key-size.md) and [ADR-0033](./0033-aes-gcm-text-encryptor.md).** The PBKDF2/AES-128 `TextEncryptor` details described below are historical: ADR-0022 clarified that `plugwerk.auth.encryption-key` is a PBKDF2 password (not a literal AES-128 key), and ADR-0033 migrated `TextEncryptor` to AES-GCM (AEAD) via `Encryptors.delux()`. The wording below is retained as an immutable historical record.
 
 OIDC provider client secrets are encrypted at rest using Spring's `TextEncryptor` (AES/PBKDF2):
 - Key: `plugwerk.auth.encryption-key` (16 characters, AES-128)

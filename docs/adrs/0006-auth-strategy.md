@@ -41,7 +41,7 @@ Both token types are handled by separate Spring Security filters that run in ord
 - Token validity: 8 hours (configurable)
 
 > **Phase 1 is superseded.** The `dev-users` list and `DevUserCredentialValidator` have been removed.
-> See [ADR-0006 Phase 2](./0006-phase2-auth-and-rbac.md) for the current implementation.
+> See [ADR-0038](./0038-phase2-auth-and-rbac.md) for the current implementation.
 
 ### Phase 2+ (see issue #77) — implemented
 
