@@ -31,7 +31,7 @@ Accepted fields — **exactly these four, nothing else**:
 | `405`  | Non-POST method (includes `Allow: POST`)                                    |
 | `415`  | Wrong `Content-Type`                                                        |
 | `429`  | Per-IP rate limit exceeded (includes `Retry-After`); no PostHog forward     |
-| `502`  | PostHog forwarding failed (non-2xx, network error, or timeout)             |
+| `502`  | PostHog forwarding failed (non-2xx, network error, timeout, **or a misconfigured non-`phc_` key**) |
 
 Unknown fields are **rejected, not silently stripped**. Request bodies and field
 values are **never logged** (defense-in-depth, even though the payload is PII-free).
@@ -134,6 +134,13 @@ wrangler secret put POSTHOG_PROJECT_KEY
 # paste the PostHog project API key when prompted
 ```
 
+The key **must** be the write-only **`phc_…` project (ingestion) key** — never a
+personal (`phx_…`) or admin key — so a leak's blast radius stays capture-only
+(DEV-54, condition 2). This is **enforced in code** (`src/posthog.ts`): the Worker
+fails closed (`502`, no forward) on any key without the `phc_` prefix, so a
+misconfigured secret is caught at smoke-test time, not in production. The key value
+is still never logged — only the fact that the prefix check failed.
+
 > The same rule applies to a Paperclip-managed secret: store the key only in the
 > encrypted secret store, reference it by name, and never echo its value into a
 > comment, log, or document.
@@ -184,9 +191,52 @@ Rationale for the number: a single install emits only a handful of events/hour
 corporate egress) while clamping floods hard. Tighten later if observability shows
 headroom.
 
+Equivalent API call (Rulesets engine, `http_ratelimit` phase entrypoint) — for a
+reproducible, auditable apply instead of hand-clicking the dashboard:
+
+```bash
+curl -X PUT \
+  "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/rulesets/phases/http_ratelimit/entrypoint" \
+  -H "Authorization: Bearer ${CF_API_TOKEN}" -H "Content-Type: application/json" \
+  --data '{
+    "rules": [{
+      "description": "Plugwerk telemetry per-IP rate limit (DEV-47/DEV-54)",
+      "expression": "http.request.method eq \"POST\" and http.host eq \"telemetry.plugwerk.io\" and starts_with(http.request.uri.path, \"/v1/\")",
+      "action": "block",
+      "ratelimit": {
+        "characteristics": ["ip.src", "cf.colo.id"],
+        "period": 60,
+        "requests_per_period": 60,
+        "mitigation_timeout": 60
+      }
+    }]
+  }'
+```
+
+> `cf.colo.id` is required in `characteristics` on non-Enterprise plans (counting is
+> per data center); Enterprise Advanced Rate Limiting can drop it for true global
+> counting. Either way this zone rule blocks at the edge before the Worker runs.
+
 > The matching threshold/period is mirrored in the in-code binding so both layers
 > agree. If you change one, change the other (`simple` in `wrangler.toml` and
 > `RATE_LIMIT_PERIOD_SECONDS` in `src/constants.ts`).
+
+### Go-live security verification (DEV-54)
+
+Before opening the route to production traffic, run the read-only verifier to
+confirm all three go-live security conditions against the **live** config and
+capture the output as the DEV-54 sign-off evidence:
+
+```bash
+CF_API_TOKEN=<zone-scoped token> CF_ZONE_ID=<plugwerk.io zone id> \
+  ./go-live-check.sh https://telemetry.plugwerk.io
+```
+
+It asserts: (1) the zone rate-limit rule above is present (block, `ip.src`,
+60/60s, host + `/v1/`); (2) the `POSTHOG_PROJECT_KEY` secret is set (its `phc_`
+prefix is enforced in code, proven by the smoke `204`); (3) no Logpush job on the
+zone captures request bodies or headers. It then runs the live smoke test
+(`204`/`400`). It makes no changes.
 
 ### Rollback
 
@@ -224,3 +274,4 @@ allowlist until it is regenerated.
 | `test/*.test.ts`      | Validator + handler unit tests (incl. rate-limit regression) |
 | `wrangler.toml`       | Worker config + route + rate-limit binding (no secrets) |
 | `smoke-test.sh`       | curl smoke test (204 valid / 400 extra-field)          |
+| `go-live-check.sh`    | read-only go-live security verifier (DEV-54: zone rule, secret, Logpush) |
