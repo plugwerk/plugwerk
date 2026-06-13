@@ -206,4 +206,246 @@ describe("EmailServerPage", () => {
     // not the raw enum value — STARTTLS-on-587 is what the operator reads.
     expect(screen.getByText(/STARTTLS \(port 587\)/)).toBeInTheDocument();
   });
+
+  it("shows a loading spinner before settings have loaded", () => {
+    useSettingsStore.setState({
+      settings: [],
+      loaded: false,
+      loading: true,
+      saving: false,
+      error: null,
+    });
+    renderWithTheme(<EmailServerPage />);
+    expect(screen.getByText(/loading smtp settings/i)).toBeInTheDocument();
+  });
+
+  it("keeps Save and Discard disabled until a field changes", () => {
+    renderWithTheme(<EmailServerPage />);
+    expect(
+      screen.getByRole("button", { name: /save changes/i }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^discard$/i })).toBeDisabled();
+  });
+
+  it("saves the dirty patch and toasts success", async () => {
+    const user = userEvent.setup();
+    renderWithTheme(<EmailServerPage />);
+
+    const host = screen.getByLabelText("Host") as HTMLInputElement;
+    await user.clear(host);
+    await user.type(host, "mail.internal.test");
+
+    const save = screen.getByRole("button", { name: /save changes/i });
+    expect(save).toBeEnabled();
+    await user.click(save);
+
+    await waitFor(() => {
+      expect(
+        apiConfig.adminSettingsApi.updateApplicationSettings,
+      ).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(
+        useUiStore
+          .getState()
+          .toasts.some((t) => t.message === "SMTP settings saved."),
+      ).toBe(true);
+    });
+  });
+
+  it("blocks save and highlights the field when the port is out of range", async () => {
+    const user = userEvent.setup();
+    renderWithTheme(<EmailServerPage />);
+
+    const port = screen.getByLabelText("Port") as HTMLInputElement;
+    await user.clear(port);
+    await user.type(port, "70000");
+
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(await screen.findByText(/must be <= 65535/i)).toBeInTheDocument();
+    expect(
+      useUiStore
+        .getState()
+        .toasts.some((t) =>
+          /fix the highlighted fields/i.test(t.message ?? ""),
+        ),
+    ).toBe(true);
+    expect(
+      apiConfig.adminSettingsApi.updateApplicationSettings,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("rejects a port below the minimum", async () => {
+    const user = userEvent.setup();
+    renderWithTheme(<EmailServerPage />);
+
+    const port = screen.getByLabelText("Port") as HTMLInputElement;
+    await user.clear(port);
+    await user.type(port, "0");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(await screen.findByText(/must be >= 1/i)).toBeInTheDocument();
+  });
+
+  it("surfaces the server message when saving fails", async () => {
+    const user = userEvent.setup();
+    vi.mocked(
+      apiConfig.adminSettingsApi.updateApplicationSettings,
+    ).mockRejectedValue(
+      Object.assign(new Error("Network Error"), {
+        isAxiosError: true,
+        response: { data: { message: "Validation failed on the server" } },
+      }),
+    );
+    renderWithTheme(<EmailServerPage />);
+
+    const host = screen.getByLabelText("Host") as HTMLInputElement;
+    await user.clear(host);
+    await user.type(host, "mail.internal.test");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => {
+      expect(
+        useUiStore
+          .getState()
+          .toasts.some((t) => t.message === "Validation failed on the server"),
+      ).toBe(true);
+    });
+  });
+
+  it("falls back to the Error message when a save error is not an axios error", async () => {
+    const user = userEvent.setup();
+    vi.mocked(
+      apiConfig.adminSettingsApi.updateApplicationSettings,
+    ).mockRejectedValue(new Error("disk full"));
+    renderWithTheme(<EmailServerPage />);
+
+    const host = screen.getByLabelText("Host") as HTMLInputElement;
+    await user.clear(host);
+    await user.type(host, "mail.internal.test");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => {
+      expect(
+        useUiStore.getState().toasts.some((t) => t.message === "disk full"),
+      ).toBe(true);
+    });
+  });
+
+  it("discards pending edits and re-reads the stored value", async () => {
+    const user = userEvent.setup();
+    renderWithTheme(<EmailServerPage />);
+
+    const host = screen.getByLabelText("Host") as HTMLInputElement;
+    await user.clear(host);
+    await user.type(host, "scratch.value");
+    expect(host.value).toBe("scratch.value");
+
+    await user.click(screen.getByRole("button", { name: /^discard$/i }));
+    expect(host.value).toBe("smtp.example.com");
+  });
+
+  it("refuses to send a test email with an empty recipient", async () => {
+    const user = userEvent.setup();
+    renderWithTheme(<EmailServerPage />);
+
+    const recipient = screen.getByLabelText(
+      "Test recipient",
+    ) as HTMLInputElement;
+    await user.clear(recipient);
+    await user.click(screen.getByRole("button", { name: /send test email/i }));
+
+    expect(
+      await screen.findByText(/enter a recipient email address first/i),
+    ).toBeInTheDocument();
+  });
+
+  it("refuses to send a test email while there are unsaved changes", async () => {
+    const user = userEvent.setup();
+    renderWithTheme(<EmailServerPage />);
+
+    const host = screen.getByLabelText("Host") as HTMLInputElement;
+    await user.clear(host);
+    await user.type(host, "dirty.value");
+
+    const recipient = screen.getByLabelText(
+      "Test recipient",
+    ) as HTMLInputElement;
+    await user.clear(recipient);
+    await user.type(recipient, "ada@example.test");
+    await user.click(screen.getByRole("button", { name: /send test email/i }));
+
+    expect(
+      await screen.findByText(/save your changes before sending/i),
+    ).toBeInTheDocument();
+  });
+
+  it("uses a generated fallback message when the test send omits one", async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiConfig.adminEmailApi.sendTestEmail).mockResolvedValue({
+      data: {},
+    } as Awaited<ReturnType<typeof apiConfig.adminEmailApi.sendTestEmail>>);
+    renderWithTheme(<EmailServerPage />);
+
+    const recipient = screen.getByLabelText(
+      "Test recipient",
+    ) as HTMLInputElement;
+    await user.clear(recipient);
+    await user.type(recipient, "ada@example.test");
+    await user.click(screen.getByRole("button", { name: /send test email/i }));
+
+    expect(
+      await screen.findByText(/test email sent to ada@example\.test/i),
+    ).toBeInTheDocument();
+  });
+
+  it("reports a generic message when the test error is not an Error", async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiConfig.adminEmailApi.sendTestEmail).mockRejectedValue(
+      "weird string failure",
+    );
+    renderWithTheme(<EmailServerPage />);
+
+    const recipient = screen.getByLabelText(
+      "Test recipient",
+    ) as HTMLInputElement;
+    await user.clear(recipient);
+    await user.type(recipient, "ada@example.test");
+    await user.click(screen.getByRole("button", { name: /send test email/i }));
+
+    expect(await screen.findByText(/unknown error/i)).toBeInTheDocument();
+  });
+
+  it("shows the enable-first hint when SMTP is disabled", () => {
+    useSettingsStore.setState({
+      settings: SMTP_SETTINGS.map((s) =>
+        s.key === "smtp.enabled" ? { ...s, value: "false" } : s,
+      ),
+      loaded: true,
+      loading: false,
+      saving: false,
+      error: null,
+    });
+    renderWithTheme(<EmailServerPage />);
+    expect(
+      screen.getByText(/enable smtp and save your changes/i),
+    ).toBeInTheDocument();
+  });
+
+  it("falls back to default encryption options when none are configured", () => {
+    useSettingsStore.setState({
+      settings: SMTP_SETTINGS.map((s) =>
+        s.key === "smtp.encryption"
+          ? { ...s, value: "none", allowedValues: undefined }
+          : s,
+      ),
+      loaded: true,
+      loading: false,
+      saving: false,
+      error: null,
+    });
+    renderWithTheme(<EmailServerPage />);
+    expect(screen.getByText(/none \(plain smtp\)/i)).toBeInTheDocument();
+  });
 });
