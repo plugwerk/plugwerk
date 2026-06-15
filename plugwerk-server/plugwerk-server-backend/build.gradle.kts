@@ -239,7 +239,7 @@ tasks.register<Test>("integrationTest") {
 
 jacoco {
     // Pinned for reproducibility; 0.8.13 fully supports Java 21 bytecode.
-    toolVersion = "0.8.13"
+    toolVersion = "0.8.15"
 }
 
 // Lazily collects every coverage exec file that exists at execution time, so
