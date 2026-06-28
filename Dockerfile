@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21.0.11_10-jdk-alpine@sha256:4fb80de7aeb277ad949cfbe89b4f504e50bb34c57fd908c5825236473d71e986 AS build
+FROM eclipse-temurin:21.0.11_10-jdk-alpine@sha256:1ff763083f2993d57d0bf374ab10bb3e2cb873af6c13a04458ebbd3e0337dc76 AS build
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ RUN apk add --no-cache bash nodejs npm && \
     chmod +x gradlew && \
     ./gradlew :plugwerk-server:plugwerk-server-backend:bootJar --no-daemon
 
-FROM eclipse-temurin:21.0.11_10-jre-alpine@sha256:704db3c40204a44f471191446ddd9cda5d60dab40f0e15c6507b815ed897238b
+FROM eclipse-temurin:21.0.11_10-jre-alpine@sha256:3f08b13888f595cc49edabea7250ba69499ba25602b267da591720769400e08c
 
 WORKDIR /app
 
