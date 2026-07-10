@@ -26,7 +26,7 @@ greenmail = "2.1.9"
 jmustache = "1.16"
 spotless = "8.6.0"
 cyclonedx = "3.2.4"
-aws-sdk = "2.46.17"
+aws-sdk = "2.47.5"
 shedlock = "7.7.0"
 
 [libraries]
