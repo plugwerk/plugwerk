@@ -70,11 +70,7 @@ export interface OidcProviderLoginInfo {
  * button. Mirrors the OpenAPI enum at `OidcProviderLoginInfo.iconKind`.
  */
 export type ProviderIconKind =
-  | "github"
-  | "google"
-  | "facebook"
-  | "oidc"
-  | "oauth2";
+  "github" | "google" | "facebook" | "oidc" | "oauth2";
 
 const KNOWN_ICON_KINDS: ReadonlySet<ProviderIconKind> = new Set([
   "github",

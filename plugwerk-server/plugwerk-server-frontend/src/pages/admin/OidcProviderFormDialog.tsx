@@ -396,8 +396,7 @@ export function OidcProviderFormDialog({
    * returns the full request shape.
    */
   function buildPayload():
-    | OidcProviderCreateRequest
-    | OidcProviderUpdateRequest {
+    OidcProviderCreateRequest | OidcProviderUpdateRequest {
     const trimmedName = name.trim();
     const trimmedClientId = clientId.trim();
     const trimmedIssuer = issuerUri.trim();

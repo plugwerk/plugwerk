@@ -73,8 +73,7 @@ export function usePlugins(namespace: string, filters: PluginFilters) {
         q: filters.search || undefined,
         tag: filters.tag || undefined,
         status: (filters.status || undefined) as
-          | ListPluginsStatusEnum
-          | undefined,
+          ListPluginsStatusEnum | undefined,
         version: filters.version || undefined,
       });
       return response.data;

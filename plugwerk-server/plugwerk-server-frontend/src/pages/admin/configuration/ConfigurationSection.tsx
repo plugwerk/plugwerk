@@ -31,12 +31,7 @@ import { adminConfigurationApi } from "../../../api/config";
 import { ConfigurationTree } from "./ConfigurationTree";
 
 type ConfigValue =
-  | string
-  | number
-  | boolean
-  | null
-  | ConfigTree
-  | readonly ConfigValue[];
+  string | number | boolean | null | ConfigTree | readonly ConfigValue[];
 
 export interface ConfigTree {
   readonly [key: string]: ConfigValue;
