@@ -94,8 +94,7 @@ function previewRequestOfLast(): SentPreviewRequest {
   const lastCall = vi.mocked(
     apiConfig.adminEmailTemplatesApi.previewMailTemplate,
   ).mock.lastCall as
-    | [{ mailTemplatePreviewRequest: SentPreviewRequest }]
-    | undefined;
+    [{ mailTemplatePreviewRequest: SentPreviewRequest }] | undefined;
   return lastCall![0].mailTemplatePreviewRequest;
 }
 
