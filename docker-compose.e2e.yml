@@ -1,0 +1,23 @@
+# E2E override for docker-compose.yml (issue #241).
+#
+# Pins deterministic credentials so the Playwright global-setup can log in as a
+# known admin and seed fixtures. Localhost-only, weak-on-purpose secrets — never
+# use beyond CI / local E2E runs.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d --build
+#
+# See scripts/e2e-test.sh for the full run wrapper.
+services:
+  plugwerk-server:
+    environment:
+      # Fixed admin password → the server skips random-password generation and
+      # the forced first-login password change (same lever as smoke-test.sh).
+      PLUGWERK_AUTH_ADMIN_PASSWORD: admin
+      # Deterministic, min-32-char JWT secret / exactly-16-char encryption key.
+      PLUGWERK_AUTH_JWT_SECRET: e2e-test-jwt-secret-min-32-characters!!
+      PLUGWERK_AUTH_ENCRYPTION_KEY: e2eEncryptKey16!
+      # Local HTTP dev: the browser drops Secure refresh cookies over http://.
+      PLUGWERK_AUTH_COOKIE_SECURE: "false"
+      # Each E2E test mints its own session (the refresh token is single-use), so
+      # the login endpoint sees many logins from one IP — lift the rate limit.
+      PLUGWERK_AUTH_RATE_LIMIT_MAX_ATTEMPTS: "10000"

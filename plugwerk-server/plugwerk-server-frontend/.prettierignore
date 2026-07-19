@@ -4,3 +4,9 @@ dist/
 node_modules/
 package-lock.json
 src/api/generated/
+
+# Playwright E2E generated artifacts (issue #241)
+playwright-report/
+test-results/
+blob-report/
+e2e/.auth/

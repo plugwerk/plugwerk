@@ -55,3 +55,9 @@ docs/superpowers/
 .playwright-mcp
 .kotlin
 plugwerk-server/plugwerk-server-backend/storage
+
+# Playwright E2E (issue #241) — reports, traces, and the saved auth session
+**/plugwerk-server-frontend/playwright-report/
+**/plugwerk-server-frontend/test-results/
+**/plugwerk-server-frontend/blob-report/
+**/plugwerk-server-frontend/e2e/.auth/
