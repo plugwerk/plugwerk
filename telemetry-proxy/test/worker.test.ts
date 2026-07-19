@@ -191,6 +191,53 @@ describe("PostHog project key guard (DEV-54 condition 2)", () => {
   });
 });
 
+describe("kill switch (PROXY_DISABLED)", () => {
+  function callWithEnv(request: Request, extra: Record<string, string>): Promise<Response> {
+    const env = { ...ENV, ...extra };
+    return (worker.fetch as (r: Request, e: typeof env, c: ExecutionContext) => Promise<Response>)(request, env, ctx);
+  }
+
+  it("503s a valid POST and neither meters nor forwards when disabled", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    const res = await callWithEnv(post(VALID_BODY), { PROXY_DISABLED: "true" });
+    expect(res.status).toBe(503);
+    expect(await res.text()).toBe("");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(limitMock).not.toHaveBeenCalled();
+  });
+
+  it("parses the flag case-insensitively and ignoring whitespace", async () => {
+    const res = await callWithEnv(post(VALID_BODY), { PROXY_DISABLED: " True " });
+    expect(res.status).toBe(503);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("wins over the method guard — a GET on the telemetry path also 503s", async () => {
+    const res = await callWithEnv(new Request(ENDPOINT, { method: "GET" }), { PROXY_DISABLED: "true" });
+    expect(res.status).toBe(503);
+  });
+
+  it("still 404s unknown paths while disabled", async () => {
+    const res = await callWithEnv(new Request("https://telemetry.plugwerk.io/", { method: "POST" }), {
+      PROXY_DISABLED: "true",
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it.each(["false", "", "1", "yes"])("stays enabled when the flag is %o", async (value) => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    const res = await callWithEnv(post(VALID_BODY), { PROXY_DISABLED: value });
+    expect(res.status).toBe(204);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays enabled when the var is absent (default)", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    const res = await call(post(VALID_BODY));
+    expect(res.status).toBe(204);
+  });
+});
+
 describe("rate limiting", () => {
   // Regression test for DEV-47 (DEV-33 HIGH gate): the public, unauthenticated
   // endpoint must not amplify floods into per-event-billed PostHog forwards.

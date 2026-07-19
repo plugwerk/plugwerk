@@ -32,6 +32,7 @@ Accepted fields — **exactly these four, nothing else**:
 | `415`  | Wrong `Content-Type`                                                        |
 | `429`  | Per-IP rate limit exceeded (includes `Retry-After`); no PostHog forward     |
 | `502`  | PostHog forwarding failed (non-2xx, network error, timeout, **or a misconfigured non-`phc_` key**) |
+| `503`  | Kill switch active (`PROXY_DISABLED = "true"`); nothing metered, read, or forwarded |
 
 Unknown fields are **rejected, not silently stripped**. Request bodies and field
 values are **never logged** (defense-in-depth, even though the payload is PII-free).
@@ -237,6 +238,17 @@ It asserts: (1) the zone rate-limit rule above is present (block, `ip.src`,
 prefix is enforced in code, proven by the smoke `204`); (3) no Logpush job on the
 zone captures request bodies or headers. It then runs the live smoke test
 (`204`/`400`). It makes no changes.
+
+### Emergency stop (kill switch)
+
+Fastest way to stop ingestion without touching code or routes: set the
+`PROXY_DISABLED` variable to `"true"` — either in the Cloudflare dashboard
+(Workers → plugwerk-telemetry-proxy → Settings → Variables, takes effect in
+seconds, no deploy) or via `wrangler.toml` `[vars]` plus `wrangler deploy`.
+While active, every request to `/v1/events` is refused with `503` before any
+rate-limiter metering, body read, or PostHog forward. The client beacon fails
+open (DEV-23), so no Plugwerk installation is affected. Unset (or set to
+anything other than `"true"`) to resume.
 
 ### Rollback
 

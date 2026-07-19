@@ -22,9 +22,23 @@ import { forwardToPostHog, type PostHogEnv } from "./posthog";
 import { isWithinRateLimit, type RateLimitEnv } from "./ratelimit";
 import { validatePayload } from "./validate";
 
-export type Env = PostHogEnv & RateLimitEnv;
+/** Optional non-secret vars controlling the proxy itself (wrangler.toml `[vars]` or dashboard). */
+export interface ProxyToggleEnv {
+  /**
+   * Operational kill switch. When set to `"true"` every request to the telemetry
+   * path is refused with 503 before metering, body read, or PostHog forward.
+   * Editable in the Cloudflare dashboard without a code deploy.
+   */
+  PROXY_DISABLED?: string;
+}
+
+export type Env = PostHogEnv & RateLimitEnv & ProxyToggleEnv;
 
 const JSON_CONTENT_TYPE = "application/json";
+
+function isProxyDisabled(env: Env): boolean {
+  return (env.PROXY_DISABLED ?? "").trim().toLowerCase() === "true";
+}
 
 function emptyResponse(status: number, headers?: HeadersInit): Response {
   return new Response(null, { status, headers });
@@ -35,8 +49,9 @@ function emptyResponse(status: number, headers?: HeadersInit): Response {
  *
  * Accepts `POST /v1/events` with a strict zero-PII JSON body, then forwards the
  * validated event to PostHog. Status contract:
- *   404 wrong path · 405 non-POST · 415 wrong content-type · 429 rate-limited ·
- *   400 invalid/oversized/unknown-field body · 204 forwarded · 502 forward failed.
+ *   404 wrong path · 503 proxy disabled · 405 non-POST · 415 wrong content-type ·
+ *   429 rate-limited · 400 invalid/oversized/unknown-field body · 204 forwarded ·
+ *   502 forward failed.
  *
  * Request bodies and field values are never logged (defense-in-depth).
  */
@@ -45,6 +60,13 @@ const handler: ExportedHandler<Env> = {
     const { pathname } = new URL(request.url);
     if (pathname !== TELEMETRY_PATH) {
       return emptyResponse(404);
+    }
+
+    // Operational kill switch: a deliberate 503 (not a silent 204) keeps the stop
+    // observable in delivery metrics, while the fail-open client beacon (DEV-23)
+    // guarantees no Plugwerk installation is ever affected by flipping it.
+    if (isProxyDisabled(env)) {
+      return emptyResponse(503);
     }
 
     if (request.method !== "POST") {

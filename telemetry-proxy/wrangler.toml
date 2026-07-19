@@ -38,7 +38,13 @@ simple = { limit = 60, period = 60 }
 # --- Secrets (NOT set here) ---------------------------------------------------
 # POSTHOG_PROJECT_KEY  -> wrangler secret put POSTHOG_PROJECT_KEY
 #
-# --- Optional non-secret override ---------------------------------------------
-# Defaults to https://eu.i.posthog.com/capture/ when unset.
+# --- Optional non-secret overrides ---------------------------------------------
+# POSTHOG_CAPTURE_URL: defaults to https://eu.i.posthog.com/capture/ when unset.
+# PROXY_DISABLED: operational kill switch. Set to "true" (here, or live in the
+# Cloudflare dashboard without a code deploy) to refuse all ingestion with 503 —
+# nothing is metered, read, or forwarded to PostHog until it is unset. The client
+# beacon fails open (DEV-23), so flipping this never affects Plugwerk servers.
+# Any value other than "true" (case-insensitive) means enabled.
 # [vars]
 # POSTHOG_CAPTURE_URL = "https://eu.i.posthog.com/capture/"
+# PROXY_DISABLED = "false"
