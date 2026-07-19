@@ -9,6 +9,10 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     globals: true,
+    // Vitest owns the unit tests under src/. The Playwright E2E suite under
+    // e2e/ uses `*.spec.ts` too — restrict discovery to src/ so Vitest never
+    // tries to load Playwright specs (issue #241).
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
     // The default 5s per-test timeout is too tight for the heavier
     // `@testing-library/user-event` flows (multi-field dialogs, several
     // `await user.type(...)` + `waitFor` round-trips) once they run on a
