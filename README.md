@@ -74,6 +74,8 @@ Plugwerk sends a small, **opt-out**, privacy-respecting telemetry beacon so the 
 
 **No** hostnames, IP addresses, namespaces, usernames, plugin names, or request data are ever collected. The payload is the four fields above and there is no code path that adds a fifth — see [ADR-0039](docs/adrs/0039-telemetry-beacon.md).
 
+**Where it goes.** Beacons are sent over HTTPS to a Plugwerk-owned reverse proxy (`telemetry.plugwerk.io`) and forwarded to **PostHog EU Cloud**, where they are stored and processed **within the EU**. PostHog acts as a data processor under a **Data Processing Agreement (DPA)** that is signed before any telemetry is ingested (see the [runbook](telemetry-proxy/README.md#dpa-acceptance-do-this-first)), and events are configured person-profile-free (`$process_person_profile: false`). The controller is **devtank42 GmbH**. Full details: [`PRIVACY.md`](PRIVACY.md).
+
 It is **fail-open**: the beacon runs off the startup and request paths with short timeouts, and any failure (unreachable endpoint, timeout, error response) is silently ignored. Telemetry can never affect startup, health, or readiness.
 
 **Turn it off completely:**
