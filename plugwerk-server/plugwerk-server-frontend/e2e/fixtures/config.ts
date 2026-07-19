@@ -18,8 +18,27 @@ export const ADMIN_PASSWORD =
 export const E2E_NAMESPACE = "e2e";
 export const E2E_NAMESPACE_NAME = "E2E Test Namespace";
 
-/** Persisted authenticated session (cookies incl. the httpOnly refresh cookie). */
-export const STORAGE_STATE = path.join(here, "..", ".auth", "admin.json");
-
 /** An empty storage state for specs that must start unauthenticated. */
 export const ANONYMOUS_STATE = { cookies: [], origins: [] } as const;
+
+/** Committed plugin-artifact fixtures used to seed the catalog and drive uploads. */
+export const FIXTURE_PLUGINS_DIR = path.join(here, "..", "fixtures", "plugins");
+
+/** Two plugins with distinct tags — seeded by global-setup so filter/detail specs have data. */
+export const ALPHA_PLUGIN = {
+  pluginId: "io.plugwerk.e2e.alpha",
+  name: "Alpha Plugin",
+  tag: "alpha",
+  v1Jar: "alpha-1.0.0.jar",
+  v2Jar: "alpha-2.0.0.jar",
+} as const;
+
+export const BETA_PLUGIN = {
+  pluginId: "io.plugwerk.e2e.beta",
+  name: "Beta Plugin",
+  tag: "beta",
+  v1Jar: "beta-1.0.0.jar",
+} as const;
+
+/** A file with a .jar name but invalid archive bytes — the server rejects it. */
+export const MALFORMED_JAR = "malformed.jar";

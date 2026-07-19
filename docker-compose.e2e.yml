@@ -18,3 +18,6 @@ services:
       PLUGWERK_AUTH_ENCRYPTION_KEY: e2eEncryptKey16!
       # Local HTTP dev: the browser drops Secure refresh cookies over http://.
       PLUGWERK_AUTH_COOKIE_SECURE: "false"
+      # Each E2E test mints its own session (the refresh token is single-use), so
+      # the login endpoint sees many logins from one IP — lift the rate limit.
+      PLUGWERK_AUTH_RATE_LIMIT_MAX_ATTEMPTS: "10000"

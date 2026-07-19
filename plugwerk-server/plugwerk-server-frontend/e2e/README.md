@@ -61,9 +61,15 @@ npx playwright install chromium   # add --with-deps on a fresh CI runner
 
 ## Notes
 
-- **Auth reuse:** `global-setup` saves the logged-in session (including the
-  httpOnly `plugwerk_refresh` cookie) to `e2e/.auth/admin.json`; authenticated
-  specs reuse it. Auth specs opt out with
-  `test.use({ storageState: { cookies: [], origins: [] } })`.
+- **Auth:** `global-setup` seeds the catalog fixtures (namespace + two tagged
+  plugins). Each authenticated spec imports `test` from `fixtures/test.ts`,
+  which mints a **fresh** admin session per test via an API login into the
+  test's own context. A shared `storageState` cannot be reused because the
+  refresh token is single-use and rotates on every `/auth/refresh` (ADR-0027) —
+  the first test would consume it and log out the rest. Unauthenticated specs
+  (`auth.spec.ts`) use the plain `@playwright/test` `test`.
+- **Fixtures:** committed plugin JARs live in `e2e/fixtures/plugins/`. Upload
+  journeys stay idempotent by deleting the version they publish first, so they
+  survive re-runs and Playwright retries.
 - **Browsers:** Chromium only for now; Firefox/WebKit are a follow-up.
 - **Flakes:** fix them or quarantine with `test.fixme()` — never merge a flaky test.

@@ -47,11 +47,11 @@ test.describe("authentication — unauthenticated flows", () => {
 
     await expect(page).toHaveURL(/\/change-password/);
   });
-});
 
-test.describe("authentication — authenticated flows", () => {
   test("logout returns the user to the login page", async ({ page }) => {
-    await page.goto("/");
+    const login = new LoginPage(page);
+    await login.goto();
+    await login.login(ADMIN_USERNAME, ADMIN_PASSWORD);
     await new CatalogPage(page).expectLoaded();
 
     await new TopNav(page).logout();

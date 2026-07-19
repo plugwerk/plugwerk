@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Copyright (C) 2026 devtank42 GmbH
 import { defineConfig, devices } from "@playwright/test";
-import { BASE_URL, STORAGE_STATE } from "./e2e/fixtures/config";
+import { BASE_URL } from "./e2e/fixtures/config";
 
 /**
  * Playwright configuration for the Plugwerk UI E2E suite (issue #241).
@@ -10,10 +10,11 @@ import { BASE_URL, STORAGE_STATE } from "./e2e/fixtures/config";
  * on {@link BASE_URL} (default http://localhost:8080), backed by a real
  * PostgreSQL — brought up via `docker-compose.e2e.yml` / `scripts/e2e-test.sh`.
  *
- * Phase 1 is Chromium-only for speed (< 5 min budget); Firefox/WebKit are a
- * documented follow-up. `globalSetup` logs in once as admin, seeds a namespace,
- * and persists the session (incl. the httpOnly refresh cookie) to
- * {@link STORAGE_STATE} so authenticated specs skip re-login.
+ * Chromium-only for speed (< 5 min budget); Firefox/WebKit are a documented
+ * follow-up. `globalSetup` logs in once as admin and seeds the catalog fixtures;
+ * authenticated specs each mint their own session via the auth fixture in
+ * `e2e/fixtures/test.ts` (the refresh token is single-use, so a shared session
+ * cannot be reused across tests).
  */
 export default defineConfig({
   testDir: "./e2e/tests",
@@ -37,12 +38,7 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: {
-        ...devices["Desktop Chrome"],
-        // Authenticated by default; auth specs opt out via
-        // `test.use({ storageState: { cookies: [], origins: [] } })`.
-        storageState: STORAGE_STATE,
-      },
+      use: { ...devices["Desktop Chrome"] },
     },
   ],
 });

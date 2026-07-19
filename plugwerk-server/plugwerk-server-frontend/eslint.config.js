@@ -63,4 +63,18 @@ export default defineConfig([
       "react-refresh/only-export-components": "off",
     },
   },
+  {
+    // The e2e/ suite is Playwright (Node), not React. Playwright's fixture API
+    // uses a `use()` callback that the react-hooks plugin mistakes for a React
+    // Hook, and there are no components here — so the React lint rules do not
+    // apply, and Node globals (process, etc.) are in scope.
+    files: ["e2e/**/*.ts", "playwright.config.ts"],
+    languageOptions: {
+      globals: globals.node,
+    },
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
+      "react-refresh/only-export-components": "off",
+    },
+  },
 ]);
