@@ -22,6 +22,10 @@ set -euo pipefail
 BASE_URL="${1:-http://127.0.0.1:8787}"
 ENDPOINT="${BASE_URL%/}/v1/events"
 
+# Fixed, well-known SYNTHETIC install id. When this smoke test runs against the
+# live endpoint it forwards a real event to PostHog, so keep this id constant and
+# exclude it from analytics (e.g. filter out distinct_id = this UUID) to keep the
+# install-base metric clean. It is not a real installation.
 UUID="3f2504e0-4f89-41d3-9a0c-0305e82c3301"
 VALID="{\"installId\":\"${UUID}\",\"version\":\"1.1.0-SNAPSHOT\",\"installType\":\"docker-compose\",\"event\":\"server_start\"}"
 EXTRA="{\"installId\":\"${UUID}\",\"version\":\"1.1.0-SNAPSHOT\",\"installType\":\"docker-compose\",\"event\":\"server_start\",\"hostname\":\"leaky\"}"

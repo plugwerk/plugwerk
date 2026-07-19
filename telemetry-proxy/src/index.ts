@@ -45,6 +45,60 @@ function emptyResponse(status: number, headers?: HeadersInit): Response {
 }
 
 /**
+ * True when the media type is exactly `application/json` (parameters like
+ * `; charset=utf-8` are allowed). Matches the media-type token on a `;` boundary
+ * so near-misses such as `application/json-patch+json` are rejected (415) rather
+ * than slipping through a loose prefix check.
+ */
+function isJsonContentType(contentType: string): boolean {
+  const mediaType = contentType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  return mediaType === JSON_CONTENT_TYPE;
+}
+
+/**
+ * Read the request body while enforcing the byte cap as bytes arrive, so an
+ * oversized (or `Content-Length`-less chunked) body is abandoned mid-stream
+ * instead of being fully buffered before the size check. Returns the decoded
+ * body, or `null` once the cap is exceeded (the caller maps that to 400).
+ */
+async function readBodyWithinLimit(request: Request, maxBytes: number): Promise<string | null> {
+  const stream = request.body;
+  if (stream === null) {
+    return "";
+  }
+
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (value) {
+        total += value.byteLength;
+        if (total > maxBytes) {
+          await reader.cancel();
+          return null;
+        }
+        chunks.push(value);
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(merged);
+}
+
+/**
  * Telemetry reverse proxy.
  *
  * Accepts `POST /v1/events` with a strict zero-PII JSON body, then forwards the
@@ -74,7 +128,7 @@ const handler: ExportedHandler<Env> = {
     }
 
     const contentType = request.headers.get("content-type") ?? "";
-    if (!contentType.toLowerCase().trimStart().startsWith(JSON_CONTENT_TYPE)) {
+    if (!isJsonContentType(contentType)) {
       return emptyResponse(415);
     }
 
@@ -87,13 +141,19 @@ const handler: ExportedHandler<Env> = {
       return emptyResponse(429, { "retry-after": String(RATE_LIMIT_PERIOD_SECONDS) });
     }
 
-    // Cheap guard: reject an oversized declared length before buffering the body.
+    // Cheap guard: reject an oversized declared length before even reading the body.
     const declaredLength = Number(request.headers.get("content-length"));
     if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
       return emptyResponse(400);
     }
 
-    const rawBody = await request.text();
+    // Authoritative guard: enforce the byte cap as the body streams in, so a
+    // chunked body that omits (or lies about) Content-Length is abandoned rather
+    // than fully buffered.
+    const rawBody = await readBodyWithinLimit(request, MAX_BODY_BYTES);
+    if (rawBody === null) {
+      return emptyResponse(400);
+    }
     const byteLength = new TextEncoder().encode(rawBody).length;
 
     const result = validatePayload(rawBody, byteLength);

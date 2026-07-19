@@ -90,6 +90,12 @@ describe("routing and method guards", () => {
     const res = await call(post(VALID_BODY, { "content-type": "application/json; charset=utf-8" }));
     expect(res.status).toBe(204);
   });
+
+  it("415s a near-miss media type (application/json-patch+json)", async () => {
+    const res = await call(post(VALID_BODY, { "content-type": "application/json-patch+json" }));
+    expect(res.status).toBe(415);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("validation guards", () => {
@@ -108,6 +114,28 @@ describe("validation guards", () => {
 
   it("400s an oversized body via the content-length pre-read guard", async () => {
     const res = await call(post(VALID_BODY, { "content-type": "application/json", "content-length": "9999" }));
+    expect(res.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("400s an oversized body that omits Content-Length (streamed byte cap)", async () => {
+    // A chunked stream body carries no Content-Length, so the cheap pre-read guard
+    // cannot fire — the streaming byte cap must reject it before it is fully buffered.
+    const chunk = new TextEncoder().encode("x".repeat(1024));
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let i = 0; i < 4; i++) controller.enqueue(chunk); // 4 KB > 2 KB cap
+        controller.close();
+      },
+    });
+    const request = new Request(ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: stream,
+      // Node/undici require duplex when the body is a stream.
+      duplex: "half",
+    } as RequestInit & { duplex: "half" });
+    const res = await call(request);
     expect(res.status).toBe(400);
     expect(fetchMock).not.toHaveBeenCalled();
   });
