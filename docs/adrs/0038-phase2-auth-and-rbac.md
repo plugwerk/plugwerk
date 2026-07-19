@@ -75,7 +75,15 @@ Three new tables added via Liquibase migration `0002_user_and_rbac.yaml`:
 
 ### Client Secret Encryption
 
-> **Superseded by [ADR-0022](./0022-encryption-key-size.md) and [ADR-0033](./0033-aes-gcm-text-encryptor.md).** The PBKDF2/AES-128 `TextEncryptor` details described below are historical: ADR-0022 clarified that `plugwerk.auth.encryption-key` is a PBKDF2 password (not a literal AES-128 key), and ADR-0033 migrated `TextEncryptor` to AES-GCM (AEAD) via `Encryptors.delux()`. The wording below is retained as an immutable historical record.
+> **Superseded — see [ADR-0022](./0022-encryption-key-size.md) (key size) and
+> [ADR-0033](./0033-aes-gcm-text-encryptor.md) (AES-GCM/AEAD).** The "16 characters /
+> AES-128" and fixed-salt details below were a misreading of the Spring `Encryptors`
+> contract. The deployed encryptor is **AES-256-GCM (AEAD)** via `Encryptors.delux()`
+> with a PBKDF2-derived **256-bit** key and a per-deployment deterministic salt
+> (SHA-256 of the encryption key, first 8 bytes hex-encoded) — not a hard-coded literal.
+> ADR-0022 corrected the key-size framing (always AES-256, never AES-128); ADR-0033
+> switched the cipher from CBC to GCM for AEAD integrity. The original text is retained
+> below for the historical record.
 
 OIDC provider client secrets are encrypted at rest using Spring's `TextEncryptor` (AES/PBKDF2):
 - Key: `plugwerk.auth.encryption-key` (16 characters, AES-128)
