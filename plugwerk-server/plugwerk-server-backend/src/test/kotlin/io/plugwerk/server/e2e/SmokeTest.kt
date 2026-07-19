@@ -151,9 +151,151 @@ class SmokeTest {
         kotlin.test.assertEquals(expectedSha256, actualSha256, "SHA-256 of downloaded artifact must match uploaded JAR")
     }
 
+    @Test
+    fun `review approval and rejection flow`() {
+        val authHeader = "Bearer $token"
+        val reviewNs = "smoke-review"
+
+        // ------------------------------------------------------------------ //
+        // 1. Create a namespace that requires manual review                    //
+        // ------------------------------------------------------------------ //
+        mockMvc.post("/api/v1/namespaces") {
+            header("Authorization", authHeader)
+            contentType = MediaType.APPLICATION_JSON
+            content = objectMapper.writeValueAsString(
+                mapOf("slug" to reviewNs, "name" to "Smoke Review", "autoApproveReleases" to false),
+            )
+        }.andExpect {
+            status { isCreated() }
+        }
+
+        // ------------------------------------------------------------------ //
+        // 2. Upload a release — with auto-approve off it lands in `draft`      //
+        //    and must surface in the pending review queue                      //
+        // ------------------------------------------------------------------ //
+        val approveId = "review-approve-plugin"
+        val approveReleaseId = uploadRelease(reviewNs, approveId, "1.0.0", authHeader)
+
+        mockMvc.get("/api/v1/namespaces/$reviewNs/reviews/pending") {
+            header("Authorization", authHeader)
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$[?(@.releaseId == '$approveReleaseId')]").exists()
+            jsonPath("$[?(@.pluginId == '$approveId')]").exists()
+        }
+
+        // ------------------------------------------------------------------ //
+        // 3. Approve — the release transitions to `published`                  //
+        // ------------------------------------------------------------------ //
+        mockMvc.post("/api/v1/namespaces/$reviewNs/reviews/$approveReleaseId/approve") {
+            header("Authorization", authHeader)
+            contentType = MediaType.APPLICATION_JSON
+            content = objectMapper.writeValueAsString(mapOf("comment" to "Reviewed and approved."))
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.status") { value("published") }
+        }
+
+        // …and it is no longer pending
+        mockMvc.get("/api/v1/namespaces/$reviewNs/reviews/pending") {
+            header("Authorization", authHeader)
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$[?(@.releaseId == '$approveReleaseId')]").doesNotExist()
+        }
+
+        // ------------------------------------------------------------------ //
+        // 4. Reject path — a second release is yanked out of the queue         //
+        // ------------------------------------------------------------------ //
+        val rejectId = "review-reject-plugin"
+        val rejectReleaseId = uploadRelease(reviewNs, rejectId, "1.0.0", authHeader)
+
+        mockMvc.post("/api/v1/namespaces/$reviewNs/reviews/$rejectReleaseId/reject") {
+            header("Authorization", authHeader)
+            contentType = MediaType.APPLICATION_JSON
+            content = objectMapper.writeValueAsString(mapOf("comment" to "Rejected during smoke test."))
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.status") { value("yanked") }
+        }
+
+        mockMvc.get("/api/v1/namespaces/$reviewNs/reviews/pending") {
+            header("Authorization", authHeader)
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$[?(@.releaseId == '$rejectReleaseId')]").doesNotExist()
+        }
+    }
+
+    @Test
+    fun `update-check reports a newer published version`() {
+        val authHeader = "Bearer $token"
+        val updateNs = "smoke-updates"
+        val updatePlugin = "update-plugin"
+
+        // Auto-approve on → both uploads are immediately `published`, which is
+        // the only status the update checker considers.
+        mockMvc.post("/api/v1/namespaces") {
+            header("Authorization", authHeader)
+            contentType = MediaType.APPLICATION_JSON
+            content = objectMapper.writeValueAsString(
+                mapOf("slug" to updateNs, "name" to "Smoke Updates", "autoApproveReleases" to true),
+            )
+        }.andExpect {
+            status { isCreated() }
+        }
+
+        uploadRelease(updateNs, updatePlugin, "1.0.0", authHeader)
+        uploadRelease(updateNs, updatePlugin, "2.0.0", authHeader)
+
+        // A client on 1.0.0 must be told 2.0.0 is available…
+        mockMvc.post("/api/v1/namespaces/$updateNs/updates/check") {
+            header("Authorization", authHeader)
+            contentType = MediaType.APPLICATION_JSON
+            content = objectMapper.writeValueAsString(
+                mapOf("plugins" to listOf(mapOf("pluginId" to updatePlugin, "currentVersion" to "1.0.0"))),
+            )
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.updates[?(@.pluginId == '$updatePlugin')].latestVersion") { value("2.0.0") }
+            jsonPath("$.updates[?(@.pluginId == '$updatePlugin')].currentVersion") { value("1.0.0") }
+        }
+
+        // …and a client already on 2.0.0 must be told nothing is pending.
+        mockMvc.post("/api/v1/namespaces/$updateNs/updates/check") {
+            header("Authorization", authHeader)
+            contentType = MediaType.APPLICATION_JSON
+            content = objectMapper.writeValueAsString(
+                mapOf("plugins" to listOf(mapOf("pluginId" to updatePlugin, "currentVersion" to "2.0.0"))),
+            )
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.updates[?(@.pluginId == '$updatePlugin')]").doesNotExist()
+        }
+    }
+
     // ----------------------------------------------------------------------- //
     // Helpers                                                                   //
     // ----------------------------------------------------------------------- //
+
+    /** Uploads a minimal plugin JAR to [ns] and returns the created release id. */
+    private fun uploadRelease(ns: String, pluginId: String, version: String, authHeader: String): String {
+        val artifact = MockMultipartFile(
+            "artifact",
+            "$pluginId-$version.jar",
+            "application/java-archive",
+            buildMinimalJar(pluginId, version),
+        )
+        val result = mockMvc.multipart("/api/v1/namespaces/$ns/plugin-releases") {
+            file(artifact)
+            header("Authorization", authHeader)
+        }.andExpect {
+            status { isCreated() }
+            jsonPath("$.id").exists()
+        }.andReturn()
+        val body = objectMapper.readValue(result.response.contentAsString, Map::class.java)
+        return body["id"] as String
+    }
 
     private fun buildMinimalJar(id: String, version: String): ByteArray {
         val manifest = java.util.jar.Manifest().apply {

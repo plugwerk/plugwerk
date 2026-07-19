@@ -16,8 +16,13 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { decideDownload, setDownloadAllowedHosts } from "./downloadArtifact";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  decideDownload,
+  downloadArtifact,
+  setDownloadAllowedHosts,
+} from "./downloadArtifact";
+import { useAuthStore } from "../stores/authStore";
 
 /**
  * Tests for the origin / allow-list decision (ADR-0027 / #294 — TS-003). We test
@@ -80,5 +85,126 @@ describe("decideDownload", () => {
     setDownloadAllowedHosts(["cdn.example.com"]);
     const d = decideDownload("https://evil.example.com/plugins/x.jar");
     expect(d.attachBearer).toBe(false);
+  });
+});
+
+/**
+ * Tests for `downloadArtifact` itself: the fetch, bearer-header wiring, error
+ * translation, and the blob-URL download side effects. These are the security-
+ * and UX-critical paths that `decideDownload` alone does not exercise.
+ */
+describe("downloadArtifact", () => {
+  const testOrigin = "http://localhost:3000";
+  const fetchMock = vi.fn();
+  let clickSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    setDownloadAllowedHosts([]);
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: new URL(testOrigin),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockReset();
+    // jsdom does not implement blob-URL object creation.
+    URL.createObjectURL = vi.fn(() => "blob:mock-url");
+    URL.revokeObjectURL = vi.fn();
+    // Neutralise the anchor click so jsdom does not warn about navigation.
+    clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
+    useAuthStore.setState({ accessToken: null });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    setDownloadAllowedHosts([]);
+  });
+
+  function okResponse(): Response {
+    return {
+      ok: true,
+      status: 200,
+      blob: () => Promise.resolve(new Blob(["artifact-bytes"])),
+    } as unknown as Response;
+  }
+
+  it("attaches the bearer for a same-origin download when a token is present", async () => {
+    useAuthStore.setState({ accessToken: "jwt-123" });
+    fetchMock.mockResolvedValue(okResponse());
+
+    await downloadArtifact(`${testOrigin}/api/v1/x/artifact`, "plugin.jar");
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.headers.Authorization).toBe("Bearer jwt-123");
+    expect(init.headers.Accept).toBe("application/octet-stream");
+  });
+
+  it("omits the bearer for a cross-origin download even with a token present", async () => {
+    useAuthStore.setState({ accessToken: "jwt-123" });
+    fetchMock.mockResolvedValue(okResponse());
+
+    await downloadArtifact("https://cdn.other.com/x.jar", "x.jar");
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.headers.Authorization).toBeUndefined();
+  });
+
+  it("omits the bearer for a same-origin download when no token is present", async () => {
+    fetchMock.mockResolvedValue(okResponse());
+
+    await downloadArtifact(`${testOrigin}/api/v1/x/artifact`, "plugin.jar");
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.headers.Authorization).toBeUndefined();
+  });
+
+  it("triggers a blob-URL download with the requested filename and cleans up", async () => {
+    vi.useFakeTimers();
+    fetchMock.mockResolvedValue(okResponse());
+    // The anchor click is already stubbed in beforeEach (shared clickSpy).
+    const appendSpy = vi.spyOn(document.body, "appendChild");
+    const removeSpy = vi.spyOn(document.body, "removeChild");
+
+    await downloadArtifact(`${testOrigin}/api/v1/x/artifact`, "my-plugin.jar");
+
+    const anchor = appendSpy.mock.calls[0][0] as HTMLAnchorElement;
+    expect(anchor.tagName).toBe("A");
+    expect(anchor.getAttribute("href")).toBe("blob:mock-url");
+    expect(anchor.download).toBe("my-plugin.jar");
+    expect(clickSpy).toHaveBeenCalledOnce();
+
+    // Cleanup is deferred behind a 100ms timer.
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+    expect(removeSpy).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(100);
+    expect(removeSpy).toHaveBeenCalledWith(anchor);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:mock-url");
+  });
+
+  it("throws the server-provided message on a non-ok JSON response", async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: () => Promise.resolve({ message: "forbidden: yanked release" }),
+    } as unknown as Response);
+
+    await expect(
+      downloadArtifact(`${testOrigin}/api/v1/x/artifact`, "x.jar"),
+    ).rejects.toThrow("forbidden: yanked release");
+  });
+
+  it("throws a status-based message when the error body is not JSON", async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: () => Promise.reject(new Error("not json")),
+    } as unknown as Response);
+
+    await expect(
+      downloadArtifact(`${testOrigin}/api/v1/x/artifact`, "x.jar"),
+    ).rejects.toThrow("Download failed (502)");
   });
 });

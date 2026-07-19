@@ -1,0 +1,57 @@
+{
+  "realm": "plugwerk",
+  "displayName": "Plugwerk (integration test)",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "rememberMe": false,
+  "verifyEmail": false,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+
+  "clients": [
+    {
+      "clientId": "plugwerk-local",
+      "name": "Plugwerk (integration test backend)",
+      "description": "Throwaway OAuth2 client for the Testcontainers Keycloak integration test. Redirect URIs are wildcarded because the Spring Boot test binds a RANDOM_PORT — never reuse this realm outside tests.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "local-dev-secret-do-not-use-in-prod",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["*"],
+      "webOrigins": ["*"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "email"],
+      "optionalClientScopes": ["address", "phone", "offline_access"]
+    }
+  ],
+
+  "users": [
+    {
+      "username": "alice",
+      "email": "alice@plugwerk.test",
+      "emailVerified": true,
+      "firstName": "Alice",
+      "lastName": "Tester",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}
