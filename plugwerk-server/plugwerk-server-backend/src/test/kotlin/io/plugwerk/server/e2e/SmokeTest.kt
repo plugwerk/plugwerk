@@ -227,6 +227,53 @@ class SmokeTest {
         }
     }
 
+    @Test
+    fun `update-check reports a newer published version`() {
+        val authHeader = "Bearer $token"
+        val updateNs = "smoke-updates"
+        val updatePlugin = "update-plugin"
+
+        // Auto-approve on → both uploads are immediately `published`, which is
+        // the only status the update checker considers.
+        mockMvc.post("/api/v1/namespaces") {
+            header("Authorization", authHeader)
+            contentType = MediaType.APPLICATION_JSON
+            content = objectMapper.writeValueAsString(
+                mapOf("slug" to updateNs, "name" to "Smoke Updates", "autoApproveReleases" to true),
+            )
+        }.andExpect {
+            status { isCreated() }
+        }
+
+        uploadRelease(updateNs, updatePlugin, "1.0.0", authHeader)
+        uploadRelease(updateNs, updatePlugin, "2.0.0", authHeader)
+
+        // A client on 1.0.0 must be told 2.0.0 is available…
+        mockMvc.post("/api/v1/namespaces/$updateNs/updates/check") {
+            header("Authorization", authHeader)
+            contentType = MediaType.APPLICATION_JSON
+            content = objectMapper.writeValueAsString(
+                mapOf("plugins" to listOf(mapOf("pluginId" to updatePlugin, "currentVersion" to "1.0.0"))),
+            )
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.updates[?(@.pluginId == '$updatePlugin')].latestVersion") { value("2.0.0") }
+            jsonPath("$.updates[?(@.pluginId == '$updatePlugin')].currentVersion") { value("1.0.0") }
+        }
+
+        // …and a client already on 2.0.0 must be told nothing is pending.
+        mockMvc.post("/api/v1/namespaces/$updateNs/updates/check") {
+            header("Authorization", authHeader)
+            contentType = MediaType.APPLICATION_JSON
+            content = objectMapper.writeValueAsString(
+                mapOf("plugins" to listOf(mapOf("pluginId" to updatePlugin, "currentVersion" to "2.0.0"))),
+            )
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.updates[?(@.pluginId == '$updatePlugin')]").doesNotExist()
+        }
+    }
+
     // ----------------------------------------------------------------------- //
     // Helpers                                                                   //
     // ----------------------------------------------------------------------- //
