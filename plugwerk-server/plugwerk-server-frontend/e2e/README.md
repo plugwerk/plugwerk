@@ -59,6 +59,15 @@ npm ci
 npx playwright install chromium   # add --with-deps on a fresh CI runner
 ```
 
+## CI
+
+The `playwright-e2e` job in `.github/workflows/e2e.yml` runs the suite on every
+push/PR to `main`: it builds the server JAR (embedding the production frontend
+bundle), starts PostgreSQL, boots the JAR on `:8080`, waits for
+`/actuator/health`, then runs `npm run e2e` (Chromium). On failure it uploads
+the HTML report, traces, and failure screenshots as the `playwright-report`
+artifact. The existing curl `smoke-test` job stays alongside it.
+
 ## Notes
 
 - **Auth:** `global-setup` seeds the catalog fixtures (namespace + two tagged
