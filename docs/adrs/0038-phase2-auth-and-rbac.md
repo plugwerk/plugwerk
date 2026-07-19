@@ -1,4 +1,6 @@
-# ADR-0006: Phase 2 — Database-Backed Authentication, OIDC Support, and Namespace RBAC
+# ADR-0038: Phase 2 — Database-Backed Authentication, OIDC Support, and Namespace RBAC
+
+> **Renumbered from ADR-0006.** This ADR originally shared the number `0006` with [ADR-0006: Authentication Strategy](./0006-auth-strategy.md). The duplicate was resolved per the DEV-11 onboarding readiness review: `0006-auth-strategy.md` keeps the canonical `ADR-0006` anchor and this Phase 2 ADR moved to the next free number, `ADR-0038`.
 
 ## Status
 
@@ -73,8 +75,8 @@ Three new tables added via Liquibase migration `0002_user_and_rbac.yaml`:
 
 ### Client Secret Encryption
 
-> **Superseded — see [ADR-0022](0022-encryption-key-size.md) (key size) and
-> [ADR-0033](0033-aes-gcm-text-encryptor.md) (AES-GCM/AEAD).** The "16 characters /
+> **Superseded — see [ADR-0022](./0022-encryption-key-size.md) (key size) and
+> [ADR-0033](./0033-aes-gcm-text-encryptor.md) (AES-GCM/AEAD).** The "16 characters /
 > AES-128" and fixed-salt details below were a misreading of the Spring `Encryptors`
 > contract. The deployed encryptor is **AES-256-GCM (AEAD)** via `Encryptors.delux()`
 > with a PBKDF2-derived **256-bit** key and a per-deployment deterministic salt

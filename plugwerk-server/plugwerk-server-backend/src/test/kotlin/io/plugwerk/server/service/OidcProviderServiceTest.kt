@@ -18,8 +18,10 @@
  */
 package io.plugwerk.server.service
 
+import io.plugwerk.server.domain.OidcIdentityEntity
 import io.plugwerk.server.domain.OidcProviderEntity
 import io.plugwerk.server.domain.OidcProviderType
+import io.plugwerk.server.domain.UserEntity
 import io.plugwerk.server.repository.OidcIdentityRepository
 import io.plugwerk.server.repository.OidcProviderRepository
 import io.plugwerk.server.repository.UserRepository
@@ -31,6 +33,8 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.times
@@ -331,6 +335,227 @@ class OidcProviderServiceTest {
 
         assertThat(outcome.success).isFalse()
         assertThat(outcome.error).startsWith("OIDC discovery failed")
+    }
+
+    // -----------------------------------------------------------------------
+    // findAll / findById — previously-untested read paths (DEV-30).
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `findAll delegates straight to the repository`() {
+        val providers = listOf(newProvider())
+        whenever(oidcProviderRepository.findAll()).thenReturn(providers)
+
+        assertThat(service.findAll()).isEqualTo(providers)
+    }
+
+    @Test
+    fun `findById returns the provider when it exists`() {
+        val provider = newProvider()
+        whenever(oidcProviderRepository.findById(providerId)).thenReturn(Optional.of(provider))
+
+        assertThat(service.findById(providerId)).isSameAs(provider)
+    }
+
+    @Test
+    fun `findById throws EntityNotFoundException when the id is unknown`() {
+        whenever(oidcProviderRepository.findById(providerId)).thenReturn(Optional.empty())
+
+        assertThatThrownBy { service.findById(providerId) }
+            .isInstanceOf(EntityNotFoundException::class.java)
+            .hasMessageContaining(providerId.toString())
+    }
+
+    // -----------------------------------------------------------------------
+    // create — OIDC + OAUTH2 paths, SSRF gating, secret encryption (DEV-30).
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `create persists an OIDC provider with an encrypted secret, disabled by default`() {
+        whenever(oidcProviderRepository.save(any<OidcProviderEntity>())).thenAnswer {
+            it.arguments[0] as OidcProviderEntity
+        }
+
+        val created = service.create(
+            name = "Company Keycloak",
+            providerType = OidcProviderType.OIDC,
+            clientId = "kc-client",
+            clientSecret = "super-secret-value",
+            issuerUri = "https://idp.example.com",
+            scope = "openid email profile",
+        )
+
+        assertThat(created.name).isEqualTo("Company Keycloak")
+        assertThat(created.providerType).isEqualTo(OidcProviderType.OIDC)
+        assertThat(created.clientId).isEqualTo("kc-client")
+        assertThat(created.clientSecretEncrypted).isEqualTo("ENCRYPTED-super-secret-value")
+        assertThat(created.issuerUri).isEqualTo("https://idp.example.com")
+        // A freshly created provider is disabled until an admin activates it,
+        // so it stays invisible to both registries — create() must not refresh.
+        assertThat(created.enabled).isFalse()
+        verify(oidcProviderRegistry, never()).refresh()
+        verify(dbClientRegistrationRepository, never()).refresh()
+    }
+
+    @Test
+    fun `create rejects an OIDC provider whose issuerUri is missing`() {
+        assertThatThrownBy {
+            service.create(
+                name = "Broken OIDC",
+                providerType = OidcProviderType.OIDC,
+                clientId = "c",
+                clientSecret = "secret-1234",
+                issuerUri = null,
+                scope = "openid",
+            )
+        }.isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("issuerUri")
+
+        verify(oidcProviderRepository, never()).save(any())
+    }
+
+    @Test
+    fun `create rejects an OIDC issuerUri pointing at a private host (SSRF guard)`() {
+        assertThatThrownBy {
+            service.create(
+                name = "SSRF OIDC",
+                providerType = OidcProviderType.OIDC,
+                clientId = "c",
+                clientSecret = "secret-1234",
+                issuerUri = "http://10.0.0.1/realms/internal",
+                scope = "openid",
+            )
+        }.isInstanceOf(IllegalArgumentException::class.java)
+
+        verify(oidcProviderRepository, never()).save(any())
+    }
+
+    @Test
+    fun `create rejects an OAUTH2 provider missing the required endpoint URIs`() {
+        assertThatThrownBy {
+            service.create(
+                name = "Half OAuth2",
+                providerType = OidcProviderType.OAUTH2,
+                clientId = "c",
+                clientSecret = "secret-1234",
+                issuerUri = null,
+                scope = "read_user",
+                authorizationUri = null,
+                tokenUri = "https://idp.example.com/token",
+                userInfoUri = "https://idp.example.com/userinfo",
+            )
+        }.isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("authorizationUri")
+
+        verify(oidcProviderRepository, never()).save(any())
+    }
+
+    @Test
+    fun `create persists an OAUTH2 provider with the supplied endpoint URIs`() {
+        whenever(oidcProviderRepository.save(any<OidcProviderEntity>())).thenAnswer {
+            it.arguments[0] as OidcProviderEntity
+        }
+
+        val created = service.create(
+            name = "Self-hosted GitLab",
+            providerType = OidcProviderType.OAUTH2,
+            clientId = "gl-client",
+            clientSecret = "secret-1234",
+            issuerUri = null,
+            scope = "read_user",
+            authorizationUri = "https://gitlab.example.com/oauth/authorize",
+            tokenUri = "https://gitlab.example.com/oauth/token",
+            userInfoUri = "https://gitlab.example.com/api/v4/user",
+            jwkSetUri = null,
+            subjectAttribute = "id",
+            emailAttribute = "email",
+            displayNameAttribute = "name",
+        )
+
+        assertThat(created.providerType).isEqualTo(OidcProviderType.OAUTH2)
+        assertThat(created.authorizationUri).isEqualTo("https://gitlab.example.com/oauth/authorize")
+        assertThat(created.tokenUri).isEqualTo("https://gitlab.example.com/oauth/token")
+        assertThat(created.userInfoUri).isEqualTo("https://gitlab.example.com/api/v4/user")
+        assertThat(created.subjectAttribute).isEqualTo("id")
+    }
+
+    @Test
+    fun `create normalises blank optional fields down to null`() {
+        whenever(oidcProviderRepository.save(any<OidcProviderEntity>())).thenAnswer {
+            it.arguments[0] as OidcProviderEntity
+        }
+
+        val created = service.create(
+            name = "OIDC with blanks",
+            providerType = OidcProviderType.OIDC,
+            clientId = "c",
+            clientSecret = "secret-1234",
+            issuerUri = "https://idp.example.com",
+            scope = "openid",
+            // Optional + ignored for OIDC; blank input must normalise to null
+            // rather than persisting an empty string.
+            authorizationUri = "   ",
+            subjectAttribute = "   ",
+        )
+
+        assertThat(created.authorizationUri).isNull()
+        assertThat(created.subjectAttribute).isNull()
+    }
+
+    // -----------------------------------------------------------------------
+    // delete — Politik C: orphaned users disabled before the cascade (DEV-30).
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `delete throws EntityNotFoundException for an unknown id and touches nothing`() {
+        whenever(oidcProviderRepository.existsById(providerId)).thenReturn(false)
+
+        assertThatThrownBy { service.delete(providerId) }
+            .isInstanceOf(EntityNotFoundException::class.java)
+
+        verify(oidcProviderRepository, never()).deleteById(any())
+        verify(userRepository, never()).disableAll(any())
+        verify(oidcProviderRegistry, never()).refresh()
+    }
+
+    @Test
+    fun `delete disables orphaned users before removing the provider (Politik C)`() {
+        val userId1 = UUID.randomUUID()
+        val userId2 = UUID.randomUUID()
+        // Build the identity mocks before the outer stubbing — creating mocks
+        // (which stub their own getters) mid-`whenever(...)` would trip
+        // Mockito's UnfinishedStubbingException.
+        val identities = listOf(identityForUser(userId1), identityForUser(userId2))
+        whenever(oidcProviderRepository.existsById(providerId)).thenReturn(true)
+        whenever(oidcIdentityRepository.findAllByOidcProviderId(providerId)).thenReturn(identities)
+        whenever(userRepository.disableAll(any())).thenReturn(2)
+
+        service.delete(providerId)
+
+        val captor = argumentCaptor<Collection<UUID>>()
+        verify(userRepository).disableAll(captor.capture())
+        assertThat(captor.firstValue).containsExactlyInAnyOrder(userId1, userId2)
+        verify(oidcProviderRepository).deleteById(providerId)
+        verify(oidcProviderRegistry, times(1)).refresh()
+        verify(dbClientRegistrationRepository, times(1)).refresh()
+    }
+
+    @Test
+    fun `delete with no linked identities skips user disabling but still refreshes`() {
+        whenever(oidcProviderRepository.existsById(providerId)).thenReturn(true)
+        whenever(oidcIdentityRepository.findAllByOidcProviderId(providerId)).thenReturn(emptyList())
+
+        service.delete(providerId)
+
+        verify(userRepository, never()).disableAll(any())
+        verify(oidcProviderRepository).deleteById(providerId)
+        verify(oidcProviderRegistry, times(1)).refresh()
+        verify(dbClientRegistrationRepository, times(1)).refresh()
+    }
+
+    private fun identityForUser(userId: UUID): OidcIdentityEntity {
+        val userMock = mock<UserEntity> { on { id } doReturn userId }
+        return mock { on { user } doReturn userMock }
     }
 }
 

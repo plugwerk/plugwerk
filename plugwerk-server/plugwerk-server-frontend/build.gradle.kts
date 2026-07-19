@@ -26,8 +26,37 @@ val npmFormatCheck by tasks.registering(Exec::class) {
     outputs.upToDateWhen { true }
 }
 
+// ESLint gate (DEV-21). A non-zero `npm run lint` fails the Gradle build, so
+// `./gradlew build` — and therefore CI — blocks any PR that introduces a lint
+// error. ESLint warnings do not change the exit code, so they surface in the
+// log without breaking the build.
+val npmLint by tasks.registering(Exec::class) {
+    dependsOn(npmInstall)
+    workingDir = projectDir
+    commandLine(npmCmd("run", "lint"))
+    inputs.dir("src")
+    inputs.file("eslint.config.js")
+    inputs.file("package.json")
+    outputs.upToDateWhen { true }
+}
+
+// Vitest + coverage gate (DEV-29 → DEV-44). The frontend suite was red on
+// `main` and invisible to CI — only `format:check` + `build` were wired in, so
+// a broken test never failed a build. `test:coverage` runs the full non-watch
+// suite AND enforces the lines/branches/functions >= 80% thresholds declared in
+// `vitest.config.ts`, exiting non-zero on any test failure OR coverage
+// regression. It subsumes the earlier `test:run` gate.
+val npmCoverage by tasks.registering(Exec::class) {
+    dependsOn(npmInstall)
+    workingDir = projectDir
+    commandLine(npmCmd("run", "test:coverage"))
+    inputs.dir("src")
+    inputs.file("vitest.config.ts")
+    outputs.upToDateWhen { true }
+}
+
 val npmBuild by tasks.registering(Exec::class) {
-    dependsOn(npmInstall, npmFormatCheck)
+    dependsOn(npmInstall, npmFormatCheck, npmLint)
     workingDir = projectDir
     commandLine(npmCmd("run", "build"))
     inputs.dir("src")
@@ -45,6 +74,13 @@ val copyFrontend by tasks.registering(Copy::class) {
 
 tasks.named("build") {
     dependsOn(copyFrontend)
+}
+
+// `check` is wired into `build` by the `base` plugin, so attaching the Vitest
+// coverage suite here makes `./gradlew build` (CI) enforce both the tests and
+// the coverage thresholds without touching ci.yml.
+tasks.named("check") {
+    dependsOn(npmCoverage)
 }
 
 // Make the static resources available as a runtime dependency

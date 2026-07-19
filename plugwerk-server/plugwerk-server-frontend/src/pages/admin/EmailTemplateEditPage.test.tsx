@@ -17,8 +17,9 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { AxiosError, AxiosHeaders } from "axios";
 import { EmailTemplateEditPage } from "./EmailTemplateEditPage";
 import { renderWithRouterAt } from "../../test/renderWithTheme";
 import { useEmailTemplatesStore } from "../../stores/emailTemplatesStore";
@@ -61,6 +62,21 @@ function setStoreWithTemplate(template: MailTemplateResponse = TEMPLATE) {
     saving: false,
     error: null,
   });
+}
+
+/** Build an AxiosError, optionally carrying a `response.data.message`. */
+function makeAxiosError(message: string, dataMessage?: string): AxiosError {
+  const err = new AxiosError(message);
+  if (dataMessage !== undefined) {
+    err.response = {
+      data: { message: dataMessage },
+      status: 400,
+      statusText: "Bad Request",
+      headers: {},
+      config: { headers: new AxiosHeaders() },
+    } as AxiosError["response"];
+  }
+  return err;
 }
 
 describe("EmailTemplateEditPage", () => {
@@ -398,5 +414,417 @@ describe("EmailTemplateEditPage", () => {
     // its content as inline DOM text inside the labelled group wrapper.
     const htmlEditor = await screen.findByRole("group", { name: "HTML body" });
     expect(htmlEditor.textContent ?? "").toContain("default HTML body");
+  });
+
+  it("shows a loading spinner while templates are still loading", () => {
+    useEmailTemplatesStore.setState({
+      templates: [],
+      loaded: false,
+      loading: true,
+      saving: false,
+      error: null,
+    });
+    renderAt();
+    expect(screen.getByText("Loading template…")).toBeInTheDocument();
+  });
+
+  it("auto-loads templates on mount when the store is empty and surfaces an error toast on failure", async () => {
+    useEmailTemplatesStore.setState({
+      templates: [],
+      loaded: false,
+      loading: false,
+      saving: false,
+      error: null,
+    });
+    vi.mocked(
+      apiConfig.adminEmailTemplatesApi.listMailTemplates,
+    ).mockRejectedValue(new Error("network down"));
+    renderAt();
+
+    await waitFor(() => {
+      expect(
+        apiConfig.adminEmailTemplatesApi.listMailTemplates,
+      ).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(useUiStore.getState().toasts).toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          message: "Failed to load mail templates.",
+        }),
+      );
+    });
+  });
+
+  it("Back link on the 404 page navigates away (page content unmounts)", async () => {
+    const user = userEvent.setup();
+    useEmailTemplatesStore.setState({
+      templates: [],
+      loaded: true,
+      loading: false,
+      saving: false,
+      error: null,
+    });
+    renderAt("never.registered");
+
+    await user.click(
+      screen.getByRole("button", { name: /Back to templates/i }),
+    );
+    // `/admin/email/templates` is not a registered route in this harness,
+    // so navigating there unmounts the page — the warning alert disappears.
+    await waitFor(() => {
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+  });
+
+  it("'All templates' breadcrumb navigates away (page content unmounts)", async () => {
+    const user = userEvent.setup();
+    renderAt();
+    expect(screen.getByText("Auth · Password Reset")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /All templates/i }));
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Auth · Password Reset"),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it("inserts a placeholder into the subject field at the caret when the subject was last focused", async () => {
+    const user = userEvent.setup();
+    renderAt();
+
+    const subject = screen.getByLabelText("Subject") as HTMLInputElement;
+    // Focus the subject and place the caret at the start so the inserted
+    // token lands at position 0 (exercises the subject-target slice path).
+    await user.click(subject);
+    subject.setSelectionRange(0, 0);
+
+    // {{username}} appears in several places (chip + editor token + preview
+    // sample-vars label); the chip is the first match.
+    await user.click(screen.getAllByText("{{username}}")[0]);
+
+    await waitFor(() => {
+      expect(subject.value).toContain("{{username}}");
+    });
+    // Inserted at the caret (start), so it prefixes the original subject.
+    expect(subject.value.startsWith("{{username}}")).toBe(true);
+  });
+
+  it("blocks Save with an error toast when the subject is blank", async () => {
+    const user = userEvent.setup();
+    setStoreWithTemplate({ ...TEMPLATE, subject: " " });
+    renderAt();
+
+    // Type into plaintext-irrelevant subject then clear it to a blank string.
+    const subject = screen.getByLabelText("Subject") as HTMLInputElement;
+    await user.clear(subject);
+    await user.type(subject, "x");
+    await user.clear(subject);
+
+    // Save is dirty (subject changed from " " to "") so it is enabled.
+    await user.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    await waitFor(() => {
+      expect(useUiStore.getState().toasts).toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          message: "Subject is required.",
+        }),
+      );
+    });
+    expect(
+      apiConfig.adminEmailTemplatesApi.updateMailTemplate,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("blocks Save with an error toast when the plaintext body is blank", async () => {
+    const user = userEvent.setup();
+    // Seed a template whose plaintext body is already blank; editing the
+    // subject makes the form dirty without populating the body.
+    setStoreWithTemplate({ ...TEMPLATE, bodyPlain: "" });
+    renderAt();
+
+    await user.type(screen.getByLabelText("Subject"), "!");
+    await user.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    await waitFor(() => {
+      expect(useUiStore.getState().toasts).toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          message: "Plaintext body is required.",
+        }),
+      );
+    });
+    expect(
+      apiConfig.adminEmailTemplatesApi.updateMailTemplate,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("Save failure surfaces the API error message from an axios response (extractApiError: axios w/ message)", async () => {
+    const user = userEvent.setup();
+    vi.mocked(
+      apiConfig.adminEmailTemplatesApi.updateMailTemplate,
+    ).mockRejectedValue(makeAxiosError("Request failed", "Subject too long"));
+    renderAt();
+
+    await user.type(screen.getByLabelText("Subject"), " (edited)");
+    await user.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    await waitFor(() => {
+      expect(useUiStore.getState().toasts).toContainEqual(
+        expect.objectContaining({ type: "error", message: "Subject too long" }),
+      );
+    });
+  });
+
+  it("Save failure falls back to axios error.message when the response carries no message (extractApiError: axios w/o message)", async () => {
+    const user = userEvent.setup();
+    vi.mocked(
+      apiConfig.adminEmailTemplatesApi.updateMailTemplate,
+    ).mockRejectedValue(makeAxiosError("Network Error"));
+    renderAt();
+
+    await user.type(screen.getByLabelText("Subject"), " (edited)");
+    await user.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    await waitFor(() => {
+      expect(useUiStore.getState().toasts).toContainEqual(
+        expect.objectContaining({ type: "error", message: "Network Error" }),
+      );
+    });
+  });
+
+  it("Save failure surfaces a plain Error message (extractApiError: Error)", async () => {
+    const user = userEvent.setup();
+    vi.mocked(
+      apiConfig.adminEmailTemplatesApi.updateMailTemplate,
+    ).mockRejectedValue(new Error("boom"));
+    renderAt();
+
+    await user.type(screen.getByLabelText("Subject"), " (edited)");
+    await user.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    await waitFor(() => {
+      expect(useUiStore.getState().toasts).toContainEqual(
+        expect.objectContaining({ type: "error", message: "boom" }),
+      );
+    });
+  });
+
+  it("Save failure shows the generic fallback for a non-Error rejection (extractApiError: unknown)", async () => {
+    const user = userEvent.setup();
+    vi.mocked(
+      apiConfig.adminEmailTemplatesApi.updateMailTemplate,
+    ).mockRejectedValue("just a string");
+    renderAt();
+
+    await user.type(screen.getByLabelText("Subject"), " (edited)");
+    await user.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    await waitFor(() => {
+      expect(useUiStore.getState().toasts).toContainEqual(
+        expect.objectContaining({ type: "error", message: "Unknown error" }),
+      );
+    });
+  });
+
+  it("Reset failure surfaces the API error message and shows no success toast", async () => {
+    const user = userEvent.setup();
+    vi.mocked(
+      apiConfig.adminEmailTemplatesApi.resetMailTemplate,
+    ).mockRejectedValue(makeAxiosError("Request failed", "Reset rejected"));
+    renderAt();
+
+    await user.click(screen.getByRole("button", { name: /Reset to default/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(
+      within(dialog).getByRole("button", { name: /Reset template/i }),
+    );
+
+    await waitFor(() => {
+      expect(useUiStore.getState().toasts).toContainEqual(
+        expect.objectContaining({ type: "error", message: "Reset rejected" }),
+      );
+    });
+    expect(useUiStore.getState().toasts).not.toContainEqual(
+      expect.objectContaining({ type: "success" }),
+    );
+  });
+
+  it("Save persists the edited HTML body when the HTML alternative is enabled", async () => {
+    const user = userEvent.setup();
+    vi.mocked(
+      apiConfig.adminEmailTemplatesApi.updateMailTemplate,
+    ).mockResolvedValue({
+      data: TEMPLATE,
+    } as Awaited<
+      ReturnType<typeof apiConfig.adminEmailTemplatesApi.updateMailTemplate>
+    >);
+    // Template already has an HTML body, so the editor is visible on mount.
+    renderAt();
+
+    await user.type(screen.getByLabelText("Subject"), " (edited)");
+    await user.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    await waitFor(() => {
+      expect(
+        apiConfig.adminEmailTemplatesApi.updateMailTemplate,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mailTemplateUpdateRequest: expect.objectContaining({
+            bodyHtml: TEMPLATE.bodyHtml,
+          }),
+        }),
+      );
+    });
+  });
+
+  it("toggling the HTML alternative off clears the HTML body so Save omits it", async () => {
+    const user = userEvent.setup();
+    vi.mocked(
+      apiConfig.adminEmailTemplatesApi.updateMailTemplate,
+    ).mockResolvedValue({
+      data: { ...TEMPLATE, bodyHtml: undefined },
+    } as Awaited<
+      ReturnType<typeof apiConfig.adminEmailTemplatesApi.updateMailTemplate>
+    >);
+    renderAt();
+
+    // HTML editor is on (template has bodyHtml). Switching it off nulls the
+    // draft's bodyHtml; Save then omits the field entirely.
+    const toggle = screen.getByLabelText("HTML alternative enabled");
+    await user.click(toggle);
+    await user.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    await waitFor(() => {
+      expect(
+        apiConfig.adminEmailTemplatesApi.updateMailTemplate,
+      ).toHaveBeenCalled();
+    });
+    const call = vi.mocked(apiConfig.adminEmailTemplatesApi.updateMailTemplate)
+      .mock.calls[0][0] as {
+      mailTemplateUpdateRequest: { bodyHtml?: string };
+    };
+    expect(call.mailTemplateUpdateRequest.bodyHtml).toBeUndefined();
+  });
+
+  it("expands the 'Compare with default subject' panel to reveal the seeded default", async () => {
+    const user = userEvent.setup();
+    renderAt();
+
+    const compareToggle = screen.getByRole("button", {
+      name: /Show Default subject/i,
+    });
+    await user.click(compareToggle);
+
+    await waitFor(() => {
+      expect(screen.getByText(TEMPLATE.defaultSubject)).toBeInTheDocument();
+    });
+    // Toggling again collapses it (aria-label flips to "Hide …").
+    expect(
+      screen.getByRole("button", { name: /Hide Default subject/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the 'Factory default' attribution for an un-customised template", () => {
+    setStoreWithTemplate({
+      ...TEMPLATE,
+      source: MailTemplateResponseSourceEnum.Default,
+    });
+    renderAt();
+    expect(screen.getByText("Factory default")).toBeInTheDocument();
+  });
+
+  it("renders the edited-by attribution without a 'by' fragment when updatedBy is absent", () => {
+    setStoreWithTemplate({
+      ...TEMPLATE,
+      updatedBy: null,
+      updatedAt: "2026-05-03T10:00:00Z",
+    });
+    renderAt();
+    // The attribution caption starts with "Edited" and omits the "by …"
+    // fragment when no author is recorded.
+    const edited = screen.getByText(/^Edited/);
+    expect(edited.textContent ?? "").not.toContain("by ");
+  });
+
+  it("renders a bare 'Edited' attribution when both updatedAt and updatedBy are missing", () => {
+    setStoreWithTemplate({
+      ...TEMPLATE,
+      updatedAt: null,
+      updatedBy: null,
+    });
+    renderAt();
+    expect(screen.getByText("Edited")).toBeInTheDocument();
+  });
+
+  it("renders the 'takes no variables' note when the template has no placeholders", () => {
+    setStoreWithTemplate({ ...TEMPLATE, placeholders: [] });
+    renderAt();
+    expect(
+      screen.getByText("This template takes no variables."),
+    ).toBeInTheDocument();
+  });
+
+  it("routes placeholder insertion to the HTML editor when it was last focused", async () => {
+    const user = userEvent.setup();
+    renderAt();
+
+    // HTML editor is visible (template has an HTML body). Focus its
+    // contenteditable so lastFocusedRef flips to "bodyHtml", then click a
+    // chip — insertion is dispatched to the HTML editor handle.
+    const htmlGroup = screen.getByRole("group", { name: "HTML body" });
+    const htmlContent = htmlGroup.querySelector(".cm-content");
+    expect(htmlContent).not.toBeNull();
+    fireEvent.focus(htmlContent as Element);
+
+    await user.click(screen.getAllByText("{{username}}")[0]);
+
+    // The HTML editor now contains the inserted token. CodeMirror reflects
+    // its value as inline DOM text inside the labelled group wrapper.
+    await waitFor(() => {
+      expect(
+        screen.getByRole("group", { name: "HTML body" }).textContent ?? "",
+      ).toContain("{{username}}");
+    });
+  });
+
+  it("omits the default-HTML diff panel when the template has no default HTML body", async () => {
+    const user = userEvent.setup();
+    // No default HTML body — the "Compare with default HTML body" panel must
+    // not render even once the HTML editor is shown.
+    setStoreWithTemplate({
+      ...TEMPLATE,
+      bodyHtml: undefined,
+      defaultBodyHtml: undefined,
+    });
+    renderAt();
+
+    await user.click(screen.getByLabelText("Plaintext only"));
+    await screen.findByRole("group", { name: "HTML body" });
+
+    expect(
+      screen.queryByRole("button", { name: /Default HTML body/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("seeds the HTML editor with an empty string when no default HTML body exists", async () => {
+    const user = userEvent.setup();
+    setStoreWithTemplate({
+      ...TEMPLATE,
+      bodyHtml: undefined,
+      defaultBodyHtml: undefined,
+    });
+    renderAt();
+
+    // Toggling on with no default seeds the editor with "" (the `?? ""`
+    // fallback branch), so it mounts but stays empty.
+    await user.click(screen.getByLabelText("Plaintext only"));
+    const htmlEditor = await screen.findByRole("group", { name: "HTML body" });
+    // Read the editable content element directly — the group wrapper also
+    // contains CodeMirror's line-number gutter, which is not document text.
+    const content = htmlEditor.querySelector(".cm-content");
+    expect((content?.textContent ?? "").trim()).toBe("");
   });
 });

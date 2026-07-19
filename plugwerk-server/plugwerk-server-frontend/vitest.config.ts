@@ -9,6 +9,23 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     globals: true,
+    // The default 5s per-test timeout is too tight for the heavier
+    // `@testing-library/user-event` flows (multi-field dialogs, several
+    // `await user.type(...)` + `waitFor` round-trips) once they run on a
+    // slower, contended CI runner — they pass locally but time out in CI.
+    // 15s gives comfortable headroom without masking genuine hangs (DEV-44).
+    testTimeout: 15000,
+    // `@mui/material` re-exports `react-transition-group@4`, which ships CJS
+    // with an extensionless directory import (`.../TransitionGroupContext`)
+    // and no `exports` map. Vitest externalises both by default, and Node's
+    // ESM resolver then rejects the directory import, breaking any test file
+    // that mounts a MUI transition component. Inlining forces Vite to bundle
+    // and resolve them through its own pipeline. See DEV-29.
+    server: {
+      deps: {
+        inline: [/@mui\//, /react-transition-group/],
+      },
+    },
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],

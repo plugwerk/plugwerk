@@ -225,6 +225,21 @@ enum class ApplicationSettingKey(
         minInt = 5,
         maxInt = 1440,
     ),
+
+    // ---- Telemetry (DEV-23 / ADR-0039) -------------------------------------
+    // Anonymous random UUID v4 identifying this installation in the opt-out
+    // telemetry beacon. Generated once on the first beacon send and persisted
+    // here; blank (the default) until then. Carries **no** personal data — it
+    // is a synthetic, per-install random value. Persisted via ApplicationSetting
+    // purely to reuse the existing DB-backed settings store (no new
+    // persistence layer). `allowBlank` because the unset state IS the default.
+
+    TELEMETRY_INSTALL_ID(
+        key = "telemetry.install_id",
+        valueType = SettingValueType.STRING,
+        defaultValue = "",
+        allowBlank = true,
+    ),
     ;
 
     /**

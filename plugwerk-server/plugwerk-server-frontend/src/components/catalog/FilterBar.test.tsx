@@ -17,11 +17,37 @@
  * along with Plugwerk. If not, see <https://www.gnu.org/licenses/>.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ThemeProvider, CssBaseline } from "@mui/material";
+import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderWithRouter } from "../../test/renderWithTheme";
+import { buildTheme } from "../../theme/theme";
 import { FilterBar } from "./FilterBar";
 import { usePluginStore } from "../../stores/pluginStore";
+import { useUiStore } from "../../stores/uiStore";
+
+/**
+ * Renders FilterBar under the real dark theme so the search input's
+ * `isDark`-conditional styling (border/background/focus) is exercised. Reuses
+ * the same provider stack as `renderWithRouter` but swaps in `buildTheme("dark")`
+ * — the only way to reach the dark arm of those ternaries since the shared
+ * helper is pinned to the light theme.
+ */
+function renderDark(ui: React.ReactNode) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0, staleTime: 0 } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <ThemeProvider theme={buildTheme("dark")}>
+        <CssBaseline />
+        <MemoryRouter>{ui}</MemoryRouter>
+      </ThemeProvider>
+    </QueryClientProvider>,
+  );
+}
 
 vi.mock("../../api/config", () => ({
   catalogApi: {
@@ -29,7 +55,17 @@ vi.mock("../../api/config", () => ({
       data: { content: [], totalElements: 0, totalPages: 0 },
     }),
   },
-  axiosInstance: { get: vi.fn().mockResolvedValue({ data: [] }) },
+  // The tag autocomplete loads its options from `/namespaces/{ns}/tags`.
+  // Return a small fixed list so the picker has real selectable options.
+  axiosInstance: {
+    get: vi
+      .fn()
+      .mockImplementation((url: string) =>
+        url.endsWith("/tags")
+          ? Promise.resolve({ data: ["auth", "billing", "search"] })
+          : Promise.resolve({ data: [] }),
+      ),
+  },
   managementApi: {},
   reviewsApi: {},
 }));
@@ -47,6 +83,7 @@ const defaultFilters = {
 describe("FilterBar", () => {
   beforeEach(() => {
     usePluginStore.setState({ filters: { ...defaultFilters } });
+    useUiStore.setState({ searchQuery: "" });
   });
 
   it("renders tag, status, compatibility and sort selects", () => {
@@ -153,5 +190,154 @@ describe("FilterBar", () => {
     );
     // The selected value is rendered inside the combobox
     expect(screen.getByText("Most Downloads")).toBeInTheDocument();
+  });
+
+  it("updates the status filter and resets the page to 0 on change", async () => {
+    const user = userEvent.setup();
+    const setFiltersMock = vi.fn();
+    usePluginStore.setState({
+      filters: { ...defaultFilters, page: 3 },
+      setFilters: setFiltersMock,
+    });
+    renderWithRouter(
+      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
+    );
+    await user.click(
+      screen.getByRole("combobox", { name: /filter by status/i }),
+    );
+    await user.click(await screen.findByRole("option", { name: "Active" }));
+    expect(setFiltersMock).toHaveBeenCalledWith({ status: "active", page: 0 });
+  });
+
+  it("updates the compatibility filter on change", async () => {
+    const user = userEvent.setup();
+    const setFiltersMock = vi.fn();
+    usePluginStore.setState({
+      filters: { ...defaultFilters },
+      setFilters: setFiltersMock,
+    });
+    renderWithRouter(
+      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
+    );
+    await user.click(
+      screen.getByRole("combobox", { name: /filter by compatibility/i }),
+    );
+    await user.click(await screen.findByRole("option", { name: "≥ 2.0.0" }));
+    expect(setFiltersMock).toHaveBeenCalledWith({
+      version: ">=2.0.0",
+      page: 0,
+    });
+  });
+
+  it("updates the sort order on change", async () => {
+    const user = userEvent.setup();
+    const setFiltersMock = vi.fn();
+    usePluginStore.setState({
+      filters: { ...defaultFilters },
+      setFilters: setFiltersMock,
+    });
+    renderWithRouter(
+      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
+    );
+    await user.click(screen.getByRole("combobox", { name: /sort order/i }));
+    await user.click(await screen.findByRole("option", { name: "Newest" }));
+    expect(setFiltersMock).toHaveBeenCalledWith({
+      sort: "updatedAt,desc",
+      page: 0,
+    });
+  });
+
+  it("updates the tag filter via the autocomplete", async () => {
+    const user = userEvent.setup();
+    const setFiltersMock = vi.fn();
+    usePluginStore.setState({
+      filters: { ...defaultFilters },
+      setFilters: setFiltersMock,
+    });
+    renderWithRouter(
+      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
+    );
+    // The tag autocomplete is the only input rendered with the "All Tags"
+    // placeholder. Open it, then pick the "auth" option once the tags load.
+    const tagInput = screen.getByPlaceholderText(/all tags/i);
+    await user.click(tagInput);
+    await user.click(await screen.findByRole("option", { name: "auth" }));
+    await waitFor(() => {
+      expect(setFiltersMock).toHaveBeenCalledWith({ tag: "auth", page: 0 });
+    });
+  });
+
+  it("clears the tag filter when the autocomplete value is removed", async () => {
+    const user = userEvent.setup();
+    const setFiltersMock = vi.fn();
+    usePluginStore.setState({
+      filters: { ...defaultFilters, tag: "auth" },
+      setFilters: setFiltersMock,
+    });
+    renderWithRouter(
+      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
+    );
+    // MUI hides the clear indicator until the autocomplete is focused/hovered;
+    // focus the input first so the "Clear" button mounts. Clicking it fires
+    // onChange(null) → handleChange("tag", "").
+    const tagInput = screen.getByPlaceholderText(/all tags/i);
+    await user.click(tagInput);
+    const clearBtn = await screen.findByRole("button", { name: /clear/i });
+    await user.click(clearBtn);
+    expect(setFiltersMock).toHaveBeenCalledWith({ tag: "", page: 0 });
+  });
+
+  it("writes typed text into the UI store's search query", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(
+      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
+    );
+    const search = screen.getByRole("textbox", { name: /search plugins/i });
+    await user.type(search, "auth");
+    expect(useUiStore.getState().searchQuery).toBe("auth");
+  });
+
+  it("shows a clear button only when the search query is non-empty and clears it", async () => {
+    const user = userEvent.setup();
+    useUiStore.setState({ searchQuery: "auth" });
+    renderWithRouter(
+      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
+    );
+    const clear = screen.getByRole("button", { name: /clear search/i });
+    await user.click(clear);
+    expect(useUiStore.getState().searchQuery).toBe("");
+  });
+
+  it("does not show the search clear button when the query is empty", () => {
+    renderWithRouter(
+      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
+    );
+    expect(
+      screen.queryByRole("button", { name: /clear search/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("reflects the controlled view prop on the toggle group", () => {
+    renderWithRouter(
+      <FilterBar view="list" onViewChange={vi.fn()} namespace="acme" />,
+    );
+    const group = screen.getByRole("group", {
+      name: /filter and sort options/i,
+    });
+    expect(
+      within(group).getByRole("button", { name: /list view/i }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("renders the search input under the dark theme (isDark style branch)", () => {
+    // Exercises the `isDark ? … : …` ternaries on the search InputBase that
+    // are otherwise unreachable under the light-themed shared render helper.
+    renderDark(
+      <FilterBar view="card" onViewChange={vi.fn()} namespace="acme" />,
+    );
+    expect(
+      screen.getByRole("textbox", { name: /search plugins/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("search")).toBeInTheDocument();
   });
 });

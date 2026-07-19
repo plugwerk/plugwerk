@@ -340,4 +340,308 @@ describe("GeneralSection", () => {
       expect(alert).toHaveTextContent(/restart/i);
     });
   });
+
+  it("shows a loading spinner while settings are being fetched", () => {
+    useSettingsStore.setState({ loaded: false, loading: true });
+    // load() guard requires !loaded && !loading to fire, so the mock isn't hit.
+    renderWithTheme(<GeneralSection />);
+    expect(screen.getByText("Loading settings…")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+  });
+
+  it("shows an info alert when no settings are available", () => {
+    useSettingsStore.setState({ loaded: true, loading: false, settings: [] });
+    renderWithTheme(<GeneralSection />);
+    expect(
+      screen.getByText("No application settings are available."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows an error toast when loading settings fails", async () => {
+    vi.mocked(
+      apiConfig.adminSettingsApi.listApplicationSettings,
+    ).mockRejectedValue(new Error("network"));
+
+    renderWithTheme(<GeneralSection />);
+
+    await waitFor(() => {
+      expect(
+        useUiStore
+          .getState()
+          .toasts.some((t) =>
+            /Failed to load application settings/i.test(t.message ?? ""),
+          ),
+      ).toBe(true);
+    });
+  });
+
+  it("discards edits and re-disables the Save button", async () => {
+    vi.mocked(
+      apiConfig.adminSettingsApi.listApplicationSettings,
+    ).mockResolvedValue({ data: { settings: SAMPLE_SETTINGS } } as never);
+    const user = userEvent.setup();
+
+    renderWithTheme(<GeneralSection />);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Site Name")).toBeInTheDocument(),
+    );
+
+    const siteName = screen.getByLabelText("Site Name");
+    await user.clear(siteName);
+    await user.type(siteName, "Edited");
+    expect(screen.getByRole("button", { name: /save changes/i })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: /discard/i }));
+
+    expect(screen.getByLabelText("Site Name")).toHaveValue("Plugwerk");
+    expect(
+      screen.getByRole("button", { name: /save changes/i }),
+    ).toBeDisabled();
+  });
+
+  it("validates a blank string field and blocks save", async () => {
+    vi.mocked(
+      apiConfig.adminSettingsApi.listApplicationSettings,
+    ).mockResolvedValue({ data: { settings: SAMPLE_SETTINGS } } as never);
+    const user = userEvent.setup();
+
+    renderWithTheme(<GeneralSection />);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Site Name")).toBeInTheDocument(),
+    );
+
+    const siteName = screen.getByLabelText("Site Name");
+    await user.clear(siteName);
+    await user.type(siteName, "   ");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(screen.getByText("Must not be blank")).toBeInTheDocument();
+    expect(
+      vi.mocked(apiConfig.adminSettingsApi.updateApplicationSettings),
+    ).not.toHaveBeenCalled();
+  });
+
+  it("validates a non-integer value and shows the integer error", async () => {
+    vi.mocked(
+      apiConfig.adminSettingsApi.listApplicationSettings,
+    ).mockResolvedValue({ data: { settings: SAMPLE_SETTINGS } } as never);
+    const user = userEvent.setup();
+
+    renderWithTheme(<GeneralSection />);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Max File Size Mb")).toBeInTheDocument(),
+    );
+
+    const maxSize = screen.getByLabelText("Max File Size Mb");
+    await user.clear(maxSize);
+    // A number input keeps "1.5" as "1.5"; parseInt → 1, String(1) !== "1.5".
+    await user.type(maxSize, "1.5");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(screen.getByText("Must be an integer")).toBeInTheDocument();
+  });
+
+  it("validates the integer minimum bound", async () => {
+    vi.mocked(
+      apiConfig.adminSettingsApi.listApplicationSettings,
+    ).mockResolvedValue({ data: { settings: SAMPLE_SETTINGS } } as never);
+    const user = userEvent.setup();
+
+    renderWithTheme(<GeneralSection />);
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText("Password Reset Token Ttl Minutes"),
+      ).toBeInTheDocument(),
+    );
+
+    const ttl = screen.getByLabelText("Password Reset Token Ttl Minutes");
+    await user.clear(ttl);
+    await user.type(ttl, "1");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(screen.getByText("Must be >= 5")).toBeInTheDocument();
+  });
+
+  it("changes the default language select and sends the change", async () => {
+    vi.mocked(
+      apiConfig.adminSettingsApi.listApplicationSettings,
+    ).mockResolvedValue({ data: { settings: SAMPLE_SETTINGS } } as never);
+    vi.mocked(
+      apiConfig.adminSettingsApi.updateApplicationSettings,
+    ).mockResolvedValue({
+      data: {
+        settings: SAMPLE_SETTINGS.map((s) =>
+          s.key === "general.default_language" ? { ...s, value: "de" } : s,
+        ),
+      },
+    } as never);
+    const user = userEvent.setup();
+
+    renderWithTheme(<GeneralSection />);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Default Language")).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByLabelText("Default Language"));
+    await user.click(screen.getByRole("option", { name: "de" }));
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => {
+      expect(
+        vi.mocked(apiConfig.adminSettingsApi.updateApplicationSettings),
+      ).toHaveBeenCalledWith({
+        applicationSettingsUpdateRequest: {
+          settings: { "general.default_language": "de" },
+        },
+      });
+    });
+  });
+
+  it("renders the default timezone field when the setting is present", async () => {
+    // SAMPLE_SETTINGS has no timezone key (so renderField returns null for it);
+    // adding it exercises the general.default_timezone branch of renderField.
+    const withTz: ApplicationSettingDto[] = [
+      ...SAMPLE_SETTINGS,
+      dto({
+        key: "general.default_timezone",
+        value: "Europe/Berlin",
+        valueType: "STRING",
+        description: "Default display timezone.",
+      }),
+    ];
+    vi.mocked(
+      apiConfig.adminSettingsApi.listApplicationSettings,
+    ).mockResolvedValue({ data: { settings: withTz } } as never);
+
+    renderWithTheme(<GeneralSection />);
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Default Timezone")).toBeInTheDocument(),
+    );
+    // The TimezoneSelect autocomplete is seeded from the setting value.
+    expect(screen.getByDisplayValue(/Europe\/Berlin/i)).toBeInTheDocument();
+  });
+
+  it("renders the default language fallback options when allowedValues is absent", async () => {
+    const noAllowed = SAMPLE_SETTINGS.map((s) =>
+      s.key === "general.default_language"
+        ? { ...s, allowedValues: undefined }
+        : s,
+    );
+    vi.mocked(
+      apiConfig.adminSettingsApi.listApplicationSettings,
+    ).mockResolvedValue({ data: { settings: noAllowed } } as never);
+    const user = userEvent.setup();
+
+    renderWithTheme(<GeneralSection />);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Default Language")).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByLabelText("Default Language"));
+    // Fallback ["en", "de"] — "de" has no LANGUAGE_LABELS entry so renders raw.
+    expect(screen.getByRole("option", { name: "de" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "English" })).toBeInTheDocument();
+  });
+
+  it("clears a field-level error when the field is edited again", async () => {
+    vi.mocked(
+      apiConfig.adminSettingsApi.listApplicationSettings,
+    ).mockResolvedValue({ data: { settings: SAMPLE_SETTINGS } } as never);
+    const user = userEvent.setup();
+
+    renderWithTheme(<GeneralSection />);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Max File Size Mb")).toBeInTheDocument(),
+    );
+
+    const maxSize = screen.getByLabelText("Max File Size Mb");
+    await user.clear(maxSize);
+    await user.type(maxSize, "9999");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+    expect(screen.getByText("Must be <= 1024")).toBeInTheDocument();
+
+    // Editing the same field again must drop the existing error entry
+    // (handleFieldChange's key-in-prev branch).
+    await user.clear(maxSize);
+    await user.type(maxSize, "500");
+    expect(screen.queryByText("Must be <= 1024")).not.toBeInTheDocument();
+  });
+
+  it("saves valid edits across string, integer, boolean and enum fields", async () => {
+    vi.mocked(
+      apiConfig.adminSettingsApi.listApplicationSettings,
+    ).mockResolvedValue({ data: { settings: SAMPLE_SETTINGS } } as never);
+    vi.mocked(
+      apiConfig.adminSettingsApi.updateApplicationSettings,
+    ).mockResolvedValue({ data: { settings: SAMPLE_SETTINGS } } as never);
+    const user = userEvent.setup();
+
+    renderWithTheme(<GeneralSection />);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Site Name")).toBeInTheDocument(),
+    );
+
+    // STRING (valid), INTEGER (in range), BOOLEAN, ENUM — walks every
+    // valid branch of validateLocally.
+    await user.clear(screen.getByLabelText("Site Name"));
+    await user.type(screen.getByLabelText("Site Name"), "Acme");
+    await user.clear(screen.getByLabelText("Max File Size Mb"));
+    await user.type(screen.getByLabelText("Max File Size Mb"), "200");
+    await user.click(screen.getByLabelText("Enabled"));
+    await user.click(screen.getByLabelText("Default Language"));
+    await user.click(screen.getByRole("option", { name: "de" }));
+
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => {
+      const settings = (
+        vi.mocked(apiConfig.adminSettingsApi.updateApplicationSettings).mock
+          .calls[0]?.[0] as {
+          applicationSettingsUpdateRequest: {
+            settings: Record<string, string>;
+          };
+        }
+      ).applicationSettingsUpdateRequest.settings;
+      expect(settings["general.site_name"]).toBe("Acme");
+      expect(settings["upload.max_file_size_mb"]).toBe("200");
+      expect(settings["general.default_language"]).toBe("de");
+      expect(settings["tracking.enabled"]).toBe("false");
+    });
+    await waitFor(() => {
+      expect(
+        useUiStore
+          .getState()
+          .toasts.some((t) => /Settings saved/i.test(t.message ?? "")),
+      ).toBe(true);
+    });
+  });
+
+  it("surfaces a save failure as an error toast", async () => {
+    vi.mocked(
+      apiConfig.adminSettingsApi.listApplicationSettings,
+    ).mockResolvedValue({ data: { settings: SAMPLE_SETTINGS } } as never);
+    vi.mocked(
+      apiConfig.adminSettingsApi.updateApplicationSettings,
+    ).mockRejectedValue(new Error("Conflict: stale value"));
+    const user = userEvent.setup();
+
+    renderWithTheme(<GeneralSection />);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Site Name")).toBeInTheDocument(),
+    );
+
+    const siteName = screen.getByLabelText("Site Name");
+    await user.clear(siteName);
+    await user.type(siteName, "Acme");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => {
+      expect(
+        useUiStore
+          .getState()
+          .toasts.some((t) => /Conflict: stale value/i.test(t.message ?? "")),
+      ).toBe(true);
+    });
+  });
 });

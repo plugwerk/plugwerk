@@ -29,6 +29,7 @@ import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
 import io.plugwerk.server.service.settings.ApplicationSettingsService
 import io.plugwerk.server.service.storage.ArtifactStorageService
+import io.plugwerk.server.service.telemetry.ActivationTelemetry
 import io.plugwerk.spi.model.ReleaseStatus
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -44,6 +45,7 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
+import java.time.OffsetDateTime
 import java.util.Optional
 import java.util.UUID
 import kotlin.test.assertFailsWith
@@ -62,6 +64,8 @@ class PluginReleaseServiceTest {
     @Mock lateinit var descriptorResolver: DescriptorResolver
 
     @Mock lateinit var downloadEventService: DownloadEventService
+
+    @Mock lateinit var activationTelemetry: ActivationTelemetry
 
     lateinit var releaseService: PluginReleaseService
 
@@ -93,6 +97,7 @@ class PluginReleaseServiceTest {
             ObjectMapper(),
             settingsService,
             downloadEventService,
+            activationTelemetry,
         )
     }
 
@@ -480,5 +485,126 @@ class PluginReleaseServiceTest {
         val result = releaseService.upload("auto-ns", ByteArrayInputStream(jarBytes), jarBytes.size.toLong())
 
         assertThat(result.status).isEqualTo(ReleaseStatus.PUBLISHED)
+    }
+
+    // --- DEV-24: first_plugin_publish activation gating ---
+
+    @Test
+    fun `upload fires first_plugin_publish on the first auto-approved publish in a namespace`() {
+        val jarBytes = fakeJarBytes()
+        val descriptor = PlugwerkDescriptor(id = "auto-plugin", version = "1.0.0", name = "Auto Plugin")
+
+        whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+        whenever(namespaceRepository.findBySlug("auto-ns")).thenReturn(Optional.of(autoApproveNamespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(autoApproveNamespace, "auto-plugin"))
+            .thenReturn(Optional.of(autoApprovePlugin))
+        whenever(releaseRepository.existsByPluginAndVersion(autoApprovePlugin, "1.0.0")).thenReturn(false)
+        whenever(storageService.store(any(), any(), any())).thenReturn("key")
+        whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenAnswer { it.getArgument(0) }
+        // Gate opens: this is the first publish in the namespace.
+        whenever(namespaceRepository.markFirstPublishedIfAbsent(eq(autoApproveNamespaceId), any<OffsetDateTime>()))
+            .thenReturn(1)
+
+        releaseService.upload("auto-ns", ByteArrayInputStream(jarBytes), jarBytes.size.toLong())
+
+        verify(namespaceRepository).markFirstPublishedIfAbsent(eq(autoApproveNamespaceId), any<OffsetDateTime>())
+        verify(activationTelemetry).firstPluginPublished()
+    }
+
+    @Test
+    fun `upload does not fire first_plugin_publish when the namespace already published before`() {
+        val jarBytes = fakeJarBytes()
+        val descriptor = PlugwerkDescriptor(id = "auto-plugin", version = "2.0.0", name = "Auto Plugin")
+
+        whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+        whenever(namespaceRepository.findBySlug("auto-ns")).thenReturn(Optional.of(autoApproveNamespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(autoApproveNamespace, "auto-plugin"))
+            .thenReturn(Optional.of(autoApprovePlugin))
+        whenever(releaseRepository.existsByPluginAndVersion(autoApprovePlugin, "2.0.0")).thenReturn(false)
+        whenever(storageService.store(any(), any(), any())).thenReturn("key")
+        whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenAnswer { it.getArgument(0) }
+        // Gate stays shut: a prior publish already stamped first_published_at.
+        whenever(namespaceRepository.markFirstPublishedIfAbsent(eq(autoApproveNamespaceId), any<OffsetDateTime>()))
+            .thenReturn(0)
+
+        releaseService.upload("auto-ns", ByteArrayInputStream(jarBytes), jarBytes.size.toLong())
+
+        verify(namespaceRepository).markFirstPublishedIfAbsent(eq(autoApproveNamespaceId), any<OffsetDateTime>())
+        verify(activationTelemetry, never()).firstPluginPublished()
+    }
+
+    @Test
+    fun `upload does not touch the first-publish gate when the release stays DRAFT`() {
+        val jarBytes = fakeJarBytes()
+        val descriptor = PlugwerkDescriptor(id = "my-plugin", version = "4.0.0", name = "My Plugin")
+
+        whenever(descriptorResolver.resolve(any())).thenReturn(descriptor)
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.existsByPluginAndVersion(plugin, "4.0.0")).thenReturn(false)
+        whenever(storageService.store(any(), any(), any())).thenReturn("key")
+        whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenAnswer { it.getArgument(0) }
+
+        releaseService.upload("acme", ByteArrayInputStream(jarBytes), jarBytes.size.toLong())
+
+        verify(namespaceRepository, never()).markFirstPublishedIfAbsent(any<UUID>(), any<OffsetDateTime>())
+        verify(activationTelemetry, never()).firstPluginPublished()
+    }
+
+    @Test
+    fun `updateStatus to PUBLISHED fires first_plugin_publish only on the first publish`() {
+        val release = PluginReleaseEntity(
+            plugin = plugin,
+            version = "1.0.0",
+            artifactSha256 = "sha",
+            artifactKey = "acme:my-plugin:1.0.0:jar",
+        )
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.findByPluginAndVersion(plugin, "1.0.0")).thenReturn(Optional.of(release))
+        whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenReturn(release)
+        whenever(namespaceRepository.markFirstPublishedIfAbsent(eq(namespaceId), any<OffsetDateTime>())).thenReturn(1)
+
+        releaseService.updateStatus("acme", "my-plugin", "1.0.0", ReleaseStatus.PUBLISHED)
+
+        verify(activationTelemetry).firstPluginPublished()
+    }
+
+    @Test
+    fun `updateStatus to a non-published status never touches the first-publish gate`() {
+        val release = PluginReleaseEntity(
+            plugin = plugin,
+            version = "1.0.0",
+            artifactSha256 = "sha",
+            artifactKey = "acme:my-plugin:1.0.0:jar",
+        )
+        whenever(namespaceRepository.findBySlug("acme")).thenReturn(Optional.of(namespace))
+        whenever(pluginRepository.findByNamespaceAndPluginId(namespace, "my-plugin")).thenReturn(Optional.of(plugin))
+        whenever(releaseRepository.findByPluginAndVersion(plugin, "1.0.0")).thenReturn(Optional.of(release))
+        whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenReturn(release)
+
+        releaseService.updateStatus("acme", "my-plugin", "1.0.0", ReleaseStatus.DEPRECATED)
+
+        verify(namespaceRepository, never()).markFirstPublishedIfAbsent(any<UUID>(), any<OffsetDateTime>())
+        verify(activationTelemetry, never()).firstPluginPublished()
+    }
+
+    @Test
+    fun `updateStatusByIdInNamespace to PUBLISHED fires first_plugin_publish on the first publish`() {
+        val releaseId = UUID.randomUUID()
+        val release = PluginReleaseEntity(
+            id = releaseId,
+            plugin = plugin,
+            version = "1.0.0",
+            artifactSha256 = "sha",
+            artifactKey = "acme:my-plugin:1.0.0:jar",
+        )
+        whenever(releaseRepository.findByIdWithPlugin(releaseId)).thenReturn(Optional.of(release))
+        whenever(releaseRepository.save(any<PluginReleaseEntity>())).thenReturn(release)
+        whenever(namespaceRepository.markFirstPublishedIfAbsent(eq(namespaceId), any<OffsetDateTime>())).thenReturn(1)
+
+        releaseService.updateStatusByIdInNamespace(releaseId, "acme", ReleaseStatus.PUBLISHED)
+
+        verify(activationTelemetry).firstPluginPublished()
     }
 }

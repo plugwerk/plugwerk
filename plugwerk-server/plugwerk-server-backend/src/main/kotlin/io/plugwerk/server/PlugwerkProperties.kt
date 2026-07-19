@@ -51,7 +51,58 @@ data class PlugwerkProperties(
     val storage: StorageProperties = StorageProperties(),
     @field:Valid val server: ServerProperties = ServerProperties(),
     @field:Valid val auth: AuthProperties = AuthProperties(),
+    val telemetry: TelemetryProperties = TelemetryProperties(),
 ) {
+    /**
+     * Opt-out telemetry-beacon configuration (`plugwerk.telemetry.*`) — DEV-23 / ADR-0039.
+     *
+     * The beacon sends a strictly zero-PII install heartbeat (install UUID, version,
+     * install type, event) on first server start and once per day. It is **opt-out**:
+     * enabled by default, fully disabled by `PLUGWERK_TELEMETRY=false`.
+     *
+     * Fail-open is the governing constraint — a blank, non-HTTPS, or unreachable
+     * [endpoint] never affects startup, health, or readiness. Endpoint correctness is
+     * therefore enforced at send time in
+     * [io.plugwerk.server.service.telemetry.HttpTelemetrySender] (skip + debug-log),
+     * **not** as startup bean validation, so a misconfiguration can never crash the
+     * server. See `README.md` → "Telemetry & Privacy".
+     *
+     * @property enabled Master opt-out switch. When `false`, no install UUID is
+     *   generated, no heartbeat is scheduled, and no HTTP call is ever made.
+     *   The heartbeat scheduler bean is `@ConditionalOnProperty`-gated on this value;
+     *   the first-start beacon is gated by an in-code guard reached on every startup.
+     *   Default `true`.
+     *
+     *   Environment variable: `PLUGWERK_TELEMETRY` (Spring relaxed binding maps it to
+     *   `plugwerk.telemetry.enabled` via the `application.yml` placeholder).
+     *
+     * @property endpoint HTTPS-only analytics endpoint the beacon POSTs to. Empty by
+     *   default until the Plugwerk-owned endpoint is provisioned; an empty or
+     *   non-HTTPS value means the payload is built but never sent (a harmless no-op
+     *   under the fail-open design). **Do not block on this being live.**
+     *
+     *   Environment variable: `PLUGWERK_TELEMETRY_ENDPOINT`
+     *
+     * @property installType Optional override for the auto-detected install type
+     *   (`docker-compose` | `jar` | `k8s`). Blank (default) means auto-detect; an
+     *   unrecognized value resolves to `unknown`. See
+     *   [io.plugwerk.server.service.telemetry.TelemetryInstallTypeDetector].
+     *
+     *   Environment variable: `PLUGWERK_INSTALL_TYPE`
+     *
+     * @property cron Spring cron expression for the daily heartbeat. Default `0 30 3 * * *`
+     *   (03:30 server-local), staggered against the storage reaper (03:15) and the
+     *   on-the-hour token-cleanup jobs.
+     *
+     *   Environment variable: `PLUGWERK_TELEMETRY_CRON`
+     */
+    data class TelemetryProperties(
+        val enabled: Boolean = true,
+        val endpoint: String = "",
+        val installType: String? = null,
+        val cron: String = "0 30 3 * * *",
+    )
+
     /**
      * Artifact storage configuration (`plugwerk.storage.*`).
      *

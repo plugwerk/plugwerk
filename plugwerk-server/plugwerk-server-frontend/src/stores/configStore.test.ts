@@ -34,6 +34,7 @@ describe("configStore", () => {
       maxFileSizeMb: 100,
       defaultTimezone: "UTC",
       siteName: "Plugwerk",
+      oidcProviders: [],
       loaded: false,
     });
     vi.mocked(apiConfig.axiosInstance.get).mockReset();
@@ -150,5 +151,97 @@ describe("configStore", () => {
     await useConfigStore.getState().fetchConfig();
 
     expect(useConfigStore.getState().version).toBe("unknown");
+  });
+
+  it("re-fetches when force is passed even though already loaded", async () => {
+    vi.mocked(apiConfig.axiosInstance.get).mockResolvedValue({
+      data: { version: "1.0.0", upload: { maxFileSizeMb: 50 } },
+    });
+
+    await useConfigStore.getState().fetchConfig();
+    await useConfigStore.getState().fetchConfig({ force: true });
+
+    expect(vi.mocked(apiConfig.axiosInstance.get)).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("configStore — OIDC provider parsing", () => {
+  beforeEach(() => {
+    useConfigStore.setState({ oidcProviders: [], loaded: false });
+    vi.mocked(apiConfig.axiosInstance.get).mockReset();
+  });
+
+  async function fetchWith(oidcProviders: unknown) {
+    vi.mocked(apiConfig.axiosInstance.get).mockResolvedValue({
+      data: {
+        version: "1.0.0",
+        upload: { maxFileSizeMb: 100 },
+        auth: { oidcProviders },
+      },
+    });
+    await useConfigStore.getState().fetchConfig({ force: true });
+    return useConfigStore.getState().oidcProviders;
+  }
+
+  it("returns an empty list when the payload is not an array", async () => {
+    expect(await fetchWith(undefined)).toEqual([]);
+    expect(await fetchWith({ not: "an array" })).toEqual([]);
+  });
+
+  it("parses a fully-populated provider entry", async () => {
+    const providers = await fetchWith([
+      {
+        id: "gh",
+        name: "GitHub",
+        loginUrl: "/oauth/github",
+        accountPickerLoginUrl: "/oauth/github?prompt=select_account",
+        accountSwitchHintUrl: "https://github.com/logout",
+        iconKind: "github",
+      },
+    ]);
+    expect(providers).toEqual([
+      {
+        id: "gh",
+        name: "GitHub",
+        loginUrl: "/oauth/github",
+        accountPickerLoginUrl: "/oauth/github?prompt=select_account",
+        accountSwitchHintUrl: "https://github.com/logout",
+        iconKind: "github",
+      },
+    ]);
+  });
+
+  it("nulls optional URLs and falls back to oidc icon on unknown/missing fields", async () => {
+    const providers = await fetchWith([
+      {
+        id: "corp",
+        name: "Corp SSO",
+        loginUrl: "/oauth/corp",
+        accountPickerLoginUrl: 42, // non-string -> null
+        // accountSwitchHintUrl missing -> null
+        iconKind: "totally-unknown", // not a known kind -> "oidc"
+      },
+    ]);
+    expect(providers[0].accountPickerLoginUrl).toBeNull();
+    expect(providers[0].accountSwitchHintUrl).toBeNull();
+    expect(providers[0].iconKind).toBe("oidc");
+  });
+
+  it("skips non-object entries and entries missing required string fields", async () => {
+    const providers = await fetchWith([
+      null,
+      "nope",
+      { id: "x", name: "X" }, // missing loginUrl
+      { id: 1, name: "Y", loginUrl: "/y" }, // id not a string
+      {
+        id: "ok",
+        name: "OK",
+        loginUrl: "/ok",
+        iconKind: "google",
+      },
+    ]);
+    expect(providers).toHaveLength(1);
+    expect(providers[0].id).toBe("ok");
+    expect(providers[0].iconKind).toBe("google");
   });
 });

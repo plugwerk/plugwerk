@@ -26,6 +26,7 @@ import io.plugwerk.server.repository.PluginReleaseRepository
 import io.plugwerk.server.repository.PluginRepository
 import io.plugwerk.server.service.settings.UserSettingsService
 import io.plugwerk.server.service.storage.ArtifactStorageService
+import io.plugwerk.server.service.telemetry.ActivationTelemetry
 import io.plugwerk.spi.model.ReleaseStatus
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -63,6 +64,9 @@ class NamespaceServiceTest {
     @Mock
     lateinit var namespaceDeletionTransaction: NamespaceDeletionTransaction
 
+    @Mock
+    lateinit var activationTelemetry: ActivationTelemetry
+
     @InjectMocks
     lateinit var namespaceService: NamespaceService
 
@@ -96,6 +100,8 @@ class NamespaceServiceTest {
 
         assertThat(result.slug).isEqualTo("new-ns")
         verify(namespaceRepository).save(any<NamespaceEntity>())
+        // DEV-24: the namespace_created activation event fires on a successful create.
+        verify(activationTelemetry).namespaceCreated()
     }
 
     @Test
@@ -107,6 +113,8 @@ class NamespaceServiceTest {
         }
 
         verify(namespaceRepository, never()).save(any<NamespaceEntity>())
+        // No persistence, no activation event.
+        verify(activationTelemetry, never()).namespaceCreated()
     }
 
     @Test

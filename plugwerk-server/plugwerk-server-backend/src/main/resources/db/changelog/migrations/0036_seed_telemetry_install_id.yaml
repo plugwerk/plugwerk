@@ -1,0 +1,34 @@
+# Seed the telemetry install-id setting registered in ApplicationSettingKey
+# (DEV-23 / ADR-0039). The value is intentionally empty: the install UUID is
+# generated lazily on the first telemetry beacon send and written back to this
+# row. Seeding the row (rather than relying on the enum default fallback) keeps
+# the Admin → Settings list source-consistent (DATABASE, not DEFAULT) with every
+# other application setting. The value carries no personal data — it is a
+# synthetic per-install random UUID v4.
+databaseChangeLog:
+  - changeSet:
+      id: 0036-seed-telemetry-install-id
+      author: plugwerk
+      changes:
+        - insert:
+            tableName: application_setting
+            columns:
+              - column:
+                  name: id
+                  valueComputed: gen_random_uuid()
+              - column:
+                  name: setting_key
+                  value: telemetry.install_id
+              - column:
+                  name: setting_value
+                  value: ""
+              - column:
+                  name: setting_desc
+                  value: "Anonymous random UUID v4 identifying this installation in the opt-out telemetry beacon (ADR-0039). Generated on the first beacon send; blank until then. Contains no personal data. Disable telemetry entirely with PLUGWERK_TELEMETRY=false."
+              - column:
+                  name: value_type
+                  value: STRING
+      rollback:
+        - delete:
+            tableName: application_setting
+            where: "setting_key = 'telemetry.install_id'"

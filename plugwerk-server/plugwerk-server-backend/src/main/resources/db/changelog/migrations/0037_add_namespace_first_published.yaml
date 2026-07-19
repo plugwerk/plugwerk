@@ -1,0 +1,37 @@
+# Add nullable namespace.first_published_at for the P1 activation telemetry
+# (DEV-24 / ADR-0039). It is the gate behind the `first_plugin_publish` event:
+# the column is stamped exactly once per namespace, by the atomic conditional
+# UPDATE in NamespaceRepository.markFirstPublishedIfAbsent
+# (`... WHERE first_published_at IS NULL`), and the event is emitted only when
+# that UPDATE reports a row changed. Subsequent publishes leave it untouched.
+#
+# Why nullable, no default, no backfill:
+#   NULL is the meaningful "never published yet" state the gate keys off. A
+#   default of now() would lie about historic state and, worse, would mark every
+#   pre-existing namespace as already-published — silently suppressing the very
+#   first real publish event we want to measure. Existing namespaces therefore
+#   start NULL and emit `first_plugin_publish` on their next publish, which is
+#   the correct activation signal for an in-flight install.
+#
+# Privacy: the column holds a coarse activation timestamp only — no namespace
+# name, plugin name, or user identifier. It is never serialized into the
+# telemetry payload (which stays {installId, version, installType, event}); it
+# lives server-side purely to gate the event. See ADR-0039.
+
+databaseChangeLog:
+  - changeSet:
+      id: 0037-add-namespace-first-published-at
+      author: plugwerk
+      changes:
+        - addColumn:
+            tableName: namespace
+            columns:
+              - column:
+                  name: first_published_at
+                  type: timestamptz
+                  constraints:
+                    nullable: true
+      rollback:
+        - dropColumn:
+            tableName: namespace
+            columnName: first_published_at

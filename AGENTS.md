@@ -38,7 +38,7 @@ Before **every commit**, run the formatter and linter for the language(s) you ch
 | TypeScript / TSX | `npm run lint` | `plugwerk-server/plugwerk-server-frontend/` |
 | TypeScript / TSX formatting | `npm run format` | `plugwerk-server/plugwerk-server-frontend/` |
 
-CI enforces all three (`spotlessKotlinCheck`, `eslint`, and `prettier --check` via the Gradle `npmFormatCheck` task that runs as part of `./gradlew build`) and will fail if violations are committed.
+CI enforces Kotlin formatting (`spotlessCheck`, run as an isolated job) and frontend formatting (`prettier --check` via the Gradle `npmFormatCheck` task that runs as part of `./gradlew build`), and will fail if violations are committed. CI does **not** yet run ESLint — `npm run lint` is a local-only check for now; wiring ESLint into the pipeline is tracked separately (DEV-21).
 Never skip these checks — even for "small" renames or refactors (longer class names can exceed line limits).
 
 - **Never commit directly to `main`** – always use a feature branch
@@ -216,7 +216,7 @@ plugwerk/
 ├── plugwerk-server/
 │   ├── plugwerk-server-backend/   # Spring Boot 4.x + Kotlin REST API (JVM 21)
 │   └── plugwerk-server-frontend/  # React + TypeScript + MUI + Zustand (embedded in server JAR)
-└── plugwerk-client-plugin/        # PF4J plugin, OkHttp, Jackson (JVM 17)
+└── plugwerk-client-plugin/        # PF4J plugin, OkHttp, Jackson (JVM 11)
 ```
 
 ### Key Design Constraints
@@ -234,7 +234,7 @@ plugwerk/
 ### Core Data Model
 
 ```
-Namespace (slug, name, description, settings JSON)
+Namespace (slug, name, description, public_catalog, auto_approve_releases)
   └── Plugin (plugin_id unique per ns, tags[], status)
         └── PluginRelease (SemVer version, artifact_sha256, requires_system_version,
         │                   plugin_dependencies JSON, status: draft/published/deprecated/yanked)
