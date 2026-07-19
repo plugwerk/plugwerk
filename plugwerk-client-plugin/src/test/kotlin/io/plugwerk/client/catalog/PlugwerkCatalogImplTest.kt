@@ -115,6 +115,43 @@ class PlugwerkCatalogImplTest {
     }
 
     @Test
+    fun `listPlugins tolerates a latestRelease with an explicit changelog null (#599)`() {
+        // A release without notes is serialised by the server as `changelog: null`.
+        // The client must not throw InvalidNullException while deserialising the
+        // catalog listing — this is the exact path reported in issue #599.
+        server.enqueue(
+            MockResponse()
+                .setBody(
+                    """{"content":[
+                        {"id":"00000000-0000-0000-0000-000000000001","pluginId":"my-plugin","name":"My Plugin","status":"active","latestRelease":{"id":"00000000-0000-0000-0000-000000000002","pluginId":"my-plugin","version":"1.0.0","status":"published","changelog":null}}
+                    ],"totalElements":1,"page":0,"size":20,"totalPages":1}""",
+                )
+                .setResponseCode(200),
+        )
+
+        val plugins = catalog.listPlugins()
+
+        assertEquals(1, plugins.size)
+        assertEquals("my-plugin", plugins[0].pluginId)
+    }
+
+    @Test
+    fun `getPluginRelease tolerates explicit nulls for changelog and sha256 (#599)`() {
+        server.enqueue(
+            MockResponse()
+                .setBody(
+                    """{"id":"00000000-0000-0000-0000-000000000002","pluginId":"my-plugin","version":"1.2.0","status":"published","changelog":null,"artifactSha256":null}""",
+                )
+                .setResponseCode(200),
+        )
+
+        val release = catalog.getPluginRelease("my-plugin", "1.2.0")
+
+        assertEquals("1.2.0", release?.version)
+        assertNull(release?.artifactSha256)
+    }
+
+    @Test
     fun `searchPlugins appends query parameters`() {
         server.enqueue(
             MockResponse()

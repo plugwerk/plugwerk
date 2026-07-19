@@ -56,7 +56,24 @@ openApiGenerate {
 // Exclude generated ApiUtil.kt (Spring dependency) — only model classes needed
 tasks.openApiGenerate {
     doLast {
-        delete("${layout.buildDirectory.get()}/generated/src/main/kotlin/io/plugwerk/api/ApiUtil.kt")
+        val genRoot = "${layout.buildDirectory.get()}/generated/src/main/kotlin/io/plugwerk/api"
+        delete("$genRoot/ApiUtil.kt")
+
+        // The kotlin-spring generator annotates every *optional* property with
+        // `@field:JsonSetter(nulls = Nulls.FAIL)`, which rejects an explicit
+        // JSON `null` even though the field is nullable — e.g. a release with no
+        // `changelog` serialised as `changelog: null` makes the client SDK throw
+        // InvalidNullException (issue #599). All 57 occurrences sit on nullable
+        // fields (required fields carry no JsonSetter), so relaxing FAIL -> SKIP
+        // is safe: an explicit null is ignored and the field keeps its `null`
+        // default, while required fields still reject null as before.
+        fileTree("$genRoot/model") { include("**/*.kt") }.forEach { file ->
+            val original = file.readText()
+            val patched = original.replace("nulls = Nulls.FAIL", "nulls = Nulls.SKIP")
+            if (patched != original) {
+                file.writeText(patched)
+            }
+        }
     }
 }
 
