@@ -77,6 +77,46 @@ export async function deleteReleaseIfPresent(
 }
 
 /**
+ * Creates a non-admin INTERNAL user that can log in normally: admin-created
+ * users start with `passwordChangeRequired = true`, so we complete the forced
+ * change over the API to clear it. Returns login-ready credentials. Used by the
+ * admin-authorization journey (a non-superadmin must be bounced to /403).
+ */
+export async function createReadyNonAdminUser(
+  request: APIRequestContext,
+  token: string,
+): Promise<CreatedUser> {
+  const suffix = Math.random().toString(36).slice(2, 8);
+  const username = `e2e-nonadmin-${suffix}`;
+  const email = `${username}@plugwerk.test`;
+  const tempPassword = "TempPass123!";
+  const finalPassword = "FinalPass456!";
+
+  await createInternalUser(request, token, {
+    username,
+    email,
+    password: tempPassword,
+  });
+
+  const login = await request.post("/api/v1/auth/login", {
+    data: { username, password: tempPassword },
+  });
+  if (!login.ok()) {
+    throw new Error(`non-admin login failed: ${login.status()}`);
+  }
+  const { accessToken } = (await login.json()) as { accessToken: string };
+
+  const change = await request.post("/api/v1/auth/change-password", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    data: { currentPassword: tempPassword, newPassword: finalPassword },
+  });
+  if (!change.ok()) {
+    throw new Error(`non-admin change-password failed: ${change.status()}`);
+  }
+  return { username, email, password: finalPassword };
+}
+
+/**
  * Uploads a plugin artifact fixture (from {@link FIXTURE_PLUGINS_DIR}) to a
  * namespace via the multipart `plugin-releases` endpoint. Returns the raw
  * response so callers can assert on / tolerate specific statuses (e.g. a 409
