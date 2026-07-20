@@ -136,7 +136,7 @@ const handler: ExportedHandler<Env> = {
     // ingestion attempts are metered. Throttled requests get a 429 and we skip the body
     // read and the outbound PostHog forward entirely — this endpoint is public and
     // unauthenticated, so it must not become an amplifier (OWASP API4:2023). Best-effort
-    // per-colo throttle; the authoritative global cap is the zone rule (see DEV-34).
+    // per-colo throttle; in the custom-domain variant a zone rule adds the global cap (DEV-34).
     if (!(await isWithinRateLimit(request, env))) {
       return emptyResponse(429, { "retry-after": String(RATE_LIMIT_PERIOD_SECONDS) });
     }

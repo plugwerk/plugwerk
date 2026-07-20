@@ -3,37 +3,51 @@
 # Go-live security verifier for the Plugwerk telemetry endpoint (DEV-54).
 #
 # Read-only. It inspects the LIVE Cloudflare configuration and the deployed Worker
-# and asserts the three security go-live conditions that gate opening
-# telemetry.plugwerk.io/v1/* to production traffic:
+# and asserts the security go-live conditions that gate opening the ingestion
+# endpoint to production traffic:
 #
-#   1. Zone rate-limiting rule applied  (authoritative edge layer; the in-code
-#      [[ratelimits]] binding is only best-effort per-colo).
+#   1. Zone rate-limiting rule applied  (custom-domain variant ONLY — zone rules
+#                                        do not exist for workers.dev; there the
+#                                        in-code [[ratelimits]] binding + platform
+#                                        DDoS mitigation are the limiting layers,
+#                                        a deviation signed off in DEV-33).
 #   2. PostHog secret is set            (the phc_ project-key prefix is enforced
 #                                        in code — src/posthog.ts — and proven by
 #                                        the smoke 204; this script confirms the
 #                                        secret EXISTS, since its value is not
 #                                        readable by design).
-#   3. No Logpush request-body/header capture on the zone.
+#   3. No Logpush request-body/header capture on the zone (custom-domain variant
+#      ONLY, same reason as condition 1).
 #
 # It makes no changes. Run it at deploy time (DEV-34) and paste the output into the
 # DEV-54 thread as the go-live confirmation evidence.
 #
 # Usage:
-#   CF_API_TOKEN=<zone-scoped token> CF_ZONE_ID=<plugwerk.io zone id> \
-#     ./go-live-check.sh [BASE_URL]
+#   # workers.dev variant (no zone) — zone checks are skipped with a notice:
+#   ./go-live-check.sh https://plugwerk-telemetry-proxy.<account>.workers.dev
 #
-#   BASE_URL (optional) defaults to https://telemetry.plugwerk.io and, when set,
-#   triggers the live smoke test (204 valid / 400 extra-field) via smoke-test.sh.
+#   # custom-domain variant — set BOTH CF_* vars to verify the zone conditions:
+#   CF_API_TOKEN=<zone-scoped token> CF_ZONE_ID=<plugwerk.io zone id> \
+#     ./go-live-check.sh https://telemetry.plugwerk.io
+#
+#   BASE_URL (required) is the deployed endpoint; the live smoke test
+#   (204 valid / 400 extra-field) runs against it via smoke-test.sh.
 #
 # Requirements: curl, python3. Optional: wrangler (for the secret-existence check).
 
 set -euo pipefail
 
-HOST="telemetry.plugwerk.io"
 CF_API="https://api.cloudflare.com/client/v4"
 EXPECTED_PERIOD=60
 EXPECTED_REQUESTS=60
-BASE_URL="${1:-https://${HOST}}"
+
+BASE_URL="${1:-}"
+if [[ -z "$BASE_URL" ]]; then
+  echo "Usage: ./go-live-check.sh <base-url>" >&2
+  echo "  e.g.: ./go-live-check.sh https://plugwerk-telemetry-proxy.<account>.workers.dev" >&2
+  exit 2
+fi
+HOST="$(printf '%s' "$BASE_URL" | sed -E 's|^[a-zA-Z]+://||; s|/.*$||')"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -51,8 +65,16 @@ require() {
 require curl
 require python3
 
-: "${CF_API_TOKEN:?Set CF_API_TOKEN to a zone-scoped Cloudflare API token}"
-: "${CF_ZONE_ID:?Set CF_ZONE_ID to the plugwerk.io Cloudflare zone id}"
+# Mode detection: both CF_* vars -> custom-domain mode (zone checks run);
+# neither -> workers.dev mode (zone checks are skipped, visibly); one -> error.
+if [[ -n "${CF_API_TOKEN:-}" && -n "${CF_ZONE_ID:-}" ]]; then
+  ZONE_MODE=1
+elif [[ -z "${CF_API_TOKEN:-}" && -z "${CF_ZONE_ID:-}" ]]; then
+  ZONE_MODE=0
+else
+  echo "ERROR: set BOTH CF_API_TOKEN and CF_ZONE_ID (custom-domain mode) or NEITHER (workers.dev mode)." >&2
+  exit 2
+fi
 
 cf_get() {
   curl -sS --fail-with-body \
@@ -67,7 +89,11 @@ echo "================================================================"
 # --- Condition 1: zone rate-limiting rule -----------------------------------
 echo
 echo "[1/3] Zone rate-limiting rule (http_ratelimit phase)"
-if rl_json="$(cf_get "rulesets/phases/http_ratelimit/entrypoint" 2>/dev/null)"; then
+if [[ "$ZONE_MODE" == "0" ]]; then
+  info "SKIP (workers.dev variant): no zone fronts the Worker, so no zone rate-limiting"
+  info "rule can exist. Limiting layers: in-code [[ratelimits]] binding (60/60s per IP,"
+  info "per colo) + Cloudflare's always-on DDoS mitigation. Deviation signed off in DEV-33."
+elif rl_json="$(cf_get "rulesets/phases/http_ratelimit/entrypoint" 2>/dev/null)"; then
   result="$(
     HOST="$HOST" EXPECTED_PERIOD="$EXPECTED_PERIOD" EXPECTED_REQUESTS="$EXPECTED_REQUESTS" \
     python3 - "$rl_json" <<'PY'
@@ -147,7 +173,10 @@ fi
 # --- Condition 3: no Logpush body/header capture ----------------------------
 echo
 echo "[3/3] Logpush — no request-body / header capture"
-if lp_json="$(cf_get "logpush/jobs" 2>/dev/null)"; then
+if [[ "$ZONE_MODE" == "0" ]]; then
+  info "SKIP (workers.dev variant): Logpush jobs are zone-scoped; no zone exists."
+  info "Do not add an account-level Workers Logpush job that captures request bodies."
+elif lp_json="$(cf_get "logpush/jobs" 2>/dev/null)"; then
   result="$(python3 - "$lp_json" <<'PY'
 import json, sys
 

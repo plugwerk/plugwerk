@@ -34,10 +34,11 @@ export interface RateLimitEnv {
    * as the `[[ratelimits]]` binding `RATE_LIMITER`).
    *
    * CAVEAT: this binding counts per Cloudflare colo (data center), NOT globally, so
-   * it is best-effort throttling — not an authoritative global cap. The authoritative
-   * edge control is a Cloudflare zone rate-limiting rule on the route, which blocks
-   * before the Worker even spins up and is global (provisioned in the DEV-34 deploy
-   * runbook). Both layers are required; this one travels with the code.
+   * it is best-effort throttling — not an authoritative global cap. In the
+   * workers.dev variant it is the only app-level limiter (plus Cloudflare's
+   * always-on DDoS mitigation) — a deviation signed off in DEV-33. In the
+   * custom-domain variant a zone rate-limiting rule adds the authoritative global
+   * edge cap (see the README runbook). This layer travels with the code either way.
    */
   RATE_LIMITER: RateLimit;
 }

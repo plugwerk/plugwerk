@@ -8,7 +8,7 @@
 #   BASE_URL defaults to http://127.0.0.1:8787 (the `wrangler dev` default).
 #   Examples:
 #     ./smoke-test.sh                                  # local wrangler dev
-#     ./smoke-test.sh https://telemetry.plugwerk.io    # deployed endpoint
+#     ./smoke-test.sh https://plugwerk-telemetry-proxy.<account>.workers.dev   # deployed endpoint
 #
 # Checks:
 #   1. A valid zero-PII payload  -> 204 No Content
