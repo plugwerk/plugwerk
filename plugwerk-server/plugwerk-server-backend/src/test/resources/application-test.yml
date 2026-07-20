@@ -14,6 +14,12 @@ spring:
     enabled: false
 
 plugwerk:
+  # The production endpoint default points at the LIVE telemetry proxy. Full-boot
+  # test contexts fire the server-start beacon on ApplicationReadyEvent — blank
+  # the endpoint here so test runs never send real events. Telemetry ITs that
+  # need a specific endpoint override this via @TestPropertySource.
+  telemetry:
+    endpoint: ""
   auth:
     oidc:
       # Tests use mock-oauth2-server / Keycloak on 127.0.0.1 — relax SSRF
