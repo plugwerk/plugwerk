@@ -26,8 +26,12 @@ import type { ValidPayload } from "./validate";
 
 /** Worker environment bindings. `POSTHOG_PROJECT_KEY` is an encrypted secret. */
 export interface PostHogEnv {
-  /** Encrypted Worker secret — set via `wrangler secret put POSTHOG_PROJECT_KEY`. Never logged. */
-  POSTHOG_PROJECT_KEY: string;
+  /**
+   * Encrypted Worker secret — set via `wrangler secret put POSTHOG_PROJECT_KEY`.
+   * Never logged. Typed optional because a freshly deployed Worker has no secret
+   * yet; that state fails closed with 502 instead of an uncaught TypeError (500).
+   */
+  POSTHOG_PROJECT_KEY?: string;
   /** Optional non-secret override of the capture endpoint (defaults to PostHog EU Cloud). */
   POSTHOG_CAPTURE_URL?: string;
 }
@@ -52,10 +56,12 @@ export interface PostHogEnv {
  */
 export async function forwardToPostHog(payload: ValidPayload, env: PostHogEnv): Promise<boolean> {
   // Defense-in-depth go-live gate: only a write-only project key may forward events.
-  // The key VALUE is never logged — only the fact that the prefix check failed.
-  if (!env.POSTHOG_PROJECT_KEY.startsWith(POSTHOG_PROJECT_KEY_PREFIX)) {
+  // An unset secret (fresh deploy) takes the same fail-closed path instead of
+  // throwing. The key VALUE is never logged — only the fact that the check failed.
+  const projectKey = env.POSTHOG_PROJECT_KEY ?? "";
+  if (!projectKey.startsWith(POSTHOG_PROJECT_KEY_PREFIX)) {
     console.error(
-      `POSTHOG_PROJECT_KEY is not a '${POSTHOG_PROJECT_KEY_PREFIX}' project key; refusing to forward (502).`,
+      `POSTHOG_PROJECT_KEY is missing or not a '${POSTHOG_PROJECT_KEY_PREFIX}' project key; refusing to forward (502).`,
     );
     return false;
   }
@@ -63,7 +69,7 @@ export async function forwardToPostHog(payload: ValidPayload, env: PostHogEnv): 
   const captureUrl = env.POSTHOG_CAPTURE_URL ?? DEFAULT_POSTHOG_CAPTURE_URL;
 
   const body = JSON.stringify({
-    api_key: env.POSTHOG_PROJECT_KEY,
+    api_key: projectKey,
     event: payload.event,
     distinct_id: payload.installId,
     properties: {
