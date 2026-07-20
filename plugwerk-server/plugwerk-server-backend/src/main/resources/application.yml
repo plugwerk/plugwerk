@@ -163,12 +163,14 @@ plugwerk:
     # UUID is generated, no heartbeat is scheduled, and no HTTP call is made.
     # Env: PLUGWERK_TELEMETRY
     enabled: ${PLUGWERK_TELEMETRY:true}
-    # HTTPS-only, Plugwerk-owned analytics endpoint the beacon POSTs to. Empty by
-    # default until the live endpoint is provisioned; an empty or non-HTTPS value
-    # means the payload is built but never sent (a harmless no-op). Do NOT treat
-    # an unset endpoint as a reason to delay a deployment.
+    # HTTPS-only, Plugwerk-operated analytics endpoint the beacon POSTs to.
+    # Default: the live Plugwerk telemetry proxy (Cloudflare Worker on workers.dev,
+    # see telemetry-proxy/README.md). An empty or non-HTTPS value means the payload
+    # is built but never sent (a harmless no-op under the fail-open design).
     # Env: PLUGWERK_TELEMETRY_ENDPOINT
-    endpoint: ${PLUGWERK_TELEMETRY_ENDPOINT:}
+    # Example: PLUGWERK_TELEMETRY_ENDPOINT= (build but never send; full opt-out
+    # is PLUGWERK_TELEMETRY=false)
+    endpoint: ${PLUGWERK_TELEMETRY_ENDPOINT:https://plugwerk-telemetry-proxy.plugwerk.workers.dev/v1/events}
     # Override the auto-detected install type (docker-compose | jar | k8s). Empty
     # (default) = auto-detect (KUBERNETES_SERVICE_HOST ⇒ k8s; /.dockerenv ⇒
     # docker-compose; else jar). An unrecognized value reports as 'unknown'.

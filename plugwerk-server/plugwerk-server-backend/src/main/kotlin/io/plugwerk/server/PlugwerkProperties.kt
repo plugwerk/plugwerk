@@ -76,10 +76,14 @@ data class PlugwerkProperties(
      *   Environment variable: `PLUGWERK_TELEMETRY` (Spring relaxed binding maps it to
      *   `plugwerk.telemetry.enabled` via the `application.yml` placeholder).
      *
-     * @property endpoint HTTPS-only analytics endpoint the beacon POSTs to. Empty by
-     *   default until the Plugwerk-owned endpoint is provisioned; an empty or
-     *   non-HTTPS value means the payload is built but never sent (a harmless no-op
-     *   under the fail-open design). **Do not block on this being live.**
+     * @property endpoint HTTPS-only analytics endpoint the beacon POSTs to. The
+     *   shipped default (`application.yml`) is the live Plugwerk telemetry proxy
+     *   `https://plugwerk-telemetry-proxy.plugwerk.workers.dev/v1/events` — a
+     *   Cloudflare Worker enforcing the zero-PII allowlist (see
+     *   `telemetry-proxy/README.md`). An empty or non-HTTPS value means the payload
+     *   is built but never sent (a harmless no-op under the fail-open design); the
+     *   class-level default stays empty as the conservative fallback for contexts
+     *   that bind no configuration.
      *
      *   Environment variable: `PLUGWERK_TELEMETRY_ENDPOINT`
      *

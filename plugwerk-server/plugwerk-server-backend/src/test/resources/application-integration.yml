@@ -7,6 +7,10 @@ spring:
     enabled: true
 
 plugwerk:
+  # Blank the endpoint so integration runs never send real events to the live
+  # telemetry proxy (the production default). See application-test.yml.
+  telemetry:
+    endpoint: ""
   storage:
     type: fs
     fs:
