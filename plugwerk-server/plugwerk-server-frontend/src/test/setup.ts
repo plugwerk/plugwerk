@@ -33,6 +33,19 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
 };
 
+// jsdom performs no layout, so Range measurement APIs used by CodeMirror's
+// measure loop are missing. Provide inert stand-ins so mounting a real editor
+// neither throws ("textRange(...).getClientRects is not a function") nor floods
+// stderr with retries.
+if (typeof Range !== "undefined") {
+  if (typeof Range.prototype.getClientRects !== "function") {
+    Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
+  }
+  if (typeof Range.prototype.getBoundingClientRect !== "function") {
+    Range.prototype.getBoundingClientRect = () => new DOMRect();
+  }
+}
+
 // matchMedia is not implemented in jsdom — mock globally before any store initialises
 Object.defineProperty(window, "matchMedia", {
   writable: true,

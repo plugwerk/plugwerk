@@ -38,6 +38,57 @@ vi.mock("../../api/config", () => ({
   },
 }));
 
+// Replace the CodeMirror-backed editor with a lightweight stub. Real CodeMirror
+// measures the DOM through Range.getClientRects, which jsdom does not lay out —
+// with two to three editors per page render the retrying measure loop makes this
+// suite time out on contended CI runners. The stub preserves everything the page
+// contract needs: a labelled group exposing the doc text, onChange, and the
+// insertAtCursor/focus handle used by the placeholder chips. The real component
+// keeps its own coverage in MustacheCodeEditor.test.tsx.
+vi.mock("../../components/admin/mustache/MustacheCodeEditor", () => ({
+  MustacheCodeEditor: function MustacheCodeEditorStub({
+    value,
+    onChange,
+    ariaLabel,
+    disabled,
+    onFocus,
+    editorRef,
+  }: {
+    value: string;
+    onChange: (next: string) => void;
+    ariaLabel: string;
+    disabled?: boolean;
+    onFocus?: () => void;
+    editorRef?: {
+      current: {
+        insertAtCursor: (text: string) => void;
+        focus: () => void;
+      } | null;
+    };
+  }) {
+    if (editorRef) {
+      editorRef.current = {
+        insertAtCursor: (text: string) => onChange(value + text),
+        focus: () => {},
+      };
+    }
+    return (
+      <div role="group" aria-label={ariaLabel}>
+        <textarea
+          aria-label={`${ariaLabel} text`}
+          value={value}
+          disabled={disabled}
+          onFocus={onFocus}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        {/* CodeMirror renders the doc as inline DOM text; mirror that so the
+            page tests' textContent assertions keep working. */}
+        <span aria-hidden="true">{value}</span>
+      </div>
+    );
+  },
+}));
+
 const TEMPLATE: MailTemplateResponse = {
   key: "auth.password_reset",
   friendlyName: "Auth · Password Reset",
@@ -771,13 +822,12 @@ describe("EmailTemplateEditPage", () => {
     const user = userEvent.setup();
     renderAt();
 
-    // HTML editor is visible (template has an HTML body). Focus its
-    // contenteditable so lastFocusedRef flips to "bodyHtml", then click a
-    // chip — insertion is dispatched to the HTML editor handle.
+    // HTML editor is visible (template has an HTML body). Focus its editable
+    // surface (the stub's labelled textarea) so lastFocusedRef flips to
+    // "bodyHtml", then click a chip — insertion is dispatched to the HTML
+    // editor handle.
     const htmlGroup = screen.getByRole("group", { name: "HTML body" });
-    const htmlContent = htmlGroup.querySelector(".cm-content");
-    expect(htmlContent).not.toBeNull();
-    fireEvent.focus(htmlContent as Element);
+    fireEvent.focus(within(htmlGroup).getByLabelText("HTML body text"));
 
     await user.click(screen.getAllByText("{{username}}")[0]);
 
@@ -822,9 +872,9 @@ describe("EmailTemplateEditPage", () => {
     // fallback branch), so it mounts but stays empty.
     await user.click(screen.getByLabelText("Plaintext only"));
     const htmlEditor = await screen.findByRole("group", { name: "HTML body" });
-    // Read the editable content element directly — the group wrapper also
-    // contains CodeMirror's line-number gutter, which is not document text.
-    const content = htmlEditor.querySelector(".cm-content");
-    expect((content?.textContent ?? "").trim()).toBe("");
+    // Read the editable surface (the stub's labelled textarea) directly.
+    const content =
+      within(htmlEditor).getByLabelText<HTMLTextAreaElement>("HTML body text");
+    expect(content.value).toBe("");
   });
 });
