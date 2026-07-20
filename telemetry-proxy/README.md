@@ -1,11 +1,13 @@
 # Plugwerk Telemetry Reverse Proxy
 
-A ~40-line Cloudflare Worker that backs `POST https://telemetry.plugwerk.io/v1/events`.
+A ~40-line Cloudflare Worker that backs the telemetry ingestion endpoint
+`POST https://plugwerk-telemetry-proxy.<account>.workers.dev/v1/events`
+(**workers.dev variant** — no custom domain, no zone, no nameserver change).
 It validates an opt-out telemetry beacon against a **strict zero-PII allowlist**, then
 forwards accepted events to PostHog EU Cloud. It is the receiving half of the beacon
 shipped in DEV-23; the architecture is recorded in DEV-27 / DEV-28.
 
-> **Scope:** this directory is **build only**. Live deploy, DNS, and the production
+> **Scope:** this directory is **build only**. Live deploy and the production
 > smoke test are handled by the deploy sibling (DEV-34) and depend on infra
 > provisioning (DEV-31). A security review (DEV-33) gates go-live.
 
@@ -48,10 +50,14 @@ both keyed by client IP at **60 requests / 60 s**:
    content-type guards and returns `429` before reading the body or forwarding.
    **Caveat:** the Workers rate-limit binding counts **per Cloudflare colo**, not
    globally — it is best-effort, not an authoritative global cap.
-2. **Cloudflare zone rate-limiting rule** (authoritative, global; provisioned in the
-   DEV-34 deploy runbook below). It blocks at the edge before the Worker spins up.
+2. **Cloudflare zone rate-limiting rule** (authoritative, global) — **custom-domain
+   variant only**, because zone rules require the domain's zone on Cloudflare.
 
-Both are required: layer 1 travels with the code, layer 2 is the global enforcement.
+**workers.dev variant:** there is no zone, so layer 1 plus Cloudflare's always-on
+platform DDoS mitigation are the only limiting layers. This deviation from the
+two-layer design is an explicit DEV-33 sign-off point. In the custom-domain variant
+both layers are required: layer 1 travels with the code, layer 2 is the global
+enforcement.
 
 The `502`/fail-open split is deliberate: the client beacon fails open on its side
 (DEV-23), so a `5xx` here never affects the Plugwerk server — it only makes our own
@@ -93,8 +99,9 @@ npm run dev              # wrangler dev on http://127.0.0.1:8787
 
 ## Deploy runbook (deploy sibling — DEV-34)
 
-Prerequisite: the `plugwerk.io` zone is on Cloudflare and `telemetry.plugwerk.io`
-resolves (see **DNS** below). PostHog project + key provisioned in DEV-31.
+Prerequisite (workers.dev variant): a Cloudflare account with Workers enabled and
+`wrangler login` completed — **no zone, no DNS change, no custom domain needed**.
+PostHog project + key provisioned in DEV-31.
 
 ### DPA acceptance (do this first)
 
@@ -152,30 +159,41 @@ is still never logged — only the fact that the prefix check failed.
 npm run deploy           # wrangler deploy
 ```
 
-`wrangler.toml` binds the route `telemetry.plugwerk.io/v1/*` on `zone_name = "plugwerk.io"`.
+`wrangler.toml` sets `workers_dev = true`, so the Worker is served on the account's
+workers.dev subdomain. `wrangler deploy` prints the final public URL.
 
-### DNS pointing
+### Endpoint URL (workers.dev — no DNS needed)
 
-Add a proxied DNS record for `telemetry` on the `plugwerk.io` zone (orange-cloud
-ON so the Worker route intercepts):
-
-- `telemetry` → `AAAA 100::` (or any placeholder) **proxied**, **or** a `CNAME`
-  to a proxied hostname. The record only needs to exist and be proxied; the Worker
-  route handles `/v1/*`. TLS is automatic via Cloudflare's edge cert for the zone.
+The deploy output prints the public URL, e.g.
+`https://plugwerk-telemetry-proxy.<account>.workers.dev` (the account subdomain is
+shown in the dashboard under **Workers & Pages → account subdomain**). TLS is
+automatic. This URL plus `/v1/events` is the value released Plugwerk builds ship
+as `PLUGWERK_TELEMETRY_ENDPOINT`.
 
 Verify after deploy:
 
 ```bash
-./smoke-test.sh https://telemetry.plugwerk.io   # expect 204 then 400
+./smoke-test.sh https://plugwerk-telemetry-proxy.<account>.workers.dev   # expect 204 then 400
 ```
 
-### Zone rate-limiting rule (REQUIRED — authoritative edge control)
+> **Future option (custom domain):** if the `plugwerk.io` zone is ever moved to
+> Cloudflare, re-enable the commented `routes` block in `wrangler.toml`, add a
+> proxied DNS record for `telemetry` (e.g. `AAAA 100::`, orange-cloud ON), and
+> provision the zone rate-limiting rule below. The workers.dev URL keeps working
+> in parallel, so already-shipped installs continue to deliver.
 
-The in-code Worker binding (`[[ratelimits]]` in `wrangler.toml`) only throttles
-**per Cloudflare colo**, not globally. Go-live therefore also requires an
-authoritative **zone rate-limiting rule** that blocks at the edge before the Worker
-runs. This is the DEV-33 HIGH gate (DEV-47); it must exist before opening the route
-to production traffic.
+### Zone rate-limiting rule (custom-domain variant only)
+
+> **workers.dev variant:** zone rate-limiting rules are zone-scoped and therefore
+> **not available** — skip this section. The in-code binding plus Cloudflare's
+> always-on DDoS mitigation are the limiting layers; have DEV-33 sign off on this
+> deviation explicitly.
+
+In the custom-domain variant, the in-code Worker binding (`[[ratelimits]]` in
+`wrangler.toml`) only throttles **per Cloudflare colo**, not globally. Go-live
+therefore also requires an authoritative **zone rate-limiting rule** that blocks at
+the edge before the Worker runs. This is the DEV-33 HIGH gate (DEV-47); it must
+exist before opening the route to production traffic.
 
 Configure on the `plugwerk.io` zone (Security → WAF → Rate limiting rules), or via
 API on the `http_ratelimit` phase ruleset:
@@ -229,15 +247,20 @@ confirm all three go-live security conditions against the **live** config and
 capture the output as the DEV-54 sign-off evidence:
 
 ```bash
+# workers.dev variant (no zone): omit the CF_* vars — the zone-scoped checks are
+# skipped with an explicit notice; the secret check and live smoke still run:
+./go-live-check.sh https://plugwerk-telemetry-proxy.<account>.workers.dev
+
+# custom-domain variant: set BOTH vars to also verify the zone conditions:
 CF_API_TOKEN=<zone-scoped token> CF_ZONE_ID=<plugwerk.io zone id> \
   ./go-live-check.sh https://telemetry.plugwerk.io
 ```
 
 It asserts: (1) the zone rate-limit rule above is present (block, `ip.src`,
-60/60s, host + `/v1/`); (2) the `POSTHOG_PROJECT_KEY` secret is set (its `phc_`
-prefix is enforced in code, proven by the smoke `204`); (3) no Logpush job on the
-zone captures request bodies or headers. It then runs the live smoke test
-(`204`/`400`). It makes no changes.
+60/60s, host + `/v1/`) — custom-domain variant only; (2) the `POSTHOG_PROJECT_KEY`
+secret is set (its `phc_` prefix is enforced in code, proven by the smoke `204`);
+(3) no Logpush job on the zone captures request bodies or headers — custom-domain
+variant only. It then runs the live smoke test (`204`/`400`). It makes no changes.
 
 ### Emergency stop (kill switch)
 
@@ -284,6 +307,6 @@ allowlist until it is regenerated.
 | `src/ratelimit.ts`    | Per-IP rate-limit binding type + metering helper       |
 | `src/constants.ts`    | Allowlist, enums, limits, endpoints                    |
 | `test/*.test.ts`      | Validator + handler unit tests (incl. rate-limit regression) |
-| `wrangler.toml`       | Worker config + route + rate-limit binding (no secrets) |
+| `wrangler.toml`       | Worker config (workers.dev) + rate-limit binding (no secrets) |
 | `smoke-test.sh`       | curl smoke test (204 valid / 400 extra-field)          |
-| `go-live-check.sh`    | read-only go-live security verifier (DEV-54: zone rule, secret, Logpush) |
+| `go-live-check.sh`    | read-only go-live security verifier (DEV-54: secret + smoke; zone rule/Logpush in custom-domain mode) |

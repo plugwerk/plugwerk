@@ -51,12 +51,13 @@ a one-line opt-out (below).
   (DPA)** is in place with PostHog before any production data is ingested (see the
   DPA-acceptance runbook in
   [`telemetry-proxy/README.md`](telemetry-proxy/README.md#dpa-acceptance-do-this-first)).
-- **Sub-processor (transport):** **Cloudflare**, which operates the
-  `telemetry.plugwerk.io` reverse proxy under its standard DPA. It processes the
+- **Sub-processor (transport):** **Cloudflare**, which operates the telemetry
+  reverse proxy (a Cloudflare Worker on the `workers.dev` platform domain)
+  under its standard DPA. It processes the
   connection (including source IP) transiently to route the request; the IP is not
   forwarded to PostHog.
-- **Transport:** beacons go to a Plugwerk-owned HTTPS reverse proxy
-  (`telemetry.plugwerk.io`) that validates the payload against the four-field
+- **Transport:** beacons go to a Plugwerk-operated HTTPS reverse proxy (a
+  Cloudflare Worker) that validates the payload against the four-field
   allowlist and forwards it to PostHog. Request bodies are never logged.
 
 ## Retention

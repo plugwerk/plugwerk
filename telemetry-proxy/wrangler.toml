@@ -6,11 +6,19 @@ name = "plugwerk-telemetry-proxy"
 main = "src/index.ts"
 compatibility_date = "2025-06-01"
 
-# Public ingestion route. The zone telemetry.plugwerk.io must already exist on
-# the plugwerk.io Cloudflare zone before this route resolves (DEV-31 / DEV-34).
-routes = [
-  { pattern = "telemetry.plugwerk.io/v1/*", zone_name = "plugwerk.io" },
-]
+# Ingestion endpoint — workers.dev variant (no custom domain, no zone, no
+# nameserver change; DEV-31 / DEV-34). The Worker is served on the account's
+# workers.dev subdomain:
+#   https://plugwerk-telemetry-proxy.<account>.workers.dev/v1/events
+workers_dev = true
+
+# FUTURE OPTION (custom-domain variant): if the plugwerk.io zone is ever moved
+# to Cloudflare, re-enable this route AND provision the zone rate-limiting rule
+# from README.md — they go together (DEV-33 / DEV-47). The workers.dev URL keeps
+# working in parallel, so old installs continue to deliver.
+# routes = [
+#   { pattern = "telemetry.plugwerk.io/v1/*", zone_name = "plugwerk.io" },
+# ]
 
 # Observability helps monitor 4xx/5xx delivery rates without logging payloads.
 [observability]
@@ -22,10 +30,11 @@ enabled = true
 # real ingestion attempt and returns 429 before forwarding to PostHog.
 #
 # CAVEAT: this binding counts per Cloudflare colo (data center), NOT globally — it
-# is best-effort throttling, not an authoritative global cap. The authoritative
-# edge control is a Cloudflare ZONE rate-limiting rule on telemetry.plugwerk.io/v1/*
-# (blocks before the Worker even spins up, and is global), provisioned in the
-# DEV-34 deploy runbook. Both layers are required.
+# is best-effort throttling, not an authoritative global cap. In the workers.dev
+# variant it is the only app-level limiter (plus Cloudflare's always-on DDoS
+# mitigation) — an accepted deviation to be signed off in DEV-33. In the
+# custom-domain variant, additionally provision the authoritative zone
+# rate-limiting rule from the README runbook.
 #
 # `period` must be 10 or 60. `namespace_id` is an account-unique integer; reusing
 # it across bindings/Workers shares the same counters (intentional here: one limiter).
