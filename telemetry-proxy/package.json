@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Cloudflare Worker reverse proxy for Plugwerk zero-PII telemetry ingestion (telemetry.plugwerk.io/v1/events).",
+  "description": "Cloudflare Worker reverse proxy for Plugwerk zero-PII telemetry ingestion (POST /v1/events on the workers.dev endpoint).",
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "dev": "wrangler dev",
