@@ -217,6 +217,21 @@ describe("PostHog project key guard (DEV-54 condition 2)", () => {
     expect(res.status).toBe(204);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("502s (not 500) and never forwards when the secret is UNSET (fresh deploy)", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { POSTHOG_PROJECT_KEY: _omitted, ...envWithoutKey } = ENV;
+    const res = await (
+      worker.fetch as (r: Request, e: typeof envWithoutKey, c: ExecutionContext) => Promise<Response>
+    )(post(VALID_BODY), envWithoutKey, ctx);
+
+    expect(res.status).toBe(502);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    errorSpy.mockRestore();
+  });
 });
 
 describe("kill switch (PROXY_DISABLED)", () => {

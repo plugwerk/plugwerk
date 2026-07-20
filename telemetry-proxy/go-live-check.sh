@@ -151,8 +151,17 @@ fi
 # --- Condition 2: PostHog project key secret --------------------------------
 echo
 echo "[2/3] PostHog project key secret (phc_ prefix enforced in code)"
+# Prefer a global wrangler, fall back to the project-local install (npm ci puts
+# it in node_modules/.bin next to this script) so the check also runs when
+# wrangler was never installed globally.
+WRANGLER_BIN=""
 if command -v wrangler >/dev/null 2>&1; then
-  if secrets_json="$(cd "$SCRIPT_DIR" && wrangler secret list --format json 2>/dev/null)"; then
+  WRANGLER_BIN="wrangler"
+elif [[ -x "${SCRIPT_DIR}/node_modules/.bin/wrangler" ]]; then
+  WRANGLER_BIN="${SCRIPT_DIR}/node_modules/.bin/wrangler"
+fi
+if [[ -n "$WRANGLER_BIN" ]]; then
+  if secrets_json="$(cd "$SCRIPT_DIR" && "$WRANGLER_BIN" secret list --format json 2>/dev/null)"; then
     if printf '%s' "$secrets_json" | python3 -c \
       'import json,sys; sys.exit(0 if any(s.get("name")=="POSTHOG_PROJECT_KEY" for s in json.load(sys.stdin)) else 1)'; then
       ok "POSTHOG_PROJECT_KEY secret is set on the deployed Worker"
@@ -166,8 +175,9 @@ if command -v wrangler >/dev/null 2>&1; then
     info "      proves a working phc_ key, and the code guard rejects any non-phc_ key."
   fi
 else
-  info "SKIP: wrangler not installed. The phc_ prefix is enforced in code (src/posthog.ts);"
-  info "      a passing smoke 204 below confirms a valid phc_ key is configured."
+  info "SKIP: wrangler not found on PATH or in node_modules/.bin (run 'npm ci' here)."
+  info "      The phc_ prefix is enforced in code (src/posthog.ts); a passing"
+  info "      smoke 204 below confirms a valid phc_ key is configured."
 fi
 
 # --- Condition 3: no Logpush body/header capture ----------------------------
