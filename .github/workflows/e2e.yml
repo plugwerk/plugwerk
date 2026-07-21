@@ -47,6 +47,10 @@ jobs:
           PLUGWERK_AUTH_ADMIN_PASSWORD: admin
           PLUGWERK_AUTH_JWT_SECRET: ci-smoke-test-secret-min-32-characters!!
           PLUGWERK_AUTH_ENCRYPTION_KEY: ci-encrypt-16chr
+          # The boot fires the server-start beacon and the flow triggers activation
+          # events; each CI run is a fresh install (new UUID), so leaving telemetry
+          # on would register every run as a new install in analytics. Opt out.
+          PLUGWERK_TELEMETRY: "false"
 
   # Browser-driven UI E2E (issue #241). Builds the server JAR (which embeds the
   # production frontend bundle), runs it against a real PostgreSQL, then drives
@@ -119,6 +123,10 @@ jobs:
           PLUGWERK_AUTH_RATE_LIMIT_MAX_ATTEMPTS: "10000"
           # Default artifact root (/var/plugwerk) is not writable on the runner.
           PLUGWERK_STORAGE_ROOT: ${{ runner.temp }}/plugwerk-artifacts
+          # Opt out of telemetry: boot fires the server-start beacon and the browser
+          # scenarios trigger activation events. Each run is a fresh install (new
+          # UUID), so leaving it on registers every CI run as a new analytics install.
+          PLUGWERK_TELEMETRY: "false"
         run: |
           java -jar ../plugwerk-server-backend/build/libs/*.jar \
             > "$RUNNER_TEMP/plugwerk-server.log" 2>&1 &
