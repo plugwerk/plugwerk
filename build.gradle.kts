@@ -8,7 +8,10 @@ plugins {
     alias(libs.plugins.spotless)
 }
 
-val projectVersion = file("VERSION").readText().trim()
+// An explicit -Pversion (release.yml derives it from the git tag) overrides the
+// VERSION file; without it the unconditional assignment below would silently
+// discard the flag.
+val projectVersion = providers.gradleProperty("version").orNull ?: file("VERSION").readText().trim()
 
 allprojects {
     group = "io.plugwerk"
