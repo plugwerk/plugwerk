@@ -14,9 +14,9 @@
     "smoke": "bash smoke-test.sh"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260613.1",
+    "@cloudflare/workers-types": "4.20260702.1",
     "typescript": "6.0.3",
-    "vitest": "4.1.8",
-    "wrangler": "4.100.0"
+    "vitest": "4.1.10",
+    "wrangler": "4.114.0"
   }
 }
